@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import styled, { keyframes, css } from 'styled-components';
-import { Brain, Search, Zap, AlertCircle, Loader } from 'lucide-react';
+import { Brain, Search, AlertCircle, Loader } from 'lucide-react';
 
 const pulse = keyframes`
   0% { transform: scale(1); }
@@ -225,7 +225,7 @@ const Tooltip = styled.div<{ $visible: boolean }>`
 interface AILookupButtonProps {
   onClick?: () => void;
   onSearchStart?: () => void;
-  onSearchComplete?: (results: any) => void;
+  onSearchComplete?: (results: unknown) => void;
   onError?: (error: string) => void;
   variant?: 'primary' | 'secondary' | 'minimal';
   size?: 'small' | 'medium' | 'large';

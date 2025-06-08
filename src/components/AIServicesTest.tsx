@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Search, TestTube, Brain, TrendingUp, RefreshCw, AlertCircle, CheckCircle } from 'lucide-react';
+import { Search, TestTube, Brain, RefreshCw, AlertCircle, CheckCircle } from 'lucide-react';
 import { useAIServices } from '../hooks/useAIServices';
 import type { SymbolLookupRequest, SymbolLookupResult } from '../types/ai';
 
@@ -151,7 +151,7 @@ const AIServicesTest: React.FC = () => {
 
   const [testQuery, setTestQuery] = useState('Apple stock');
   const [testResults, setTestResults] = useState<SymbolLookupResult[]>([]);
-  const [connectionResults, setConnectionResults] = useState<Record<string, any>>({});
+  const [connectionResults, setConnectionResults] = useState<Record<string, boolean | string>>({});
 
   const handleSymbolLookup = async () => {
     if (!testQuery.trim()) return;

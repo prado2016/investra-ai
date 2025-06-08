@@ -259,7 +259,7 @@ export const EnhancedSymbolInput: React.FC<EnhancedSymbolInputProps> = ({
     return () => {
       debug.info('EnhancedSymbolInput unmounted', undefined, 'EnhancedSymbolInput');
     };
-  }, []);
+  }, [showAIButton, showSuggestions, showValidation, value]);
 
   // Debug value changes
   useEffect(() => {
@@ -267,7 +267,7 @@ export const EnhancedSymbolInput: React.FC<EnhancedSymbolInputProps> = ({
       oldValue: lastProcessedQuery, 
       newValue: value 
     }, 'EnhancedSymbolInput');
-  }, [value]);
+  }, [value, lastProcessedQuery]);
   
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);

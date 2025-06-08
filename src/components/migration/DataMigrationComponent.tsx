@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { dataMigrationService } from '../../services/dataMigrationService'
 import type { MigrationStatus, MigrationSummary } from '../../services/dataMigrationService'
 import { useNotifications } from '../../contexts/NotificationContext'
@@ -23,9 +23,9 @@ const DataMigrationComponent: React.FC = () => {
     analyzeData()
     
     return unsubscribe
-  }, [])
+  }, [analyzeData])
 
-  const analyzeData = async () => {
+  const analyzeData = useCallback(async () => {
     try {
       const result = await dataMigrationService.analyzeLocalData()
       setAnalysis(result)
@@ -36,7 +36,7 @@ const DataMigrationComponent: React.FC = () => {
     } catch (err) {
       error('Analysis Failed', err instanceof Error ? err.message : 'Failed to analyze localStorage data')
     }
-  }
+  }, [])
 
   const startMigration = async () => {
     try {

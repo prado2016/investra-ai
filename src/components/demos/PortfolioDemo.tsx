@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useCallback } from 'react'
 import { SupabaseService } from '../../services'
 import { useNotifications } from '../../contexts/NotificationContext'
 
@@ -42,7 +42,7 @@ const PortfolioDemo: React.FC = () => {
     }
   }
 
-  const loadPortfolios = async () => {
+  const loadPortfolios = useCallback(async () => {
     try {
       const result = await SupabaseService.portfolio.getPortfolios()
       if (result.success) {
@@ -53,7 +53,7 @@ const PortfolioDemo: React.FC = () => {
     } catch (err) {
       console.error('Failed to load portfolios:', err)
     }
-  }
+  }, [error])
 
   const handleBuyStock = async (portfolioId: string) => {
     setLoading(true)
@@ -87,7 +87,7 @@ const PortfolioDemo: React.FC = () => {
 
   React.useEffect(() => {
     loadPortfolios()
-  }, [])
+  }, [loadPortfolios])
 
   return (
     <div style={{ 

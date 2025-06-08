@@ -78,7 +78,7 @@ const RealtimePortfolioDemo: React.FC = () => {
     }
   }
 
-  const loadPortfolios = async () => {
+  const loadPortfolios = useCallback(async () => {
     try {
       const result = await SupabaseService.portfolio.getPortfolios()
       if (result.success) {
@@ -89,7 +89,7 @@ const RealtimePortfolioDemo: React.FC = () => {
     } catch (err) {
       console.error('Failed to load portfolios:', err)
     }
-  }
+  }, [error])
 
   const handleBuyStock = async (portfolioId: string) => {
     setLoading(true)
@@ -120,7 +120,7 @@ const RealtimePortfolioDemo: React.FC = () => {
 
   React.useEffect(() => {
     loadPortfolios()
-  }, [])
+  }, [loadPortfolios])
 
   const getEventIcon = (eventType: string, table: string) => {
     const tableIcons: Record<string, string> = {

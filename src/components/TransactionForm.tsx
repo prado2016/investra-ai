@@ -180,7 +180,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       const total = quantity * price;
       form.setValue('totalAmount', total.toFixed(2));
     }
-  }, [form.values.quantity, form.values.price]);
+  }, [form.values.quantity, form.values.price, form]);
 
   // Auto-select first portfolio when portfolios load and no portfolio is selected
   React.useEffect(() => {
@@ -188,7 +188,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       const defaultPortfolio = activePortfolio || portfolios[0];
       form.setValue('portfolioId', defaultPortfolio.id);
     }
-  }, [portfolios, activePortfolio, form.values.portfolioId, initialData?.portfolioId]);
+  }, [portfolios, activePortfolio, form.values.portfolioId, initialData?.portfolioId, form]);
 
   const transactionTypeOptions = [
     { value: 'buy', label: 'Buy' },

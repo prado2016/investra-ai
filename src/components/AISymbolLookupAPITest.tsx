@@ -159,12 +159,12 @@ const AISymbolLookupAPITest: React.FC = () => {
   const [insightsSymbol, setInsightsSymbol] = useState('AAPL');
 
   // State for results
-  const [searchResults, setSearchResults] = useState<any>(null);
-  const [suggestions, setSuggestions] = useState<any>(null);
-  const [validation, setValidation] = useState<any>(null);
-  const [batchResults, setBatchResults] = useState<any>(null);
-  const [insights, setInsights] = useState<any>(null);
-  const [healthStatus, setHealthStatus] = useState<any>(null);
+  const [searchResults, setSearchResults] = useState<SymbolLookupResponse | null>(null);
+  const [suggestions, setSuggestions] = useState<SymbolSuggestionResponse | null>(null);
+  const [validation, setValidation] = useState<SymbolValidationResponse | null>(null);
+  const [batchResults, setBatchResults] = useState<BatchLookupResponse | null>(null);
+  const [insights, setInsights] = useState<MarketInsightsResponse | null>(null);
+  const [healthStatus, setHealthStatus] = useState<Record<string, unknown> | null>(null);
 
   // Test functions
   const handleSearch = async () => {

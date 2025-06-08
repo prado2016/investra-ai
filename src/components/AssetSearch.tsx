@@ -211,7 +211,7 @@ export const AssetSearch: React.FC<AssetSearchProps> = ({
     if (value !== query) {
       setQuery(value);
     }
-  }, [value]);
+  }, [value, query]);
 
   // Handle clicks outside to close dropdown
   useEffect(() => {
