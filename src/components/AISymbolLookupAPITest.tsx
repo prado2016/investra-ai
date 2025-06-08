@@ -7,6 +7,21 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { Search, Check, AlertCircle, TrendingUp, BarChart3, Zap } from 'lucide-react';
 import { useAISymbolLookup } from '../hooks/useAISymbolLookup';
+import type { 
+  SymbolLookupResponse, 
+  SymbolSuggestionResponse, 
+  SymbolValidationResponse, 
+  BatchSymbolLookupResponse, 
+  SymbolInsightsResponse,
+  SymbolLookupResult 
+} from '../types/ai';
+
+// Interface for provider status in health check
+interface ProviderStatus {
+  available: boolean;
+  latency?: number;
+  error?: string;
+}
 
 const TestContainer = styled.div`
   max-width: 900px;
@@ -247,7 +262,7 @@ const AISymbolLookupAPITest: React.FC = () => {
           <div style={{ marginTop: '1rem' }}>
             <strong>Results:</strong>
             {searchResults.success ? (
-              searchResults.data?.results?.map((result: any, index: number) => (
+              searchResults.data?.results?.map((result: SymbolLookupResult, index: number) => (
                 <ResultCard key={index}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <div>
@@ -391,7 +406,7 @@ const AISymbolLookupAPITest: React.FC = () => {
                 <div style={{ fontSize: '0.875rem', color: '#6b7280', margin: '0.5rem 0' }}>
                   {batchResults.data?.successfulQueries} of {batchResults.data?.totalQueries} successful
                 </div>
-                {batchResults.data?.results?.map((result: any, index: number) => (
+                {batchResults.data?.results?.map((result: SymbolLookupResult, index: number) => (
                   <ResultCard key={index}>
                     <strong>Query:</strong> {result.query}
                     <StatusBadge $status={result.success ? 'success' : 'error'}>
@@ -399,7 +414,7 @@ const AISymbolLookupAPITest: React.FC = () => {
                     </StatusBadge>
                     {result.success && (
                       <div style={{ marginTop: '0.5rem' }}>
-                        {result.symbols?.map((symbol: any, idx: number) => (
+                        {result.symbols?.map((symbol: SymbolLookupResult, idx: number) => (
                           <div key={idx} style={{ fontSize: '0.875rem' }}>
                             {symbol.symbol} - {symbol.name} ({Math.round(symbol.confidence * 100)}%)
                           </div>
@@ -515,7 +530,7 @@ const AISymbolLookupAPITest: React.FC = () => {
                 </StatusBadge>
                 <div style={{ marginTop: '1rem' }}>
                   <strong>Providers:</strong>
-                  {Object.entries(healthStatus.data?.providers || {}).map(([provider, status]: [string, any]) => (
+                  {Object.entries(healthStatus.data?.providers || {}).map(([provider, status]: [string, ProviderStatus]) => (
                     <div key={provider} style={{ margin: '0.5rem 0', fontSize: '0.875rem' }}>
                       <strong>{provider}:</strong>{' '}
                       <StatusBadge $status={status.available ? 'success' : 'error'}>

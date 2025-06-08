@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import type { 
-  AssetType, 
-  AssetTypeOverride 
+  AssetType
 } from '../utils/assetCategorization';
 import { 
   categorizeAssetWithOverride, 

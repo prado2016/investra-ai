@@ -41,7 +41,7 @@ export interface NotificationContextType {
   info: (title: string, message?: string, options?: Partial<NotificationOptions>) => string;
 }
 
-const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
+export const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
 interface NotificationProviderProps {
   children: ReactNode;
@@ -58,6 +58,10 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({
 
   const generateId = useCallback(() => {
     return `notification_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }, []);
+
+  const removeNotification = useCallback((id: string) => {
+    setNotifications(prev => prev.filter(notification => notification.id !== id));
   }, []);
 
   const addNotification = useCallback((options: NotificationOptions): string => {
@@ -92,11 +96,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({
     }
 
     return id;
-  }, [generateId, defaultDuration, maxNotifications]);
-
-  const removeNotification = useCallback((id: string) => {
-    setNotifications(prev => prev.filter(notification => notification.id !== id));
-  }, []);
+  }, [generateId, defaultDuration, maxNotifications, removeNotification]);
 
   const clearAll = useCallback(() => {
     setNotifications([]);
@@ -157,14 +157,6 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({
       {children}
     </NotificationContext.Provider>
   );
-};
-
-export const useNotifications = (): NotificationContextType => {
-  const context = useContext(NotificationContext);
-  if (!context) {
-    throw new Error('useNotifications must be used within a NotificationProvider');
-  }
-  return context;
 };
 
 export default NotificationProvider;

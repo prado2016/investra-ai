@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import styled, { keyframes, css } from 'styled-components';
-import { Brain, Search, AlertCircle, Loader } from 'lucide-react';
+import { Brain, AlertCircle, Loader } from 'lucide-react';
 
 const pulse = keyframes`
   0% { transform: scale(1); }

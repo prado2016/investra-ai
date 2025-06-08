@@ -191,9 +191,9 @@ interface DebugPanelProps {
 export const DebugPanel: React.FC<DebugPanelProps> = ({ enabled = isDev || isDebug }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'logs' | 'errors' | 'performance'>('logs');
-  const [logs, setLogs] = useState<any[]>([]);
-  const [errors, setErrors] = useState<any[]>([]);
-  const [measures, setMeasures] = useState<any[]>([]);
+  const [logs, setLogs] = useState<Array<Record<string, unknown>>>([]);
+  const [errors, setErrors] = useState<Array<Record<string, unknown>>>([]);
+  const [measures, setMeasures] = useState<Array<Record<string, unknown>>>([]);
   const [autoScroll, setAutoScroll] = useState(true);
 
   useEffect(() => {

@@ -11,7 +11,7 @@ interface ErrorBoundaryState {
   errorId: string;
 }
 
-interface ErrorBoundaryProps {
+export interface ErrorBoundaryProps {
   children: ReactNode;
   fallback?: ReactNode;
   onError?: (error: Error, errorInfo: ErrorInfo) => void;
@@ -300,27 +300,6 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 }
 
-// Higher-order component for easy wrapping
-export const withErrorBoundary = <P extends object>(
-  WrappedComponent: React.ComponentType<P>,
-  errorBoundaryProps?: Omit<ErrorBoundaryProps, 'children'>
-) => {
-  const WithErrorBoundaryComponent = (props: P) => (
-    <ErrorBoundary {...errorBoundaryProps}>
-      <WrappedComponent {...props} />
-    </ErrorBoundary>
-  );
-
-  WithErrorBoundaryComponent.displayName = `withErrorBoundary(${WrappedComponent.displayName || WrappedComponent.name})`;
-  
-  return WithErrorBoundaryComponent;
-};
-
-// Hook for manually triggering error boundaries (useful for testing)
-export const useErrorHandler = () => {
-  return React.useCallback((error: Error) => {
-    throw error;
-  }, []);
-};
+export default ErrorBoundary;
 
 export default ErrorBoundary;

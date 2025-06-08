@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
 import { FullScreenLoading } from '../components/LoadingComponents';
 
-interface LoadingContextType {
+export interface LoadingContextType {
   isLoading: boolean;
   message: string;
   subMessage?: string;
@@ -14,7 +14,7 @@ interface LoadingContextType {
   ) => Promise<T>;
 }
 
-const LoadingContext = createContext<LoadingContextType | undefined>(undefined);
+export const LoadingContext = createContext<LoadingContextType | undefined>(undefined);
 
 interface LoadingProviderProps {
   children: ReactNode;
@@ -65,12 +65,6 @@ export const LoadingProvider: React.FC<LoadingProviderProps> = ({ children }) =>
   );
 };
 
-export const useGlobalLoading = (): LoadingContextType => {
-  const context = useContext(LoadingContext);
-  if (!context) {
-    throw new Error('useGlobalLoading must be used within a LoadingProvider');
-  }
-  return context;
-};
+export default LoadingProvider;
 
 export default LoadingProvider;

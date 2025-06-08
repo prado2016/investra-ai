@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useCallback } from 'react'
 import { useOffline, useOfflineStatus } from '../../contexts/OfflineContext'
 import { useNotifications } from '../../contexts/NotificationContext'
 
@@ -59,14 +59,14 @@ const OfflineStatusComponent: React.FC = () => {
     }
   }
 
-  const loadOfflinePortfolios = async () => {
+  const loadOfflinePortfolios = useCallback(async () => {
     try {
       const portfolios = await getPortfoliosOffline()
       setOfflinePortfolios(portfolios)
     } catch (err) {
       console.error('Failed to load offline portfolios:', err)
     }
-  }
+  }, [getPortfoliosOffline])
 
   const handleSyncNow = async () => {
     if (!isOnline) {
@@ -126,7 +126,7 @@ const OfflineStatusComponent: React.FC = () => {
     if (isInitialized) {
       loadOfflinePortfolios()
     }
-  }, [isInitialized])
+  }, [isInitialized, loadOfflinePortfolios])
 
   const getConnectionIcon = () => isOnline ? '🌐' : '📱'
   const getConnectionColor = () => isOnline ? '#28a745' : '#ffc107'

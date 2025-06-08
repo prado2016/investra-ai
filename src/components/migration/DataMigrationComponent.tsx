@@ -36,7 +36,7 @@ const DataMigrationComponent: React.FC = () => {
     } catch (err) {
       error('Analysis Failed', err instanceof Error ? err.message : 'Failed to analyze localStorage data')
     }
-  }, [])
+  }, [error, info])
 
   const startMigration = async () => {
     try {

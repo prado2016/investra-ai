@@ -39,7 +39,7 @@ export const DatabaseVerificationTest: React.FC = () => {
         // Small delay to see progress
         await new Promise(resolve => setTimeout(resolve, 300));
         
-      } catch (err) {
+      } catch {
         results[results.length - 1] = `❌ ${table} - Failed to test`;
         setTestResults([...results]);
       }
