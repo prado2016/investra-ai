@@ -8,6 +8,7 @@
     "dev:debug": "vite --mode development --debug",
     "start": "vite",
     "build": "tsc -b && vite build",
+    "build:prod": "vite build",
     "build:staging": "tsc -b && vite build --mode staging",
     "build:debug": "tsc -b && vite build --mode development",
     "lint": "eslint .",

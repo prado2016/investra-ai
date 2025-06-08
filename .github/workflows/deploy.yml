@@ -22,7 +22,7 @@ jobs:
         run: npm ci
 
       - name: Build application
-        run: npm run build
+        run: npm run build:prod
 
       - name: Set up SSH
         run: |

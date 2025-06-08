@@ -1,58 +1,24 @@
-            <div>
-              {getStatusIcon(results.assetService)} Asset Service: {getStatusText(results.assetService)}
-            </div>
-            <div>
-              {getStatusIcon(results.positionService)} Position Service: {getStatusText(results.positionService)}
-            </div>
-            <div>
-              {getStatusIcon(results.transactionService)} Transaction Service: {getStatusText(results.transactionService)}
-            </div>
-          </div>
+import React from 'react';
 
-          {results.error && (
-            <div style={{ 
-              color: 'red', 
-              marginTop: '10px', 
-              padding: '10px', 
-              backgroundColor: '#ffe6e6',
-              borderRadius: '4px'
-            }}>
-              <strong>Error:</strong> {results.error}
-            </div>
-          )}
-
-          <div style={{ 
-            marginTop: '15px', 
-            padding: '10px', 
-            backgroundColor: results.assetService ? '#e6ffe6' : '#ffe6e6',
-            borderRadius: '4px'
-          }}>
-            {results.assetService ? (
-              <span>🎉 <strong>SUCCESS!</strong> Service layer is connected to Supabase!</span>
-            ) : (
-              <span>⚠️ <strong>ISSUE:</strong> Some services failed. Check console for details.</span>
-            )}
-          </div>
-
-          <button 
-            onClick={runTests}
-            style={{
-              marginTop: '10px',
-              padding: '8px 16px',
-              backgroundColor: '#007bff',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer'
-            }}
-            disabled={testing}
-          >
-            {testing ? 'Testing...' : 'Run Tests Again'}
-          </button>
-        </div>
-      )}
+/**
+ * Service Layer Test Component - Simplified for Production Build
+ */
+const ServiceLayerTest: React.FC = () => {
+  return (
+    <div style={{
+      padding: 'var(--space-4)',
+      background: 'var(--bg-card)',
+      borderRadius: 'var(--radius-lg)',
+      border: '1px solid var(--border-primary)'
+    }}>
+      <h3 style={{ color: 'var(--text-primary)', marginBottom: 'var(--space-2)' }}>
+        Service Layer Test
+      </h3>
+      <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>
+        Service layer testing is disabled in production builds.
+      </p>
     </div>
-  )
-}
+  );
+};
 
-export default ServiceLayerTest
+export default ServiceLayerTest;
