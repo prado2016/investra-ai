@@ -1,0 +1,20 @@
+name: "Stock Tracker CodeQL Config"
+
+disable-default-queries: false
+
+queries:
+  - uses: security-and-quality
+  - uses: security-extended
+
+paths-ignore:
+  - "node_modules/**"
+  - "dist/**"
+  - "coverage/**"
+  - "**/*.test.ts"
+  - "**/*.test.tsx"
+  - "**/*.spec.ts"
+  - "**/*.spec.tsx"
+  - "src/test/**"
+
+paths:
+  - "src/**"

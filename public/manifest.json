@@ -1,0 +1,54 @@
+{
+  "name": "Investra - Portfolio Management",
+  "short_name": "Investra",
+  "description": "Professional investment portfolio tracker and analytics platform",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#2F5233",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/investra-logo.svg",
+      "sizes": "32x32",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/investra-logo.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/investra-logo.svg",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["finance", "business", "productivity"],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "View portfolio overview",
+      "url": "/",
+      "icons": [{ "src": "/investra-logo.svg", "sizes": "32x32" }]
+    },
+    {
+      "name": "Transactions",
+      "short_name": "Transactions", 
+      "description": "Manage transactions",
+      "url": "/transactions",
+      "icons": [{ "src": "/investra-logo.svg", "sizes": "32x32" }]
+    },
+    {
+      "name": "Positions",
+      "short_name": "Positions",
+      "description": "View open positions", 
+      "url": "/positions",
+      "icons": [{ "src": "/investra-logo.svg", "sizes": "32x32" }]
+    }
+  ]
+}

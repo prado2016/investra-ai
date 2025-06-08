@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Test</title>
+</head>
+<body>
+    <div id="debug-output"></div>
+    <script type="module">
+        const output = document.getElementById('debug-output');
+        
+        try {
+            output.innerHTML += '<p>✅ Basic HTML loading</p>';
+            
+            // Test 1: Can we import React?
+            import('react').then(() => {
+                output.innerHTML += '<p>✅ React import successful</p>';
+            }).catch(err => {
+                output.innerHTML += `<p>❌ React import failed: ${err.message}</p>`;
+            });
+            
+            // Test 2: Can we import the notification types?
+            import('/src/types/notification.ts').then((module) => {
+                output.innerHTML += '<p>✅ Notification types import successful</p>';
+                output.innerHTML += `<p>Exports: ${Object.keys(module).join(', ')}</p>`;
+            }).catch(err => {
+                output.innerHTML += `<p>❌ Notification types import failed: ${err.message}</p>`;
+            });
+            
+            // Test 3: Can we import the NotificationContext?
+            import('/src/contexts/NotificationContext.tsx').then((module) => {
+                output.innerHTML += '<p>✅ NotificationContext import successful</p>';
+                output.innerHTML += `<p>Exports: ${Object.keys(module).join(', ')}</p>`;
+            }).catch(err => {
+                output.innerHTML += `<p>❌ NotificationContext import failed: ${err.message}</p>`;
+            });
+            
+        } catch (err) {
+            output.innerHTML += `<p>❌ Script error: ${err.message}</p>`;
+        }
+    </script>
+</body>
+</html>

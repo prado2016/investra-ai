@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Environment Debug</title>
+</head>
+<body>
+    <h1>Environment Variables Debug</h1>
+    <div id="debug-info"></div>
+    
+    <script type="module">
+        const debugInfo = document.getElementById('debug-info');
+        
+        const envVars = {
+            VITE_USE_MOCK_DASHBOARD: import.meta.env.VITE_USE_MOCK_DASHBOARD,
+            VITE_SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL ? 'SET' : 'NOT SET',
+            VITE_SUPABASE_ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY ? 'SET' : 'NOT SET',
+            NODE_ENV: import.meta.env.NODE_ENV
+        };
+        
+        debugInfo.innerHTML = '<pre>' + JSON.stringify(envVars, null, 2) + '</pre>';
+        
+        console.log('Environment Variables:', envVars);
+        
+        // Navigate to main app after 2 seconds
+        setTimeout(() => {
+            window.location.href = 'http://localhost:5173/dashboard';
+        }, 2000);
+    </script>
+</body>
+</html>

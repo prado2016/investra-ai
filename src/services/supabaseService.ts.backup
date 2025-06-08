@@ -1,0 +1,1419 @@
+/**
+ * Supabase Service Layer for Stock Tracker App
+ * Provides CRUD operations for all data models with Supabase integration
+ * Implements error handling, data validation, and optimistic updates
+ */
+
+import { supabase } from '../lib/supabase'
+import type { 
+  Profile, 
+  Portfolio, 
+  Asset, 
+  Position, 
+  Transaction,
+  AssetType,
+  TransactionType,
+  CostBasisMethod 
+} from '../lib/database/types'
+
+// Service response types for consistent error handling
+export interface ServiceResponse<T> {
+  data: T | null
+  error: string | null
+  success: boolean
+}
+
+export interface ServiceListResponse<T> {
+  data: T[]
+  error: string | null
+  success: boolean
+  count?: number
+}
+
+/**
+ * Profile Service - User profile management
+ */
+export class ProfileService {
+  /**
+   * Get current user's profile
+   */
+  static async getCurrentProfile(): Promise<ServiceResponse<Profile>> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (!user) {
+        return { data: null, error: 'User not authenticated', success: false }
+      }
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single()
+
+      if (error) {
+        return { data: null, error: error.message, success: false }
+      }
+
+      return { data, error: null, success: true }
+    } catch (error) {
+      return { 
+        data: null, 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
+
+  /**
+   * Update current user's profile
+   */
+  static async updateProfile(updates: Partial<Omit<Profile, 'id' | 'email' | 'created_at' | 'updated_at'>>): Promise<ServiceResponse<Profile>> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (!user) {
+        return { data: null, error: 'User not authenticated', success: false }
+      }
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id)
+        .select()
+        .single()
+
+      if (error) {
+        return { data: null, error: error.message, success: false }
+      }
+
+      return { data, error: null, success: true }
+    } catch (error) {
+      return { 
+        data: null, 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
+}
+
+/**
+ * Portfolio Service - Portfolio management
+ */
+export class PortfolioService {
+  /**
+   * Get all portfolios for current user
+   */
+  static async getPortfolios(): Promise<ServiceListResponse<Portfolio>> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (!user) {
+        return { data: [], error: 'User not authenticated', success: false }
+      }
+
+      const { data, error, count } = await supabase
+        .from('portfolios')
+        .select('*', { count: 'exact' })
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .order('created_at', { ascending: true })
+
+      if (error) {
+        return { data: [], error: error.message, success: false }
+      }
+
+      return { data: data || [], error: null, success: true, count: count || 0 }
+    } catch (error) {
+      return { 
+        data: [], 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
+
+  /**
+   * Get portfolio by ID
+   */
+  static async getPortfolio(id: string): Promise<ServiceResponse<Portfolio>> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (!user) {
+        return { data: null, error: 'User not authenticated', success: false }
+      }
+
+      const { data, error } = await supabase
+        .from('portfolios')
+        .select('*')
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .single()
+
+      if (error) {
+        return { data: null, error: error.message, success: false }
+      }
+
+      return { data, error: null, success: true }
+    } catch (error) {
+      return { 
+        data: null, 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
+
+  /**
+   * Create new portfolio
+   */
+  static async createPortfolio(
+    name: string, 
+    description: string = '', 
+    currency: string = 'USD',
+    isDefault: boolean = false
+  ): Promise<ServiceResponse<Portfolio>> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (!user) {
+        return { data: null, error: 'User not authenticated', success: false }
+      }
+
+      const { data, error } = await supabase
+        .from('portfolios')
+        .insert({
+          user_id: user.id,
+          name,
+          description,
+          currency,
+          is_default: isDefault,
+          is_active: true
+        })
+        .select()
+        .single()
+
+      if (error) {
+        return { data: null, error: error.message, success: false }
+      }
+
+      return { data, error: null, success: true }
+    } catch (error) {
+      return { 
+        data: null, 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
+
+  /**
+   * Update portfolio
+   */
+  static async updatePortfolio(
+    id: string, 
+    updates: Partial<Omit<Portfolio, 'id' | 'user_id' | 'created_at' | 'updated_at'>>
+  ): Promise<ServiceResponse<Portfolio>> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (!user) {
+        return { data: null, error: 'User not authenticated', success: false }
+      }
+
+      const { data, error } = await supabase
+        .from('portfolios')
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .select()
+        .single()
+
+      if (error) {
+        return { data: null, error: error.message, success: false }
+      }
+
+      return { data, error: null, success: true }
+    } catch (error) {
+      return { 
+        data: null, 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
+
+  /**
+   * Delete portfolio (soft delete)
+   */
+  static async deletePortfolio(id: string): Promise<ServiceResponse<boolean>> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (!user) {
+        return { data: false, error: 'User not authenticated', success: false }
+      }
+
+      const { error } = await supabase
+        .from('portfolios')
+        .update({
+          is_active: false,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+        .eq('user_id', user.id)
+
+      if (error) {
+        return { data: false, error: error.message, success: false }
+      }
+
+      return { data: true, error: null, success: true }
+    } catch (error) {
+      return { 
+        data: false, 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
+}
+
+/**
+ * Asset Service - Asset data management
+ */
+export class AssetService {
+  /**
+   * Get or create asset by symbol
+   */
+  static async getOrCreateAsset(
+    symbol: string,
+    name?: string,
+    assetType?: AssetType,
+    exchange?: string,
+    currency: string = 'USD'
+  ): Promise<ServiceResponse<Asset>> {
+    try {
+      // First try to get existing asset
+      const { data: existingAsset } = await supabase
+        .from('assets')
+        .select('*')
+        .eq('symbol', symbol.toUpperCase())
+        .maybeSingle()
+
+      if (existingAsset) {
+        return { data: existingAsset, error: null, success: true }
+      }
+
+      // Create new asset if it doesn't exist
+      const { data, error } = await supabase
+        .from('assets')
+        .insert({
+          symbol: symbol.toUpperCase(),
+          name: name || symbol.toUpperCase(),
+          asset_type: assetType || 'stock',
+          exchange,
+          currency,
+          last_updated: new Date().toISOString()
+        })
+        .select()
+        .single()
+
+      if (error) {
+        return { data: null, error: error.message, success: false }
+      }
+
+      return { data, error: null, success: true }
+    } catch (error) {
+      return { 
+        data: null, 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
+
+  /**
+   * Search assets by symbol or name
+   */
+  static async searchAssets(query: string, limit: number = 10): Promise<ServiceListResponse<Asset>> {
+    try {
+      const { data, error } = await supabase
+        .from('assets')
+        .select('*')
+        .or(`symbol.ilike.%${query}%,name.ilike.%${query}%`)
+        .order('symbol')
+        .limit(limit)
+
+      if (error) {
+        return { data: [], error: error.message, success: false }
+      }
+
+      return { data: data || [], error: null, success: true }
+    } catch (error) {
+      return { 
+        data: [], 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
+
+  /**
+   * Update asset information
+   */
+  static async updateAsset(
+    id: string,
+    updates: Partial<Omit<Asset, 'id' | 'created_at'>>
+  ): Promise<ServiceResponse<Asset>> {
+    try {
+      const { data, error } = await supabase
+        .from('assets')
+        .update({
+          ...updates,
+          last_updated: new Date().toISOString()
+        })
+        .eq('id', id)
+        .select()
+        .single()
+
+      if (error) {
+        return { data: null, error: error.message, success: false }
+      }
+
+      return { data, error: null, success: true }
+    } catch (error) {
+      return { 
+        data: null, 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
+}
+
+/**
+ * Position Service - Position management
+ */
+export class PositionService {
+  /**
+   * Get all positions for a portfolio
+   */
+  static async getPositions(portfolioId: string): Promise<ServiceListResponse<Position & { asset: Asset }>> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (!user) {
+        return { data: [], error: 'User not authenticated', success: false }
+      }
+
+      const { data, error } = await supabase
+        .from('positions')
+        .select(`
+          *,
+          asset:assets(*)
+        `)
+        .eq('portfolio_id', portfolioId)
+        .eq('is_active', true)
+        .order('created_at', { ascending: true })
+
+      if (error) {
+        return { data: [], error: error.message, success: false }
+      }
+
+      return { data: data || [], error: null, success: true }
+    } catch (error) {
+      return { 
+        data: [], 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
+
+  /**
+   * Get position by ID
+   */
+  static async getPosition(id: string): Promise<ServiceResponse<Position & { asset: Asset }>> {
+    try {
+      const { data, error } = await supabase
+        .from('positions')
+        .select(`
+          *,
+          asset:assets(*)
+        `)
+        .eq('id', id)
+        .single()
+
+      if (error) {
+        return { data: null, error: error.message, success: false }
+      }
+
+      return { data, error: null, success: true }
+    } catch (error) {
+      return { 
+        data: null, 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
+
+  /**
+   * Create or update position
+   */
+  static async upsertPosition(
+    portfolioId: string,
+    assetId: string,
+    quantity: number,
+    averageCostBasis: number,
+    costBasisMethod: CostBasisMethod = 'FIFO'
+  ): Promise<ServiceResponse<Position>> {
+    try {
+      // Check if position already exists
+      const { data: existingPosition } = await supabase
+        .from('positions')
+        .select('*')
+        .eq('portfolio_id', portfolioId)
+        .eq('asset_id', assetId)
+        .eq('is_active', true)
+        .maybeSingle()
+
+      if (existingPosition) {
+        // Update existing position
+        const newQuantity = existingPosition.quantity + quantity
+        const newTotalCostBasis = existingPosition.total_cost_basis + (quantity * averageCostBasis)
+        const newAverageCostBasis = newTotalCostBasis / newQuantity
+
+        const { data, error } = await supabase
+          .from('positions')
+          .update({
+            quantity: newQuantity,
+            average_cost_basis: newAverageCostBasis,
+            total_cost_basis: newTotalCostBasis,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingPosition.id)
+          .select()
+          .single()
+
+        if (error) {
+          return { data: null, error: error.message, success: false }
+        }
+
+        return { data, error: null, success: true }
+      } else {
+        // Create new position
+        const { data, error } = await supabase
+          .from('positions')
+          .insert({
+            portfolio_id: portfolioId,
+            asset_id: assetId,
+            quantity,
+            average_cost_basis: averageCostBasis,
+            total_cost_basis: quantity * averageCostBasis,
+            realized_pl: 0,
+            open_date: new Date().toISOString(),
+            cost_basis_method: costBasisMethod,
+            is_active: true
+          })
+          .select()
+          .single()
+
+        if (error) {
+          return { data: null, error: error.message, success: false }
+        }
+
+        return { data, error: null, success: true }
+      }
+    } catch (error) {
+      return { 
+        data: null, 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
+
+  /**
+   * Close position (soft delete)
+   */
+  static async closePosition(id: string): Promise<ServiceResponse<boolean>> {
+    try {
+      const { error } = await supabase
+        .from('positions')
+        .update({
+          is_active: false,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+
+      if (error) {
+        return { data: false, error: error.message, success: false }
+      }
+
+      return { data: true, error: null, success: true }
+    } catch (error) {
+      return { 
+        data: false, 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
+}
+
+/**
+ * Transaction Service - Transaction management
+ */
+export class TransactionService {
+  /**
+   * Get all transactions for a portfolio
+   */
+  static async getTransactions(portfolioId: string): Promise<ServiceListResponse<Transaction & { asset: Asset }>> {
+    try {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select(`
+          *,
+          asset:assets(*)
+        `)
+        .eq('portfolio_id', portfolioId)
+        .order('transaction_date', { ascending: false })
+
+      if (error) {
+        return { data: [], error: error.message, success: false }
+      }
+
+      return { data: data || [], error: null, success: true }
+    } catch (error) {
+      return { 
+        data: [], 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
+
+  /**
+   * Get transactions for a specific position
+   */
+  static async getTransactionsByPosition(positionId: string): Promise<ServiceListResponse<Transaction & { asset: Asset }>> {
+    try {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select(`
+          *,
+          asset:assets(*)
+        `)
+        .eq('position_id', positionId)
+        .order('transaction_date', { ascending: false })
+
+      if (error) {
+        return { data: [], error: error.message, success: false }
+      }
+
+      return { data: data || [], error: null, success: true }
+    } catch (error) {
+      return { 
+        data: [], 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
+
+  /**
+   * Create transaction
+   */
+  static async createTransaction(
+    portfolioId: string,
+    assetId: string,
+    transactionType: TransactionType,
+    quantity: number,
+    price: number,
+    transactionDate: string,
+    positionId?: string,
+    fees: number = 0,
+    currency: string = 'USD',
+    notes?: string
+  ): Promise<ServiceResponse<Transaction>> {
+    try {
+      const totalAmount = transactionType === 'buy' 
+        ? (quantity * price) + fees 
+        : (quantity * price) - fees
+
+      const { data, error } = await supabase
+        .from('transactions')
+        .insert({
+          portfolio_id: portfolioId,
+          position_id: positionId,
+          asset_id: assetId,
+          transaction_type: transactionType,
+          quantity,
+          price,
+          total_amount: totalAmount,
+          fees,
+          transaction_date: transactionDate,
+          exchange_rate: 1, // Default to 1, can be updated for currency conversion
+          currency,
+          notes
+        })
+        .select()
+        .single()
+
+      if (error) {
+        return { data: null, error: error.message, success: false }
+      }
+
+      return { data, error: null, success: true }
+    } catch (error) {
+      return { 
+        data: null, 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
+
+  /**
+   * Update transaction
+   */
+  static async updateTransaction(
+    id: string,
+    updates: Partial<Omit<Transaction, 'id' | 'created_at' | 'updated_at'>>
+  ): Promise<ServiceResponse<Transaction>> {
+    try {
+      const { data, error } = await supabase
+        .from('transactions')
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+        .select()
+        .single()
+
+      if (error) {
+        return { data: null, error: error.message, success: false }
+      }
+
+      return { data, error: null, success: true }
+    } catch (error) {
+      return { 
+        data: null, 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
+
+  /**
+   * Delete transaction
+   */
+  static async deleteTransaction(id: string): Promise<ServiceResponse<boolean>> {
+    try {
+      const { error } = await supabase
+        .from('transactions')
+        .delete()
+        .eq('id', id)
+
+      if (error) {
+        return { data: false, error: error.message, success: false }
+      }
+
+      return { data: true, error: null, success: true }
+    } catch (error) {
+      return { 
+        data: false, 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
+}
+
+/**
+ * Utility Service - Helper functions for complex operations
+ */
+export class UtilityService {
+  /**
+   * Process a buy transaction (creates/updates position and records transaction)
+   */
+  static async processBuyTransaction(
+    portfolioId: string,
+    symbol: string,
+    quantity: number,
+    price: number,
+    transactionDate: string,
+    fees: number = 0,
+    assetType: AssetType = 'stock',
+    currency: string = 'USD'
+  ): Promise<ServiceResponse<{ transaction: Transaction; position: Position }>> {
+    try {
+      // Get or create asset
+      const assetResult = await AssetService.getOrCreateAsset(symbol, undefined, assetType, undefined, currency)
+      if (!assetResult.success || !assetResult.data) {
+        return { data: null, error: assetResult.error || 'Failed to get asset', success: false }
+      }
+
+      // Create transaction
+      const transactionResult = await TransactionService.createTransaction(
+        portfolioId,
+        assetResult.data.id,
+        'buy',
+        quantity,
+        price,
+        transactionDate,
+        undefined,
+        fees,
+        currency
+      )
+
+      if (!transactionResult.success || !transactionResult.data) {
+        return { data: null, error: transactionResult.error || 'Failed to create transaction', success: false }
+      }
+
+      // Update position
+      const positionResult = await PositionService.upsertPosition(
+        portfolioId,
+        assetResult.data.id,
+        quantity,
+        price
+      )
+
+      if (!positionResult.success || !positionResult.data) {
+        return { data: null, error: positionResult.error || 'Failed to update position', success: false }
+      }
+
+      // Update transaction with position ID
+      await TransactionService.updateTransaction(transactionResult.data.id, {
+        position_id: positionResult.data.id
+      })
+
+      return {
+        data: {
+          transaction: transactionResult.data,
+          position: positionResult.data
+        },
+        error: null,
+        success: true
+      }
+    } catch (error) {
+      return { 
+        data: null, 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
+
+  /**
+   * Calculate portfolio totals and metrics
+   */
+  static async calculatePortfolioMetrics(portfolioId: string): Promise<ServiceResponse<{
+    totalValue: number;
+    totalCostBasis: number;
+    totalUnrealizedPL: number;
+    totalRealizedPL: number;
+    positionsCount: number;
+  }>> {
+    try {
+      const positionsResult = await PositionService.getPositions(portfolioId)
+      if (!positionsResult.success) {
+        return { data: null, error: positionsResult.error, success: false }
+      }
+
+      const positions = positionsResult.data
+      let totalCostBasis = 0
+      let totalRealizedPL = 0
+
+      positions.forEach(position => {
+        totalCostBasis += position.total_cost_basis
+        totalRealizedPL += position.realized_pl
+      })
+
+      // Note: totalValue would need current market prices, which would require price data integration
+      const totalValue = totalCostBasis // Placeholder - would be calculated with current prices
+
+      return {
+        data: {
+          totalValue,
+          totalCostBasis,
+          totalUnrealizedPL: totalValue - totalCostBasis,
+          totalRealizedPL,
+          positionsCount: positions.length
+        },
+        error: null,
+        success: true
+      }
+    } catch (error) {
+      return { 
+        data: null, 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
+}
+
+/**
+ * Portfolio Service - Portfolio management
+ */
+export class PortfolioService {
+  /**
+   * Get all portfolios for current user
+   */
+  static async getPortfolios(): Promise<ServiceListResponse<Portfolio>> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (!user) {
+        return { data: [], error: 'User not authenticated', success: false }
+      }
+
+      const { data, error, count } = await supabase
+        .from('portfolios')
+        .select('*', { count: 'exact' })
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .order('created_at', { ascending: true })
+
+      if (error) {
+        return { data: [], error: error.message, success: false }
+      }
+
+      return { data: data || [], error: null, success: true, count: count || 0 }
+    } catch (error) {
+      return { 
+        data: [], 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
+
+  /**
+   * Get portfolio by ID
+   */
+  static async getPortfolio(id: string): Promise<ServiceResponse<Portfolio>> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (!user) {
+        return { data: null, error: 'User not authenticated', success: false }
+      }
+
+      const { data, error } = await supabase
+        .from('portfolios')
+        .select('*')
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .single()
+
+      if (error) {
+        return { data: null, error: error.message, success: false }
+      }
+
+      return { data, error: null, success: true }
+    } catch (error) {
+      return { 
+        data: null, 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
+
+  /**
+   * Create new portfolio
+   */
+  static async createPortfolio(
+    name: string, 
+    description: string = '', 
+    currency: string = 'USD',
+    isDefault: boolean = false
+  ): Promise<ServiceResponse<Portfolio>> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (!user) {
+        return { data: null, error: 'User not authenticated', success: false }
+      }
+
+      const { data, error } = await supabase
+        .from('portfolios')
+        .insert({
+          user_id: user.id,
+          name,
+          description,
+          currency,
+          is_default: isDefault,
+          is_active: true
+        })
+        .select()
+        .single()
+
+      if (error) {
+        return { data: null, error: error.message, success: false }
+      }
+
+      return { data, error: null, success: true }
+    } catch (error) {
+      return { 
+        data: null, 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
+
+  /**
+   * Update portfolio
+   */
+  static async updatePortfolio(
+    id: string, 
+    updates: Partial<Omit<Portfolio, 'id' | 'user_id' | 'created_at' | 'updated_at'>>
+  ): Promise<ServiceResponse<Portfolio>> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (!user) {
+        return { data: null, error: 'User not authenticated', success: false }
+      }
+
+      const { data, error } = await supabase
+        .from('portfolios')
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .select()
+        .single()
+
+      if (error) {
+        return { data: null, error: error.message, success: false }
+      }
+
+      return { data, error: null, success: true }
+    } catch (error) {
+      return { 
+        data: null, 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
+
+  /**
+   * Delete portfolio (soft delete)
+   */
+  static async deletePortfolio(id: string): Promise<ServiceResponse<boolean>> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (!user) {
+        return { data: false, error: 'User not authenticated', success: false }
+      }
+
+      const { error } = await supabase
+        .from('portfolios')
+        .update({
+          is_active: false,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+        .eq('user_id', user.id)
+
+      if (error) {
+        return { data: false, error: error.message, success: false }
+      }
+
+      return { data: true, error: null, success: true }
+    } catch (error) {
+      return { 
+        data: false, 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
+}
+
+/**
+ * Asset Service - Asset data management
+ */
+export class AssetService {
+  /**
+   * Get or create asset by symbol
+   */
+  static async getOrCreateAsset(
+    symbol: string,
+    name?: string,
+    assetType?: AssetType,
+    exchange?: string,
+    currency: string = 'USD'
+  ): Promise<ServiceResponse<Asset>> {
+    try {
+      // First try to get existing asset
+      const { data: existingAsset } = await supabase
+        .from('assets')
+        .select('*')
+        .eq('symbol', symbol.toUpperCase())
+        .maybeSingle()
+
+      if (existingAsset) {
+        return { data: existingAsset, error: null, success: true }
+      }
+
+      // Create new asset if it doesn't exist
+      const { data, error } = await supabase
+        .from('assets')
+        .insert({
+          symbol: symbol.toUpperCase(),
+          name: name || symbol.toUpperCase(),
+          asset_type: assetType || 'stock',
+          exchange,
+          currency,
+          last_updated: new Date().toISOString()
+        })
+        .select()
+        .single()
+
+      if (error) {
+        return { data: null, error: error.message, success: false }
+      }
+
+      return { data, error: null, success: true }
+    } catch (error) {
+      return { 
+        data: null, 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
+
+  /**
+   * Search assets by symbol or name
+   */
+  static async searchAssets(query: string, limit: number = 10): Promise<ServiceListResponse<Asset>> {
+    try {
+      const { data, error } = await supabase
+        .from('assets')
+        .select('*')
+        .or(`symbol.ilike.%${query}%,name.ilike.%${query}%`)
+        .order('symbol')
+        .limit(limit)
+
+      if (error) {
+        return { data: [], error: error.message, success: false }
+      }
+
+      return { data: data || [], error: null, success: true }
+    } catch (error) {
+      return { 
+        data: [], 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
+}
+
+/**
+ * Position Service - Position management
+ */
+export class PositionService {
+  /**
+   * Get all positions for a portfolio
+   */
+  static async getPositions(portfolioId: string): Promise<ServiceListResponse<Position & { asset: Asset }>> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (!user) {
+        return { data: [], error: 'User not authenticated', success: false }
+      }
+
+      const { data, error } = await supabase
+        .from('positions')
+        .select(`
+          *,
+          asset:assets(*)
+        `)
+        .eq('portfolio_id', portfolioId)
+        .eq('is_active', true)
+        .order('created_at', { ascending: true })
+
+      if (error) {
+        return { data: [], error: error.message, success: false }
+      }
+
+      return { data: data || [], error: null, success: true }
+    } catch (error) {
+      return { 
+        data: [], 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
+
+  /**
+   * Create or update position
+   */
+  static async upsertPosition(
+    portfolioId: string,
+    assetId: string,
+    quantity: number,
+    averageCostBasis: number,
+    costBasisMethod: CostBasisMethod = 'FIFO'
+  ): Promise<ServiceResponse<Position>> {
+    try {
+      // Check if position already exists
+      const { data: existingPosition } = await supabase
+        .from('positions')
+        .select('*')
+        .eq('portfolio_id', portfolioId)
+        .eq('asset_id', assetId)
+        .eq('is_active', true)
+        .maybeSingle()
+
+      if (existingPosition) {
+        // Update existing position
+        const newQuantity = existingPosition.quantity + quantity
+        const newTotalCostBasis = existingPosition.total_cost_basis + (quantity * averageCostBasis)
+        const newAverageCostBasis = newTotalCostBasis / newQuantity
+
+        const { data, error } = await supabase
+          .from('positions')
+          .update({
+            quantity: newQuantity,
+            average_cost_basis: newAverageCostBasis,
+            total_cost_basis: newTotalCostBasis,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingPosition.id)
+          .select()
+          .single()
+
+        if (error) {
+          return { data: null, error: error.message, success: false }
+        }
+
+        return { data, error: null, success: true }
+      } else {
+        // Create new position
+        const { data, error } = await supabase
+          .from('positions')
+          .insert({
+            portfolio_id: portfolioId,
+            asset_id: assetId,
+            quantity,
+            average_cost_basis: averageCostBasis,
+            total_cost_basis: quantity * averageCostBasis,
+            realized_pl: 0,
+            open_date: new Date().toISOString(),
+            cost_basis_method: costBasisMethod,
+            is_active: true
+          })
+          .select()
+          .single()
+
+        if (error) {
+          return { data: null, error: error.message, success: false }
+        }
+
+        return { data, error: null, success: true }
+      }
+    } catch (error) {
+      return { 
+        data: null, 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
+}
+
+/**
+ * Transaction Service - Transaction management
+ */
+export class TransactionService {
+  /**
+   * Get all transactions for a portfolio
+   */
+  static async getTransactions(portfolioId: string): Promise<ServiceListResponse<Transaction & { asset: Asset }>> {
+    try {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select(`
+          *,
+          asset:assets(*)
+        `)
+        .eq('portfolio_id', portfolioId)
+        .order('transaction_date', { ascending: false })
+
+      if (error) {
+        return { data: [], error: error.message, success: false }
+      }
+
+      return { data: data || [], error: null, success: true }
+    } catch (error) {
+      return { 
+        data: [], 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
+
+  /**
+   * Create transaction
+   */
+  static async createTransaction(
+    portfolioId: string,
+    assetId: string,
+    transactionType: TransactionType,
+    quantity: number,
+    price: number,
+    transactionDate: string,
+    positionId?: string,
+    fees: number = 0,
+    currency: string = 'USD',
+    notes?: string
+  ): Promise<ServiceResponse<Transaction>> {
+    try {
+      const totalAmount = transactionType === 'buy' 
+        ? (quantity * price) + fees 
+        : (quantity * price) - fees
+
+      const { data, error } = await supabase
+        .from('transactions')
+        .insert({
+          portfolio_id: portfolioId,
+          position_id: positionId,
+          asset_id: assetId,
+          transaction_type: transactionType,
+          quantity,
+          price,
+          total_amount: totalAmount,
+          fees,
+          transaction_date: transactionDate,
+          exchange_rate: 1,
+          currency,
+          notes
+        })
+        .select()
+        .single()
+
+      if (error) {
+        return { data: null, error: error.message, success: false }
+      }
+
+      return { data, error: null, success: true }
+    } catch (error) {
+      return { 
+        data: null, 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
+}
+
+/**
+ * Utility Service - Helper functions for complex operations
+ */
+export class UtilityService {
+  /**
+   * Process a buy transaction (creates/updates position and records transaction)
+   */
+  static async processBuyTransaction(
+    portfolioId: string,
+    symbol: string,
+    quantity: number,
+    price: number,
+    transactionDate: string,
+    fees: number = 0,
+    assetType: AssetType = 'stock',
+    currency: string = 'USD'
+  ): Promise<ServiceResponse<{ transaction: Transaction; position: Position }>> {
+    try {
+      // Get or create asset
+      const assetResult = await AssetService.getOrCreateAsset(symbol, undefined, assetType, undefined, currency)
+      if (!assetResult.success || !assetResult.data) {
+        return { data: null, error: assetResult.error || 'Failed to get asset', success: false }
+      }
+
+      // Create transaction
+      const transactionResult = await TransactionService.createTransaction(
+        portfolioId,
+        assetResult.data.id,
+        'buy',
+        quantity,
+        price,
+        transactionDate,
+        undefined,
+        fees,
+        currency
+      )
+
+      if (!transactionResult.success || !transactionResult.data) {
+        return { data: null, error: transactionResult.error || 'Failed to create transaction', success: false }
+      }
+
+      // Update position
+      const positionResult = await PositionService.upsertPosition(
+        portfolioId,
+        assetResult.data.id,
+        quantity,
+        price
+      )
+
+      if (!positionResult.success || !positionResult.data) {
+        return { data: null, error: positionResult.error || 'Failed to update position', success: false }
+      }
+
+      return {
+        data: {
+          transaction: transactionResult.data,
+          position: positionResult.data
+        },
+        error: null,
+        success: true
+      }
+    } catch (error) {
+      return { 
+        data: null, 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
+}
+
+// Export all services
+export { ProfileService, PortfolioService, AssetService, PositionService, TransactionService, UtilityService }
+
+// Create a unified service interface
+export class SupabaseService {
+  static profile = ProfileService
+  static portfolio = PortfolioService
+  static asset = AssetService
+  static position = PositionService
+  static transaction = TransactionService
+  static utility = UtilityService
+}
+
+export default SupabaseService

@@ -1,0 +1,285 @@
+import React, { useState } from 'react';
+import styled from 'styled-components';
+import MonthlyCalendar from '../components/MonthlyCalendar';
+import { useSupabasePortfolios } from '../hooks/useSupabasePortfolios';
+import type { DailyPLData } from '../services/analytics/dailyPLService';
+
+const PageContainer = styled.div`
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+`;
+
+const PageHeader = styled.div`
+  margin-bottom: 2rem;
+`;
+
+const PageTitle = styled.h1`
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 0.5rem 0;
+`;
+
+const PageSubtitle = styled.p`
+  font-size: 1.125rem;
+  color: #64748b;
+  margin: 0;
+`;
+
+const PortfolioSelector = styled.div`
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+`;
+
+const PortfolioLabel = styled.label`
+  font-weight: 600;
+  color: #374151;
+`;
+
+const PortfolioSelect = styled.select`
+  padding: 0.5rem 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: white;
+  color: #374151;
+  font-size: 0.875rem;
+  cursor: pointer;
+  
+  &:focus {
+    outline: none;
+    ring: 2px;
+    ring-color: #3b82f6;
+    border-color: #3b82f6;
+  }
+`;
+
+const LoadingContainer = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 3rem;
+  color: #6b7280;
+`;
+
+const ErrorContainer = styled.div`
+  text-align: center;
+  padding: 2rem;
+  color: #dc2626;
+  background: #fee2e2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  margin: 1rem 0;
+`;
+
+const DayDetailsModal = styled.div<{ isOpen: boolean }>`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: ${props => props.isOpen ? 'flex' : 'none'};
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+`;
+
+const ModalContent = styled.div`
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  max-width: 600px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+`;
+
+const ModalHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e5e7eb;
+`;
+
+const ModalTitle = styled.h2`
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0;
+`;
+
+const CloseButton = styled.button`
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 0.25rem;
+  
+  &:hover {
+    color: #374151;
+  }
+`;
+
+interface SummaryProps {}
+
+const Summary: React.FC<SummaryProps> = () => {
+  const { portfolios, activePortfolio, loading: portfoliosLoading, error: portfoliosError, setActivePortfolio } = useSupabasePortfolios();
+  const [selectedDayData, setSelectedDayData] = useState<DailyPLData | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const handleDayClick = (dayData: DailyPLData) => {
+    setSelectedDayData(dayData);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedDayData(null);
+  };
+
+  const handlePortfolioChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const portfolioId = event.target.value;
+    const portfolio = portfolios.find(p => p.id === portfolioId);
+    if (portfolio) {
+      setActivePortfolio(portfolio);
+    }
+  };
+
+  if (portfoliosLoading) {
+    return (
+      <PageContainer>
+        <PageHeader>
+          <PageTitle>Summary</PageTitle>
+          <PageSubtitle>
+            Monthly calendar view of your daily P/L performance
+          </PageSubtitle>
+        </PageHeader>
+        <LoadingContainer>
+          <div>Loading portfolio data...</div>
+        </LoadingContainer>
+      </PageContainer>
+    );
+  }
+
+  if (portfoliosError) {
+    return (
+      <PageContainer>
+        <PageHeader>
+          <PageTitle>Summary</PageTitle>
+          <PageSubtitle>
+            Monthly calendar view of your daily P/L performance
+          </PageSubtitle>
+        </PageHeader>
+        <ErrorContainer>
+          <h3>Error Loading Portfolio Data</h3>
+          <p>{portfoliosError}</p>
+        </ErrorContainer>
+      </PageContainer>
+    );
+  }
+
+  if (portfolios.length === 0) {
+    return (
+      <PageContainer>
+        <PageHeader>
+          <PageTitle>Summary</PageTitle>
+          <PageSubtitle>
+            Monthly calendar view of your daily P/L performance
+          </PageSubtitle>
+        </PageHeader>
+        <ErrorContainer>
+          <h3>No Portfolios Found</h3>
+          <p>Please create a portfolio first to view your daily P/L summary.</p>
+        </ErrorContainer>
+      </PageContainer>
+    );
+  }
+
+  return (
+    <PageContainer>
+      <PageHeader>
+        <PageTitle>Summary</PageTitle>
+        <PageSubtitle>
+          Monthly calendar view of your daily P/L performance
+        </PageSubtitle>
+      </PageHeader>
+
+      <PortfolioSelector>
+        <PortfolioLabel htmlFor="portfolio-select">Portfolio:</PortfolioLabel>
+        <PortfolioSelect
+          id="portfolio-select"
+          value={activePortfolio?.id || ''}
+          onChange={handlePortfolioChange}
+        >
+          {portfolios.map(portfolio => (
+            <option key={portfolio.id} value={portfolio.id}>
+              {portfolio.name}
+            </option>
+          ))}
+        </PortfolioSelect>
+      </PortfolioSelector>
+      
+      {activePortfolio && (
+        <MonthlyCalendar
+          portfolioId={activePortfolio.id}
+          onDayClick={handleDayClick}
+        />
+      )}
+
+      <DayDetailsModal isOpen={isModalOpen}>
+        <ModalContent>
+          <ModalHeader>
+            <ModalTitle>
+              {selectedDayData ? `Daily Details - ${selectedDayData.date}` : 'Daily Details'}
+            </ModalTitle>
+            <CloseButton onClick={handleCloseModal}>×</CloseButton>
+          </ModalHeader>
+          
+          {selectedDayData && (
+            <div>
+              <p><strong>Total P/L:</strong> ${selectedDayData.totalPL.toFixed(2)}</p>
+              <p><strong>Realized P/L:</strong> ${selectedDayData.realizedPL.toFixed(2)}</p>
+              <p><strong>Unrealized P/L:</strong> ${selectedDayData.unrealizedPL.toFixed(2)}</p>
+              <p><strong>Dividend Income:</strong> ${selectedDayData.dividendIncome.toFixed(2)}</p>
+              <p><strong>Total Fees:</strong> ${selectedDayData.totalFees.toFixed(2)}</p>
+              <p><strong>Trade Volume:</strong> ${selectedDayData.tradeVolume.toFixed(2)}</p>
+              <p><strong>Transactions:</strong> {selectedDayData.transactionCount}</p>
+              <p><strong>Net Cash Flow:</strong> ${selectedDayData.netCashFlow.toFixed(2)}</p>
+              
+              {selectedDayData.transactions && selectedDayData.transactions.length > 0 && (
+                <div style={{ marginTop: '1.5rem' }}>
+                  <h3 style={{ fontSize: '1.125rem', fontWeight: '600', marginBottom: '1rem' }}>
+                    Transactions
+                  </h3>
+                  {selectedDayData.transactions.map(transaction => (
+                    <div key={transaction.id} style={{ 
+                      padding: '0.75rem', 
+                      border: '1px solid #e5e7eb', 
+                      borderRadius: '6px', 
+                      marginBottom: '0.5rem' 
+                    }}>
+                      <p style={{ margin: '0 0 0.25rem 0', fontWeight: '500' }}>
+                        {transaction.asset.symbol} - {transaction.transaction_type.toUpperCase()}
+                      </p>
+                      <p style={{ margin: '0', fontSize: '0.875rem', color: '#6b7280' }}>
+                        Quantity: {transaction.quantity} | Price: ${transaction.price} | Total: ${transaction.total_amount}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </ModalContent>
+      </DayDetailsModal>
+    </PageContainer>
+  );
+};
+
+export default Summary;

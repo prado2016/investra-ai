@@ -1,0 +1,70 @@
+Stock & Investment Tracker App - Product Requirements Document
+
+OVERVIEW:
+A multi-asset tracking platform for individual investors providing a spreadsheet-style overview of open trades and daily profit/loss summaries. The application will use Yahoo Finance API for real-time price updates and support multiple asset classes including stocks, options, forex, and cryptocurrencies.
+
+CORE FEATURES:
+
+1. Asset Support System
+- Support for multiple asset classes: stocks, dividends, options (calls/puts), forex pairs, and cryptocurrencies
+- Automatic categorization based on ticker symbols (e.g., ".TO" for Canadian stocks)
+- Track both open and closed positions
+
+2. Main Dashboard - Open Transactions View
+- Spreadsheet-style interface displaying all open positions
+- Real-time data updates from Yahoo Finance API
+- Columns: Asset Type, Ticker/Symbol, Quantity, Buy Price, Current Price, Total Invested, Current Value, Unrealized Gain/Loss, Entry Date, Notes
+- Live price updates with fallback caching system
+
+3. Daily Summary Page
+- Net profit/loss calculation for each trading day
+- Display of all closed trades and realized gains/losses
+- Include profit from sales, dividends, option premiums, forex gains/losses, crypto P&L
+- Daily reset functionality with configurable timezone support
+
+4. Data Management System
+- Manual transaction entry and editing capabilities
+- Position closing/settlement functionality
+- Manual dividend recording option
+- Future CSV import capability
+- Data persistence using local storage or SQLite
+
+5. Yahoo Finance Integration
+- Real-time price fetching (or 15-minute delayed)
+- Asset class information retrieval
+- Exchange rate data for forex pairs
+- API failure handling with cache fallback
+- Secure API key management
+
+6. User Interface & Experience
+- Lightweight and responsive design
+- Multi-page navigation: Home (Open Trades), Daily Summary, Settings
+- Settings page for base currency, API configuration, timezone
+- Optional dark mode toggle
+- Fast load times under 2 seconds
+
+7. Technical Architecture
+- Frontend using React framework
+- Local data storage with SQLite or browser LocalStorage
+- Offline-first approach with online price synchronization
+- Secure handling of API credentials
+
+NON-FUNCTIONAL REQUIREMENTS:
+- Performance: Load times under 2 seconds
+- Reliability: Offline-first data storage with online sync
+- Security: Secure API key handling and data protection
+- Usability: Intuitive spreadsheet-style interface
+- Scalability: Support for multiple asset classes and positions
+
+TECHNICAL STACK:
+- Frontend: React.js
+- Storage: SQLite or LocalStorage for single-user application
+- API Integration: Yahoo Finance API
+- Styling: Modern, responsive CSS framework
+
+SUCCESS CRITERIA:
+- Successfully track multiple asset types in real-time
+- Accurate profit/loss calculations for open and closed positions
+- Reliable data persistence and price updates
+- Intuitive user experience for portfolio management
+- Secure and performant application operation

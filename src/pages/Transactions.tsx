@@ -1,0 +1,278 @@
+import React, { useState, useEffect } from 'react';
+import { useSupabasePortfolios } from '../hooks/useSupabasePortfolios';
+import { usePageTitle } from '../hooks/usePageTitle';
+import { TransactionService, AssetService } from '../services/supabaseService';
+import { useNotify } from '../hooks/useNotify';
+import TransactionForm from '../components/TransactionForm.tsx';
+import TransactionList from '../components/TransactionList.tsx';
+import { Plus, TrendingUp, DollarSign } from 'lucide-react';
+import type { Transaction } from '../types/portfolio';
+import type { TransactionWithAsset } from '../components/TransactionList';
+
+// Enhanced Transactions page with improved styling and contrast
+const TransactionsPage: React.FC = () => {
+  const { portfolios, activePortfolio, loading: portfoliosLoading } = useSupabasePortfolios();
+  
+  // Set dynamic page title
+  usePageTitle('Transactions', { 
+    subtitle: activePortfolio ? `${activePortfolio.name} Portfolio` : 'Portfolio Management' 
+  });
+  console.log('🔍 TRANSACTIONS_DEBUG: Hook data:', { 
+    portfoliosCount: portfolios.length, 
+    activePortfolioId: activePortfolio?.id, 
+    portfoliosLoading,
+    portfolios: portfolios.map(p => ({ id: p.id, name: p.name }))
+  });
+  
+  const notify = useNotify();
+  const [transactions, setTransactions] = useState<TransactionWithAsset[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+
+  // Fetch transactions when portfolio changes
+  useEffect(() => {
+    console.log('🔍 TRANSACTIONS_DEBUG: Portfolio changed:', { activePortfolio: activePortfolio?.id, name: activePortfolio?.name });
+    if (activePortfolio?.id) {
+      fetchTransactions();
+    }
+  }, [activePortfolio]);
+
+  const fetchTransactions = async () => {
+    if (!activePortfolio?.id) {
+      console.log('🔍 TRANSACTIONS_DEBUG: No active portfolio, skipping fetch');
+      return;
+    }
+    
+    console.log('🔍 TRANSACTIONS_DEBUG: Fetching transactions for portfolio:', activePortfolio.id);
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const response = await TransactionService.getTransactions(activePortfolio.id);
+      console.log('🔍 TRANSACTIONS_DEBUG: Transaction service response:', response);
+      if (response.success) {
+        setTransactions(response.data);
+        console.log('🔍 TRANSACTIONS_DEBUG: Transactions loaded:', response.data.length);
+      } else {
+        setError(response.error);
+        console.log('🔍 TRANSACTIONS_DEBUG: Error fetching transactions:', response.error);
+        notify.error('Failed to fetch transactions: ' + response.error);
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+      setError(errorMsg);
+      console.log('🔍 TRANSACTIONS_DEBUG: Exception fetching transactions:', errorMsg);
+      notify.error('Failed to fetch transactions: ' + errorMsg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditTransaction = (transactionWithAsset: TransactionWithAsset) => {
+    // Convert database transaction to portfolio transaction format for the form
+    const portfolioTransaction: Transaction = {
+      id: transactionWithAsset.id,
+      portfolioId: transactionWithAsset.portfolio_id,
+      assetId: transactionWithAsset.asset_id,
+      assetSymbol: transactionWithAsset.asset?.symbol || '',
+      assetType: transactionWithAsset.asset?.asset_type || 'stock',
+      type: transactionWithAsset.transaction_type as any,
+      quantity: transactionWithAsset.quantity,
+      price: transactionWithAsset.price,
+      totalAmount: transactionWithAsset.total_amount,
+      fees: transactionWithAsset.fees || 0,
+      currency: transactionWithAsset.currency as any,
+      date: new Date(transactionWithAsset.transaction_date),
+      notes: transactionWithAsset.notes || undefined,
+      createdAt: new Date(transactionWithAsset.created_at),
+      updatedAt: new Date(transactionWithAsset.updated_at)
+    };
+    setEditingTransaction(portfolioTransaction);
+  };
+
+  const handleCloseForm = () => {
+    setEditingTransaction(null);
+  };
+
+  const handleSaveTransaction = async (transactionData: Omit<Transaction, 'id' | 'assetId' | 'createdAt' | 'updatedAt'>): Promise<boolean> => {
+    if (!activePortfolio?.id) {
+      notify.error('No portfolio selected');
+      return false;
+    }
+
+    try {
+      setLoading(true);
+      
+      // First, ensure the asset exists
+      const assetResponse = await AssetService.getOrCreateAsset(transactionData.assetSymbol);
+      
+      if (!assetResponse.success || !assetResponse.data) {
+        notify.error('Failed to create asset: ' + assetResponse.error);
+        return false;
+      }
+
+      // Create the transaction
+      const response = await TransactionService.createTransaction(
+        activePortfolio.id,
+        assetResponse.data.id,
+        transactionData.type as any,
+        transactionData.quantity,
+        transactionData.price,
+        transactionData.date?.toISOString() || new Date().toISOString()
+      );
+
+      if (response.success) {
+        notify.success('Transaction created successfully');
+        handleCloseForm();
+        // Refresh transactions
+        fetchTransactions();
+        return true;
+      } else {
+        notify.error('Failed to create transaction: ' + response.error);
+        return false;
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      notify.error('Failed to save transaction: ' + errorMsg);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteTransaction = async (id: string) => {
+    if (window.confirm('Are you sure you want to delete this transaction?')) {
+      try {
+        setLoading(true);
+        notify.info('Delete functionality will be implemented soon');
+        console.log('Delete transaction:', id);
+      } catch (error) {
+        console.error('Failed to delete transaction:', error);
+        notify.error('Failed to delete transaction');
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  if (portfoliosLoading) {
+    return (
+      <div className="enhanced-page-container">
+        <div className="enhanced-page-header">
+          <div className="enhanced-header-content">
+            <div className="enhanced-header-main">
+              <TrendingUp className="enhanced-header-icon" />
+              <h1 className="enhanced-page-title">Transaction Management</h1>
+            </div>
+          </div>
+        </div>
+        <div className="enhanced-loading-state">
+          <div className="loading-spinner-large"></div>
+          <p>Loading portfolios...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!activePortfolio) {
+    return (
+      <div className="enhanced-page-container">
+        <div className="enhanced-page-header">
+          <div className="enhanced-header-content">
+            <div className="enhanced-header-main">
+              <TrendingUp className="enhanced-header-icon" />
+              <h1 className="enhanced-page-title">Transaction Management</h1>
+            </div>
+          </div>
+        </div>
+        <div className="enhanced-error-state">
+          <div className="error-icon-wrapper">
+            <DollarSign className="error-icon" />
+          </div>
+          <h3 className="error-title">No Portfolio Available</h3>
+          <p className="error-description">
+            Please create a portfolio first before adding transactions.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="enhanced-page-container">
+      {/* Enhanced Page Header */}
+      <div className="enhanced-page-header">
+        <div className="enhanced-header-content">
+          <div className="enhanced-header-main">
+            <TrendingUp className="enhanced-header-icon" />
+            <div className="enhanced-header-text">
+              <h1 className="enhanced-page-title">Transaction Management</h1>
+              <p className="enhanced-page-subtitle">
+                Manage your portfolio transactions for {activePortfolio.name}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Enhanced Content Layout */}
+      <div className="enhanced-content-layout">
+        {/* Add Transaction Section */}
+        <div className="enhanced-form-section">
+          <div className="enhanced-section-header">
+            <div className="enhanced-section-header-content">
+              <Plus className="enhanced-section-icon" />
+              <div className="enhanced-section-text">
+                <h2 className="enhanced-section-title">
+                  {editingTransaction ? 'Edit Transaction' : 'Add New Transaction'}
+                </h2>
+                <p className="enhanced-section-subtitle">
+                  {editingTransaction 
+                    ? 'Update transaction details and save changes'
+                    : 'Enter transaction details to add to your portfolio'
+                  }
+                </p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="enhanced-form-wrapper">
+            <TransactionForm
+              initialData={editingTransaction}
+              onSave={handleSaveTransaction}
+              onCancel={handleCloseForm}
+            />
+          </div>
+        </div>
+
+        {/* Recent Transactions Section */}
+        <div className="enhanced-transactions-section">
+          <div className="enhanced-section-header">
+            <div className="enhanced-section-header-content">
+              <DollarSign className="enhanced-section-icon" />
+              <div className="enhanced-section-text">
+                <h2 className="enhanced-section-title">Recent Transactions</h2>
+                <p className="enhanced-section-subtitle">
+                  View and manage your transaction history
+                </p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="enhanced-transactions-wrapper">
+            <TransactionList
+              transactions={transactions}
+              loading={loading}
+              error={error}
+              onEdit={handleEditTransaction}
+              onDelete={handleDeleteTransaction}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default TransactionsPage;

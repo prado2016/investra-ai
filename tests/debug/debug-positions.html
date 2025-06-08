@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Positions - Stock Tracker</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 800px; 
+            margin: 0 auto; 
+            padding: 20px; 
+            background: #f5f5f5;
+        }
+        .debug-section { 
+            background: white; 
+            padding: 20px; 
+            margin: 20px 0; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .button {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .button:hover { background: #1d4ed8; }
+        .success { color: #059669; }
+        .error { color: #dc2626; }
+        .info { color: #2563eb; }
+        pre {
+            background: #f3f4f6;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Stock Tracker Positions Debug Tool</h1>
+    
+    <div class="debug-section">
+        <h2>Step 1: Check Current localStorage Data</h2>
+        <button class="button" onclick="checkLocalStorage()">Check localStorage</button>
+        <div id="storage-result"></div>
+    </div>
+
+    <div class="debug-section">
+        <h2>Step 2: Add Sample Positions Data</h2>
+        <button class="button" onclick="addSampleData()">Add Sample Positions</button>
+        <div id="add-result"></div>
+    </div>
+
+    <div class="debug-section">
+        <h2>Step 3: Test Positions Page</h2>
+        <button class="button" onclick="openPositionsPage()">Open Positions Page</button>
+        <button class="button" onclick="reloadApp()">Reload App</button>
+    </div>
+
+    <div class="debug-section">
+        <h2>Step 4: Clear Data (if needed)</h2>
+        <button class="button" onclick="clearAllData()" style="background: #dc2626;">Clear All Data</button>
+        <div id="clear-result"></div>
+    </div>
+
+    <script>
+        // Sample positions data
+        const samplePositions = [
+            {
+                id: 'pos-1',
+                assetId: 'asset-aapl',
+                assetSymbol: 'AAPL',
+                assetName: 'Apple Inc.',
+                assetType: 'stock',
+                quantity: 100,
+                averageCostBasis: 150.25,
+                totalCostBasis: 15025.00,
+                currentMarketValue: 15750.00,
+                currentPrice: 157.50,
+                unrealizedPL: 725.00,
+                unrealizedPLPercent: 4.83,
+                realizedPL: 0,
+                totalReturn: 725.00,
+                totalReturnPercent: 4.83,
+                currency: 'USD',
+                openDate: '2024-10-15T00:00:00.000Z',
+                lastTransactionDate: '2024-12-10T00:00:00.000Z',
+                costBasisMethod: 'FIFO',
+                lots: [
+                    {
+                        id: 'lot-1',
+                        transactionId: 'txn-1',
+                        quantity: 100,
+                        costBasis: 150.25,
+                        purchaseDate: '2024-10-15T00:00:00.000Z',
+                        remainingQuantity: 100,
+                    }
+                ],
+                createdAt: '2024-10-15T00:00:00.000Z',
+                updatedAt: '2024-12-15T00:00:00.000Z',
+            },
+            {
+                id: 'pos-2',
+                assetId: 'asset-msft',
+                assetSymbol: 'MSFT',
+                assetName: 'Microsoft Corporation',
+                assetType: 'stock',
+                quantity: 75,
+                averageCostBasis: 320.50,
+                totalCostBasis: 24037.50,
+                currentMarketValue: 25500.00,
+                currentPrice: 340.00,
+                unrealizedPL: 1462.50,
+                unrealizedPLPercent: 6.08,
+                realizedPL: 0,
+                totalReturn: 1462.50,
+                totalReturnPercent: 6.08,
+                currency: 'USD',
+                openDate: '2024-09-20T00:00:00.000Z',
+                lastTransactionDate: '2024-12-05T00:00:00.000Z',
+                costBasisMethod: 'FIFO',
+                lots: [
+                    {
+                        id: 'lot-2',
+                        transactionId: 'txn-2',
+                        quantity: 75,
+                        costBasis: 320.50,
+                        purchaseDate: '2024-09-20T00:00:00.000Z',
+                        remainingQuantity: 75,
+                    }
+                ],
+                createdAt: '2024-09-20T00:00:00.000Z',
+                updatedAt: '2024-12-15T00:00:00.000Z',
+            },
+            {
+                id: 'pos-3',
+                assetId: 'asset-tsla',
+                assetSymbol: 'TSLA',
+                assetType: 'stock',
+                quantity: 50,
+                averageCostBasis: 280.75,
+                totalCostBasis: 14037.50,
+                currentMarketValue: 12500.00,
+                currentPrice: 250.00,
+                unrealizedPL: -1537.50,
+                unrealizedPLPercent: -10.95,
+                realizedPL: 0,
+                totalReturn: -1537.50,
+                totalReturnPercent: -10.95,
+                currency: 'USD',
+                openDate: '2024-07-10T00:00:00.000Z',
+                lastTransactionDate: '2024-11-15T00:00:00.000Z',
+                costBasisMethod: 'FIFO',
+                lots: [
+                    {
+                        id: 'lot-3',
+                        transactionId: 'txn-3',
+                        quantity: 50,
+                        costBasis: 280.75,
+                        purchaseDate: '2024-07-10T00:00:00.000Z',
+                        remainingQuantity: 50,
+                    }
+                ],
+                createdAt: '2024-07-10T00:00:00.000Z',
+                updatedAt: '2024-12-15T00:00:00.000Z',
+            }
+        ];
+
+        function checkLocalStorage() {
+            const result = document.getElementById('storage-result');
+            try {
+                const positions = localStorage.getItem('stock_tracker_positions');
+                const transactions = localStorage.getItem('stock_tracker_transactions');
+                const portfolios = localStorage.getItem('stock_tracker_portfolios');
+                
+                result.innerHTML = `
+                    <h3>Current localStorage Data:</h3>
+                    <div class="info">
+                        <strong>Positions:</strong> ${positions ? JSON.parse(positions).length : 0} items<br>
+                        <strong>Transactions:</strong> ${transactions ? JSON.parse(transactions).length : 0} items<br>
+                        <strong>Portfolios:</strong> ${portfolios ? JSON.parse(portfolios).length : 0} items
+                    </div>
+                    <details>
+                        <summary>Raw Data</summary>
+                        <pre>Positions: ${positions || 'null'}</pre>
+                    </details>
+                `;
+            } catch (error) {
+                result.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+
+        function addSampleData() {
+            const result = document.getElementById('add-result');
+            try {
+                localStorage.setItem('stock_tracker_positions', JSON.stringify(samplePositions));
+                result.innerHTML = `
+                    <div class="success">
+                        ✅ Successfully added ${samplePositions.length} sample positions to localStorage!
+                    </div>
+                `;
+                // Re-check storage
+                checkLocalStorage();
+            } catch (error) {
+                result.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+
+        function openPositionsPage() {
+            window.open('http://localhost:5175/positions', '_blank');
+        }
+
+        function reloadApp() {
+            if (window.location.hostname === 'localhost' && window.location.port === '5175') {
+                window.location.reload();
+            } else {
+                window.open('http://localhost:5175/', '_blank');
+            }
+        }
+
+        function clearAllData() {
+            const result = document.getElementById('clear-result');
+            if (confirm('Are you sure you want to clear all localStorage data?')) {
+                localStorage.removeItem('stock_tracker_positions');
+                localStorage.removeItem('stock_tracker_transactions');
+                localStorage.removeItem('stock_tracker_portfolios');
+                localStorage.removeItem('stock_tracker_settings');
+                localStorage.removeItem('stock_tracker_cache');
+                localStorage.removeItem('stock_tracker_metadata');
+                
+                result.innerHTML = `<div class="success">✅ All data cleared from localStorage</div>`;
+                checkLocalStorage();
+            }
+        }
+
+        // Auto-check on page load
+        window.onload = function() {
+            checkLocalStorage();
+        };
+    </script>
+</body>
+</html>

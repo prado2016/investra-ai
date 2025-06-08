@@ -1,0 +1,214 @@
+import { useState, useCallback, useRef } from 'react';
+import { useNotify } from './useNotify';
+
+export interface RetryOptions {
+  maxAttempts?: number;
+  baseDelay?: number; // ms
+  maxDelay?: number; // ms
+  backoffFactor?: number;
+  retryCondition?: (error: any) => boolean;
+  onRetryAttempt?: (attempt: number, error: any) => void;
+  onMaxAttemptsReached?: (error: any) => void;
+}
+
+export interface RetryState {
+  isRetrying: boolean;
+  currentAttempt: number;
+  lastError: any;
+  totalAttempts: number;
+}
+
+const DEFAULT_OPTIONS: Required<RetryOptions> = {
+  maxAttempts: 3,
+  baseDelay: 1000,
+  maxDelay: 10000,
+  backoffFactor: 2,
+  retryCondition: (error) => {
+    // Default: retry on network errors, timeouts, and 5xx status codes
+    if (typeof error === 'string') {
+      const errorStr = error.toLowerCase();
+      return errorStr.includes('network') || 
+             errorStr.includes('timeout') || 
+             errorStr.includes('fetch') ||
+             errorStr.includes('connection');
+    }
+    
+    if (error?.status) {
+      return error.status >= 500 || error.status === 408 || error.status === 429;
+    }
+    
+    if (error?.code) {
+      const retryableCodes = ['NETWORK_ERROR', 'TIMEOUT', 'CONNECTION_ERROR'];
+      return retryableCodes.includes(error.code);
+    }
+    
+    return false;
+  },
+  onRetryAttempt: () => {},
+  onMaxAttemptsReached: () => {}
+};
+
+/**
+ * Hook for implementing retry logic with exponential backoff
+ */
+export const useRetry = (options: RetryOptions = {}) => {
+  const opts = { ...DEFAULT_OPTIONS, ...options };
+  const notify = useNotify();
+  
+  const [state, setState] = useState<RetryState>({
+    isRetrying: false,
+    currentAttempt: 0,
+    lastError: null,
+    totalAttempts: 0
+  });
+
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  const calculateDelay = (attempt: number): number => {
+    const delay = opts.baseDelay * Math.pow(opts.backoffFactor, attempt - 1);
+    return Math.min(delay, opts.maxDelay);
+  };
+
+  const sleep = (ms: number): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      const timeoutId = setTimeout(resolve, ms);
+      
+      // Allow abortion of sleep
+      if (abortControllerRef.current) {
+        abortControllerRef.current.signal.addEventListener('abort', () => {
+          clearTimeout(timeoutId);
+          reject(new Error('Retry aborted'));
+        });
+      }
+    });
+  };
+
+  const executeWithRetry = useCallback(async <T>(
+    operation: () => Promise<T>,
+    customOptions?: Partial<RetryOptions>
+  ): Promise<T> => {
+    const config = { ...opts, ...customOptions };
+    let lastError: any;
+
+    // Create abort controller for this retry session
+    abortControllerRef.current = new AbortController();
+
+    setState(prev => ({
+      ...prev,
+      isRetrying: false,
+      currentAttempt: 0,
+      totalAttempts: prev.totalAttempts + 1
+    }));
+
+    for (let attempt = 1; attempt <= config.maxAttempts; attempt++) {
+      try {
+        setState(prev => ({
+          ...prev,
+          currentAttempt: attempt,
+          isRetrying: attempt > 1
+        }));
+
+        const result = await operation();
+        
+        // Success - reset state
+        setState(prev => ({
+          ...prev,
+          isRetrying: false,
+          currentAttempt: 0,
+          lastError: null
+        }));
+        
+        abortControllerRef.current = null;
+        return result;
+
+      } catch (error) {
+        lastError = error;
+        
+        setState(prev => ({
+          ...prev,
+          lastError: error
+        }));
+
+        // Check if we should retry this error
+        if (!config.retryCondition(error) || attempt >= config.maxAttempts) {
+          break;
+        }
+
+        // Calculate delay for next attempt
+        const delay = calculateDelay(attempt);
+        
+        // Notify about retry attempt
+        config.onRetryAttempt(attempt, error);
+        
+        if (attempt < config.maxAttempts) {
+          // Show user feedback for retries
+          const errorMsg = (error as any)?.message || (error as any)?.toString() || 'Operation failed';
+          notify.warning(
+            `Retrying... (${attempt}/${config.maxAttempts})`,
+            `${errorMsg}. Retrying in ${Math.round(delay / 1000)}s`,
+            { duration: delay }
+          );
+        }
+
+        // Wait before next attempt
+        try {
+          await sleep(delay);
+        } catch (abortError) {
+          // Retry was aborted
+          setState(prev => ({
+            ...prev,
+            isRetrying: false,
+            currentAttempt: 0
+          }));
+          abortControllerRef.current = null;
+          throw abortError;
+        }
+      }
+    }
+
+    // All attempts failed
+    setState(prev => ({
+      ...prev,
+      isRetrying: false,
+      currentAttempt: 0
+    }));
+
+    config.onMaxAttemptsReached(lastError);
+    abortControllerRef.current = null;
+    
+    // Show final failure notification
+    const errorMsg = lastError?.message || lastError?.toString() || 'Operation failed';
+    notify.error(
+      'Operation Failed',
+      `Failed after ${config.maxAttempts} attempts: ${errorMsg}`,
+      { duration: 8000 }
+    );
+
+    throw lastError;
+  }, [opts, notify]);
+
+  const abort = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+  }, []);
+
+  const reset = useCallback(() => {
+    setState({
+      isRetrying: false,
+      currentAttempt: 0,
+      lastError: null,
+      totalAttempts: 0
+    });
+    abort();
+  }, [abort]);
+
+  return {
+    ...state,
+    executeWithRetry,
+    abort,
+    reset
+  };
+};
+
+export default useRetry;
