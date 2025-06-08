@@ -1,14 +1,14 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useNotify } from './useNotify';
 
-export interface ValidationRule<T = any> {
+export interface ValidationRule<T = unknown> {
   required?: boolean | string;
   min?: number | string;
   max?: number | string;
   minLength?: number | string;
   maxLength?: number | string;
   pattern?: RegExp | string;
-  custom?: (value: T, formData: Record<string, any>) => string | boolean;
+  custom?: (value: T, formData: Record<string, unknown>) => string | boolean;
   email?: boolean | string;
   number?: boolean | string;
   integer?: boolean | string;
@@ -25,7 +25,7 @@ export interface FieldError {
   type: string;
 }
 
-export interface FormState<T = Record<string, any>> {
+export interface FormState<T = Record<string, unknown>> {
   values: T;
   errors: Record<keyof T, FieldError | null>;
   touched: Record<keyof T, boolean>;
@@ -57,7 +57,7 @@ const defaultValidationMessages = {
   pattern: 'Invalid format'
 };
 
-export const useForm = <T extends Record<string, any>>(options: UseFormOptions<T>) => {
+export const useForm = <T extends Record<string, unknown>>(options: UseFormOptions<T>) => {
   const { 
     initialValues, 
     validationSchema = {}, 
@@ -78,7 +78,7 @@ export const useForm = <T extends Record<string, any>>(options: UseFormOptions<T
     isDirty: false
   });
 
-  const validateField = useCallback((name: keyof T, value: any, allValues: T): FieldError | null => {
+  const validateField = useCallback((name: keyof T, value: T[keyof T], allValues: T): FieldError | null => {
     const rules = validationSchema[name as string];
     if (!rules) return null;
 

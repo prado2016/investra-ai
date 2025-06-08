@@ -57,7 +57,7 @@ export function SymbolInputWithAI({
         setSuggestions([]);
         setShowSuggestions(false);
       }
-    } catch (err) {
+    } catch {
       setValidationState('invalid');
       setSuggestions([]);
       setShowSuggestions(false);

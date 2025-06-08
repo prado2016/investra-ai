@@ -9,7 +9,8 @@ import { offlineStorageService } from '../services/offlineStorageService';
 import type { SyncStatus } from '../services/offlineStorageService';
 import { useAuth } from '../hooks/useAuth';
 import type { Portfolio } from '../lib/database/types';
-import { OfflineContext, OfflineContextType } from './OfflineContext';
+import { OfflineContext } from './OfflineContext';
+import type { OfflineContextType } from './OfflineContext';
 
 // Provider props
 interface OfflineProviderProps {
@@ -21,8 +22,7 @@ interface OfflineProviderProps {
  * Offline Provider Component
  */
 export const OfflineProvider: React.FC<OfflineProviderProps> = ({ 
-  children, 
-  enablePeriodicSync = true 
+  children
 }) => {
   const { user } = useAuth();
   const [isInitialized, setIsInitialized] = useState(false);

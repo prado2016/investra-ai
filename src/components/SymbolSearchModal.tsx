@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import styled from 'styled-components';
-import { Search, X, TrendingUp, Building, Zap, CheckCircle, AlertCircle } from 'lucide-react';
+import { Search, TrendingUp, Building, Zap, CheckCircle, AlertCircle } from 'lucide-react';
 import { useAISymbolLookup } from '../hooks/useAISymbolLookup';
 import { Modal } from './ui/Modal';
 import type { SymbolLookupResult } from '../types/ai';
@@ -225,8 +225,7 @@ export const SymbolSearchModal: React.FC<SymbolSearchModalProps> = ({
   isOpen,
   onClose,
   onSelectSymbol,
-  initialQuery = '',
-  assetTypes = ['all']
+  initialQuery = ''
 }) => {
   const [query, setQuery] = useState(initialQuery);
   const [selectedFilter, setSelectedFilter] = useState('all');
@@ -244,17 +243,16 @@ export const SymbolSearchModal: React.FC<SymbolSearchModalProps> = ({
     const timeoutId = setTimeout(async () => {
       try {
         const response = await searchSymbols(query, {
-          maxResults: 10,
-          includeAnalysis: false
+          limit: 10
         });
 
         if (response.success && response.data) {
-          let filteredResults = response.data.results;
+          let filteredResults = response.data;
           
           // Apply asset type filter
           if (selectedFilter !== 'all') {
             filteredResults = filteredResults.filter(
-              result => result.assetType === selectedFilter
+              (result: SymbolLookupResult) => result.assetType === selectedFilter
             );
           }
           

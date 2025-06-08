@@ -141,10 +141,10 @@ const server = setupServer(
 
 // Create a wrapper component with all necessary providers
 function TestWrapper({ children }: { children: React.ReactNode }) {
-  return (
-    <NotificationProvider>
-      {children}
-    </NotificationProvider>
+  return React.createElement(
+    NotificationProvider,
+    null,
+    children
   );
 }
 

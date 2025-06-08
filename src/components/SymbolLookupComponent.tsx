@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Search, AlertCircle, CheckCircle, Clock, Zap, TrendingUp } from 'lucide-react';
-import { useSymbolLookup, useSymbolValidation } from '../hooks/useSymbolLookup';
-import type { SymbolMatch, SymbolSuggestion } from '../services/endpoints/symbolLookupEndpoint';
+import { useSymbolLookup } from '../hooks/useSymbolLookup';
+import type { SymbolMatch } from '../services/endpoints/symbolLookupEndpoint';
 
 interface SymbolLookupComponentProps {
   onSymbolSelect?: (symbol: string, match: SymbolMatch) => void;
@@ -18,7 +18,6 @@ export function SymbolLookupComponent({
   placeholder = "Enter stock symbol (e.g., AAPL, Apple Inc.)...",
   className = "",
   showSuggestions = true,
-  showValidation = true,
   autoFocus = false,
   disabled = false,
 }: SymbolLookupComponentProps) {
@@ -27,7 +26,7 @@ export function SymbolLookupComponent({
   const [selectedIndex, setSelectedIndex] = useState(-1);
 
   const symbolLookup = useSymbolLookup({
-    onSuccess: (response) => {
+    onSuccess: () => {
       setShowResults(true);
       setSelectedIndex(-1);
     },

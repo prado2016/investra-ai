@@ -1,3 +1,12 @@
+  import { describe, test, expect, beforeEach } from 'vitest';
+import { DailyPLAnalyticsService } from './dailyPLService';
+import type { Asset } from '../../lib/database/types';
+
+describe('DailyPLAnalyticsService', () => {
+  let service: DailyPLAnalyticsService;
+
+  beforeEach(() => {
+    service = new DailyPLAnalyticsService();
   });
 
   const createMockAsset = (symbol: string): Asset => ({
@@ -76,7 +85,8 @@
         createMockPosition('pos-1', 'asset-1', 100, 150)
       ];
 
-      // Mock the service methods
+      // Mock the service methods  
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { SupabaseService } = require('../services/supabaseService');
       SupabaseService.transaction.getTransactions.mockResolvedValue({
         success: true,
@@ -108,6 +118,7 @@
         createMockPosition('pos-1', 'asset-1', 100, 150)
       ];
 
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { SupabaseService } = require('../services/supabaseService');
       SupabaseService.transaction.getTransactions.mockResolvedValue({
         success: true,
@@ -131,6 +142,7 @@
     });
 
     test('should handle days with no transactions', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { SupabaseService } = require('../services/supabaseService');
       SupabaseService.transaction.getTransactions.mockResolvedValue({
         success: true,
@@ -166,6 +178,7 @@
         createMockPosition('pos-1', 'asset-1', 50, 150)
       ];
 
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { SupabaseService } = require('../services/supabaseService');
       SupabaseService.transaction.getTransactions.mockResolvedValue({
         success: true,
@@ -193,6 +206,7 @@
     });
 
     test('should handle Supabase errors gracefully', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { SupabaseService } = require('../services/supabaseService');
       SupabaseService.transaction.getTransactions.mockResolvedValue({
         success: false,
@@ -212,6 +226,7 @@
 
   describe('getCurrentMonthPL', () => {
     test('should get current month P/L data', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { SupabaseService } = require('../services/supabaseService');
       SupabaseService.transaction.getTransactions.mockResolvedValue({
         success: true,
@@ -234,6 +249,7 @@
 
   describe('getMultiMonthTrend', () => {
     test('should calculate multi-month trend data', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { SupabaseService } = require('../services/supabaseService');
       SupabaseService.transaction.getTransactions.mockResolvedValue({
         success: true,

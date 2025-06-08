@@ -5,10 +5,11 @@
 
 import React, { useState } from 'react';
 import { AIIntegrationService } from '../services/aiIntegrationService';
+import type { SymbolLookupResult } from '../types/ai';
 
 const QuickAIDemo: React.FC = () => {
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<any[]>([]);
+  const [results, setResults] = useState<SymbolLookupResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 

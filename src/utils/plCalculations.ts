@@ -311,7 +311,7 @@ function calculateFIFORealizedPL(transactions: Transaction[]): number {
       });
     } else if (transaction.type === 'sell') {
       let remainingToSell = transaction.quantity;
-      let sellProceeds = transaction.totalAmount - (transaction.fees || 0);
+      const sellProceeds = transaction.totalAmount - (transaction.fees || 0);
       let costBasis = 0;
 
       while (remainingToSell > 0 && buyQueue.length > 0) {
@@ -352,7 +352,7 @@ function calculateLIFORealizedPL(transactions: Transaction[]): number {
       });
     } else if (transaction.type === 'sell') {
       let remainingToSell = transaction.quantity;
-      let sellProceeds = transaction.totalAmount - (transaction.fees || 0);
+      const sellProceeds = transaction.totalAmount - (transaction.fees || 0);
       let costBasis = 0;
 
       while (remainingToSell > 0 && buyStack.length > 0) {
@@ -467,7 +467,7 @@ function calculateAssetTaxGains(
       });
     } else if (transaction.type === 'sell') {
       let remainingToSell = transaction.quantity;
-      let sellProceeds = transaction.totalAmount - (transaction.fees || 0);
+      const sellProceeds = transaction.totalAmount - (transaction.fees || 0);
       const sellDate = new Date(transaction.date);
 
       while (remainingToSell > 0 && buyQueue.length > 0) {

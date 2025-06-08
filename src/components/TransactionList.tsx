@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react';
 import styled from 'styled-components';
-import type { Transaction as PortfolioTransaction } from '../types/portfolio';
 import type { Transaction, Asset } from '../lib/database/types';
 import { formatCurrency, formatDate } from '../utils/formatting';
 import CompanyLogo from './CompanyLogo';

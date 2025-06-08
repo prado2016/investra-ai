@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react'
-import { useOffline, useOfflineStatus } from '../../contexts/OfflineContext'
-import { useNotifications } from '../../contexts/NotificationContext'
+import { useOffline } from '../../hooks/useOffline'
+import { useNotifications } from '../../hooks/useNotifications'
+import type { Portfolio } from '../../lib/database/types'
 
 const OfflineStatusComponent: React.FC = () => {
   const { 
@@ -8,20 +9,14 @@ const OfflineStatusComponent: React.FC = () => {
     getPortfoliosOffline, 
     syncNow, 
     clearOfflineData, 
-    isInitialized 
+    isInitialized,
+    isOnline,
+    isSyncing,
+    syncStatus
   } = useOffline()
   
-  const { 
-    isOnline, 
-    isSyncing, 
-    queueSize, 
-    lastSyncTime, 
-    syncErrors, 
-    hasErrors 
-  } = useOfflineStatus()
-  
   const [portfolioName, setPortfolioName] = useState('')
-  const [offlinePortfolios, setOfflinePortfolios] = useState<any[]>([])
+  const [offlinePortfolios, setOfflinePortfolios] = useState<Portfolio[]>([])
   const [loading, setLoading] = useState(false)
   const { success, error, info, warning } = useNotifications()
 
@@ -185,17 +180,17 @@ const OfflineStatusComponent: React.FC = () => {
           </div>
           
           <div style={{ fontSize: '0.9em', color: '#666' }}>
-            Queue: {queueSize} items
+            Queue: {syncStatus.queueSize || 0} items
           </div>
         </div>
 
-        {lastSyncTime && (
+        {syncStatus.lastSyncTime && (
           <div style={{ fontSize: '0.9em', color: '#666', marginBottom: '10px' }}>
-            Last sync: {lastSyncTime.toLocaleTimeString()}
+            Last sync: {syncStatus.lastSyncTime.toLocaleTimeString()}
           </div>
         )}
 
-        {hasErrors && (
+        {syncStatus.syncErrors && syncStatus.syncErrors.length > 0 && (
           <div style={{ 
             fontSize: '0.9em', 
             color: '#dc3545',
@@ -204,7 +199,7 @@ const OfflineStatusComponent: React.FC = () => {
             borderRadius: '4px',
             marginTop: '10px'
           }}>
-            ❌ Sync errors: {syncErrors.join(', ')}
+            ❌ Sync errors: {syncStatus.syncErrors.join(', ')}
           </div>
         )}
       </div>

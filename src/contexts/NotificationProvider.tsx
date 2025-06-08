@@ -4,8 +4,7 @@ import {
   NotificationContext, 
   type NotificationContextType,
   type Notification,
-  type NotificationOptions,
-  type NotificationType
+  type NotificationOptions
 } from './NotificationContext';
 
 interface NotificationProviderProps {

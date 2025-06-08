@@ -305,7 +305,7 @@ const Settings: React.FC = () => {
       console.log('📦 Exporting data from Supabase...');
 
       // Get all transactions across all portfolios
-      let allTransactions = [];
+      const allTransactions = [];
       let allAssets = [];
       
       for (const portfolio of portfolios) {
@@ -378,7 +378,7 @@ const Settings: React.FC = () => {
       await importData(importFile);
       showMessage('Data imported successfully! Page will reload to reflect changes.', 'success');
       setTimeout(() => window.location.reload(), 2000);
-    } catch (error) {
+    } catch {
       showMessage('Failed to import data. Please check the file format.', 'error');
     } finally {
       setIsLoading(false);
@@ -395,7 +395,7 @@ const Settings: React.FC = () => {
       await clearAllData();
       showMessage('All data cleared successfully! Page will reload.', 'success');
       setTimeout(() => window.location.reload(), 2000);
-    } catch (error) {
+    } catch {
       showMessage('Failed to clear data. Please try again.', 'error');
     } finally {
       setIsLoading(false);

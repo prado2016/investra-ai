@@ -20,7 +20,6 @@ const AlertContainer = styled.div<{ $variant: AlertProps['variant'] }>`
   border: 1px solid;
   
   ${props => {
-    const theme = props.theme;
     switch (props.$variant) {
       case 'success':
         return `

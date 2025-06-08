@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { dataMigrationService } from '../../services/dataMigrationService'
-import type { MigrationStatus, MigrationSummary } from '../../services/dataMigrationService'
+import type { MigrationStatus } from '../../services/dataMigrationService'
 import { useNotifications } from '../../contexts/NotificationContext'
 
 const DataMigrationComponent: React.FC = () => {

@@ -98,7 +98,7 @@ if (!global.fetch) {
 
 // Add helpful global test utilities
 declare global {
-  var testUtils: {
+  let testUtils: {
     mockLocalStorage: typeof localStorageMock
     mockSessionStorage: typeof sessionStorageMock
   }

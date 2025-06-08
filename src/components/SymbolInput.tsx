@@ -5,7 +5,6 @@
 
 import React from 'react';
 import { Search } from 'lucide-react';
-import { InputField } from './FormFields';
 import { EnhancedSymbolInput } from './EnhancedSymbolInput';
 import type { AssetType } from '../types/portfolio';
 import type { SymbolLookupResult } from '../types/ai';

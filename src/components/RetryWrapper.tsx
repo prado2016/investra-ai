@@ -96,13 +96,13 @@ const AbortButton = styled.button`
 interface RetryWrapperProps<T> {
   operation: () => Promise<T>;
   onSuccess?: (result: T) => void;
-  onError?: (error: any) => void;
+  onError?: (error: Error) => void;
   retryOptions?: RetryOptions;
   children?: (data: {
     execute: () => void;
     isRetrying: boolean;
     currentAttempt: number;
-    lastError: any;
+    lastError: Error | null;
     result?: T;
   }) => React.ReactNode;
   fallback?: React.ReactNode;
@@ -142,7 +142,8 @@ export function RetryWrapper<T>({
       onSuccess?.(data);
     } catch (error) {
       setHasSucceeded(false);
-      onError?.(error);
+      const errorInstance = error instanceof Error ? error : new Error(String(error));
+      onError?.(errorInstance);
     }
   }, [operation, retry, onSuccess, onError]);
 

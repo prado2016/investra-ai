@@ -38,7 +38,18 @@ interface UseAISymbolLookupReturn {
   isAnalyzing: boolean;
   
   // Health and cache
-  getHealthStatus: () => Promise<APIResponse<any>>;
+  getHealthStatus: () => Promise<APIResponse<{
+    status: 'healthy' | 'degraded' | 'unhealthy';
+    providers: Record<AIProvider, {
+      available: boolean;
+      latency?: number;
+      error?: string;
+    }>;
+    cache: {
+      entries: number;
+      hitRate: number;
+    };
+  }>>;
   clearCache: () => void;
   
   // Error handling

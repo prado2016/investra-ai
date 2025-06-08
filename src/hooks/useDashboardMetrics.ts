@@ -74,17 +74,13 @@ export function useDashboardMetrics(): UseDashboardMetricsReturn {
       );
 
       let monthlyRealizedPL = 0;
-      let monthlyUnrealizedPL = 0;
       let monthlyDividends = 0;
       let monthlyFees = 0;
-      let monthlyVolume = 0;
 
       if (monthResult.data) {
         monthlyRealizedPL = monthResult.data.totalRealizedPL;
-        monthlyUnrealizedPL = monthResult.data.totalUnrealizedPL;
         monthlyDividends = monthResult.data.totalDividends;
         monthlyFees = monthResult.data.totalFees;
-        monthlyVolume = monthResult.data.totalVolume;
       }
 
       // Calculate current unrealized P/L from positions

@@ -1,13 +1,14 @@
 import React, { useState, useCallback } from 'react'
 import { SupabaseService } from '../../services'
-import { useNotifications } from '../../contexts/NotificationContext'
+import { useNotifications } from '../../hooks/useNotifications'
+import type { Portfolio } from '../../lib/database/types'
 
 const PortfolioDemo: React.FC = () => {
   const [portfolioName, setPortfolioName] = useState('')
   const [portfolioDescription, setPortfolioDescription] = useState('')
   const [currency, setCurrency] = useState('USD')
   const [loading, setLoading] = useState(false)
-  const [portfolios, setPortfolios] = useState<any[]>([])
+  const [portfolios, setPortfolios] = useState<Portfolio[]>([])
   const { success, error } = useNotifications()
 
   const handleCreatePortfolio = async (e: React.FormEvent) => {
@@ -64,10 +65,7 @@ const PortfolioDemo: React.FC = () => {
         'AAPL', // symbol
         10,     // quantity
         150.50, // price
-        new Date().toISOString(), // date
-        1.99,   // fees
-        'stock',
-        'USD'
+        new Date().toISOString() // date
       )
 
       if (result.success && result.data) {

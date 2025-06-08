@@ -202,16 +202,18 @@ export const SymbolSuggestions: React.FC<SymbolSuggestionsProps> = ({
       if (!isVisible || suggestions.length === 0) return;
 
       switch (e.key) {
-        case 'ArrowDown':
+        case 'ArrowDown': {
           e.preventDefault();
           const nextIndex = highlightedIndex < suggestions.length - 1 ? highlightedIndex + 1 : 0;
           onHighlightChange?.(nextIndex);
           break;
-        case 'ArrowUp':
+        }
+        case 'ArrowUp': {
           e.preventDefault();
           const prevIndex = highlightedIndex > 0 ? highlightedIndex - 1 : suggestions.length - 1;
           onHighlightChange?.(prevIndex);
           break;
+        }
         case 'Enter':
           e.preventDefault();
           if (highlightedIndex >= 0 && suggestions[highlightedIndex]) {

@@ -1,15 +1,16 @@
 import React, { useState, useCallback } from 'react'
 import { SupabaseService } from '../../services'
-import { useNotifications } from '../../contexts/NotificationContext'
-import { useRealtimePortfolios, useRealtimeTransactions } from '../../contexts/RealtimeContext'
-import type { RealtimeEvent, Portfolio, Transaction } from '../../lib/database/types'
+import { useNotifications } from '../../hooks/useNotifications'
+import { useRealtimePortfolios, useRealtimeTransactions } from '../../hooks/useRealtimeSubscriptions'
+import type { RealtimeEvent } from '../../services/realtimeService'
+import type { Portfolio, Transaction } from '../../lib/database/types'
 
 const RealtimePortfolioDemo: React.FC = () => {
   const [portfolioName, setPortfolioName] = useState('')
   const [portfolioDescription, setPortfolioDescription] = useState('')
   const [currency, setCurrency] = useState('USD')
   const [loading, setLoading] = useState(false)
-  const [portfolios, setPortfolios] = useState<any[]>([])
+  const [portfolios, setPortfolios] = useState<Portfolio[]>([])
   const [realtimeEvents, setRealtimeEvents] = useState<RealtimeEvent[]>([])
   const { success, error } = useNotifications()
 
@@ -20,7 +21,7 @@ const RealtimePortfolioDemo: React.FC = () => {
     setRealtimeEvents(prev => [event, ...prev.slice(0, 4)]) // Keep last 5 events
     
     if (event.eventType === 'INSERT' && event.new) {
-      setPortfolios(prev => [...prev, event.new])
+      setPortfolios(prev => [...prev, event.new!])
       success('Portfolio Added!', `New portfolio "${event.new.name}" was created`)
     } else if (event.eventType === 'UPDATE' && event.new) {
       setPortfolios(prev => prev.map(p => p.id === event.new!.id ? event.new! : p))
@@ -100,10 +101,7 @@ const RealtimePortfolioDemo: React.FC = () => {
         'AAPL',
         10,
         150.50,
-        new Date().toISOString(),
-        1.99,
-        'stock',
-        'USD'
+        new Date().toISOString()
       )
 
       if (result.success && result.data) {

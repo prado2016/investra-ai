@@ -5,10 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Search, 
-  TrendingUp, 
   CheckCircle, 
   AlertCircle, 
-  Clock,
   Zap,
   BarChart3
 } from 'lucide-react';
@@ -16,7 +14,6 @@ import SymbolLookupComponent from '../SymbolLookupComponent';
 import SymbolInputWithAI from '../SymbolInputWithAI';
 import SymbolLookupMonitoring from '../SymbolLookupMonitoring';
 import { useSymbolLookup, useSymbolValidation } from '../../hooks/useSymbolLookup';
-import type { SymbolMatch } from '../../services/endpoints/symbolLookupEndpoint';
 
 export function AISymbolLookupDemo() {
   const [selectedSymbols, setSelectedSymbols] = useState<string[]>([]);
@@ -28,7 +25,6 @@ export function AISymbolLookupDemo() {
     isLoading: lookupLoading, 
     error: lookupError,
     rateLimitInfo,
-    lookupSymbol,
     clearError
   } = useSymbolLookup({
     onSuccess: (response) => {
@@ -45,7 +41,7 @@ export function AISymbolLookupDemo() {
     error: validationError
   } = useSymbolValidation();
 
-  const handleSymbolSelect = (symbol: string, match: SymbolMatch) => {
+  const handleSymbolSelect = (symbol: string) => {
     if (!selectedSymbols.includes(symbol)) {
       setSelectedSymbols(prev => [...prev, symbol]);
     }

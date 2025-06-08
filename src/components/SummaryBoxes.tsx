@@ -7,7 +7,6 @@ import React from 'react';
 import styled from 'styled-components';
 import { 
   TrendingUp, 
-  TrendingDown, 
   DollarSign, 
   Activity, 
   Target, 

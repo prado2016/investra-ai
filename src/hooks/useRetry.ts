@@ -6,15 +6,15 @@ export interface RetryOptions {
   baseDelay?: number; // ms
   maxDelay?: number; // ms
   backoffFactor?: number;
-  retryCondition?: (error: any) => boolean;
-  onRetryAttempt?: (attempt: number, error: any) => void;
-  onMaxAttemptsReached?: (error: any) => void;
+  retryCondition?: (error: unknown) => boolean;
+  onRetryAttempt?: (attempt: number, error: unknown) => void;
+  onMaxAttemptsReached?: (error: unknown) => void;
 }
 
 export interface RetryState {
   isRetrying: boolean;
   currentAttempt: number;
-  lastError: any;
+  lastError: unknown;
   totalAttempts: number;
 }
 
@@ -23,7 +23,7 @@ const DEFAULT_OPTIONS: Required<RetryOptions> = {
   baseDelay: 1000,
   maxDelay: 10000,
   backoffFactor: 2,
-  retryCondition: (error) => {
+  retryCondition: (error: unknown) => {
     // Default: retry on network errors, timeouts, and 5xx status codes
     if (typeof error === 'string') {
       const errorStr = error.toLowerCase();
@@ -33,13 +33,17 @@ const DEFAULT_OPTIONS: Required<RetryOptions> = {
              errorStr.includes('connection');
     }
     
-    if (error?.status) {
-      return error.status >= 500 || error.status === 408 || error.status === 429;
+    // Handle error objects with status property
+    if (error && typeof error === 'object' && 'status' in error) {
+      const status = (error as { status: number }).status;
+      return status >= 500 || status === 408 || status === 429;
     }
     
-    if (error?.code) {
+    // Handle error objects with code property
+    if (error && typeof error === 'object' && 'code' in error) {
+      const code = (error as { code: string }).code;
       const retryableCodes = ['NETWORK_ERROR', 'TIMEOUT', 'CONNECTION_ERROR'];
-      return retryableCodes.includes(error.code);
+      return retryableCodes.includes(code);
     }
     
     return false;
@@ -64,10 +68,10 @@ export const useRetry = (options: RetryOptions = {}) => {
 
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  const calculateDelay = (attempt: number): number => {
+  const calculateDelay = useCallback((attempt: number): number => {
     const delay = opts.baseDelay * Math.pow(opts.backoffFactor, attempt - 1);
     return Math.min(delay, opts.maxDelay);
-  };
+  }, [opts.baseDelay, opts.backoffFactor, opts.maxDelay]);
 
   const sleep = (ms: number): Promise<void> => {
     return new Promise((resolve, reject) => {
@@ -88,7 +92,7 @@ export const useRetry = (options: RetryOptions = {}) => {
     customOptions?: Partial<RetryOptions>
   ): Promise<T> => {
     const config = { ...opts, ...customOptions };
-    let lastError: any;
+    let lastError: unknown;
 
     // Create abort controller for this retry session
     abortControllerRef.current = new AbortController();
@@ -142,7 +146,7 @@ export const useRetry = (options: RetryOptions = {}) => {
         
         if (attempt < config.maxAttempts) {
           // Show user feedback for retries
-          const errorMsg = (error as any)?.message || (error as any)?.toString() || 'Operation failed';
+          const errorMsg = (error as Error)?.message || String(error) || 'Operation failed';
           notify.warning(
             `Retrying... (${attempt}/${config.maxAttempts})`,
             `${errorMsg}. Retrying in ${Math.round(delay / 1000)}s`,
@@ -177,7 +181,7 @@ export const useRetry = (options: RetryOptions = {}) => {
     abortControllerRef.current = null;
     
     // Show final failure notification
-    const errorMsg = lastError?.message || lastError?.toString() || 'Operation failed';
+    const errorMsg = (lastError as Error)?.message || String(lastError) || 'Operation failed';
     notify.error(
       'Operation Failed',
       `Failed after ${config.maxAttempts} attempts: ${errorMsg}`,
@@ -185,7 +189,7 @@ export const useRetry = (options: RetryOptions = {}) => {
     );
 
     throw lastError;
-  }, [opts, notify]);
+  }, [opts, notify, calculateDelay]);
 
   const abort = useCallback(() => {
     if (abortControllerRef.current) {

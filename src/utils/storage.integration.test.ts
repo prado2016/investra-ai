@@ -58,7 +58,7 @@ describe('Storage Service + Hooks Integration', () => {
       storageService.savePosition(mockPosition);
       
       const { result } = renderHook(() => usePositions(), {
-        wrapper: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>
+        wrapper: ({ children }: { children?: React.ReactNode }) => React.createElement('div', null, children)
       });
 
       // Wait for initial load
@@ -73,7 +73,7 @@ describe('Storage Service + Hooks Integration', () => {
 
     it('should save position through hook and update storage', async () => {
       const { result } = renderHook(() => usePositions(), {
-        wrapper: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>
+        wrapper: ({ children }: { children?: React.ReactNode }) => React.createElement("div", null, children)
       });
 
       await act(async () => {
@@ -94,7 +94,7 @@ describe('Storage Service + Hooks Integration', () => {
       storageService.savePosition(mockPosition);
       
       const { result } = renderHook(() => usePositions(), {
-        wrapper: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>
+        wrapper: ({ children }: { children?: React.ReactNode }) => React.createElement("div", null, children)
       });
 
       await act(async () => {
@@ -127,7 +127,7 @@ describe('Storage Service + Hooks Integration', () => {
 
     it('should save and load transactions correctly', async () => {
       const { result } = renderHook(() => useTransactions(), {
-        wrapper: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>
+        wrapper: ({ children }: { children?: React.ReactNode }) => React.createElement('div', null, children)
       });
 
       await act(async () => {

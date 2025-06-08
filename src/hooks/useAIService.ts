@@ -16,7 +16,7 @@ import type {
 interface UseAIServiceReturn {
   // Service management
   isInitialized: boolean;
-  initializeService: (provider: AIProvider, config?: any) => Promise<boolean>;
+  initializeService: (provider: AIProvider, config?: Record<string, unknown>) => Promise<boolean>;
   
   // Symbol lookup
   lookupSymbols: (request: SymbolLookupRequest, provider?: AIProvider) => Promise<SymbolLookupResponse>;
@@ -30,7 +30,7 @@ interface UseAIServiceReturn {
   
   // Service health
   testConnection: (provider: AIProvider) => Promise<{ success: boolean; error?: string; latency?: number }>;
-  getHealthStatus: () => Promise<Record<string, any>>;
+  getHealthStatus: () => Promise<Record<string, { available: boolean; latency?: number; error?: string }>>;
   
   // Cache management
   clearCache: () => void;
@@ -53,7 +53,7 @@ export function useAIService(): UseAIServiceReturn {
     checkInitialization();
   }, []);
 
-  const initializeService = useCallback(async (provider: AIProvider, config?: any): Promise<boolean> => {
+  const initializeService = useCallback(async (provider: AIProvider, config?: Record<string, unknown>): Promise<boolean> => {
     try {
       const success = await aiServiceManager.initializeService(provider, config);
       if (success) {

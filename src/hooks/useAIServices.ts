@@ -35,7 +35,7 @@ interface UseAIServicesReturn {
   clearCache: () => void;
   
   // Health status
-  healthStatus: Record<string, any>;
+  healthStatus: Record<string, { available: boolean; latency?: number; error?: string }>;
   refreshHealthStatus: () => Promise<void>;
   
   // Error handling
@@ -49,7 +49,7 @@ export const useAIServices = (): UseAIServicesReturn => {
   const [activeProvider, setActiveProvider] = useState<AIProvider | null>(null);
   const [isLookingUp, setIsLookingUp] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [healthStatus, setHealthStatus] = useState<Record<string, any>>({});
+  const [healthStatus, setHealthStatus] = useState<Record<string, { available: boolean; latency?: number; error?: string }>>({});
   const [lastError, setLastError] = useState<string | null>(null);
 
   // Initialize services on mount
@@ -77,8 +77,7 @@ export const useAIServices = (): UseAIServicesReturn => {
         setAvailableProviders(initializedProviders);
         setIsInitialized(true);
 
-        // Get initial health status
-        await refreshHealthStatus();
+        // Initial health status will be fetched by the refreshHealthStatus function
       } catch (error) {
         console.error('Failed to initialize AI services:', error);
         setLastError(error instanceof Error ? error.message : 'Unknown initialization error');

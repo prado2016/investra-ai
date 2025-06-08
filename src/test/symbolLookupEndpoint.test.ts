@@ -65,6 +65,7 @@ describe('SymbolLookupEndpointService', () => {
     vi.clearAllMocks();
     
     // Mock AI service manager
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { aiServiceManager } = require('../services/ai/aiServiceManager');
     vi.mocked(aiServiceManager.getService).mockResolvedValue(mockAIService);
   });
@@ -157,6 +158,7 @@ describe('SymbolLookupEndpointService', () => {
 
     it('should handle provider unavailability', async () => {
       // Mock provider as unavailable
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { aiServiceManager } = require('../services/ai/aiServiceManager');
       vi.mocked(aiServiceManager.getService).mockRejectedValue(new Error('Provider unavailable'));
 
@@ -169,6 +171,7 @@ describe('SymbolLookupEndpointService', () => {
   describe('Error Handling', () => {
     it('should handle AI service errors gracefully', async () => {
       // Mock AI service to throw error
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { aiServiceManager } = require('../services/ai/aiServiceManager');
       vi.mocked(aiServiceManager.getService).mockRejectedValue(new Error('AI service error'));
 
@@ -180,6 +183,7 @@ describe('SymbolLookupEndpointService', () => {
 
     it('should handle validation errors', async () => {
       // Mock validation to fail
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { validateRequest } = require('../../config/aiConfig');
       vi.mocked(validateRequest).mockReturnValue({ valid: false, errors: ['Invalid query'] });
 
@@ -238,6 +242,7 @@ describe('SymbolLookupEndpointService', () => {
 
     it('should handle missing authentication', async () => {
       // Mock API key service to return no key
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { ApiKeyService } = require('../services/apiKeyService');
       const mockInstance = ApiKeyService.getInstance();
       vi.mocked(mockInstance.getApiKey).mockResolvedValue(null);

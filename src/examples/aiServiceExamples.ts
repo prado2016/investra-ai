@@ -136,7 +136,7 @@ export async function exampleMultiProviderComparison() {
     }
 
     const query = 'Tesla electric vehicle stock';
-    const results: Record<string, any> = {};
+    const results: Record<string, unknown> = {};
 
     // Test each provider
     for (const provider of providers) {
@@ -236,9 +236,16 @@ export async function exampleHealthMonitoring() {
       acc[key].avgResponseTime = (acc[key].avgResponseTime + metric.averageResponseTime) / 2;
       
       return acc;
-    }, {} as Record<string, any>);
+    }, {} as Record<string, {
+      provider: string;
+      endpoint: string;
+      totalRequests: number;
+      totalTokens: number;
+      totalErrors: number;
+      avgResponseTime: number;
+    }>);
 
-    for (const [key, stats] of Object.entries(groupedMetrics)) {
+    for (const [, stats] of Object.entries(groupedMetrics)) {
       console.log(`${stats.provider} ${stats.endpoint}:`);
       console.log(`  Requests: ${stats.totalRequests}`);
       console.log(`  Tokens: ${stats.totalTokens}`);

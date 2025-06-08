@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { 
   Activity, 
   Clock, 
@@ -7,22 +7,69 @@ import {
   BarChart3, 
   RefreshCw,
   TrendingUp,
-  Users,
   Zap
 } from 'lucide-react';
 import { useSymbolLookup } from '../hooks/useSymbolLookup';
+import type { AIProvider } from '../types/ai';
 
 interface MonitoringDashboardProps {
   className?: string;
   refreshInterval?: number; // in milliseconds
 }
 
+interface ProviderStatus {
+  name?: string;
+  available: boolean;
+  latency?: number;
+  responseTime?: number;
+  error?: string;
+}
+
+interface HealthData {
+  status: 'healthy' | 'degraded' | 'unhealthy';
+  services: Record<AIProvider, ProviderStatus>;
+  metadata: {
+    timestamp: string;
+    version: string;
+    uptime: number;
+  };
+  // For backwards compatibility with existing code that expects providers array
+  providers?: ProviderStatus[];
+  uptime?: number;
+  averageResponseTime?: number;
+}
+
+interface RecentError {
+  timestamp: string;
+  error: string;
+  message?: string;
+  code?: string;
+  query: string;
+}
+
+interface UsageStats {
+  totalRequests: number;
+  successfulRequests: number;
+  failedRequests: number;
+  averageProcessingTime: number;
+  requestsByProvider: Record<AIProvider, number>;
+  recentErrors: RecentError[];
+  // Additional fields used in the component but not in the API
+  errorCount?: number;
+  averageResponseTime?: number;
+  hourlyRequests?: number;
+  dailyRequests?: number;
+  hourlyLimit?: number;
+  dailyLimit?: number;
+  rateLimitResetTime?: string;
+}
+
 export function SymbolLookupMonitoring({ 
   className = "",
   refreshInterval = 30000 // 30 seconds
 }: MonitoringDashboardProps) {
-  const [healthData, setHealthData] = useState<any>(null);
-  const [usageStats, setUsageStats] = useState<any>(null);
+  const [healthData, setHealthData] = useState<HealthData | null>(null);
+  const [usageStats, setUsageStats] = useState<UsageStats | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
 
@@ -35,8 +82,41 @@ export function SymbolLookupMonitoring({
         checkHealth(),
         getUsageStats()
       ]);
-      setHealthData(health);
-      setUsageStats(stats);
+      
+      // Transform health data to include providers array for backwards compatibility
+      if (health) {
+        const transformedHealth: HealthData = {
+          ...health,
+          providers: Object.entries(health.services || {}).map(([name, status]) => ({
+            name,
+            available: status.available,
+            responseTime: status.latency,
+            latency: status.latency,
+            error: status.error
+          })),
+          uptime: health.metadata?.uptime || 0,
+          averageResponseTime: Object.values(health.services || {})
+            .filter(s => s.available && s.latency)
+            .reduce((sum, s) => sum + (s.latency || 0), 0) / 
+            Math.max(1, Object.values(health.services || {}).filter(s => s.available && s.latency).length)
+        };
+        setHealthData(transformedHealth);
+      }
+      
+      // Transform usage stats to include computed fields
+      if (stats) {
+        const transformedStats: UsageStats = {
+          ...stats,
+          errorCount: stats.failedRequests || 0,
+          averageResponseTime: stats.averageProcessingTime,
+          hourlyRequests: 0, // Default values since not in API
+          dailyRequests: 0,
+          hourlyLimit: 1000,
+          dailyLimit: 10000
+        };
+        setUsageStats(transformedStats);
+      }
+      
       setLastRefresh(new Date());
     } catch (error) {
       console.error('Failed to refresh monitoring data:', error);
@@ -151,7 +231,7 @@ export function SymbolLookupMonitoring({
               <div>
                 <p className="text-sm font-medium text-gray-600">Active Providers</p>
                 <p className="text-2xl font-bold text-gray-900 mt-2">
-                  {healthData.providers?.filter((p: any) => p.available).length || 0}
+                  {healthData.providers?.filter((p: ProviderStatus) => p.available).length || 0}
                   <span className="text-base text-gray-500">
                     /{healthData.providers?.length || 0}
                   </span>
@@ -171,7 +251,7 @@ export function SymbolLookupMonitoring({
           </div>
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {healthData.providers.map((provider: any, index: number) => (
+              {healthData.providers.map((provider: ProviderStatus, index: number) => (
                 <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                   <div>
                     <p className="font-medium text-gray-900 capitalize">{provider.name}</p>
@@ -306,12 +386,12 @@ export function SymbolLookupMonitoring({
           </div>
           <div className="p-6">
             <div className="space-y-3">
-              {usageStats.recentErrors.slice(0, 5).map((error: any, index: number) => (
+              {usageStats.recentErrors.slice(0, 5).map((error: RecentError, index: number) => (
                 <div key={index} className="flex items-start space-x-3 p-3 bg-red-50 border border-red-200 rounded-lg">
                   <AlertCircle className="w-5 h-5 text-red-500 mt-0.5" />
                   <div className="flex-1">
-                    <p className="font-medium text-red-900">{error.code}</p>
-                    <p className="text-sm text-red-700">{error.message}</p>
+                    <p className="font-medium text-red-900">{error.code || 'ERROR'}</p>
+                    <p className="text-sm text-red-700">{error.message || error.error}</p>
                     <p className="text-xs text-red-600 mt-1">
                       {new Date(error.timestamp).toLocaleString()}
                     </p>

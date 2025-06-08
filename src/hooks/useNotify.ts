@@ -1,24 +1,4 @@
-import { useNotifications } from '../contexts/NotificationContext';
-
-// Inline notification types to avoid import issues
-type NotificationType = 'success' | 'error' | 'warning' | 'info';
-
-/**cations } from '../contexts/NotificationContext';
-
-// Inline notification types to avoid import issues
-type NotificationType = 'success' | 'error' | 'warning' | 'info';
-
-interface NotificationOptions {
-  type?: NotificationType;
-  title: string;
-  message?: string;
-  duration?: number;
-  action?: {
-    label: string;
-    onClick: () => void;
-  };
-  dismissible?: boolean;
-}
+import { useNotifications } from './useNotifications';
 
 /**
  * Convenience hook for displaying notifications
@@ -42,8 +22,8 @@ export const useNotify = () => {
       return success('Success', message, { duration: 4000 });
     },
     
-    apiError: (error: any, fallbackMessage: string = 'An error occurred') => {
-      const message = error?.message || error?.toString() || fallbackMessage;
+    apiError: (err: unknown, fallbackMessage: string = 'An error occurred') => {
+      const message = (err as Error)?.message || String(err) || fallbackMessage;
       return error('Error', message, { duration: 8000 });
     },
     

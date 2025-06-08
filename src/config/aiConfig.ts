@@ -181,7 +181,13 @@ export function getBestProvider(feature: string): AIProvider | null {
   return priorities && priorities.length > 0 ? priorities[0] : null;
 }
 
-export function validateRequest(request: any): { valid: boolean; errors: string[] } {
+interface ValidationRequest {
+  query?: string;
+  maxResults?: number;
+  [key: string]: unknown;
+}
+
+export function validateRequest(request: ValidationRequest): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
   
   if (request.query && request.query.length > VALIDATION_RULES.maxQueryLength) {

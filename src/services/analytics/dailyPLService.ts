@@ -333,7 +333,7 @@ export class DailyPLAnalyticsService {
           netCashFlow -= totalAmount; // Cash outflow
           break;
           
-        case 'sell':
+        case 'sell': {
           tradeVolume += totalAmount;
           netCashFlow += totalAmount; // Cash inflow
           
@@ -347,11 +347,13 @@ export class DailyPLAnalyticsService {
             realizedPL += sellProceeds - costBasis;
           }
           break;
+        }
           
-        case 'dividend':
+        case 'dividend': {
           dividendIncome += totalAmount;
           netCashFlow += totalAmount; // Cash inflow
           break;
+        }
           
         default:
           // Handle other transaction types as needed

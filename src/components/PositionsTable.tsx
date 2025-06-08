@@ -339,8 +339,8 @@ export const PositionsTable: React.FC<PositionsTableProps> = ({
     if (!sortKey || !sortDirection) return filteredPositions;
 
     return [...filteredPositions].sort((a, b) => {
-      let aValue: any;
-      let bValue: any;
+      let aValue: string | number | Date;
+      let bValue: string | number | Date;
 
       // Handle special computed fields
       if (sortKey === 'currentPrice') {
@@ -350,9 +350,9 @@ export const PositionsTable: React.FC<PositionsTableProps> = ({
         aValue = a.assetName;
         bValue = b.assetName;
       } else {
-        // Use type assertion to access Position properties safely
-        aValue = (a as any)[sortKey];
-        bValue = (b as any)[sortKey];
+        // Access Position properties with proper typing
+        aValue = (a as EnhancedPosition)[sortKey as keyof EnhancedPosition] as string | number | Date;
+        bValue = (b as EnhancedPosition)[sortKey as keyof EnhancedPosition] as string | number | Date;
       }
 
       if (aValue == null) aValue = '';

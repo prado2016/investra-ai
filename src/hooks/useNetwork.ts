@@ -35,9 +35,21 @@ export const useNetwork = (options: UseNetworkOptions = {}) => {
 
   // Get connection info from navigator.connection if available
   const getConnectionInfo = useCallback((): Partial<NetworkStatus> => {
-    const connection = (navigator as any).connection || 
-                      (navigator as any).mozConnection || 
-                      (navigator as any).webkitConnection;
+    const navigatorWithConnection = navigator as Navigator & {
+      connection?: {
+        effectiveType?: string;
+        downlink?: number;
+        rtt?: number;
+        addEventListener?: (event: string, handler: () => void) => void;
+        removeEventListener?: (event: string, handler: () => void) => void;
+      };
+      mozConnection?: { effectiveType?: string; downlink?: number; rtt?: number };
+      webkitConnection?: { effectiveType?: string; downlink?: number; rtt?: number };
+    };
+    
+    const connection = navigatorWithConnection.connection || 
+                      navigatorWithConnection.mozConnection || 
+                      navigatorWithConnection.webkitConnection;
 
     if (!connection) {
       return {
@@ -80,7 +92,7 @@ export const useNetwork = (options: UseNetworkOptions = {}) => {
   const testConnectivity = useCallback(async (): Promise<boolean> => {
     try {
       // Try to fetch a small resource
-      const response = await fetch('/favicon.ico', {
+      await fetch('/favicon.ico', {
         method: 'HEAD',
         mode: 'no-cors',
         cache: 'no-cache'
@@ -89,7 +101,7 @@ export const useNetwork = (options: UseNetworkOptions = {}) => {
     } catch {
       try {
         // Fallback: try to reach a reliable external service
-        const response = await fetch('https://www.google.com/favicon.ico', {
+        await fetch('https://www.google.com/favicon.ico', {
           method: 'HEAD',
           mode: 'no-cors',
           cache: 'no-cache'
@@ -136,9 +148,15 @@ export const useNetwork = (options: UseNetworkOptions = {}) => {
     window.addEventListener('offline', handleOffline);
 
     // Listen for connection changes
-    const connection = (navigator as any).connection;
+    const navigatorWithConnection = navigator as Navigator & {
+      connection?: {
+        addEventListener?: (event: string, handler: () => void) => void;
+        removeEventListener?: (event: string, handler: () => void) => void;
+      };
+    };
+    const connection = navigatorWithConnection.connection;
     if (connection) {
-      connection.addEventListener('change', updateStatus);
+      connection.addEventListener?.('change', updateStatus);
     }
 
     // Periodic connectivity check
@@ -157,7 +175,7 @@ export const useNetwork = (options: UseNetworkOptions = {}) => {
       window.removeEventListener('offline', handleOffline);
       
       if (connection) {
-        connection.removeEventListener('change', updateStatus);
+        connection.removeEventListener?.('change', updateStatus);
       }
       
       clearInterval(interval);

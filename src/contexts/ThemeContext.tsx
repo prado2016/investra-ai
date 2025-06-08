@@ -90,7 +90,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
       if (saved !== null) {
         return JSON.parse(saved);
       }
-    } catch (error) {
+    } catch {
       // If parsing fails, fall back to default
     }
     // Default to system preference

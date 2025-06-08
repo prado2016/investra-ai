@@ -7,7 +7,6 @@
  */
 
 import { aiServiceManager } from '../ai/aiServiceManager';
-import { validateRequest, VALIDATION_RULES, ERROR_MESSAGES } from '../../config/aiConfig';
 import { ApiKeyService } from '../apiKeyService';
 import type {
   AIProvider,
@@ -15,7 +14,6 @@ import type {
   SymbolLookupResponse,
   SymbolLookupResult
 } from '../../types/ai';
-import type { ApiKey } from '../../lib/database/enhanced-types';
 
 // Endpoint-specific types
 export interface SymbolLookupEndpointRequest {
@@ -126,7 +124,7 @@ class SymbolLookupEndpointService {
       }
 
       // 3. Check rate limits
-      const rateLimitResult = this.checkRateLimit(request);
+      const rateLimitResult = this.checkRateLimit();
       if (!rateLimitResult.allowed) {
         return this.createErrorResponse(
           'RATE_LIMIT_EXCEEDED',
@@ -184,7 +182,7 @@ class SymbolLookupEndpointService {
       });
 
       // 10. Update rate limit counter
-      this.updateRateLimit(request);
+      this.updateRateLimit();
 
       return endpointResponse;
 
@@ -397,7 +395,7 @@ class SymbolLookupEndpointService {
       // (e.g., user sessions, JWT tokens, etc.)
       
       return { success: true };
-    } catch (error) {
+    } catch {
       return {
         success: false,
         error: 'Authentication service unavailable'
@@ -405,7 +403,7 @@ class SymbolLookupEndpointService {
     }
   }
 
-  private checkRateLimit(request: SymbolLookupEndpointRequest): {
+  private checkRateLimit(): {
     allowed: boolean;
     remaining: { hourly: number; daily: number };
     retryAfter?: number;
@@ -464,7 +462,7 @@ class SymbolLookupEndpointService {
     };
   }
 
-  private updateRateLimit(request: SymbolLookupEndpointRequest): void {
+  private updateRateLimit(): void {
     const clientId = 'default';
     const tracker = this.rateLimitTracker.get(clientId);
     if (tracker) {

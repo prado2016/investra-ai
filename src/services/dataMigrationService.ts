@@ -7,10 +7,6 @@
 import { SupabaseService } from './supabaseService'
 import { storageService } from './storageService'
 import type { 
-  Portfolio as SupabasePortfolio,
-  Asset as SupabaseAsset,
-  Position as SupabasePosition,
-  Transaction as SupabaseTransaction,
   AssetType,
   TransactionType 
 } from '../lib/database/types'
@@ -149,7 +145,7 @@ export class DataMigrationService {
    */
   public async migrateData(): Promise<MigrationSummary> {
     const startTime = Date.now()
-    let summary: MigrationSummary = {
+    const summary: MigrationSummary = {
       portfoliosFound: 0,
       portfoliosMigrated: 0,
       positionsFound: 0,

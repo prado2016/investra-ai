@@ -201,9 +201,9 @@ export function isCryptocurrency(symbol: string): boolean {
   
   // Check for common crypto pair formats
   const cryptoPairPatterns = [
-    /^[A-Z]{3,5}[-\/]?USD[TC]?$/,  // BTC-USD, ETH/USDT
-    /^[A-Z]{3,5}[-\/]?BTC$/,       // ETH-BTC, ADA/BTC
-    /^[A-Z]{3,5}[-\/]?ETH$/        // LINK-ETH, UNI/ETH
+    /^[A-Z]{3,5}[-/]?USD[TC]?$/,  // BTC-USD, ETH/USDT
+    /^[A-Z]{3,5}[-/]?BTC$/,       // ETH-BTC, ADA/BTC
+    /^[A-Z]{3,5}[-/]?ETH$/        // LINK-ETH, UNI/ETH
   ];
   
   return cryptoPairPatterns.some(pattern => pattern.test(symbol));
@@ -641,7 +641,7 @@ function validateStockSymbol(symbol: string, errors: string[], warnings: string[
  * Validate cryptocurrency symbol format
  */
 function validateCryptoSymbol(symbol: string, errors: string[], warnings: string[], suggestions: string[]) {
-  const cleanSymbol = symbol.replace(/[-\/]?(USD[TC]?|BTC|ETH)$/i, '');
+  const cleanSymbol = symbol.replace(/[-/]?(USD[TC]?|BTC|ETH)$/i, '');
   
   if (cleanSymbol.length < 2 || cleanSymbol.length > 10) {
     warnings.push('Cryptocurrency symbols are typically 2-10 characters long');
@@ -651,7 +651,7 @@ function validateCryptoSymbol(symbol: string, errors: string[], warnings: string
     errors.push('Cryptocurrency symbols should contain only letters and numbers');
   }
   
-  if (!symbol.match(/[-\/]?(USD[TC]?|BTC|ETH)$/i)) {
+  if (!symbol.match(/[-/]?(USD[TC]?|BTC|ETH)$/i)) {
     suggestions.push('Consider adding currency pair suffix (e.g., BTC-USD, ETH/USDT)');
   }
 }

@@ -47,7 +47,7 @@ describe('Yahoo Finance Service + Hooks Integration', () => {
       vi.mocked(yahooFinanceService.getQuote).mockResolvedValue(mockQuoteResponse);
 
       const { result } = renderHook(() => useQuote('AAPL'), {
-        wrapper: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>
+        wrapper: ({ children }: { children?: React.ReactNode }) => React.createElement("div", null, children)
       });
 
       // Wait for the quote to load
@@ -76,7 +76,7 @@ describe('Yahoo Finance Service + Hooks Integration', () => {
       vi.mocked(yahooFinanceService.getQuote).mockResolvedValue(mockErrorResponse);
 
       const { result } = renderHook(() => useQuote('INVALID'), {
-        wrapper: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>
+        wrapper: ({ children }: { children?: React.ReactNode }) => React.createElement("div", null, children)
       });
 
       await waitFor(() => {
@@ -103,7 +103,7 @@ describe('Yahoo Finance Service + Hooks Integration', () => {
       vi.mocked(yahooFinanceService.getQuotes).mockResolvedValue(mockQuotesResponse);
 
       const { result } = renderHook(() => useQuotes(['AAPL', 'GOOGL']), {
-        wrapper: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>
+        wrapper: ({ children }: { children?: React.ReactNode }) => React.createElement("div", null, children)
       });
 
       await waitFor(() => {

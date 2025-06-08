@@ -185,9 +185,7 @@ const TransactionDetails = styled.div`
   color: #6b7280;
 `;
 
-interface SummaryProps {}
-
-const Summary: React.FC<SummaryProps> = () => {
+const Summary: React.FC = () => {
   const { portfolios, activePortfolio, loading: portfoliosLoading, error: portfoliosError, setActivePortfolio, refreshPortfolios } = useSupabasePortfolios();
   const [selectedDayData, setSelectedDayData] = useState<DailyPLData | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);

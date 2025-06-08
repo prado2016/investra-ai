@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSupabasePortfolios } from '../hooks/useSupabasePortfolios';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { TransactionService, AssetService } from '../services/supabaseService';
@@ -6,7 +6,7 @@ import { useNotify } from '../hooks/useNotify';
 import TransactionForm from '../components/TransactionForm.tsx';
 import TransactionList from '../components/TransactionList.tsx';
 import { Plus, TrendingUp, DollarSign } from 'lucide-react';
-import type { Transaction } from '../types/portfolio';
+import type { Transaction, TransactionType, Currency } from '../types/portfolio';
 import type { TransactionWithAsset } from '../components/TransactionList';
 
 // Enhanced Transactions page with improved styling and contrast
@@ -36,9 +36,9 @@ const TransactionsPage: React.FC = () => {
     if (activePortfolio?.id) {
       fetchTransactions();
     }
-  }, [activePortfolio]);
+  }, [activePortfolio, fetchTransactions]);
 
-  const fetchTransactions = async () => {
+  const fetchTransactions = useCallback(async () => {
     if (!activePortfolio?.id) {
       console.log('🔍 TRANSACTIONS_DEBUG: No active portfolio, skipping fetch');
       return;
@@ -67,7 +67,7 @@ const TransactionsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [activePortfolio?.id, notify]);
 
   const handleEditTransaction = (transactionWithAsset: TransactionWithAsset) => {
     // Convert database transaction to portfolio transaction format for the form
@@ -77,12 +77,12 @@ const TransactionsPage: React.FC = () => {
       assetId: transactionWithAsset.asset_id,
       assetSymbol: transactionWithAsset.asset?.symbol || '',
       assetType: transactionWithAsset.asset?.asset_type || 'stock',
-      type: transactionWithAsset.transaction_type as any,
+      type: transactionWithAsset.transaction_type as TransactionType,
       quantity: transactionWithAsset.quantity,
       price: transactionWithAsset.price,
       totalAmount: transactionWithAsset.total_amount,
       fees: transactionWithAsset.fees || 0,
-      currency: transactionWithAsset.currency as any,
+      currency: transactionWithAsset.currency as Currency,
       date: new Date(transactionWithAsset.transaction_date),
       notes: transactionWithAsset.notes || undefined,
       createdAt: new Date(transactionWithAsset.created_at),
@@ -116,7 +116,7 @@ const TransactionsPage: React.FC = () => {
       const response = await TransactionService.createTransaction(
         activePortfolio.id,
         assetResponse.data.id,
-        transactionData.type as any,
+        transactionData.type as TransactionType,
         transactionData.quantity,
         transactionData.price,
         transactionData.date?.toISOString() || new Date().toISOString()

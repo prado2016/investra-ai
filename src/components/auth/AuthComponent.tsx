@@ -3,13 +3,13 @@
  */
 import React, { useState } from 'react';
 import { Eye, EyeOff, Loader } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../hooks/useAuth';
 
 interface AuthComponentProps {
   className?: string;
 }
 
-export const AuthComponent: React.FC<AuthComponentProps> = ({ className }) => {
+export const AuthComponent: React.FC<AuthComponentProps> = () => {
   const { signIn, signUp, loading } = useAuth();
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
@@ -40,7 +40,7 @@ export const AuthComponent: React.FC<AuthComponentProps> = ({ className }) => {
           setMessage(result.error || 'Sign in failed');
         }
       }
-    } catch (err) {
+    } catch {
       setMessage('An unexpected error occurred');
     }
 

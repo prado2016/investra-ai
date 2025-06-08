@@ -151,9 +151,7 @@ const LastUpdated = styled.div`
   margin-top: 1rem;
 `;
 
-interface DashboardProps {}
-
-const Dashboard: React.FC<DashboardProps> = () => {
+const Dashboard: React.FC = () => {
   const { portfolios, activePortfolio, setActivePortfolio, loading: portfoliosLoading, error: portfoliosError, refreshPortfolios } = useSupabasePortfolios();
   const { metrics, loading: metricsLoading, error: metricsError, refreshMetrics } = useDashboardMetrics();
   const [isPrivacyMode, setIsPrivacyMode] = useState(false);
