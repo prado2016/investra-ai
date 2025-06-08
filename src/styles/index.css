@@ -1,5 +1,7 @@
 /* Modern Financial UI Design System - 2024-2025 Best Practices */
-/* Based on research of Robinhood, Fidelity, Charles Schwab, and Webull */
+/* Investra AI - Premium Golden Theme */
+
+@import './components.css';
 
 :root {
   /* Conservative Professional Palette - Research Recommended */
@@ -157,40 +159,40 @@
   --sidebar-width: 240px;
 }
 
-/* Dark Theme - Improved contrast ratios for better readability */
+/* Dark Theme - Premium Dark Mode with Golden Accents */
 [data-theme="dark"] {
-  /* Dark backgrounds - using deeper contrasts */
-  --bg-primary: #0f172a;
-  --bg-secondary: #1e293b;
-  --bg-tertiary: #334155;
-  --bg-card: #1e293b;
-  --bg-overlay: rgba(15, 23, 42, 0.95);
+  /* Dark backgrounds - sophisticated charcoal with warm undertones */
+  --bg-primary: #1a1410;           /* Very dark warm charcoal */
+  --bg-secondary: #2a211a;         /* Dark warm brown */
+  --bg-tertiary: #3a2f26;          /* Medium warm brown */
+  --bg-card: #241e18;              /* Dark card background */
+  --bg-overlay: rgba(26, 20, 16, 0.95);
   
-  /* Dark theme text with enhanced contrast ratios (7:1 for critical content) */
-  --text-primary: #ffffff;
-  --text-secondary: #f1f5f9;
-  --text-tertiary: #e2e8f0;
-  --text-muted: #cbd5e1;
-  --text-inverse: #0f172a;
+  /* Dark theme text with golden warmth */
+  --text-primary: #FEF3C7;         /* Light gold - primary text */
+  --text-secondary: #FDE047;       /* Brighter gold - secondary */
+  --text-tertiary: #FACC15;        /* Medium gold - tertiary */
+  --text-muted: #EAB308;           /* Darker gold - muted */
+  --text-inverse: #1a1410;         /* Dark background color */
   
-  /* Dark theme borders with better visibility */
-  --border-primary: #475569;
-  --border-secondary: #64748b;
-  --border-focus: var(--color-teal-400);
+  /* Dark theme borders with golden highlights */
+  --border-primary: #CA8A04;       /* Main brand gold */
+  --border-secondary: #A16207;     /* Darker gold */
+  --border-focus: var(--color-primary-300);
   
-  /* Enhanced shadows for dark theme */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.4);
+  /* Enhanced shadows for dark theme with warm tones */
+  --shadow-sm: 0 1px 2px 0 rgba(202, 138, 4, 0.1);
+  --shadow-md: 0 4px 6px -1px rgba(202, 138, 4, 0.15), 0 2px 4px -1px rgba(202, 138, 4, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(202, 138, 4, 0.2), 0 4px 6px -2px rgba(202, 138, 4, 0.15);
   
   /* Adjust interactive colors for better dark theme visibility */
-  --color-teal-600: #5eead4;
-  --color-primary-600: #60a5fa;
+  --color-primary-600: #FACC15;    /* Brighter gold for buttons */
+  --color-primary-500: #EAB308;    /* Medium gold for interactions */
   
   /* Enhanced form field backgrounds for better contrast */
-  --form-bg: #334155;
-  --form-border: #64748b;
-  --form-text: #ffffff;
+  --form-bg: #3a2f26;
+  --form-border: #CA8A04;
+  --form-text: #FEF3C7;
 }
 
 /* Base styles with modern reset */
@@ -265,14 +267,14 @@ p {
   letter-spacing: 0.025em;
 }
 
-/* Link styles */
+/* Link styles with golden theme */
 a {
-  color: var(--color-teal-600);
+  color: var(--color-primary-600);
   text-decoration: none;
   transition: color var(--transition-fast);
   
   &:hover {
-    color: var(--color-teal-700);
+    color: var(--color-primary-700);
     text-decoration: underline;
   }
   
@@ -321,7 +323,7 @@ input, select, textarea {
   &:focus {
     outline: none;
     border-color: var(--border-focus);
-    box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.1);
+    box-shadow: 0 0 0 3px rgba(202, 138, 4, 0.1);
   }
   
   &:disabled {
@@ -516,11 +518,20 @@ input, select, textarea {
   justify-content: center;
 }
 
-/* Modern gradient backgrounds for brand elements */
+/* Modern gradient backgrounds for brand elements with golden theme */
 .gradient-primary {
-  background: linear-gradient(135deg, var(--color-teal-600) 0%, var(--color-primary-600) 100%);
+  background: linear-gradient(135deg, var(--color-primary-500) 0%, var(--color-primary-600) 100%);
 }
 
 .gradient-secondary {
-  background: linear-gradient(135deg, var(--color-navy-700) 0%, var(--color-navy-900) 100%);
+  background: linear-gradient(135deg, var(--color-primary-700) 0%, var(--color-primary-800) 100%);
+}
+
+/* Investra-specific gradient combinations */
+.gradient-investra {
+  background: linear-gradient(135deg, #FACC15 0%, #EAB308 50%, #CA8A04 100%);
+}
+
+.gradient-investra-subtle {
+  background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%);
 }

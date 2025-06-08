@@ -76,13 +76,13 @@ const Navigation: React.FC<NavigationProps> = ({ className }) => {
               fontSize: 'var(--text-xl)',
               fontWeight: 'var(--font-weight-bold)',
               fontFamily: 'var(--font-family-financial)',
-              background: 'linear-gradient(135deg, #2F5233, #FFD700)',
+              background: 'linear-gradient(135deg, var(--color-primary-600), var(--color-primary-500))',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text'
             }}
           >
-            Investra
+            Investra AI
           </h1>
         </div>
 
@@ -132,21 +132,21 @@ const Navigation: React.FC<NavigationProps> = ({ className }) => {
                       display: 'flex',
                       alignItems: 'center',
                       gap: 'var(--space-2)',
-                      color: isActive ? 'var(--color-teal-600)' : 'var(--text-secondary)',
+                      color: isActive ? 'var(--color-primary-600)' : 'var(--text-secondary)',
                       textDecoration: 'none',
                       padding: 'var(--space-2) var(--space-4)',
                       borderRadius: 'var(--radius-md)',
                       transition: 'all var(--transition-fast)',
                       fontWeight: 'var(--font-weight-medium)',
                       fontSize: 'var(--text-sm)',
-                      background: isActive ? 'rgba(45, 212, 191, 0.1)' : 'transparent',
-                      border: isActive ? '1px solid rgba(45, 212, 191, 0.2)' : '1px solid transparent',
+                      background: isActive ? 'rgba(202, 138, 4, 0.1)' : 'transparent',
+                      border: isActive ? '1px solid rgba(202, 138, 4, 0.2)' : '1px solid transparent',
                       minHeight: 'var(--input-height-sm)'
                     }}
                     onMouseEnter={(e) => {
                       if (!isActive) {
-                        e.currentTarget.style.color = 'var(--color-teal-600)';
-                        e.currentTarget.style.background = 'rgba(45, 212, 191, 0.05)';
+                        e.currentTarget.style.color = 'var(--color-primary-600)';
+                        e.currentTarget.style.background = 'rgba(202, 138, 4, 0.05)';
                       }
                     }}
                     onMouseLeave={(e) => {
@@ -220,13 +220,13 @@ const Navigation: React.FC<NavigationProps> = ({ className }) => {
                     display: 'flex',
                     alignItems: 'center',
                     gap: 'var(--space-3)',
-                    color: isActive ? 'var(--color-teal-600)' : 'var(--text-primary)',
+                    color: isActive ? 'var(--color-primary-600)' : 'var(--text-primary)',
                     textDecoration: 'none',
                     padding: 'var(--space-4) var(--space-6)',
                     transition: 'all var(--transition-fast)',
                     fontWeight: 'var(--font-weight-medium)',
-                    background: isActive ? 'rgba(45, 212, 191, 0.1)' : 'transparent',
-                    borderLeft: isActive ? '4px solid var(--color-teal-600)' : '4px solid transparent'
+                    background: isActive ? 'rgba(202, 138, 4, 0.1)' : 'transparent',
+                    borderLeft: isActive ? '4px solid var(--color-primary-600)' : '4px solid transparent'
                   }}
                 >
                   <Icon size={20} />

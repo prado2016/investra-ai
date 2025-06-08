@@ -5,6 +5,7 @@ import { useSupabasePortfolios } from '../hooks/useSupabasePortfolios';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useDashboardMetrics } from '../hooks/useDashboardMetrics';
 import PortfolioCreationForm from '../components/PortfolioCreationForm';
+import InvestraThemeDemo from '../components/InvestraThemeDemo';
 import {
   TotalDailyPLBox,
   RealizedPLBox,
@@ -275,6 +276,9 @@ const Dashboard: React.FC<DashboardProps> = () => {
           </ActionButton>
         </HeaderActions>
       </PageHeader>
+
+      {/* Investra AI Theme Showcase */}
+      <InvestraThemeDemo />
 
       {metricsError && (
         <ErrorContainer>

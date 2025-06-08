@@ -43,8 +43,8 @@ const LoadingScreen: React.FC = () => (
       <div style={{
         width: '48px',
         height: '48px',
-        border: '4px solid var(--color-teal-200)',
-        borderTop: '4px solid var(--color-teal-600)',
+        border: '4px solid var(--color-primary-200)',
+        borderTop: '4px solid var(--color-primary-500)',
         borderRadius: '50%',
         margin: '0 auto var(--space-6) auto',
         animation: 'spin 1s linear infinite'
@@ -55,14 +55,14 @@ const LoadingScreen: React.FC = () => (
         fontSize: 'var(--text-xl)',
         fontWeight: 'var(--font-weight-semibold)'
       }}>
-        Investra
+        Investra AI
       </h2>
       <p style={{ 
         margin: 0, 
         color: 'var(--text-secondary)',
         fontSize: 'var(--text-sm)'
       }}>
-        Loading your portfolio...
+        Initializing AI-powered analytics...
       </p>
     </div>
   </div>
@@ -90,8 +90,8 @@ function AppContent() {
     }
     
     // Set default app title if no page-specific title is set
-    if (document.title === 'Investra - Professional Portfolio Analytics') {
-      document.title = 'Investra - Professional Portfolio Analytics';
+    if (document.title === 'Investra - AI-Powered Investment Analytics') {
+      document.title = 'Investra - AI-Powered Investment Analytics';
     }
   }, []);
 
@@ -139,7 +139,7 @@ function AppContent() {
 function App() {
   // Initialize debug logging for the entire app
   React.useEffect(() => {
-    debug.info('🚀 Stock Tracker App starting...', { 
+    debug.info('🚀 Investra AI App starting...', { 
       isDev, 
       timestamp: new Date().toISOString(),
       userAgent: navigator.userAgent,

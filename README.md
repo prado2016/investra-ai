@@ -1,22 +1,24 @@
-# Investra - Professional Portfolio Analytics
+# Investra AI - AI-Powered Investment Analytics
 
-A modern portfolio management and analytics platform built with React, TypeScript, and Vite.
+A cutting-edge AI-powered investment portfolio management and analytics platform built with React, TypeScript, and Vite.
 
 ## Features
 
-- Real-time portfolio tracking
-- Advanced analytics and reporting
-- Transaction management
-- Performance visualization
-- Dark/light theme support
+- **AI-Powered Analytics**: Advanced machine learning for portfolio optimization
+- **Real-time Portfolio Tracking**: Live market data and position monitoring  
+- **Intelligent Insights**: AI-driven investment recommendations and market analysis
+- **Performance Visualization**: Interactive charts and advanced reporting
+- **Transaction Management**: Comprehensive trade tracking and analysis
+- **Dark/Light Theme**: Premium golden theme with professional aesthetics
 
 ## Tech Stack
 
-- React 18 with TypeScript
-- Vite for fast development
-- Styled Components for styling
-- Chart.js for visualizations
-- Supabase for backend services
+- **Frontend**: React 18 with TypeScript
+- **Build Tool**: Vite for lightning-fast development
+- **Styling**: Modern CSS with golden design system
+- **Charts**: Advanced visualizations with Chart.js
+- **Backend**: Supabase for real-time data and authentication
+- **AI Integration**: Google Generative AI for intelligent analytics
 
 ## Getting Started
 

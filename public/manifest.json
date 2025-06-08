@@ -1,11 +1,11 @@
 {
-  "name": "Investra - Portfolio Management",
-  "short_name": "Investra",
-  "description": "Professional investment portfolio tracker and analytics platform",
+  "name": "Investra - AI-Powered Investment Analytics",
+  "short_name": "Investra AI",
+  "description": "AI-powered investment portfolio management and analytics platform",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f172a",
-  "theme_color": "#2F5233",
+  "background_color": "#FAF7F0",
+  "theme_color": "#CA8A04",
   "orientation": "portrait-primary",
   "scope": "/",
   "icons": [
