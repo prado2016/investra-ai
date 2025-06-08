@@ -79,10 +79,9 @@ function AppContent() {
 
   // Initialize theme and app title on app load
   React.useEffect(() => {
-    // Set initial theme based on user preference or system preference
+    // Set initial theme based on user preference or default to light
     const savedTheme = localStorage.getItem('theme');
-    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const initialTheme = savedTheme || (systemPrefersDark ? 'dark' : 'dark'); // Default to dark for financial apps
+    const initialTheme = savedTheme || 'light'; // Default to light theme
     
     document.documentElement.setAttribute('data-theme', initialTheme);
     if (!savedTheme) {

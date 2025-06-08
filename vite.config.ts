@@ -17,8 +17,22 @@ export default defineConfig({
     __DEBUG__: JSON.stringify(true)
   },
   // Enable source maps for better debugging
+  optimizeDeps: {
+    include: ['yahoo-finance2'],
+    exclude: []
+  },
   build: {
     sourcemap: true,
+    commonjsOptions: {
+      transformMixedEsModules: true,
+    },
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'yahoo-finance': ['yahoo-finance2']
+        }
+      }
+    }
   },
   server: {
     open: true, // Open browser automatically
@@ -34,7 +48,7 @@ export default defineConfig({
           proxy.on('error', (err) => {
             console.error('🔴 Proxy error:', err);
           });
-          proxy.on('proxyReq', (proxyReq, req) => {
+          proxy.on('proxyReq', (_proxyReq, req) => {
             console.log('🔵 Sending Request to Target:', req.method, req.url);
           });
           proxy.on('proxyRes', (proxyRes, req) => {

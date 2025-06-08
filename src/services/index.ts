@@ -1,5 +1,5 @@
 // Export all services from a single entry point
-export * from './yahooFinanceService';
+export * from './yahooFinanceBrowserService';
 export * from './storageService';
 export * from './supabaseService';
 export * from './dataMigrationService';

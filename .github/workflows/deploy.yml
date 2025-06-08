@@ -1,4 +1,4 @@
-name: Deploy to RHEL VM
+name: Deploy Investra AI to RHEL VM
 
 on:
   push:
@@ -10,7 +10,19 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application
+        run: npm run build
 
       - name: Set up SSH
         run: |
@@ -22,47 +34,89 @@ jobs:
       - name: Deploy to RHEL via SSH
         run: |
           ssh -i ~/.ssh/id_rsa ${{ secrets.RHEL_USER }}@${{ secrets.RHEL_HOST }} << 'EOF'
-            cd /opt/investra-ai  # Path to the cloned repo
-            git pull origin main
-            npm install
-            npm run build
-            pm2 serve dist 3000 --spa --name investra-ai --update-env  # Optional
+            # Create application directory if it doesn't exist
+            sudo mkdir -p /var/www/investra-ai
+            sudo chown $USER:$USER /var/www/investra-ai
+            
+            # Create temporary directory for new deployment
+            mkdir -p /tmp/investra-ai-deploy
+          EOF
 
-            # Create systemd unit file for Nginx
-            sudo tee /etc/systemd/system/investra-ai.service > /dev/null << 'UNIT_EOF'
-            [Unit]
-            Description=Investra AI Static Site
-            After=network.target
+      - name: Copy build files to server
+        run: |
+          scp -i ~/.ssh/id_rsa -r dist/* ${{ secrets.RHEL_USER }}@${{ secrets.RHEL_HOST }}:/tmp/investra-ai-deploy/
 
-            [Service]
-            Type=simple
-            ExecStart=/usr/sbin/nginx -g 'daemon off;'
-            ExecReload=/bin/kill -HUP $MAINPID
-            ExecStop=/bin/kill -s QUIT $MAINPID
-            Restart=always
-
-            [Install]
-            WantedBy=multi-user.target
-            UNIT_EOF
-
-            # Create Nginx configuration for serving Vite-built static files
+      - name: Finalize deployment
+        run: |
+          ssh -i ~/.ssh/id_rsa ${{ secrets.RHEL_USER }}@${{ secrets.RHEL_HOST }} << 'EOF'
+            # Backup current deployment if it exists
+            if [ -d "/var/www/investra-ai/current" ]; then
+              sudo mv /var/www/investra-ai/current /var/www/investra-ai/backup-$(date +%Y%m%d-%H%M%S)
+            fi
+            
+            # Move new deployment to final location
+            sudo mv /tmp/investra-ai-deploy /var/www/investra-ai/current
+            sudo chown -R nginx:nginx /var/www/investra-ai/current
+            sudo chmod -R 755 /var/www/investra-ai/current
+            
+            # Create/update Nginx configuration
             sudo tee /etc/nginx/conf.d/investra-ai.conf > /dev/null << 'NGINX_EOF'
             server {
                 listen 80;
                 server_name _;
-
-                root /var/www/investra-ai/dist;
+                
+                root /var/www/investra-ai/current;
                 index index.html;
-
+                
+                # Enable compression
+                gzip on;
+                gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+                
+                # Security headers
+                add_header X-Frame-Options "SAMEORIGIN" always;
+                add_header X-Content-Type-Options "nosniff" always;
+                add_header X-XSS-Protection "1; mode=block" always;
+                add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+                
+                # Cache static assets
+                location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+                    expires 1y;
+                    add_header Cache-Control "public, immutable";
+                    access_log off;
+                }
+                
+                # Handle React Router (SPA routing)
                 location / {
                     try_files $uri $uri/ /index.html;
                 }
+                
+                # Health check endpoint
+                location /health {
+                    access_log off;
+                    return 200 "healthy\n";
+                    add_header Content-Type text/plain;
+                }
             }
             NGINX_EOF
-
-            # Reload systemd and enable the service
-            sudo systemctl daemon-reload
-            sudo systemctl enable investra-ai.service
-            sudo systemctl restart investra-ai.service
-            sudo systemctl restart nginx
+            
+            # Test Nginx configuration
+            sudo nginx -t
+            
+            # Reload Nginx if configuration is valid
+            if [ $? -eq 0 ]; then
+                sudo systemctl reload nginx
+                echo "✅ Deployment successful! Nginx reloaded."
+            else
+                echo "❌ Nginx configuration test failed!"
+                exit 1
+            fi
+            
+            # Clean up old backups (keep last 5)
+            sudo find /var/www/investra-ai -name "backup-*" -type d | sort -r | tail -n +6 | xargs sudo rm -rf
+            
+            # Display deployment info
+            echo "🚀 Investra AI deployed successfully!"
+            echo "📁 Deployed to: /var/www/investra-ai/current"
+            echo "🌐 Available at: http://$(hostname -I | awk '{print $1}')"
+            echo "📊 Build size: $(du -sh /var/www/investra-ai/current)"
           EOF
