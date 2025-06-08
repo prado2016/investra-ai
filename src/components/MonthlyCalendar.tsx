@@ -5,7 +5,7 @@
 
 import React, { useState, useMemo } from 'react';
 import styled from 'styled-components';
-import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { formatCurrency } from '../utils/formatting';
 import { useDailyPL } from '../hooks/useDailyPL';
 import type { DailyPLData } from '../services/analytics/dailyPLService';
@@ -276,7 +276,6 @@ const MonthlyCalendar: React.FC<MonthlyCalendarProps> = ({
 
   const calendarDays = useMemo(() => {
     const startOfMonth = new Date(selectedYear, selectedMonth, 1);
-    const endOfMonth = new Date(selectedYear, selectedMonth + 1, 0);
     const startOfCalendar = new Date(startOfMonth);
     startOfCalendar.setDate(startOfCalendar.getDate() - startOfMonth.getDay());
 

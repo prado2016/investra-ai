@@ -19,7 +19,7 @@ const GeminiTestComponent: React.FC = () => {
           
           // Test with a dummy API key to see if we can create the instance
           try {
-            const genAI = new GoogleGenerativeAI('test-key');
+            new GoogleGenerativeAI('test-key');
             setTestResult('✅ GoogleGenerativeAI instance created successfully');
           } catch (error) {
             setTestResult(`⚠️ Instance creation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);

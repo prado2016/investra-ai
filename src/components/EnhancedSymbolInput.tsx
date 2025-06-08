@@ -418,7 +418,7 @@ export const EnhancedSymbolInput: React.FC<EnhancedSymbolInputProps> = ({
           setSuggestion('');
           onValidation?.(false);
         }
-      } catch (error) {
+      } catch {
         setValidationStatus('idle');
         setErrorMessage('');
         setSuggestion('');

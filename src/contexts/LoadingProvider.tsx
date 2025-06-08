@@ -1,20 +1,7 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { useState } from 'react';
 import type { ReactNode } from 'react';
 import { FullScreenLoading } from '../components/LoadingComponents';
-
-export interface LoadingContextType {
-  isLoading: boolean;
-  message: string;
-  subMessage?: string;
-  setLoading: (loading: boolean, message?: string, subMessage?: string) => void;
-  withLoading: <T>(
-    operation: () => Promise<T>,
-    message?: string,
-    subMessage?: string
-  ) => Promise<T>;
-}
-
-export const LoadingContext = createContext<LoadingContextType | undefined>(undefined);
+import { LoadingContext, LoadingContextType } from './LoadingContext';
 
 interface LoadingProviderProps {
   children: ReactNode;

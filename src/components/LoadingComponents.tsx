@@ -34,11 +34,6 @@ const Overlay = styled.div<{ $isVisible: boolean; $blur: boolean }>`
   border-radius: inherit;
 `;
 
-const DarkOverlay = styled(Overlay)`
-  background-color: rgba(0, 0, 0, 0.7);
-  color: white;
-`;
-
 const LoadingContent = styled.div`
   display: flex;
   flex-direction: column;

@@ -4,7 +4,7 @@ import { OfflinePage } from '../pages/OfflinePage';
 
 interface NetworkBoundaryProps {
   children: React.ReactNode;
-  fallback?: React.ComponentType<any>;
+  fallback?: React.ComponentType<Record<string, unknown>>;
   showOfflinePageWhenNoData?: boolean;
 }
 

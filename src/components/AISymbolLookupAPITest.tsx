@@ -11,8 +11,6 @@ import type {
   SymbolLookupResponse, 
   SymbolSuggestionResponse, 
   SymbolValidationResponse, 
-  BatchSymbolLookupResponse, 
-  SymbolInsightsResponse,
   SymbolLookupResult 
 } from '../types/ai';
 
