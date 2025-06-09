@@ -26,11 +26,14 @@ async function globalSetup(_: FullConfig) {
   // Navigate to the app with test mode enabled
   await page.goto('http://127.0.0.1:5173');
 
-  // Wait for the app to load
+  // Wait for the app to load and detect E2E mode
   await page.waitForLoadState('networkidle');
   
-  // Give extra time for the app to initialize
-  await page.waitForTimeout(3000);
+  // Wait for the navigation to appear (indicating the app has rendered)
+  await page.waitForSelector('nav.nav-container', { timeout: 30000 });
+  
+  // Verify the Dashboard is visible
+  await page.waitForSelector('h1:has-text("Dashboard")', { timeout: 15000 });
 
   // Save the test context state
   await page.context().storageState({ path: 'src/test/e2e/.auth/user.json' });

@@ -19,16 +19,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if we're in E2E test mode
+    // Check if we're in E2E test mode - more aggressive detection
     const isE2ETestMode = 
       (typeof window !== 'undefined' && (window as unknown as Record<string, unknown>).__E2E_TEST_MODE__) ||
       (typeof window !== 'undefined' && localStorage.getItem('__E2E_TEST_MODE__') === 'true') ||
-      (typeof window !== 'undefined' && window.location.search.includes('e2e-test=true'));
+      (typeof window !== 'undefined' && window.location.search.includes('e2e-test=true')) ||
+      (typeof process !== 'undefined' && process.env.CI === 'true') || // CI environment
+      (typeof window !== 'undefined' && window.location.hostname === '127.0.0.1'); // Local test server
 
     console.log('🔐 AuthProvider init - E2E test mode check:', {
       windowFlag: (window as unknown as Record<string, unknown>).__E2E_TEST_MODE__,
       localStorage: localStorage.getItem('__E2E_TEST_MODE__'),
       urlParam: window.location.search.includes('e2e-test=true'),
+      ciEnv: typeof process !== 'undefined' && process.env.CI === 'true',
+      localhost: typeof window !== 'undefined' && window.location.hostname === '127.0.0.1',
       isE2ETestMode
     });
 
