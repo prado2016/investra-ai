@@ -10,6 +10,7 @@ import type { Transaction, Position } from '../../types/portfolio';
 import type { AssetType, TransactionType, Currency } from '../../types/portfolio';
 import type { YahooFinanceQuote } from '../../types/api';
 import type { ApiError } from '../../types/api';
+import { setupIntegrationMocks, resetIntegrationMocks, mockYahooFinanceData, mockStorageData } from './test-setup';
 
 // Mock Yahoo Finance service for integration testing
 vi.mock('../../services/yahooFinanceService', () => ({
@@ -21,39 +22,20 @@ vi.mock('../../services/yahooFinanceService', () => ({
 
 describe('Simplified Integration Tests', () => {
   beforeEach(() => {
+    setupIntegrationMocks();
     localStorage.clear();
     vi.clearAllMocks();
   });
 
   afterEach(() => {
+    resetIntegrationMocks();
     localStorage.clear();
   });
 
   describe('Service Integration', () => {
     it('should integrate storage and mock yahoo finance services', async () => {
       // Arrange - Mock Yahoo Finance response
-      const mockQuote: YahooFinanceQuote = {
-        symbol: 'AAPL',
-        name: 'Apple Inc.',
-        price: 150.25,
-        change: 2.5,
-        changePercent: 1.69,
-        previousClose: 147.75,
-        open: 148.00,
-        dayHigh: 151.00,
-        dayLow: 147.50,
-        volume: 50000000,
-        marketCap: 2456789000000,
-        peRatio: 25.4,
-        dividendYield: 0.48,
-        eps: 5.91,
-        beta: 1.2,
-        currency: 'USD',
-        exchange: 'NASDAQ Global Select',
-        sector: 'Technology',
-        industry: 'Consumer Electronics',
-        lastUpdated: new Date()
-      };
+      const mockQuote: YahooFinanceQuote = mockYahooFinanceData.quote;
 
       vi.mocked(yahooFinanceService.getQuote).mockResolvedValue({
         success: true,
@@ -87,31 +69,20 @@ describe('Simplified Integration Tests', () => {
         // Assert - Both services worked together
         expect(quoteResponse.success).toBe(true);
         expect(quoteResponse.data.symbol).toBe('AAPL');
-        expect(quoteResponse.data.price).toBe(150.25);
+        expect(quoteResponse.data.price).toBe(150.00);
         
         expect(saveResult).toBe(true);
         
         const retrievedTransactions = await storageService.getTransactions();
         expect(retrievedTransactions).toHaveLength(1);
         expect(retrievedTransactions[0].assetSymbol).toBe('AAPL');
-        expect(retrievedTransactions[0].price).toBe(150.25);
+        expect(retrievedTransactions[0].price).toBe(150.00);
       }
     });
 
     it('should handle data flow between multiple services', async () => {
-      // Arrange - Mock search results
-      const mockSearchResults = [
-        {
-          symbol: 'AAPL',
-          name: 'Apple Inc.',
-          type: 'stock' as AssetType
-        },
-        {
-          symbol: 'GOOGL',
-          name: 'Alphabet Inc.',
-          type: 'stock' as AssetType
-        }
-      ];
+      // Arrange - Mock search results using our test data
+      const mockSearchResults = mockYahooFinanceData.search;
 
       vi.mocked(yahooFinanceService.searchSymbols).mockResolvedValue({
         success: true,
@@ -130,7 +101,7 @@ describe('Simplified Integration Tests', () => {
           id: `position-${index + 1}`,
           assetId: `asset-${result.symbol.toLowerCase()}`,
           assetSymbol: result.symbol,
-          assetType: result.type,
+          assetType: result.type as AssetType,
           quantity: 10 * (index + 1),
           averageCostBasis: 100 * (index + 1),
           totalCostBasis: 1000 * (index + 1),

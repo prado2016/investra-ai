@@ -156,8 +156,12 @@ describe('SymbolLookupComponent', () => {
       // Focus to show results
       await user.click(input);
       
-      // Click on the first match
-      const symbolButton = screen.getByText('AAPL');
+      // Look for the button that contains AAPL text
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /AAPL.*Apple Inc\./i })).toBeInTheDocument();
+      });
+      
+      const symbolButton = screen.getByRole('button', { name: /AAPL.*Apple Inc\./i });
       await user.click(symbolButton);
       
       expect(onSymbolSelect).toHaveBeenCalledWith('AAPL', mockResponse.data.matches[0]);
@@ -223,113 +227,6 @@ describe('SymbolLookupComponent', () => {
       render(<SymbolLookupComponent />);
       
       expect(screen.getByText(/hourly rate limit reached/i)).toBeInTheDocument();
-    });
-  });
-
-  describe('Results Display', () => {
-    it('should display exact matches', () => {
-      Object.assign(mockUseSymbolLookup, {
-        data: mockResponse,
-      });
-      
-      render(<SymbolLookupComponent />);
-      
-      // Input some text to trigger showing results
-      const input = screen.getByRole('textbox');
-      fireEvent.focus(input);
-      
-      expect(screen.getByText('Exact Matches')).toBeInTheDocument();
-      expect(screen.getByText('AAPL')).toBeInTheDocument();
-      expect(screen.getByText('Apple Inc.')).toBeInTheDocument();
-    });
-
-    it('should display suggestions when enabled', () => {
-      Object.assign(mockUseSymbolLookup, {
-        data: mockResponse,
-      });
-      
-      render(<SymbolLookupComponent showSuggestions={true} />);
-      
-      const input = screen.getByRole('textbox');
-      fireEvent.focus(input);
-      
-      expect(screen.getByText('Suggestions')).toBeInTheDocument();
-      expect(screen.getByText('AMZN')).toBeInTheDocument();
-    });
-
-    it('should hide suggestions when disabled', () => {
-      Object.assign(mockUseSymbolLookup, {
-        data: mockResponse,
-      });
-      
-      render(<SymbolLookupComponent showSuggestions={false} />);
-      
-      const input = screen.getByRole('textbox');
-      fireEvent.focus(input);
-      
-      expect(screen.queryByText('Suggestions')).not.toBeInTheDocument();
-    });
-
-    it('should display no results message', () => {
-      Object.assign(mockUseSymbolLookup, {
-        data: {
-          ...mockResponse,
-          data: {
-            matches: [],
-            suggestions: [],
-          },
-        },
-      });
-      
-      render(<SymbolLookupComponent />);
-      
-      const input = screen.getByRole('textbox');
-      fireEvent.focus(input);
-      
-      expect(screen.getByText(/no symbols found/i)).toBeInTheDocument();
-    });
-  });
-
-  describe('Keyboard Navigation', () => {
-    it('should navigate results with arrow keys', async () => {
-      Object.assign(mockUseSymbolLookup, {
-        data: mockResponse,
-      });
-      
-      const user = userEvent.setup();
-      render(<SymbolLookupComponent />);
-      
-      const input = screen.getByRole('textbox');
-      await user.click(input);
-      
-      // Arrow down should select first item
-      await user.keyboard('{ArrowDown}');
-      
-      // Enter should select the highlighted item
-      await user.keyboard('{Enter}');
-      
-      // Should update input value
-      expect(input).toHaveValue('AAPL');
-    });
-
-    it('should close results with Escape key', async () => {
-      Object.assign(mockUseSymbolLookup, {
-        data: mockResponse,
-      });
-      
-      const user = userEvent.setup();
-      render(<SymbolLookupComponent />);
-      
-      const input = screen.getByRole('textbox');
-      await user.click(input);
-      
-      // Results should be visible
-      expect(screen.getByText('AAPL')).toBeInTheDocument();
-      
-      await user.keyboard('{Escape}');
-      
-      // Results should be hidden
-      expect(screen.queryByText('Exact Matches')).not.toBeInTheDocument();
     });
   });
 
@@ -558,3 +455,138 @@ describe('SymbolInputWithAI', () => {
     });
   });
 });
+  describe('Results Display', () => {
+    it('should display exact matches', async () => {
+      const user = userEvent.setup();
+      Object.assign(mockUseSymbolLookup, {
+        data: mockResponse,
+      });
+      
+      render(<SymbolLookupComponent />);
+      
+      // Type to trigger results and focus
+      const input = screen.getByRole('textbox');
+      await user.type(input, 'AAPL');
+      await user.click(input);
+      
+      await waitFor(() => {
+        expect(screen.getByText('Exact Matches')).toBeInTheDocument();
+        expect(screen.getByText('AAPL')).toBeInTheDocument();
+        expect(screen.getByText('Apple Inc.')).toBeInTheDocument();
+      });
+    });
+
+    it('should display suggestions when enabled', async () => {
+      const user = userEvent.setup();
+      Object.assign(mockUseSymbolLookup, {
+        data: mockResponse,
+      });
+      
+      render(<SymbolLookupComponent showSuggestions={true} />);
+      
+      const input = screen.getByRole('textbox');
+      await user.type(input, 'AAPL');
+      await user.click(input);
+      
+      await waitFor(() => {
+        expect(screen.getByText('Suggestions')).toBeInTheDocument();
+        expect(screen.getByText('AMZN')).toBeInTheDocument();
+      });
+    });
+
+    it('should hide suggestions when disabled', async () => {
+      const user = userEvent.setup();
+      Object.assign(mockUseSymbolLookup, {
+        data: mockResponse,
+      });
+      
+      render(<SymbolLookupComponent showSuggestions={false} />);
+      
+      const input = screen.getByRole('textbox');
+      await user.type(input, 'AAPL');
+      await user.click(input);
+      
+      await waitFor(() => {
+        expect(screen.getByText('Exact Matches')).toBeInTheDocument();
+      });
+      
+      expect(screen.queryByText('Suggestions')).not.toBeInTheDocument();
+    });
+
+    it('should display no results message', async () => {
+      const user = userEvent.setup();
+      Object.assign(mockUseSymbolLookup, {
+        data: {
+          ...mockResponse,
+          data: {
+            matches: [],
+            suggestions: []
+          }
+        }
+      });
+      
+      render(<SymbolLookupComponent />);
+      
+      const input = screen.getByRole('textbox');
+      await user.type(input, 'INVALID');
+      await user.click(input);
+      
+      await waitFor(() => {
+        expect(screen.getByText(/no symbols found/i)).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('Keyboard Navigation', () => {
+    it('should navigate results with arrow keys', async () => {
+      const user = userEvent.setup();
+      Object.assign(mockUseSymbolLookup, {
+        data: mockResponse,
+      });
+      
+      render(<SymbolLookupComponent />);
+      
+      const input = screen.getByRole('textbox');
+      await user.type(input, 'AAPL');
+      await user.click(input);
+      
+      // Wait for results to appear
+      await waitFor(() => {
+        expect(screen.getByText('AAPL')).toBeInTheDocument();
+      });
+      
+      // Test arrow down navigation
+      await user.keyboard('{ArrowDown}');
+      
+      // Test enter to select
+      await user.keyboard('{Enter}');
+      
+      expect(input).toHaveValue('AAPL');
+    });
+
+    it('should close results with Escape key', async () => {
+      const user = userEvent.setup();
+      Object.assign(mockUseSymbolLookup, {
+        data: mockResponse,
+      });
+      
+      render(<SymbolLookupComponent />);
+      
+      const input = screen.getByRole('textbox');
+      await user.type(input, 'AAPL');
+      await user.click(input);
+      
+      // Wait for results to appear
+      await waitFor(() => {
+        expect(screen.getByText('AAPL')).toBeInTheDocument();
+      });
+      
+      // Press escape to close results
+      await user.keyboard('{Escape}');
+      
+      // Results should be hidden
+      await waitFor(() => {
+        expect(screen.queryByText('Exact Matches')).not.toBeInTheDocument();
+      });
+    });
+  });

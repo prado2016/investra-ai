@@ -14,23 +14,23 @@ describe('ThemeToggle Component', () => {
   it('should render theme toggle component', () => {
     render(<ThemeToggle />);
     
-    expect(screen.getByText('Light Mode')).toBeInTheDocument();
-    expect(screen.getByText('☀️')).toBeInTheDocument();
-    expect(screen.getByText('🌙')).toBeInTheDocument();
+    // Test for button with aria-label instead of text content
+    expect(screen.getByRole('button', { name: /switch to dark mode/i })).toBeInTheDocument();
+    expect(screen.getByTitle(/switch to dark mode/i)).toBeInTheDocument();
   });
 
   it('should call toggleTheme when clicked', () => {
     render(<ThemeToggle />);
     
-    const label = screen.getByText('Light Mode');
-    fireEvent.click(label);
+    const button = screen.getByRole('button', { name: /switch to dark mode/i });
+    fireEvent.click(button);
     
     expect(mockToggleTheme).toHaveBeenCalled();
   });
 
-  it('should display correct text for light theme', () => {
+  it('should display correct aria-label for light theme', () => {
     render(<ThemeToggle />);
     
-    expect(screen.getByText('Light Mode')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /switch to dark mode/i })).toBeInTheDocument();
   });
 });

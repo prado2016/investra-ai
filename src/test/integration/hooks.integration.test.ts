@@ -9,6 +9,7 @@ import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import { useQuote, useSearch } from '../../hooks/useYahooFinance';
 import { usePositions, useTransactions } from '../../hooks/useStorage';
+import { setupContextMocks, renderHookWithProviders } from '../utils/test-wrapper';
 import type { Transaction, Position } from '../../types/portfolio';
 
 // Mock data for testing
@@ -152,11 +153,13 @@ vi.mock('../../hooks/useNetwork', () => ({
 describe('Hook Integration Tests', () => {
   beforeAll(() => {
     server.listen({ onUnhandledRequest: 'error' });
+    setupContextMocks();
   });
 
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
+  });
     mockNetworkStatus.isOnline = true;
     mockNetworkStatus.isOffline = false;
   });
@@ -173,8 +176,8 @@ describe('Hook Integration Tests', () => {
   describe('useQuote + usePositions Integration', () => {
     it('should fetch quote data and integrate with positions', async () => {
       // Arrange
-      const { result: quoteResult } = renderHook(() => useQuote('AAPL'));
-      const { result: positionsResult } = renderHook(() => usePositions());
+      const { result: quoteResult } = renderHookWithProviders(() => useQuote('AAPL'));
+      const { result: positionsResult } = renderHookWithProviders(() => usePositions());
 
       // Wait for quote to load
       await waitFor(() => {
@@ -223,8 +226,8 @@ describe('Hook Integration Tests', () => {
 
     it('should handle portfolio calculations with live data', async () => {
       // Arrange - Multiple quotes
-      const { result: quoteResult } = renderHook(() => useQuote('AAPL'));
-      const { result: positionsResult } = renderHook(() => usePositions());
+      const { result: quoteResult } = renderHookWithProviders(() => useQuote('AAPL'));
+      const { result: positionsResult } = renderHookWithProviders(() => usePositions());
 
       // Wait for quote to load
       await waitFor(() => {
@@ -281,8 +284,8 @@ describe('Hook Integration Tests', () => {
   describe('useQuote + useTransactions Integration', () => {
     it('should create transactions based on quote data', async () => {
       // Arrange
-      const { result: quoteResult } = renderHook(() => useQuote('AAPL'));
-      const { result: transactionsResult } = renderHook(() => useTransactions());
+      const { result: quoteResult } = renderHookWithProviders(() => useQuote('AAPL'));
+      const { result: transactionsResult } = renderHookWithProviders(() => useTransactions());
 
       // Wait for quote to load
       await waitFor(() => {
@@ -326,8 +329,8 @@ describe('Hook Integration Tests', () => {
       mockNetworkStatus.isOnline = false;
       mockNetworkStatus.isOffline = true;
 
-      const { result: quoteHook } = renderHook(() => useQuote('AAPL'));
-      const { result: transactionsResult } = renderHook(() => useTransactions());
+      const { result: quoteHook } = renderHookWithProviders(() => useQuote('AAPL'));
+      const { result: transactionsResult } = renderHookWithProviders(() => useTransactions());
 
       // Wait for initial state
       await waitFor(() => {
@@ -369,7 +372,7 @@ describe('Hook Integration Tests', () => {
       mockNetworkStatus.isOffline = false;
 
       // Re-render hooks to reflect network change
-      const { result: onlineQuoteHook } = renderHook(() => useQuote('AAPL'));
+      const { result: onlineQuoteHook } = renderHookWithProviders(() => useQuote('AAPL'));
 
       // Wait for online data
       await waitFor(() => {
@@ -399,7 +402,7 @@ describe('Hook Integration Tests', () => {
       );
 
       // Act - Hook should retry automatically
-      const { result } = renderHook(() => useQuote('AAPL'));
+      const { result } = renderHookWithProviders(() => useQuote('AAPL'));
 
       // Wait for eventual success after retries
       await waitFor(() => {
@@ -417,10 +420,10 @@ describe('Hook Integration Tests', () => {
   describe('Multi-Hook Data Consistency', () => {
     it('should maintain data consistency across multiple hook instances', async () => {
       // Arrange - Multiple instances of the same hooks
-      const { result: quote1 } = renderHook(() => useQuote('AAPL'));
-      const { result: quote2 } = renderHook(() => useQuote('AAPL'));
-      const { result: transactions1 } = renderHook(() => useTransactions());
-      const { result: transactions2 } = renderHook(() => useTransactions());
+      const { result: quote1 } = renderHookWithProviders(() => useQuote('AAPL'));
+      const { result: quote2 } = renderHookWithProviders(() => useQuote('AAPL'));
+      const { result: transactions1 } = renderHookWithProviders(() => useTransactions());
+      const { result: transactions2 } = renderHookWithProviders(() => useTransactions());
 
       // Wait for quotes to load
       await waitFor(() => {
@@ -471,8 +474,8 @@ describe('Hook Integration Tests', () => {
   describe('useSearch Integration', () => {
     it('should search for symbols and create positions', async () => {
       // Arrange
-      const { result: searchResult } = renderHook(() => useSearch('Apple'));
-      const { result: positionsResult } = renderHook(() => usePositions());
+      const { result: searchResult } = renderHookWithProviders(() => useSearch('Apple'));
+      const { result: positionsResult } = renderHookWithProviders(() => usePositions());
 
       // Wait for search results
       await waitFor(() => {
