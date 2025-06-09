@@ -81,6 +81,23 @@ jobs:
           # Create conf.d directory if it doesn't exist
           sudo mkdir -p /etc/nginx/conf.d
 
+          # Disable default Nginx site to prevent conflicts
+          if [ -f "/etc/nginx/nginx.conf" ]; then
+            echo "🔧 Disabling default Nginx configuration..."
+            sudo sed -i '/include \/etc\/nginx\/conf\.d\/\*\.conf;/a\    # Default server disabled for custom configs' /etc/nginx/nginx.conf
+            
+            # Comment out or remove default server block if it exists
+            if grep -q "server {" /etc/nginx/nginx.conf; then
+              sudo cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.backup
+              sudo sed -i '/server {/,/}/d' /etc/nginx/nginx.conf
+            fi
+          fi
+
+          # Remove default site configurations that might conflict
+          sudo rm -f /etc/nginx/conf.d/default.conf
+          sudo rm -f /etc/nginx/sites-enabled/default
+          sudo rm -f /etc/nginx/sites-available/default
+
           # Configure firewall for HTTP traffic (if firewalld is active)
           if systemctl is-active --quiet firewalld; then
             echo "🔥 Configuring firewall for HTTP traffic..."
@@ -98,10 +115,29 @@ jobs:
 
       - name: Prepare deployment directories
         run: |
+          echo "🔍 Checking build output..."
+          if [ ! -d "dist" ]; then
+            echo "❌ dist directory not found!"
+            exit 1
+          fi
+          
+          echo "📁 Build output contents:"
+          ls -la dist/
+          
+          if [ ! -f "dist/index.html" ]; then
+            echo "❌ index.html not found in dist directory!"
+            exit 1
+          fi
+          
+          echo "✅ Build output verified"
+          
           sudo mkdir -p /var/www/investra-ai
           sudo chown $USER:$USER /var/www/investra-ai
           mkdir -p /tmp/investra-ai-deploy
           cp -r dist/* /tmp/investra-ai-deploy/
+          
+          echo "📁 Deployment staging contents:"
+          ls -la /tmp/investra-ai-deploy/
 
       - name: Finalize deployment
         run: |
@@ -135,8 +171,9 @@ jobs:
           # Create/update Nginx configuration
           sudo tee /etc/nginx/conf.d/investra-ai.conf > /dev/null << 'NGINX_EOF'
           server {
-              listen 80;
-              server_name _;
+              listen 80 default_server;
+              listen [::]:80 default_server;
+              server_name investra-ai.local localhost _;
 
               root /var/www/investra-ai/current;
               index index.html;
@@ -151,16 +188,15 @@ jobs:
               add_header X-XSS-Protection "1; mode=block" always;
               add_header Referrer-Policy "strict-origin-when-cross-origin" always;
 
+              # Error pages
+              error_page 404 /index.html;
+              error_page 500 502 503 504 /index.html;
+
               # Cache static assets
               location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
                   expires 1y;
                   add_header Cache-Control "public, immutable";
                   access_log off;
-              }
-
-              # Handle React Router (SPA routing)
-              location / {
-                  try_files $uri $uri/ /index.html;
               }
 
               # Health check endpoint
@@ -169,6 +205,15 @@ jobs:
                   return 200 "healthy\n";
                   add_header Content-Type text/plain;
               }
+
+              # Handle React Router (SPA routing)
+              location / {
+                  try_files $uri $uri/ /index.html;
+              }
+
+              # Detailed logging for debugging
+              access_log /var/log/nginx/investra-ai-access.log;
+              error_log /var/log/nginx/investra-ai-error.log;
           }
           NGINX_EOF
 
@@ -196,29 +241,58 @@ jobs:
       - name: Verify deployment
         run: |
           # Wait a moment for Nginx to fully reload
-          sleep 2
+          sleep 5
           
           # Get the server IP
           SERVER_IP=$(hostname -I | awk '{print $1}')
           
-          # Test health endpoint
+          echo "🔍 Debug information:"
+          echo "Server IP: $SERVER_IP"
+          echo "Nginx configuration test:"
+          sudo nginx -t
+          
+          echo "🔍 Active Nginx configurations:"
+          sudo ls -la /etc/nginx/conf.d/
+          
+          echo "🔍 Application files:"
+          ls -la /var/www/investra-ai/current/ | head -10
+          
+          echo "🔍 Testing Nginx response directly:"
+          sudo systemctl status nginx --no-pager -l
+          
+          # Test health endpoint with more verbose output
           echo "🔍 Testing health endpoint..."
-          if curl -f -s "http://$SERVER_IP/health" > /dev/null; then
+          HEALTH_RESPONSE=$(curl -v -f -s "http://$SERVER_IP/health" 2>&1 || echo "FAILED")
+          if echo "$HEALTH_RESPONSE" | grep -q "healthy"; then
             echo "✅ Health check passed"
+            echo "Response: $HEALTH_RESPONSE"
           else
-            echo "⚠️  Health check failed, but continuing..."
+            echo "⚠️  Health check failed"
+            echo "Response: $HEALTH_RESPONSE"
+            echo "📋 Detailed Nginx error logs:"
+            sudo tail -20 /var/log/nginx/error.log
+            echo "📋 Investra AI specific error logs:"
+            sudo tail -10 /var/log/nginx/investra-ai-error.log 2>/dev/null || echo "No specific error log found"
           fi
           
-          # Test main application
+          # Test main application with more verbose output
           echo "🔍 Testing main application..."
-          if curl -f -s "http://$SERVER_IP/" | grep -q "Investra"; then
+          APP_RESPONSE=$(curl -v -f -s "http://$SERVER_IP/" 2>&1 || echo "FAILED")
+          if echo "$APP_RESPONSE" | grep -qi "investra\|html\|<!DOCTYPE"; then
             echo "✅ Application is responding correctly"
           else
             echo "❌ Application test failed!"
+            echo "Response preview: $(echo "$APP_RESPONSE" | head -5)"
             echo "📋 Nginx status:"
-            sudo systemctl status nginx --no-pager
-            echo "📋 Error logs:"
-            sudo tail -10 /var/log/nginx/error.log
+            sudo systemctl status nginx --no-pager -l
+            echo "📋 Nginx access logs:"
+            sudo tail -10 /var/log/nginx/investra-ai-access.log 2>/dev/null || sudo tail -10 /var/log/nginx/access.log
+            echo "📋 Nginx error logs:"
+            sudo tail -20 /var/log/nginx/error.log
+            echo "📋 Directory permissions:"
+            sudo ls -la /var/www/investra-ai/current/
+            echo "📋 File ownership:"
+            sudo ls -la /var/www/investra-ai/current/index.html 2>/dev/null || echo "index.html not found"
             exit 1
           fi
           
