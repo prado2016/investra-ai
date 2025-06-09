@@ -1,7 +1,6 @@
 import React from 'react'
 import { render, RenderOptions } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
-import { ThemeProvider as StyledThemeProvider } from 'styled-components'
 import { ThemeProvider } from '../contexts/ThemeContext'
 import { vi, MockedFunction } from 'vitest'
 
@@ -61,7 +60,16 @@ const customRender = (
     }
 
     if (withRouter) {
-      component = <BrowserRouter>{component}</BrowserRouter>
+      component = (
+        <BrowserRouter 
+          future={{
+            v7_startTransition: true,
+            v7_relativeSplatPath: true
+          }}
+        >
+          {component}
+        </BrowserRouter>
+      )
     }
 
     if (wrapper) {
