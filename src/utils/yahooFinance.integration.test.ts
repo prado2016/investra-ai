@@ -1,10 +1,8 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import React from 'react';
 import { renderHook, waitFor } from '@testing-library/react';
-import { useQuote, useQuotes, useSearch } from '../hooks/useYahooFinance';
+import { useQuote, useQuotes } from '../hooks/useYahooFinance';
 import { yahooFinanceService } from '../services/yahooFinanceService';
-import { render } from '../test/test-utils';
-import { mockData } from '../test/mocks/data';
 
 // Mock the yahoo finance service
 vi.mock('../services/yahooFinanceService', () => ({

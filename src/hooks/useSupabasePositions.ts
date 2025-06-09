@@ -7,7 +7,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { SupabaseService } from '../services/supabaseService';
 import { useSupabasePortfolios } from './useSupabasePortfolios';
 import type { Position as DbPosition, Asset } from '../lib/database/types';
-import type { Position as FrontendPosition } from '../types/portfolio';
+import type { Position as FrontendPosition, Currency } from '../types/portfolio';
 
 /**
  * Convert database Position to frontend Position format
@@ -30,7 +30,7 @@ function mapDbPositionToFrontend(dbPosition: DbPosition & { asset: Asset }): Fro
     realizedPL: dbPosition.realized_pl,
     totalReturn: dbPosition.realized_pl, // For now, just realized P&L
     totalReturnPercent: 0,
-    currency: dbPosition.asset.currency as any,
+    currency: dbPosition.asset.currency as Currency,
     openDate: new Date(dbPosition.open_date),
     lastTransactionDate: new Date(dbPosition.updated_at),
     costBasisMethod: dbPosition.cost_basis_method,

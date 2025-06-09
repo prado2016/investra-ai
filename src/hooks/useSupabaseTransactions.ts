@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { TransactionService, AssetService } from '../services/supabaseService';
 import { useNotify } from './useNotify';
-import type { Transaction, Asset } from '../lib/database/types';
+import type { Transaction, Asset, TransactionType } from '../lib/database/types';
 
 export interface TransactionWithAsset extends Transaction {
   asset: Asset;
@@ -60,11 +60,7 @@ export const useSupabaseTransactions = (portfolioId?: string) => {
     setLoading(true);
     try {
       // First, ensure the asset exists
-      const assetResponse = await AssetService.createAsset({
-        symbol: transactionData.assetSymbol,
-        asset_type: transactionData.assetType as any,
-        name: transactionData.assetSymbol // Use symbol as name for now
-      });
+      const assetResponse = await AssetService.getOrCreateAsset(transactionData.assetSymbol);
 
       if (!assetResponse.success || !assetResponse.data) {
         notify.error('Failed to create asset: ' + assetResponse.error);
@@ -75,7 +71,7 @@ export const useSupabaseTransactions = (portfolioId?: string) => {
       const response = await TransactionService.createTransaction(
         portfolioId,
         assetResponse.data.id,
-        transactionData.transactionType as any,
+        transactionData.transactionType as TransactionType,
         transactionData.quantity,
         transactionData.price,
         transactionData.transactionDate

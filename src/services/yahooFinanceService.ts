@@ -38,7 +38,7 @@ interface YahooFinanceHistoricalData {
 interface ApiError {
   code: string;
   message: string;
-  details?: any;
+  details?: unknown;
 }
 
 interface ApiResponse<T> {
@@ -72,7 +72,7 @@ import { config } from '../utils/config';
  * Handles all interactions with Yahoo Finance API including caching and error handling
  */
 export class YahooFinanceService {
-  private cache = new Map<string, CacheEntry<any>>();
+  private cache = new Map<string, CacheEntry<unknown>>();
   private readonly DEFAULT_CACHE_DURATION = config.cache.defaultDuration;
   private readonly HISTORICAL_CACHE_DURATION = config.cache.historicalDataDuration;
   private readonly MAX_RETRIES = 3;
@@ -89,7 +89,7 @@ export class YahooFinanceService {
       const cachedData = this.cache.get(cacheKey)!;
       return {
         success: true,
-        data: cachedData.data,
+        data: cachedData.data as YahooFinanceQuote,
         timestamp: new Date(),
         cached: true
       };
@@ -117,12 +117,12 @@ export class YahooFinanceService {
           marketCap: quote.marketCap,
           peRatio: quote.trailingPE,
           dividendYield: quote.trailingAnnualDividendYield ? quote.trailingAnnualDividendYield * 100 : undefined,
-          eps: (quote as any).trailingEps || (quote as any).epsTrailingTwelveMonths,
+          eps: (quote as Record<string, unknown>).trailingEps as number || (quote as Record<string, unknown>).epsTrailingTwelveMonths as number,
           beta: quote.beta,
           currency: quote.currency || 'USD',
           exchange: quote.fullExchangeName,
-          sector: (quote as any).sector,
-          industry: (quote as any).industry,
+          sector: (quote as Record<string, unknown>).sector as string,
+          industry: (quote as Record<string, unknown>).industry as string,
           lastUpdated: new Date()
         };
 
@@ -210,7 +210,7 @@ export class YahooFinanceService {
       const cachedData = this.cache.get(cacheKey)!;
       return {
         success: true,
-        data: cachedData.data,
+        data: cachedData.data as YahooFinanceHistoricalData[],
         timestamp: new Date(),
         cached: true
       };
@@ -231,15 +231,15 @@ export class YahooFinanceService {
           throw new Error(`No historical data available for symbol: ${symbol}`);
         }
 
-        const historicalData: YahooFinanceHistoricalData[] = result.map((item: any) => ({
+        const historicalData: YahooFinanceHistoricalData[] = result.map((item: Record<string, unknown>) => ({
           symbol,
-          date: item.date,
-          open: item.open,
-          high: item.high,
-          low: item.low,
-          close: item.close,
-          adjClose: item.adjClose || item.close,
-          volume: item.volume || 0
+          date: item.date as Date,
+          open: item.open as number,
+          high: item.high as number,
+          low: item.low as number,
+          close: item.close as number,
+          adjClose: (item.adjClose as number) || (item.close as number),
+          volume: (item.volume as number) || 0
         }));
 
         // Cache the result
@@ -277,10 +277,10 @@ export class YahooFinanceService {
           };
         }
 
-        const searchResults = result.quotes.map((quote: any) => ({
-          symbol: (quote as any).symbol,
-          name: (quote as any).shortname || (quote as any).longname || '',
-          type: this.determineAssetType((quote as any).quoteType || '', (quote as any).symbol)
+        const searchResults = result.quotes.map((quote: Record<string, unknown>) => ({
+          symbol: quote.symbol as string,
+          name: (quote.shortname as string) || (quote.longname as string) || '',
+          type: this.determineAssetType((quote.quoteType as string) || '', (quote.symbol as string))
         }));
 
         return {
@@ -409,13 +409,14 @@ export class YahooFinanceService {
     return Math.min(exponentialDelay + jitter, 30000); // Cap at 30 seconds
   }
 
-  private createApiError(code: string, message: string, originalError?: any): ApiError {
+  private createApiError(code: string, message: string, originalError?: unknown): ApiError {
+    const error = originalError as Error;
     return {
       code,
       message,
-      details: originalError ? {
-        message: originalError.message,
-        stack: originalError.stack
+      details: error ? {
+        message: error.message,
+        stack: error.stack
       } : undefined
     };
   }

@@ -4,7 +4,6 @@
  */
 
 import type { 
-  SymbolLookupRequest, 
   SymbolLookupResponse,
   SymbolValidationResponse,
   SymbolSuggestionResponse,
@@ -16,47 +15,57 @@ export class MockAIService {
     {
       symbol: 'AAPL',
       name: 'Apple Inc.',
-      type: 'stock',
+      assetType: 'stock',
       exchange: 'NASDAQ',
       confidence: 0.98,
-      price: 185.92,
-      description: 'Technology company that designs and manufactures consumer electronics'
+      description: 'Technology company that designs and manufactures consumer electronics',
+      sector: 'Technology',
+      industry: 'Consumer Electronics',
+      currency: 'USD'
     },
     {
       symbol: 'GOOGL',
       name: 'Alphabet Inc.',
-      type: 'stock',
+      assetType: 'stock',
       exchange: 'NASDAQ',
       confidence: 0.96,
-      price: 2847.63,
-      description: 'Multinational technology company specializing in Internet-related services'
+      description: 'Multinational technology company specializing in Internet-related services',
+      sector: 'Technology',
+      industry: 'Internet & Technology',
+      currency: 'USD'
     },
     {
       symbol: 'MSFT',
       name: 'Microsoft Corporation',
-      type: 'stock',
+      assetType: 'stock',
       exchange: 'NASDAQ',
       confidence: 0.97,
-      price: 378.85,
-      description: 'American multinational technology corporation'
+      description: 'American multinational technology corporation',
+      sector: 'Technology',
+      industry: 'Software',
+      currency: 'USD'
     },
     {
       symbol: 'TSLA',
       name: 'Tesla, Inc.',
-      type: 'stock',
+      assetType: 'stock',
       exchange: 'NASDAQ',
       confidence: 0.95,
-      price: 248.42,
-      description: 'Electric vehicle and clean energy company'
+      description: 'Electric vehicle and clean energy company',
+      sector: 'Automotive',
+      industry: 'Electric Vehicles',
+      currency: 'USD'
     },
     {
       symbol: 'AMZN',
       name: 'Amazon.com, Inc.',
-      type: 'stock',
+      assetType: 'stock',
       exchange: 'NASDAQ',
       confidence: 0.97,
-      price: 155.89,
-      description: 'American multinational technology company focusing on e-commerce'
+      description: 'American multinational technology company focusing on e-commerce',
+      sector: 'Technology',
+      industry: 'E-commerce',
+      currency: 'USD'
     }
   ];
 
@@ -100,7 +109,7 @@ export class MockAIService {
         details: {
           name: foundSymbol.name,
           exchange: foundSymbol.exchange,
-          assetType: foundSymbol.type
+          assetType: foundSymbol.assetType
         }
       };
     }
@@ -142,7 +151,7 @@ export class MockAIService {
     return {
       suggestions,
       query,
-      provider: 'mock'
+      provider: 'gemini'
     };
   }
 

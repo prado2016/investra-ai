@@ -1,5 +1,4 @@
 // Simple test to verify TransactionList component changes
-import React from 'react';
 import { TransactionWithAsset } from '../components/TransactionList';
 
 // Mock data to test the component

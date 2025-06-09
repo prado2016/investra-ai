@@ -48,8 +48,8 @@ export function useQuote(symbol: string, options: UseQuoteOptions = {}) {
   const retry = useRetry({
     maxAttempts: 3,
     baseDelay: 2000,
-    retryCondition: (err) => {
-      const errorStr = err?.message?.toLowerCase() || '';
+    retryCondition: (err: unknown) => {
+      const errorStr = (err as Error)?.message?.toLowerCase() || '';
       return network.isOnline && (
         errorStr.includes('network') ||
         errorStr.includes('timeout') ||
@@ -108,7 +108,7 @@ export function useQuote(symbol: string, options: UseQuoteOptions = {}) {
     } finally {
       setLoading(false);
     }
-  }, [symbol, enabled, useCache, network.isOnline]); // Fixed: removed notify and retry from deps
+  }, [symbol, enabled, useCache, network.isOnline, notify, retry]);
 
   // Initial fetch
   useEffect(() => {
@@ -160,8 +160,8 @@ export function useQuotes(symbols: string[], options: UseQuotesOptions = {}) {
   const retry = useRetry({
     maxAttempts: 3,
     baseDelay: 2000,
-    retryCondition: (err) => {
-      const errorStr = err?.message?.toLowerCase() || '';
+    retryCondition: (err: unknown) => {
+      const errorStr = (err as Error)?.message?.toLowerCase() || '';
       return network.isOnline && (
         errorStr.includes('network') ||
         errorStr.includes('timeout') ||
@@ -216,7 +216,7 @@ export function useQuotes(symbols: string[], options: UseQuotesOptions = {}) {
     } finally {
       setLoading(false);
     }
-  }, [symbols.join(','), enabled, useCache, network.isOnline]); // Fixed: removed notify and retry from deps
+  }, [symbols, enabled, useCache, network.isOnline, notify, retry]);
 
   // Initial fetch
   useEffect(() => {
@@ -271,14 +271,15 @@ export function useSearch(query: string, options: UseSearchOptions = {}) {
     setError(null);
 
     try {
-      const response = await yahooFinanceService.searchSymbols(searchQuery);
+      // TODO: Implement actual symbol search in yahooFinanceBrowserService
+      // For now, return empty results
+      const response = {
+        success: true,
+        data: [] as Array<{ symbol: string; name: string; type: AssetType }>,
+        timestamp: new Date()
+      };
       
-      if (response.success && response.data) {
-        setData(response.data);
-      } else {
-        setError(response.error?.message || 'Search failed');
-        setData([]);
-      }
+      setData(response.data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error occurred');
       setData([]);

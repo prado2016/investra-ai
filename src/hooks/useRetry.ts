@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useMemo } from 'react';
 import { useNotify } from './useNotify';
 
 export interface RetryOptions {
@@ -56,7 +56,7 @@ const DEFAULT_OPTIONS: Required<RetryOptions> = {
  * Hook for implementing retry logic with exponential backoff
  */
 export const useRetry = (options: RetryOptions = {}) => {
-  const opts = { ...DEFAULT_OPTIONS, ...options };
+  const opts = useMemo(() => ({ ...DEFAULT_OPTIONS, ...options }), [options]);
   const notify = useNotify();
   
   const [state, setState] = useState<RetryState>({

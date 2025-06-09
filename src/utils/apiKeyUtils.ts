@@ -118,7 +118,7 @@ export class ApiKeyEncryption {
     // For now, we'll use base64 decoding as a placeholder
     try {
       return atob(encryptedKey);
-    } catch (error) {
+    } catch {
       throw new Error('Failed to decrypt API key');
     }
   }

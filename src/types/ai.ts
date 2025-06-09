@@ -2,13 +2,13 @@
 export * from './ai';
 
 // API Response Types
-export interface APIResponse<T = any> {
+export interface APIResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: {
     code: string;
     message: string;
-    details?: any;
+    details?: unknown;
   };
   metadata: {
     timestamp: string;
@@ -115,9 +115,9 @@ export interface FinancialAnalysisRequest {
 export interface FinancialDataInput {
   prices?: number[];
   volumes?: number[];
-  marketData?: Record<string, any>;
+  marketData?: Record<string, unknown>;
   newsData?: string[];
-  fundamentals?: Record<string, any>;
+  fundamentals?: Record<string, unknown>;
 }
 
 export interface FinancialAnalysisResult {
@@ -129,7 +129,7 @@ export interface FinancialAnalysisResult {
   recommendations: string[];
   riskLevel: 'low' | 'medium' | 'high';
   timeframe: string;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 export interface FinancialAnalysisResponse {
@@ -180,7 +180,7 @@ export interface AIServiceError {
   message: string;
   provider: AIProvider;
   type: 'api_error' | 'validation_error' | 'rate_limit' | 'timeout' | 'quota_exceeded';
-  details?: any;
+  details?: unknown;
   retryable: boolean;
 }
 

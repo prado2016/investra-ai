@@ -179,7 +179,11 @@ export class AIServiceManager {
    * Test connection for all services
    */
   async testAllConnections(): Promise<Record<AIProvider, { success: boolean; error?: string; latency?: number }>> {
-    const results: Record<AIProvider, { success: boolean; error?: string; latency?: number }> = {} as any;
+    const results: Record<AIProvider, { success: boolean; error?: string; latency?: number }> = {
+      openai: { success: false },
+      gemini: { success: false },
+      claude: { success: false }
+    };
     
     for (const [provider, service] of this.services) {
       try {
@@ -226,7 +230,7 @@ export class AIServiceManager {
    * Get health status of all services
    */
   async getHealthStatus() {
-    const status: Record<string, any> = {};
+    const status: Record<string, unknown> = {};
     
     for (const [provider, service] of this.services) {
       try {

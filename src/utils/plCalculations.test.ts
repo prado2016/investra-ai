@@ -6,9 +6,6 @@ import {
   calculateTotalFees,
   calculateTradingVolume,
   calculateNetCashFlow,
-  calculateRealizedPLWithMethod,
-  calculateAnnualizedReturn,
-  convertCurrency,
   formatPLWithColor
 } from '../utils/plCalculations';
 import type { Transaction, Position } from '../types/portfolio';

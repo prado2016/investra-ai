@@ -16,7 +16,7 @@ import type { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/
 // Real-time event types
 export type RealtimeEventType = 'INSERT' | 'UPDATE' | 'DELETE'
 
-export interface RealtimeEvent<T = any> {
+export interface RealtimeEvent<T = unknown> {
   eventType: RealtimeEventType
   table: string
   new: T | null
@@ -151,7 +151,7 @@ export class RealtimeService {
         })
 
       // Subscribe to the channel
-      const subscriptionResponse = await this.channel.subscribe((status) => {
+      await this.channel.subscribe((status) => {
         console.log('📡 Realtime subscription status:', status)
         
         if (status === 'SUBSCRIBED') {

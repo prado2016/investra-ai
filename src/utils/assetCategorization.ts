@@ -550,7 +550,7 @@ export function validateTickerSymbol(symbol: string): ValidationResult {
   const detectedType = detectAssetType(trimmed);
   
   // Basic format validation
-  if (!/^[A-Za-z0-9.\-:\/\s]+$/.test(trimmed)) {
+  if (!/^[A-Za-z0-9.\-:/\s]+$/.test(trimmed)) {
     errors.push('Symbol contains invalid characters. Only letters, numbers, dots, hyphens, colons, slashes, and spaces are allowed');
   }
   
@@ -576,13 +576,13 @@ export function validateTickerSymbol(symbol: string): ValidationResult {
         validateForexSymbol(trimmed, errors, warnings);
         break;
       case 'option':
-        validateOptionSymbol(trimmed, errors, warnings, suggestions);
+        validateOptionSymbol(trimmed, errors, warnings);
         break;
       case 'etf':
         validateETFSymbol(parsed.cleanSymbol, errors, warnings, suggestions);
         break;
       case 'reit':
-        validateREITSymbol(parsed.cleanSymbol, errors, warnings, suggestions);
+        validateREITSymbol(parsed.cleanSymbol, errors, warnings);
         break;
     }
   } else {
@@ -690,7 +690,7 @@ function validateForexSymbol(symbol: string, errors: string[], warnings: string[
 /**
  * Validate option symbol format
  */
-function validateOptionSymbol(symbol: string, errors: string[], warnings: string[], _suggestions: string[]) {
+function validateOptionSymbol(symbol: string, errors: string[], warnings: string[]) {
   const optionPattern = /^([A-Z]{1,5})(\d{6})([CP])(\d{8})$/;
   const match = symbol.match(optionPattern);
   
@@ -699,7 +699,7 @@ function validateOptionSymbol(symbol: string, errors: string[], warnings: string
     return;
   }
   
-  const [, _underlying, dateStr, _type, strikeStr] = match;
+  const [, , dateStr, , strikeStr] = match;
   
   // Validate date
   const year = 2000 + parseInt(dateStr.substring(0, 2));
@@ -749,7 +749,7 @@ function validateETFSymbol(symbol: string, errors: string[], warnings: string[],
 /**
  * Validate REIT symbol format
  */
-function validateREITSymbol(symbol: string, errors: string[], warnings: string[], suggestions: string[]) {
+function validateREITSymbol(symbol: string, errors: string[], warnings: string[]) {
   if (symbol.length < 1 || symbol.length > 6) {
     warnings.push('REIT symbols are typically 1-6 characters long');
   }
@@ -785,8 +785,9 @@ export function getAssetTypeOverrides(): Record<string, AssetTypeOverride> {
     
     const parsed = JSON.parse(stored);
     // Convert timestamp strings back to Date objects
-    Object.values(parsed).forEach((override: any) => {
-      override.timestamp = new Date(override.timestamp);
+    Object.values(parsed).forEach((override: unknown) => {
+      const typedOverride = override as { timestamp: string };
+      typedOverride.timestamp = new Date(typedOverride.timestamp) as unknown as string;
     });
     
     return parsed;

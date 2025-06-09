@@ -1,7 +1,7 @@
 // Debug utility functions for development mode
 declare global {
-  var __DEV__: boolean;
-  var __DEBUG__: boolean;
+  const __DEV__: boolean;
+  const __DEBUG__: boolean;
 }
 
 export const isDev = typeof __DEV__ !== 'undefined' ? __DEV__ : process.env.NODE_ENV === 'development';
@@ -13,7 +13,7 @@ export class DebugLogger {
     timestamp: Date;
     level: 'log' | 'warn' | 'error' | 'info' | 'debug';
     message: string;
-    data?: any;
+    data?: unknown;
     source?: string;
   }> = [];
 
@@ -29,7 +29,7 @@ export class DebugLogger {
     return `[${timestamp}] [${level.toUpperCase()}] [${source}] ${message}`;
   }
 
-  log(message: string, data?: any, source = 'App') {
+  log(message: string, data?: unknown, source = 'App') {
     if (!isDev && !isDebug) return;
     
     const logEntry = {
@@ -44,7 +44,7 @@ export class DebugLogger {
     console.log(this.formatMessage('log', source, message), data || '');
   }
 
-  warn(message: string, data?: any, source = 'App') {
+  warn(message: string, data?: unknown, source = 'App') {
     if (!isDev && !isDebug) return;
     
     const logEntry = {
@@ -59,7 +59,7 @@ export class DebugLogger {
     console.warn(this.formatMessage('warn', source, message), data || '');
   }
 
-  error(message: string, error?: any, source = 'App') {
+  error(message: string, error?: unknown, source = 'App') {
     const logEntry = {
       timestamp: new Date(),
       level: 'error' as const,
@@ -72,7 +72,7 @@ export class DebugLogger {
     console.error(this.formatMessage('error', source, message), error || '');
   }
 
-  info(message: string, data?: any, source = 'App') {
+  info(message: string, data?: unknown, source = 'App') {
     if (!isDev && !isDebug) return;
     
     const logEntry = {
@@ -87,7 +87,7 @@ export class DebugLogger {
     console.info(this.formatMessage('info', source, message), data || '');
   }
 
-  debug(message: string, data?: any, source = 'App') {
+  debug(message: string, data?: unknown, source = 'App') {
     if (!isDev && !isDebug) return;
     
     const logEntry = {
@@ -126,7 +126,7 @@ export class DebugLogger {
   }
 
   // Component lifecycle debugging
-  componentMount(componentName: string, props?: any) {
+  componentMount(componentName: string, props?: unknown) {
     this.debug(`Component mounted: ${componentName}`, props, 'React');
   }
 
@@ -134,21 +134,21 @@ export class DebugLogger {
     this.debug(`Component unmounted: ${componentName}`, undefined, 'React');
   }
 
-  componentUpdate(componentName: string, prevProps?: any, newProps?: any) {
+  componentUpdate(componentName: string, prevProps?: unknown, newProps?: unknown) {
     this.debug(`Component updated: ${componentName}`, { prevProps, newProps }, 'React');
   }
 
   // API call debugging
-  apiRequest(method: string, url: string, data?: any) {
+  apiRequest(method: string, url: string, data?: unknown) {
     this.info(`API ${method.toUpperCase()} ${url}`, data, 'API');
   }
 
-  apiResponse(method: string, url: string, status: number, data?: any) {
+  apiResponse(method: string, url: string, status: number, data?: unknown) {
     const level = status >= 400 ? 'error' : status >= 300 ? 'warn' : 'info';
     this[level](`API ${method.toUpperCase()} ${url} - ${status}`, data, 'API');
   }
 
-  apiError(method: string, url: string, error: any) {
+  apiError(method: string, url: string, error: unknown) {
     this.error(`API ${method.toUpperCase()} ${url} - ERROR`, error, 'API');
   }
 }
@@ -162,13 +162,13 @@ export class ErrorTracker {
     id: string;
     timestamp: Date;
     error: Error;
-    context?: any;
+    context?: unknown;
     userAgent?: string;
     url?: string;
     userId?: string;
   }> = [];
 
-  static trackError(error: Error, context?: any, userId?: string) {
+  static trackError(error: Error, context?: unknown, userId?: string) {
     const errorRecord = {
       id: `error-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       timestamp: new Date(),
@@ -194,7 +194,7 @@ export class ErrorTracker {
     return errorRecord.id;
   }
 
-  private static sendToErrorService(errorRecord: any) {
+  private static sendToErrorService(errorRecord: unknown) {
     // Placeholder for error tracking service integration
     // e.g., Sentry, LogRocket, etc.
     debug.info('Would send error to tracking service in production', errorRecord, 'ErrorTracker');
@@ -258,29 +258,29 @@ export const devTools = {
   // Global access to debug tools
   enableDebugMode() {
     if (isDev) {
-      (window as any).debug = debug;
-      (window as any).errorTracker = ErrorTracker;
-      (window as any).performanceTracker = PerformanceTracker;
+      (window as unknown as Record<string, unknown>).debug = debug;
+      (window as unknown as Record<string, unknown>).errorTracker = ErrorTracker;
+      (window as unknown as Record<string, unknown>).performanceTracker = PerformanceTracker;
       debug.info('Debug tools attached to window object', undefined, 'DevTools');
     }
   },
 
   // Component debugging wrapper
-  logComponentRender(componentName: string, props?: any) {
+  logComponentRender(componentName: string, props?: unknown) {
     if (isDev || isDebug) {
       debug.debug(`Rendering ${componentName}`, props, 'React');
     }
   },
 
   // State change debugging
-  logStateChange(stateName: string, oldValue: any, newValue: any) {
+  logStateChange(stateName: string, oldValue: unknown, newValue: unknown) {
     if (isDev || isDebug) {
       debug.debug(`State change: ${stateName}`, { from: oldValue, to: newValue }, 'State');
     }
   },
 
   // Effect debugging
-  logEffect(effectName: string, dependencies?: any[]) {
+  logEffect(effectName: string, dependencies?: unknown[]) {
     if (isDev || isDebug) {
       debug.debug(`Effect triggered: ${effectName}`, { dependencies }, 'React');
     }

@@ -5,7 +5,7 @@ export async function setupDatabase() {
     console.log('🚀 Setting up database schema...')
     
     // Test connection first
-    const { data: connectionTest, error: connectionError } = await supabase
+    const { error: connectionError } = await supabase
       .from('_test')
       .select('*')
       .limit(1)

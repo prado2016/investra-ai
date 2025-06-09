@@ -333,18 +333,21 @@ Return only valid JSON, no additional text.`;
       const parsed = JSON.parse(cleanText);
       
       if (parsed.results && Array.isArray(parsed.results)) {
-        return parsed.results.map((result: any) => ({
-          symbol: result.symbol || '',
-          name: result.name || '',
-          exchange: result.exchange || '',
-          assetType: this.normalizeAssetType(result.assetType),
-          confidence: Math.max(0, Math.min(1, result.confidence || 0)),
-          description: result.description || '',
-          sector: result.sector || '',
-          industry: result.industry || '',
-          marketCap: result.marketCap || undefined,
-          currency: result.currency || 'USD'
-        }));
+        return parsed.results.map((result: unknown) => {
+          const typedResult = result as Record<string, unknown>;
+          return {
+            symbol: (typedResult.symbol as string) || '',
+            name: (typedResult.name as string) || '',
+            exchange: (typedResult.exchange as string) || '',
+            assetType: this.normalizeAssetType((typedResult.assetType as string) || 'stock'),
+            confidence: Math.max(0, Math.min(1, (typedResult.confidence as number) || 0)),
+            description: (typedResult.description as string) || '',
+            sector: (typedResult.sector as string) || '',
+            industry: (typedResult.industry as string) || '',
+            marketCap: typedResult.marketCap as number || undefined,
+            currency: (typedResult.currency as string) || 'USD'
+          };
+        });
       }
       
       return [];

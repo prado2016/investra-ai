@@ -8,7 +8,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import symbolLookupEndpoint from '../services/endpoints/symbolLookupEndpoint';
-import type { SymbolLookupEndpointRequest, SymbolLookupEndpointResponse } from '../services/endpoints/symbolLookupEndpoint';
+import type { SymbolLookupEndpointRequest } from '../services/endpoints/symbolLookupEndpoint';
 import type { AIProvider, SymbolLookupResult } from '../types/ai';
 
 // Mock dependencies
@@ -232,7 +232,7 @@ describe('SymbolLookupEndpointService', () => {
     it('should handle authentication properly', async () => {
       // The default instance has authentication enabled
       // Mock API key service to return valid key
-      const { ApiKeyService } = require('../services/apiKeyService');
+      const { ApiKeyService } = await import('../services/apiKeyService');
       const mockInstance = ApiKeyService.getInstance();
       vi.mocked(mockInstance.getApiKey).mockResolvedValue({ key: 'valid-key', isValid: true });
 

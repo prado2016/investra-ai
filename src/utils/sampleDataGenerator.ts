@@ -84,7 +84,7 @@ export class SampleDataGenerator {
         id: `position_${i + 1}`,
         assetId: `asset_${asset.symbol}`,
         assetSymbol: asset.symbol,
-        assetType: asset.type as any,
+        assetType: asset.type as 'stock' | 'option' | 'crypto' | 'etf',
         quantity,
         averageCostBasis: avgCost,
         totalCostBasis: quantity * avgCost,
@@ -120,7 +120,7 @@ export class SampleDataGenerator {
         id: `transaction_${i + 1}`,
         assetId: `asset_${asset.symbol}`,
         assetSymbol: asset.symbol,
-        assetType: asset.type as any,
+        assetType: asset.type as 'stock' | 'option' | 'crypto' | 'etf',
         type: Math.random() > 0.3 ? 'buy' : 'sell' as const,
         quantity,
         price,
@@ -173,7 +173,7 @@ export class SampleDataGenerator {
 
 // Make it available globally for browser console testing
 if (typeof window !== 'undefined') {
-  (window as any).SampleDataGenerator = SampleDataGenerator
+  (window as unknown as Record<string, unknown>).SampleDataGenerator = SampleDataGenerator
 }
 
 export default SampleDataGenerator

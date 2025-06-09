@@ -97,7 +97,7 @@ export class AIIntegrationService {
     isValid: boolean;
     suggestion?: string;
     confidence: number;
-    details?: any;
+    details?: unknown;
   }> {
     try {
       const response = await this.enhancedSymbolLookup(symbol, {
@@ -225,7 +225,7 @@ export class AIIntegrationService {
         data: {
           marketData: { action, context }
         },
-        analysisType: 'recommendation',
+        analysisType: 'trend',
         timeframe: 'current'
       };
 

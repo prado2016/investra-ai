@@ -8,20 +8,17 @@ import { aiServiceManager } from '../ai';
 import { MockAIService } from '../ai/mockAIService';
 import type {
   AIProvider,
-  SymbolLookupRequest,
-  SymbolLookupResponse,
-  FinancialAnalysisRequest,
-  FinancialAnalysisResponse
+  SymbolLookupResponse
 } from '../../types/ai';
 
 // API Response Types
-export interface APIResponse<T = any> {
+export interface APIResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: {
     code: string;
     message: string;
-    details?: any;
+    details?: unknown;
   };
   metadata: {
     timestamp: string;
@@ -84,7 +81,7 @@ export interface MarketInsightsResponse {
  * AI Symbol Lookup API Endpoints
  */
 export class AISymbolLookupAPI {
-  private static cache = new Map<string, { data: any; expires: number }>();
+  private static cache = new Map<string, { data: unknown; expires: number }>();
   
   /**
    * Search for symbols using AI
@@ -110,7 +107,7 @@ export class AISymbolLookupAPI {
 
       // Check cache
       const cacheKey = `search:${params.query}:${params.maxResults || 5}:${params.provider || 'default'}`;
-      const cached = this.getFromCache(cacheKey);
+      const cached = this.getFromCache<SymbolLookupResponse>(cacheKey);
       if (cached) {
         return this.successResponse(cached, requestId, startTime, true);
       }
@@ -166,7 +163,7 @@ export class AISymbolLookupAPI {
 
       // Check cache
       const cacheKey = `suggestions:${params.query}:${params.limit || 3}`;
-      const cached = this.getFromCache(cacheKey);
+      const cached = this.getFromCache<SymbolSuggestionResponse>(cacheKey);
       if (cached) {
         return this.successResponse(cached, requestId, startTime, true);
       }
@@ -223,7 +220,7 @@ export class AISymbolLookupAPI {
 
       // Check cache
       const cacheKey = `validate:${params.symbol.toUpperCase()}`;
-      const cached = this.getFromCache(cacheKey);
+      const cached = this.getFromCache<SymbolValidationResponse>(cacheKey);
       if (cached) {
         return this.successResponse(cached, requestId, startTime, true);
       }
@@ -364,7 +361,7 @@ export class AISymbolLookupAPI {
 
       // Check cache
       const cacheKey = `insights:${params.symbol}:${params.analysisType || 'trend'}`;
-      const cached = this.getFromCache(cacheKey);
+      const cached = this.getFromCache<MarketInsightsResponse>(cacheKey);
       if (cached) {
         return this.successResponse(cached, requestId, startTime, true);
       }
@@ -450,7 +447,11 @@ export class AISymbolLookupAPI {
       }
 
       // Transform results
-      const providers: Record<string, any> = {};
+      const providers: Record<string, {
+        available: boolean;
+        latency: number;
+        error?: string;
+      }> = {};
       for (const [provider, result] of Object.entries(healthResults)) {
         providers[provider] = {
           available: result.success,
@@ -513,12 +514,12 @@ export class AISymbolLookupAPI {
     };
   }
 
-  private static errorResponse(
+  private static errorResponse<T = never>(
     code: string,
     message: string,
     requestId: string,
     startTime: number
-  ): APIResponse {
+  ): APIResponse<T> {
     return {
       success: false,
       error: {
@@ -533,7 +534,7 @@ export class AISymbolLookupAPI {
     };
   }
 
-  private static setCache(key: string, data: any, ttl: number): void {
+  private static setCache(key: string, data: unknown, ttl: number): void {
     const expires = Date.now() + ttl;
     this.cache.set(key, { data, expires });
     
@@ -543,7 +544,7 @@ export class AISymbolLookupAPI {
     }
   }
 
-  private static getFromCache(key: string): any | null {
+  private static getFromCache<T>(key: string): T | null {
     const entry = this.cache.get(key);
     if (!entry) return null;
     
@@ -552,7 +553,7 @@ export class AISymbolLookupAPI {
       return null;
     }
     
-    return entry.data;
+    return entry.data as T;
   }
 
   private static cleanupCache(): void {

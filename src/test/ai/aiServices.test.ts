@@ -104,7 +104,7 @@ describe('AI Services', () => {
         response: {
           text: () => mockAnalysisResponse
         }
-      } as any);
+      } as { response: { text: () => string } });
 
       const request: FinancialAnalysisRequest = {
         symbol: 'AAPL',
@@ -131,7 +131,7 @@ describe('AI Services', () => {
         response: {
           text: () => 'OK'
         }
-      } as any);
+      } as { response: { text: () => string } });
 
       const result = await geminiService.testConnection();
 
@@ -236,7 +236,7 @@ describe('AI Services', () => {
         response: {
           text: () => mockAnalysisResponse
         }
-      } as any);
+      } as { response: { text: () => string } });
 
       const request: FinancialAnalysisRequest = {
         symbol: 'TSLA',
@@ -261,7 +261,7 @@ describe('AI Services', () => {
         response: {
           text: () => 'OK'
         }
-      } as any);
+      } as { response: { text: () => string } });
 
       const results = await aiManager.testAllConnections();
       expect(results.gemini.success).toBe(true);
@@ -316,7 +316,7 @@ describe('AI Services', () => {
         response: {
           text: () => 'invalid json response'
         }
-      } as any);
+      } as { response: { text: () => string } });
 
       const request: SymbolLookupRequest = {
         query: 'Apple',

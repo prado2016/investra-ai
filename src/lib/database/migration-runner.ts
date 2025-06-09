@@ -25,7 +25,7 @@ export interface MigrationResult {
 /**
  * List of migrations in execution order
  */
-const MIGRATIONS: Omit<Migration, 'sql'>[] = [
+export const MIGRATIONS: Omit<Migration, 'sql'>[] = [
   {
     name: 'migration_system',
     file: '000_migration_system.sql',
@@ -51,7 +51,7 @@ const MIGRATIONS: Omit<Migration, 'sql'>[] = [
 /**
  * Check if a migration has already been executed
  */
-async function isMigrationExecuted(migrationName: string): Promise<boolean> {
+export async function isMigrationExecuted(migrationName: string): Promise<boolean> {
   try {
     const { data, error } = await supabase
       .from('schema_migrations')
@@ -75,7 +75,7 @@ async function isMigrationExecuted(migrationName: string): Promise<boolean> {
 /**
  * Execute a single migration
  */
-async function executeMigration(migration: Migration): Promise<MigrationResult> {
+export async function executeMigration(migration: Migration): Promise<MigrationResult> {
   const startTime = Date.now()
   
   try {

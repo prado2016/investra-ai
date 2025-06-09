@@ -2,8 +2,7 @@ import React from 'react'
 import { render, RenderOptions } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
 import { ThemeProvider } from 'styled-components'
-import { NotificationProvider } from '../contexts/NotificationContext'
-import { LoadingProvider } from '../contexts/LoadingContext'
+import { vi, MockedFunction } from 'vitest'
 
 // Mock theme for testing
 const mockTheme = {
@@ -33,26 +32,10 @@ const mockTheme = {
   }
 }
 
-// Custom render function that includes providers
-const AllTheProviders: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  return (
-    <BrowserRouter>
-      <ThemeProvider theme={mockTheme}>
-        <LoadingProvider>
-          <NotificationProvider>
-            {children}
-          </NotificationProvider>
-        </LoadingProvider>
-      </ThemeProvider>
-    </BrowserRouter>
-  )
-}
-
 interface CustomRenderOptions extends Omit<RenderOptions, 'wrapper'> {
   wrapper?: React.ComponentType<{ children: React.ReactNode }>
   withRouter?: boolean
   withTheme?: boolean
-  withNotifications?: boolean
 }
 
 const customRender = (
@@ -61,16 +44,16 @@ const customRender = (
     wrapper,
     withRouter = true,
     withTheme = true,
-    withNotifications = true,
     ...options
   }: CustomRenderOptions = {}
 ) => {
   const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     let component = children
 
-    if (withNotifications) {
-      component = <NotificationProvider>{component}</NotificationProvider>
-    }
+    // Note: NotificationProvider and LoadingProvider would need to be implemented
+    // if (withNotifications) {
+    //   component = <NotificationProvider>{component}</NotificationProvider>
+    // }
 
     if (withTheme) {
       component = <ThemeProvider theme={mockTheme}>{component}</ThemeProvider>
@@ -94,7 +77,7 @@ const customRender = (
 // Test utilities for common testing patterns
 export const testUtils = {
   // Create mock function with better typing
-  createMockFn: <T extends (...args: any[]) => any>(implementation?: T) => {
+  createMockFn: <T extends (...args: unknown[]) => unknown>(implementation?: T) => {
     return vi.fn(implementation) as MockedFunction<T>
   },
 
@@ -130,7 +113,7 @@ export const testUtils = {
   },
 
   // Create mock fetch response
-  mockFetchResponse: (data: any, options: { status?: number; ok?: boolean } = {}) => {
+  mockFetchResponse: (data: unknown, options: { status?: number; ok?: boolean } = {}) => {
     return {
       ok: options.ok ?? true,
       status: options.status ?? 200,
@@ -163,6 +146,6 @@ export { customRender as render }
 export { mockTheme }
 
 // Type helper for mocked functions
-type MockedFunction<T extends (...args: any[]) => any> = ReturnType<typeof vi.fn<T>>
+type MockedFunction<T extends (...args: unknown[]) => unknown> = ReturnType<typeof vi.fn<T>>
 
 export type { MockedFunction }

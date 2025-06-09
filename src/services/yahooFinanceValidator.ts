@@ -276,14 +276,16 @@ export class YahooFinanceValidator {
   /**
    * Detect symbol type based on format and metadata
    */
-  private static detectSymbolType(symbol: string, meta: any): 'stock' | 'etf' | 'option' | 'index' {
+  private static detectSymbolType(symbol: string, meta: Record<string, unknown>): 'stock' | 'etf' | 'option' | 'index' {
     // Options have specific format: SYMBOL + DATE + C/P + STRIKE
     if (symbol.length > 10 && /\d{6}[CP]\d{8}$/.test(symbol)) {
       return 'option';
     }
     
     // ETFs often have 'ETF' in description or specific exchanges
-    if (meta?.longName?.includes('ETF') || meta?.shortName?.includes('ETF')) {
+    const longName = meta?.longName as string;
+    const shortName = meta?.shortName as string;
+    if (longName?.includes('ETF') || shortName?.includes('ETF')) {
       return 'etf';
     }
     
@@ -299,7 +301,7 @@ export class YahooFinanceValidator {
   /**
    * Get detailed quote information
    */
-  static async getQuote(symbol: string): Promise<any> {
+  static async getQuote(symbol: string): Promise<unknown> {
     try {
       const response = await fetch(`${this.YAHOO_BASE_URL}/${symbol}?interval=1d&range=1d`, {
         method: 'GET',

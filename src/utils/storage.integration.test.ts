@@ -3,7 +3,6 @@ import React from 'react';
 import { renderHook, act } from '@testing-library/react';
 import { usePositions, useTransactions } from '../hooks/useStorage';
 import { storageService } from '../services/storageService';
-import { render } from '../test/test-utils';
 import type { Position, Transaction } from '../types/portfolio';
 
 // Mock localStorage for testing

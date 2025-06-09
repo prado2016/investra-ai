@@ -1,5 +1,5 @@
 // Import directly from source to avoid any module resolution issues
-import type { AssetType, Currency, PropertySector, BaseAsset as CommonBaseAsset } from './common';
+import type { PropertySector, BaseAsset as CommonBaseAsset } from './common';
 
 // Re-export asset specific interfaces only, not the base types
 export interface Stock extends CommonBaseAsset {
@@ -30,7 +30,7 @@ export interface Stock extends CommonBaseAsset {
 }
 
 // Option Asset Interface  
-export interface Option extends BaseAsset {
+export interface Option extends CommonBaseAsset {
   assetType: 'option';
   underlyingSymbol: string;
   strikePrice: number;
@@ -53,7 +53,7 @@ export interface Option extends BaseAsset {
 }
 
 // Forex Asset Interface
-export interface Forex extends BaseAsset {
+export interface Forex extends CommonBaseAsset {
   assetType: 'forex';
   baseCurrency: string;
   quoteCurrency: string;
@@ -70,7 +70,7 @@ export interface Forex extends BaseAsset {
 }
 
 // Cryptocurrency Asset Interface
-export interface Cryptocurrency extends BaseAsset {
+export interface Cryptocurrency extends CommonBaseAsset {
   assetType: 'crypto';
   blockchain: string;
   totalSupply?: number;
@@ -90,7 +90,7 @@ export interface Cryptocurrency extends BaseAsset {
 }
 
 // REIT Asset Interface
-export interface REIT extends BaseAsset {
+export interface REIT extends CommonBaseAsset {
   assetType: 'reit';
   propertySector: PropertySector;
   dividendYield: number;
@@ -118,7 +118,7 @@ export interface REIT extends BaseAsset {
 export type Asset = Stock | Option | Forex | Cryptocurrency | REIT | ETF;
 
 // ETF Asset Interface
-export interface ETF extends BaseAsset {
+export interface ETF extends CommonBaseAsset {
   assetType: 'etf';
   category: 'equity' | 'bond' | 'commodity' | 'international' | 'sector' | 'theme' | 'balanced';
   expenseRatio?: number;

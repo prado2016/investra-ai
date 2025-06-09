@@ -3,7 +3,6 @@
  * Utility to reinitialize AI services when API keys change
  */
 
-import { aiServiceManager } from '../services/ai';
 import { ApiKeyStorage } from './apiKeyStorage';
 
 export class AIServiceManager {

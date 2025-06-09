@@ -6,10 +6,7 @@
 
 import { SupabaseService } from './supabaseService'
 import type { 
-  Portfolio, 
-  Position, 
-  Transaction, 
-  Asset 
+  Portfolio
 } from '../lib/database/types'
 
 // Offline storage configuration
@@ -33,7 +30,7 @@ export interface SyncQueueItem {
   id: string
   table: string
   operation: SyncOperation
-  data: any
+  data: unknown
   localId?: string
   timestamp: number
   attempts: number
@@ -225,7 +222,7 @@ export class OfflineStorageService {
   private async addToSyncQueue(
     table: string,
     operation: SyncOperation,
-    data: any,
+    data: unknown,
     localId?: string
   ): Promise<void> {
     if (!this.db) return
@@ -348,7 +345,7 @@ export class OfflineStorageService {
   /**
    * Helper methods
    */
-  private promisifyRequest<T = any>(request: IDBRequest): Promise<T> {
+  private promisifyRequest<T = unknown>(request: IDBRequest): Promise<T> {
     return new Promise((resolve, reject) => {
       request.onsuccess = () => resolve(request.result)
       request.onerror = () => reject(request.error)
@@ -363,7 +360,7 @@ export class OfflineStorageService {
       const store = transaction.objectStore(STORES.SYNC_QUEUE)
       const count = await this.promisifyRequest(store.count())
       return count
-    } catch (error) {
+    } catch {
       return 0
     }
   }
@@ -426,7 +423,7 @@ export class OfflineStorageService {
     }
   }
 
-  private async updateLocalAfterSync(storeName: string, localId: string, serverData: any): Promise<void> {
+  private async updateLocalAfterSync(storeName: string, localId: string, serverData: unknown): Promise<void> {
     if (!this.db) return
     
     try {

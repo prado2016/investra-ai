@@ -3,10 +3,10 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { renderHook } from '@testing-library/react';
 import React from 'react';
 import { usePositions } from '../../hooks/useStorage';
-import { NotificationProvider } from '../../contexts/NotificationContext';
+import { NotificationProvider } from '../../contexts/NotificationProvider';
 
 // Create a wrapper component with all necessary providers
 function TestWrapper({ children }: { children: React.ReactNode }) {
@@ -63,9 +63,10 @@ describe('Simple Hook Integration Tests', () => {
     it('should handle storage operations without errors', async () => {
       const { result } = renderHook(() => usePositions(), { wrapper: TestWrapper });
 
-      // Should be able to call methods without throwing errors
+      // Should be able to access positions without throwing errors
       expect(() => {
-        result.current.positions;
+        const positions = result.current.positions;
+        expect(positions).toBeDefined();
       }).not.toThrow();
 
       expect(result.current.loading).toBeDefined();

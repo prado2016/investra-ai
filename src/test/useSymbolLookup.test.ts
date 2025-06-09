@@ -1,4 +1,4 @@
-import { renderHook, act, waitFor } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { useSymbolLookup, useSymbolValidation } from '../hooks/useSymbolLookup';
 import type { 
@@ -112,7 +112,7 @@ describe('useSymbolLookup', () => {
       const { result } = renderHook(() => useSymbolLookup());
 
       // Make the mock promise not resolve immediately
-      let resolvePromise: (value: any) => void;
+      let resolvePromise: (value: unknown) => void;
       const pendingPromise = new Promise(resolve => {
         resolvePromise = resolve;
       });
@@ -145,7 +145,7 @@ describe('useSymbolLookup', () => {
             query: '',
             options: { maxSuggestions: 5 }
           });
-        } catch (error) {
+        } catch {
           // Expected to throw
         }
       });
@@ -182,7 +182,7 @@ describe('useSymbolLookup', () => {
             query: '',
             options: { maxSuggestions: 5 }
           });
-        } catch (error) {
+        } catch {
           // Expected to throw
         }
       });
@@ -235,7 +235,7 @@ describe('useSymbolLookup', () => {
             query: '',
             options: { maxSuggestions: 5 }
           });
-        } catch (error) {
+        } catch {
           // Expected to throw
         }
       });
@@ -263,7 +263,7 @@ describe('useSymbolLookup', () => {
             query: 'AAPL',
             options: { maxSuggestions: 5 }
           });
-        } catch (error) {
+        } catch {
           // Expected to throw after max retries
         }
       });
@@ -294,7 +294,7 @@ describe('useSymbolLookup', () => {
             query: 'AAPL',
             options: { maxSuggestions: 5 }
           });
-        } catch (error) {
+        } catch {
           // Expected to throw
         }
       });
@@ -310,13 +310,18 @@ describe('useSymbolLookup', () => {
   });
 
   describe('Utility Methods', () => {
-    it('should clear error state', () => {
+    it('should clear error state', async () => {
       const { result } = renderHook(() => useSymbolLookup());
 
-      act(() => {
-        // Set error state manually for testing
-        (result.current as any).error = mockError;
+      // First, trigger an error by making the lookup fail  
+      mockSymbolLookupEndpoint.lookupSymbol.mockRejectedValueOnce(mockError);
+      
+      await act(async () => {
+        result.current.lookupSymbol('INVALID');
       });
+
+      // Verify error is set
+      expect(result.current.error).toEqual(mockError);
 
       act(() => {
         result.current.clearError();
@@ -325,13 +330,18 @@ describe('useSymbolLookup', () => {
       expect(result.current.error).toBe(null);
     });
 
-    it('should clear data state', () => {
+    it('should clear data state', async () => {
       const { result } = renderHook(() => useSymbolLookup());
 
-      act(() => {
-        // Set data state manually for testing
-        (result.current as any).data = mockSuccessResponse;
+      // First, set some data by doing a successful lookup
+      mockSymbolLookupEndpoint.lookupSymbol.mockResolvedValueOnce(mockSuccessResponse);
+      
+      await act(async () => {
+        result.current.lookupSymbol('AAPL');
       });
+
+      // Verify data is set
+      expect(result.current.data).toEqual(mockSuccessResponse);
 
       act(() => {
         result.current.clearData();
@@ -344,7 +354,7 @@ describe('useSymbolLookup', () => {
     it('should get health status', async () => {
       const { result } = renderHook(() => useSymbolLookup());
 
-      let health: any;
+      let health: unknown;
       await act(async () => {
         health = await result.current.checkHealth();
       });
@@ -359,7 +369,7 @@ describe('useSymbolLookup', () => {
     it('should get usage statistics', async () => {
       const { result } = renderHook(() => useSymbolLookup());
 
-      let stats: any;
+      let stats: unknown;
       await act(async () => {
         stats = await result.current.getUsageStats();
       });
@@ -376,9 +386,8 @@ describe('useSymbolLookup', () => {
     it('should cancel ongoing requests', async () => {
       const { result } = renderHook(() => useSymbolLookup());
 
-      let resolvePromise: (value: any) => void;
-      const pendingPromise = new Promise(resolve => {
-        resolvePromise = resolve;
+      const pendingPromise = new Promise(() => {
+        // Intentionally not resolving to test cancellation
       });
       mockSymbolLookupEndpoint.lookupSymbol.mockReturnValue(pendingPromise);
 
@@ -401,6 +410,31 @@ describe('useSymbolLookup', () => {
 });
 
 describe('useSymbolValidation', () => {
+  const mockValidationResponse = {
+    success: true,
+    data: {
+      matches: [
+        {
+          symbol: 'AAPL',
+          companyName: 'Apple Inc.',
+          confidence: 0.95,
+          exchange: 'NASDAQ',
+          currency: 'USD'
+        }
+      ],
+      suggestions: []
+    },
+    metadata: {
+      requestId: 'test-123',
+      timestamp: new Date().toISOString(),
+      processingTime: 250,
+      provider: 'gemini',
+      rateLimitRemaining: 99,
+      rateLimitReset: new Date(Date.now() + 3600000).toISOString(),
+      cached: false
+    }
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -408,9 +442,9 @@ describe('useSymbolValidation', () => {
   it('should validate symbols correctly', async () => {
     // Mock successful validation response
     mockSymbolLookupEndpoint.lookupSymbol.mockResolvedValue({
-      ...mockSuccessResponse,
+      ...mockValidationResponse,
       data: {
-        matches: [mockSuccessResponse.data.matches[0]],
+        matches: [mockValidationResponse.data.matches[0]],
         suggestions: []
       }
     });
@@ -434,7 +468,7 @@ describe('useSymbolValidation', () => {
 
   it('should return false for invalid symbols', async () => {
     mockSymbolLookupEndpoint.lookupSymbol.mockResolvedValue({
-      ...mockSuccessResponse,
+      ...mockValidationResponse,
       data: {
         matches: [],
         suggestions: []
@@ -452,7 +486,7 @@ describe('useSymbolValidation', () => {
   });
 
   it('should get symbol suggestions', async () => {
-    mockSymbolLookupEndpoint.lookupSymbol.mockResolvedValue(mockSuccessResponse);
+    mockSymbolLookupEndpoint.lookupSymbol.mockResolvedValue(mockValidationResponse);
 
     const { result } = renderHook(() => useSymbolValidation());
 

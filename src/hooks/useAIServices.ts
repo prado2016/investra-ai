@@ -59,14 +59,15 @@ export const useAIServices = (): UseAIServicesReturn => {
         // Try to initialize Gemini service first (highest priority)
         const providers: AIProvider[] = ['gemini', 'openai', 'perplexity'];
         const initializedProviders: AIProvider[] = [];
+        let firstProvider: AIProvider | null = null;
 
         for (const provider of providers) {
           try {
             const success = await aiServiceManager.initializeService(provider);
             if (success) {
               initializedProviders.push(provider);
-              if (!activeProvider) {
-                setActiveProvider(provider);
+              if (!firstProvider) {
+                firstProvider = provider;
               }
             }
           } catch (error) {
@@ -75,6 +76,9 @@ export const useAIServices = (): UseAIServicesReturn => {
         }
 
         setAvailableProviders(initializedProviders);
+        if (firstProvider && !activeProvider) {
+          setActiveProvider(firstProvider);
+        }
         setIsInitialized(true);
 
         // Initial health status will be fetched by the refreshHealthStatus function
@@ -85,7 +89,7 @@ export const useAIServices = (): UseAIServicesReturn => {
     };
 
     initializeServices();
-  }, []);
+  }, [activeProvider]);
 
   // Symbol lookup function
   const lookupSymbols = useCallback(async (

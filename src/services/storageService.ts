@@ -121,7 +121,7 @@ interface StorageMetadata {
 }
 
 // Cache structure for API data
-interface CacheEntry<T = any> {
+interface CacheEntry<T = unknown> {
   data: T;
   timestamp: number;
   ttl: number; // time to live in milliseconds
@@ -342,7 +342,7 @@ export class StorageService {
       return null;
     }
     
-    return entry.data;
+    return entry.data as T;
   }
 
   public setCacheEntry<T>(key: string, data: T, ttlMinutes: number = 5): boolean {

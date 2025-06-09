@@ -2,7 +2,6 @@ import { http, HttpResponse } from 'msw'
 
 // Mock Supabase environment variables for testing
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://test-project.supabase.co'
-const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'test-anon-key'
 
 // Mock user data for testing
 const mockUsers = {
@@ -54,14 +53,14 @@ let mockDatabase = {
       email: 'test@example.com',
       username: 'testuser',
       full_name: 'Test User',
-      avatar_url: null,
+      avatar_url: null as string | null,
       created_at: '2024-01-01T00:00:00Z',
       updated_at: '2024-01-01T00:00:00Z'
     }
   ],
-  transactions: [],
-  positions: [],
-  watchlist_items: []
+  transactions: [] as unknown[],
+  positions: [] as unknown[],
+  watchlist_items: [] as unknown[]
 }
 
 // Reset mock database for tests
@@ -73,14 +72,14 @@ export const resetMockDatabase = () => {
         email: 'test@example.com',
         username: 'testuser',
         full_name: 'Test User',
-        avatar_url: null,
+        avatar_url: null as string | null,
         created_at: '2024-01-01T00:00:00Z',
         updated_at: '2024-01-01T00:00:00Z'
       }
     ],
-    transactions: [],
-    positions: [],
-    watchlist_items: []
+    transactions: [] as unknown[],
+    positions: [] as unknown[],
+    watchlist_items: [] as unknown[]
   }
 }
 
@@ -89,7 +88,7 @@ export const supabaseHandlers = [
   
   // Sign up
   http.post(`${SUPABASE_URL}/auth/v1/signup`, async ({ request }) => {
-    const body = await request.json() as any
+    const body = await request.json() as Record<string, unknown>
     const { email, password } = body
     
     if (!email || !password) {
@@ -142,7 +141,7 @@ export const supabaseHandlers = [
   
   // Sign in
   http.post(`${SUPABASE_URL}/auth/v1/token`, async ({ request }) => {
-    const body = await request.json() as any
+    const body = await request.json() as Record<string, unknown>
     const { email, password, grant_type } = body
     
     if (grant_type === 'password') {
@@ -237,7 +236,6 @@ export const supabaseHandlers = [
   // Profiles
   http.get(`${SUPABASE_URL}/rest/v1/profiles`, ({ request }) => {
     const url = new URL(request.url)
-    const select = url.searchParams.get('select')
     const id = url.searchParams.get('id')
     
     let results = mockDatabase.profiles
@@ -250,10 +248,13 @@ export const supabaseHandlers = [
   }),
   
   http.post(`${SUPABASE_URL}/rest/v1/profiles`, async ({ request }) => {
-    const body = await request.json() as any
+    const body = await request.json() as Record<string, unknown>
     const newProfile = {
-      id: body.id || `profile-${Date.now()}`,
-      ...body,
+      id: (body.id as string) || `profile-${Date.now()}`,
+      email: (body.email as string) || '',
+      username: (body.username as string) || '',
+      full_name: (body.full_name as string) || '',
+      avatar_url: (body.avatar_url as string) || null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     }
@@ -264,7 +265,7 @@ export const supabaseHandlers = [
   }),
   
   http.patch(`${SUPABASE_URL}/rest/v1/profiles`, async ({ request }) => {
-    const body = await request.json() as any
+    const body = await request.json() as Record<string, unknown>
     const url = new URL(request.url)
     const id = url.searchParams.get('id')
     
@@ -304,14 +305,17 @@ export const supabaseHandlers = [
     let results = mockDatabase.transactions
     
     if (userId) {
-      results = results.filter((transaction: any) => transaction.user_id === userId)
+      results = results.filter((transaction: unknown) => {
+        const typedTransaction = transaction as Record<string, unknown>
+        return typedTransaction.user_id === userId
+      })
     }
     
     return HttpResponse.json(results)
   }),
   
   http.post(`${SUPABASE_URL}/rest/v1/transactions`, async ({ request }) => {
-    const body = await request.json() as any
+    const body = await request.json() as Record<string, unknown>
     const newTransaction = {
       id: `transaction-${Date.now()}`,
       ...body,
@@ -332,14 +336,17 @@ export const supabaseHandlers = [
     let results = mockDatabase.positions
     
     if (userId) {
-      results = results.filter((position: any) => position.user_id === userId)
+      results = results.filter((position: unknown) => {
+        const typedPosition = position as Record<string, unknown>
+        return typedPosition.user_id === userId
+      })
     }
     
     return HttpResponse.json(results)
   }),
   
   http.post(`${SUPABASE_URL}/rest/v1/positions`, async ({ request }) => {
-    const body = await request.json() as any
+    const body = await request.json() as Record<string, unknown>
     const newPosition = {
       id: `position-${Date.now()}`,
       ...body,
@@ -360,14 +367,17 @@ export const supabaseHandlers = [
     let results = mockDatabase.watchlist_items
     
     if (userId) {
-      results = results.filter((item: any) => item.user_id === userId)
+      results = results.filter((item: unknown) => {
+        const typedItem = item as Record<string, unknown>
+        return typedItem.user_id === userId
+      })
     }
     
     return HttpResponse.json(results)
   }),
   
   http.post(`${SUPABASE_URL}/rest/v1/watchlist_items`, async ({ request }) => {
-    const body = await request.json() as any
+    const body = await request.json() as Record<string, unknown>
     const newItem = {
       id: `watchlist-${Date.now()}`,
       ...body,
@@ -418,15 +428,19 @@ export const supabaseHandlers = [
 
 // Helper function to add test data
 export const addMockData = {
-  profile: (profile: any) => {
+  profile: (profile: Record<string, unknown>) => {
     mockDatabase.profiles.push({
-      ...profile,
+      id: (profile.id as string) || `profile-${Date.now()}`,
+      email: (profile.email as string) || '',
+      username: (profile.username as string) || '',
+      full_name: (profile.full_name as string) || '',
+      avatar_url: (profile.avatar_url as string) || null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     })
   },
   
-  transaction: (transaction: any) => {
+  transaction: (transaction: Record<string, unknown>) => {
     mockDatabase.transactions.push({
       id: `transaction-${Date.now()}`,
       ...transaction,
@@ -435,7 +449,7 @@ export const addMockData = {
     })
   },
   
-  position: (position: any) => {
+  position: (position: Record<string, unknown>) => {
     mockDatabase.positions.push({
       id: `position-${Date.now()}`,
       ...position,
@@ -444,7 +458,7 @@ export const addMockData = {
     })
   },
   
-  watchlistItem: (item: any) => {
+  watchlistItem: (item: Record<string, unknown>) => {
     mockDatabase.watchlist_items.push({
       id: `watchlist-${Date.now()}`,
       ...item,

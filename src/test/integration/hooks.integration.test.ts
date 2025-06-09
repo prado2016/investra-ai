@@ -7,12 +7,9 @@ import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll, vi } 
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
-import React from 'react';
 import { useQuote, useSearch } from '../../hooks/useYahooFinance';
 import { usePositions, useTransactions } from '../../hooks/useStorage';
 import type { Transaction, Position } from '../../types/portfolio';
-import type { AssetType, TransactionType, Currency } from '../../types/common';
-import { NotificationProvider } from '../../contexts/NotificationContext';
 
 // Mock data for testing
 const mockQuoteData = {
@@ -140,13 +137,6 @@ const server = setupServer(
 );
 
 // Create a wrapper component with all necessary providers
-function TestWrapper({ children }: { children: React.ReactNode }) {
-  return React.createElement(
-    NotificationProvider,
-    null,
-    children
-  );
-}
 
 // Mock network status
 const mockNetworkStatus = {
@@ -500,7 +490,7 @@ describe('Hook Integration Tests', () => {
         id: 'search-position-1',
         assetId: `asset-${searchData.symbol.toLowerCase()}`,
         assetSymbol: searchData.symbol,
-        assetType: searchData.type as any,
+        assetType: searchData.type as 'stock' | 'crypto' | 'etf',
         quantity: 100,
         averageCostBasis: 150,
         totalCostBasis: 15000,

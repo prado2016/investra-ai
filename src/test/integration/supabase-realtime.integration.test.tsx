@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import React from 'react'
 import { renderHook, waitFor, act } from '@testing-library/react'
 import { server } from '../mocks/server'
-import { resetMockDatabase, addMockData } from '../mocks/supabaseHandlers'
+import { resetMockDatabase } from '../mocks/supabaseHandlers'
 
 // Mock WebSocket for real-time testing
 class MockWebSocket {
@@ -13,7 +13,7 @@ class MockWebSocket {
   public onmessage: ((event: MessageEvent) => void) | null = null
   public onerror: ((event: Event) => void) | null = null
 
-  private listeners: Map<string, Set<Function>> = new Map()
+  private listeners: Map<string, Set<(...args: unknown[]) => void>> = new Map()
 
   constructor(url: string) {
     this.url = url
@@ -41,14 +41,14 @@ class MockWebSocket {
     } as CloseEvent)
   }
 
-  addEventListener(type: string, listener: Function) {
+  addEventListener(type: string, listener: (...args: unknown[]) => void) {
     if (!this.listeners.has(type)) {
       this.listeners.set(type, new Set())
     }
     this.listeners.get(type)!.add(listener)
   }
 
-  removeEventListener(type: string, listener: Function) {
+  removeEventListener(type: string, listener: (...args: unknown[]) => void) {
     const typeListeners = this.listeners.get(type)
     if (typeListeners) {
       typeListeners.delete(listener)
@@ -56,7 +56,7 @@ class MockWebSocket {
   }
 
   // Helper method to simulate receiving messages
-  simulateMessage(data: any) {
+  simulateMessage(data: unknown) {
     const event = {
       type: 'message',
       data: JSON.stringify(data)
@@ -93,7 +93,7 @@ beforeEach(() => {
       super(url)
       mockWebSockets.push(this)
     }
-  } as any
+  } as unknown as typeof WebSocket
 })
 
 afterEach(() => {
@@ -102,7 +102,7 @@ afterEach(() => {
 })
 
 // Mock hook for real-time subscriptions
-const useRealtimeSubscription = (table: string, initialData: any[] = []) => {
+const useRealtimeSubscription = (table: string, initialData: Record<string, unknown>[] = []) => {
   const [data, setData] = React.useState(initialData)
   const [connected, setConnected] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
@@ -130,17 +130,17 @@ const useRealtimeSubscription = (table: string, initialData: any[] = []) => {
     }
   }, [table])
 
-  const handleInsert = React.useCallback((payload: { new: any }) => {
+  const handleInsert = React.useCallback((payload: { new: Record<string, unknown> }) => {
     setData(prev => [...prev, payload.new])
   }, [])
 
-  const handleUpdate = React.useCallback((payload: { new: any, old: any }) => {
+  const handleUpdate = React.useCallback((payload: { new: Record<string, unknown>, old: Record<string, unknown> }) => {
     setData(prev => prev.map(item => 
       item.id === payload.old.id ? payload.new : item
     ))
   }, [])
 
-  const handleDelete = React.useCallback((payload: { old: any }) => {
+  const handleDelete = React.useCallback((payload: { old: Record<string, unknown> }) => {
     setData(prev => prev.filter(item => item.id !== payload.old.id))
   }, [])
 

@@ -103,7 +103,7 @@ export const useApiWithLoading = () => {
 /**
  * Decorator function to add loading state to any async function
  */
-export const withLoading = <T extends any[], R>(
+export const withLoading = <T extends unknown[], R>(
   fn: (...args: T) => Promise<R>,
   loadingKey: LoadingKeyType
 ) => {
@@ -127,11 +127,11 @@ export const withLoading = <T extends any[], R>(
 export const useMultipleApiCalls = () => {
   const { setLoading, isLoading } = useLoading();
 
-  const callMultipleApis = async <T extends Record<string, () => Promise<any>>>(
+  const callMultipleApis = async <T extends Record<string, () => Promise<unknown>>>(
     apiCalls: T,
     globalLoadingKey?: LoadingKeyType
-  ): Promise<{ [K in keyof T]: Awaited<ReturnType<T[K]>> | null }> => {
-    const results = {} as { [K in keyof T]: Awaited<ReturnType<T[K]>> | null };
+  ): Promise<{ [K in keyof T]: unknown | null }> => {
+    const results = {} as { [K in keyof T]: unknown | null };
     
     if (globalLoadingKey) {
       setLoading(globalLoadingKey, true);

@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react'
 import { resolve } from 'path'
 
 export default defineConfig({
-  plugins: [react()] as any,
+  plugins: [react()],
   resolve: {
     alias: {
       '@': resolve(__dirname, './src'),
@@ -58,7 +58,6 @@ export default defineConfig({
       }
     }
   },
-  // @ts-ignore - Vitest config
   test: {
     globals: true,
     environment: 'jsdom',

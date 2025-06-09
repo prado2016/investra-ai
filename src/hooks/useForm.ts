@@ -246,7 +246,7 @@ export const useForm = <T extends Record<string, unknown>>(options: UseFormOptio
     return Object.values(state.errors).every(error => error === null);
   }, [state.errors]);
 
-  const setValue = useCallback((name: keyof T, value: any) => {
+  const setValue = useCallback((name: keyof T, value: T[keyof T]) => {
     setState(prev => {
       const newValues = { ...prev.values, [name]: value };
       const newErrors = { ...prev.errors };
@@ -370,7 +370,7 @@ export const useForm = <T extends Record<string, unknown>>(options: UseFormOptio
     clearErrors,
     reset,
     handleSubmit,
-    validateField: (name: keyof T, value?: any) => 
+    validateField: (name: keyof T, value?: T[keyof T]) => 
       validateField(name, value !== undefined ? value : state.values[name], state.values)
   };
 };

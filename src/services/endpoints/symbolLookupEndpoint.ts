@@ -39,7 +39,7 @@ export interface SymbolLookupEndpointResponse {
   error?: {
     code: string;
     message: string;
-    details?: any;
+    details?: unknown;
     retryable: boolean;
   };
   metadata: {
@@ -225,7 +225,11 @@ class SymbolLookupEndpointService {
     };
   }> {
     const startTime = Date.now();
-    const services: Record<string, any> = {};
+    const services: Record<string, {
+      available: boolean;
+      latency?: number;
+      error?: string;
+    }> = {};
     
     // Test each available provider
     const providers: AIProvider[] = ['gemini', 'openai', 'perplexity'];
@@ -250,7 +254,7 @@ class SymbolLookupEndpointService {
     }
 
     // Determine overall status
-    const availableServices = Object.values(services).filter((s: any) => s.available).length;
+    const availableServices = Object.values(services).filter((s) => s.available).length;
     let status: 'healthy' | 'degraded' | 'unhealthy';
     
     if (availableServices === 0) {
@@ -539,7 +543,7 @@ class SymbolLookupEndpointService {
       requestId: string;
       startTime: number;
       retryable?: boolean;
-      details?: any;
+      details?: unknown;
       retryAfter?: number;
       originalError?: string;
     }

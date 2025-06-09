@@ -5,10 +5,11 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '../test-utils';
-import { NotificationProvider } from '../../contexts/NotificationContext';
-import { LoadingProvider, useGlobalLoading } from '../../contexts/LoadingContext';
+import { NotificationProvider } from '../../contexts/NotificationProvider';
+import { LoadingProvider } from '../../contexts/LoadingProvider';
 import { ThemeProvider, useTheme } from '../../contexts/ThemeContext';
 import { useNotify } from '../../hooks/useNotify';
+import { useGlobalLoading } from '../../hooks/useGlobalLoading';
 
 // Test components that use multiple contexts
 const TestNotificationComponent = () => {
@@ -271,9 +272,10 @@ describe('Context Integration Tests', () => {
       const TestComponent = () => {
         try {
           const notify = useNotify();
-          notify; // Access to test the hook
+          // Test that the hook is accessible
+          expect(notify).toBeDefined();
           return <div>Should not reach here</div>;
-        } catch (error) {
+        } catch {
           return <div>Context error handled</div>;
         }
       };

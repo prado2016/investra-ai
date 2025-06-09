@@ -20,7 +20,7 @@ import type {
 
 export abstract class BaseAIService implements IAIService {
   protected config: AIServiceConfig;
-  protected cache = new Map<string, CacheEntry<any>>();
+  protected cache = new Map<string, CacheEntry<unknown>>();
   protected requestCounts = new Map<string, number>();
   protected usageMetrics: UsageMetrics[] = [];
   
@@ -96,7 +96,7 @@ export abstract class BaseAIService implements IAIService {
   }
 
   // Protected helper methods
-  protected generateCacheKey(prefix: string, data: any): string {
+  protected generateCacheKey(prefix: string, data: unknown): string {
     const hash = this.simpleHash(JSON.stringify(data));
     return `${prefix}_${hash}`;
   }
@@ -123,7 +123,7 @@ export abstract class BaseAIService implements IAIService {
       return null;
     }
     
-    return entry.data;
+    return entry.data as T;
   }
 
   protected async checkRateLimit(): Promise<void> {
@@ -159,7 +159,7 @@ export abstract class BaseAIService implements IAIService {
     code: string,
     message: string,
     type: AIServiceError['type'] = 'api_error',
-    details?: any,
+    details?: unknown,
     retryable: boolean = false
   ): AIServiceError {
     return {

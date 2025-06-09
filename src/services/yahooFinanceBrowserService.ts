@@ -30,7 +30,7 @@ interface YahooFinanceQuote {
 interface ApiError {
   code: string;
   message: string;
-  details?: any;
+  details?: unknown;
 }
 
 interface ApiResponse<T> {
@@ -51,7 +51,7 @@ interface CacheEntry<T> {
  * Browser-compatible Yahoo Finance Service
  */
 export class YahooFinanceBrowserService {
-  private cache = new Map<string, CacheEntry<any>>();
+  private cache = new Map<string, CacheEntry<unknown>>();
   private readonly DEFAULT_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
   private readonly MAX_RETRIES = 3;
   private readonly RETRY_DELAY = 1000;
@@ -67,7 +67,7 @@ export class YahooFinanceBrowserService {
       const cachedData = this.cache.get(cacheKey)!;
       return {
         success: true,
-        data: cachedData.data,
+        data: cachedData.data as YahooFinanceQuote,
         timestamp: new Date(),
         cached: true
       };
@@ -261,7 +261,7 @@ export class YahooFinanceBrowserService {
   /**
    * Error handling
    */
-  private createApiError(code: string, message: string, details?: any): ApiError {
+  private createApiError(code: string, message: string, details?: unknown): ApiError {
     return {
       code,
       message,

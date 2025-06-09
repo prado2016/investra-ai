@@ -5,7 +5,7 @@
 /**
  * Load migration SQL content from file
  */
-async function loadMigrationSQL(fileName: string): Promise<string> {
+export async function loadMigrationSQL(fileName: string): Promise<string> {
   try {
     // In production, these would be loaded from actual files
     const migrationFiles: Record<string, string> = {

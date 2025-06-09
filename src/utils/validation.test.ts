@@ -1,12 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import {
   validateStock,
-  validateOption,
   validateTransaction,
-  validatePosition,
-  validateAsset
+  validatePosition
 } from '../utils/validation';
-import type { Stock, Option, Transaction, Position } from '../types/assets';
+import type { Stock, Transaction, Position } from '../types/assets';
 
 describe('Validation Utilities', () => {
   describe('validateStock', () => {

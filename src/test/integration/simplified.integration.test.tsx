@@ -95,7 +95,7 @@ describe('Simplified Integration Tests', () => {
     );
 
     const TestApiComponent = () => {
-      const [data, setData] = React.useState<any>(null);
+      const [data, setData] = React.useState<unknown>(null);
       const [loading, setLoading] = React.useState(false);
 
       const fetchData = async () => {

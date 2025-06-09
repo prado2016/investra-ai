@@ -37,7 +37,7 @@ export interface YahooFinanceHistoricalData {
 export interface ApiError {
   code: string;
   message: string;
-  details?: any;
+  details?: unknown;
 }
 
 export interface ApiResponse<T> {
