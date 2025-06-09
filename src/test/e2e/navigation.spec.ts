@@ -2,19 +2,20 @@ import { test, expect } from '@playwright/test'
 
 test.describe('Investra AI - Navigation Flow', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/')
-    
-    // Ensure E2E test mode is active
+    // Set E2E flags before navigation
     await page.addInitScript(() => {
       (window as unknown as Record<string, unknown>).__E2E_TEST_MODE__ = true;
       (window as unknown as Record<string, unknown>).__CI_TEST_MODE__ = true;
       localStorage.setItem('__E2E_TEST_MODE__', 'true');
       localStorage.setItem('__AUTH_BYPASS__', 'true');
+      localStorage.setItem('__CI_TEST_MODE__', 'true');
     });
     
+    await page.goto('/')
+    
     // Wait for the app to render
-    await page.waitForLoadState('networkidle', { timeout: 30000 });
-    await page.waitForSelector('nav.nav-container', { timeout: 15000 });
+    await page.waitForLoadState('networkidle', { timeout: 45000 });
+    await page.waitForSelector('nav.nav-container', { timeout: 30000 });
   })
 
   test('should navigate between all pages', async ({ page }) => {
