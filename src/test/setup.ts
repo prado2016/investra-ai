@@ -9,6 +9,9 @@ expect.extend({})
 // Cleanup after each test case (e.g. clearing jsdom)
 afterEach(() => {
   cleanup()
+  // Clear stored data but keep the mock functionality
+  localStorageMock.clear()
+  sessionStorageMock.clear()
 })
 
 // Start server before all tests
@@ -69,27 +72,55 @@ Object.defineProperty(window, 'scrollTo', {
   writable: true,
 })
 
-// Mock localStorage
-const localStorageMock = {
-  getItem: vi.fn(),
-  setItem: vi.fn(),
-  removeItem: vi.fn(),
-  clear: vi.fn(),
-}
+// Mock localStorage with proper reset functionality
+const createStorageMock = () => {
+  let storage: Record<string, string> = {};
+  return {
+    getItem: (key: string) => storage[key] || null,
+    setItem: (key: string, value: string) => {
+      storage[key] = String(value); // Ensure it's a string
+    },
+    removeItem: (key: string) => {
+      delete storage[key];
+    },
+    clear: () => {
+      storage = {};
+    },
+    get length() {
+      return Object.keys(storage).length;
+    },
+    key: (index: number) => Object.keys(storage)[index] || null,
+    _getStorage: () => storage // For debugging
+  };
+};
+
+const localStorageMock = createStorageMock();
 Object.defineProperty(window, 'localStorage', {
-  value: localStorageMock
-})
+  value: localStorageMock,
+  writable: true,
+  configurable: true
+});
+
+// Also set on global for Node.js environments
+Object.defineProperty(global, 'localStorage', {
+  value: localStorageMock,
+  writable: true,
+  configurable: true
+});
 
 // Mock sessionStorage
-const sessionStorageMock = {
-  getItem: vi.fn(),
-  setItem: vi.fn(),
-  removeItem: vi.fn(),
-  clear: vi.fn(),
-}
+const sessionStorageMock = createStorageMock();
 Object.defineProperty(window, 'sessionStorage', {
-  value: sessionStorageMock
-})
+  value: sessionStorageMock,
+  writable: true,
+  configurable: true
+});
+
+Object.defineProperty(global, 'sessionStorage', {
+  value: sessionStorageMock,
+  writable: true,
+  configurable: true
+});
 
 // Mock fetch if not available
 if (!global.fetch) {

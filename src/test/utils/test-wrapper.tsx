@@ -23,9 +23,17 @@ export const mockThemeContext = {
   theme: 'light' as const,
 };
 
-// Simple provider mocks for testing
+// Create real React contexts for testing
+const NotificationContext = React.createContext(mockNotificationContext);
+const ThemeContext = React.createContext(mockThemeContext);
+
+// Real provider components that provide the mocked context values
 const NotificationProvider = ({ children }: { children: React.ReactNode }) => {
-  return React.createElement('div', { 'data-testid': 'notification-provider' }, children);
+  return (
+    <NotificationContext.Provider value={mockNotificationContext}>
+      {children}
+    </NotificationContext.Provider>
+  );
 };
 
 const StorageProvider = ({ children }: { children: React.ReactNode }) => {
@@ -33,7 +41,11 @@ const StorageProvider = ({ children }: { children: React.ReactNode }) => {
 };
 
 const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
-  return React.createElement('div', { 'data-testid': 'theme-provider' }, children);
+  return (
+    <ThemeContext.Provider value={mockThemeContext}>
+      {children}
+    </ThemeContext.Provider>
+  );
 };
 
 // Complete test wrapper with all providers
@@ -97,12 +109,16 @@ export const setupContextMocks = () => {
   vi.mock('../../contexts/NotificationContext', () => ({
     NotificationProvider,
     useNotifications: () => mockNotificationContext,
+    NotificationContext,
   }));
 
   vi.mock('../../contexts/StorageContext', () => ({
     StorageProvider,
   }));
 };
+
+// Export contexts for direct use in tests
+export { NotificationContext, ThemeContext };
 
 // Export all testing utilities
 export * from '@testing-library/react';
