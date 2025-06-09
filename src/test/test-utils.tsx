@@ -2,7 +2,7 @@ import React from 'react'
 import { render, RenderOptions } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
 import { ThemeProvider } from '../contexts/ThemeContext'
-import { vi, MockedFunction } from 'vitest'
+import { vi } from 'vitest'
 
 // Mock theme for testing
 const mockTheme = {
