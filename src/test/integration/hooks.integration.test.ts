@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll, vi } from 'vitest';
-import { renderHook, waitFor, act } from '@testing-library/react';
+import { waitFor, act } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import { useQuote, useSearch } from '../../hooks/useYahooFinance';
@@ -13,6 +13,15 @@ import { setupContextMocks, renderHookWithProviders } from '../utils/test-wrappe
 
 // Use the hook's own types to avoid interface conflicts
 type Currency = 'USD' | 'EUR' | 'GBP' | 'JPY' | 'CAD' | 'AUD' | 'CHF' | 'CNY' | 'BTC' | 'ETH';
+
+type PositionLot = {
+  id: string;
+  transactionId: string;
+  quantity: number;
+  costBasis: number;
+  purchaseDate: Date;
+  remainingQuantity: number;
+};
 
 type Transaction = {
   id: string;
@@ -50,7 +59,7 @@ type Position = {
   openDate: Date;
   lastTransactionDate: Date;
   costBasisMethod: 'FIFO' | 'LIFO' | 'AVERAGE_COST' | 'SPECIFIC_LOT';
-  lots: any[];
+  lots: PositionLot[];
   createdAt: Date;
   updatedAt: Date;
 };
