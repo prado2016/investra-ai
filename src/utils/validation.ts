@@ -239,7 +239,7 @@ export function validateStock(stock: Partial<Stock>): ValidationResult {
   if (!stock.symbol) errors.push('Stock symbol is required');
   if (!stock.name) errors.push('Stock name is required');
   // Check if currentPrice is present and valid  
-  const currentPrice = (stock as any).currentPrice;
+  const currentPrice = (stock as Stock & { currentPrice?: number }).currentPrice;
   if (currentPrice !== undefined && (typeof currentPrice !== 'number' || currentPrice <= 0)) {
     errors.push('Current price must be a positive number');
   }
@@ -314,7 +314,7 @@ export function validateForex(forex: Partial<Forex>): ValidationResult {
   }
   
   // Price validation
-  const currentPrice = (forex as any).currentPrice;
+  const currentPrice = (forex as Forex & { currentPrice?: number }).currentPrice;
   if (currentPrice !== undefined && (typeof currentPrice !== 'number' || currentPrice <= 0)) {
     errors.push('Current price must be a positive number');
   }
@@ -341,7 +341,7 @@ export function validateCryptocurrency(crypto: Partial<Cryptocurrency>): Validat
   // Required fields
   if (!crypto.symbol) errors.push('Cryptocurrency symbol is required');
   if (!crypto.blockchain) errors.push('Blockchain is required');
-  const currentPrice = (crypto as any).currentPrice;
+  const currentPrice = (crypto as Cryptocurrency & { currentPrice?: number }).currentPrice;
   if (currentPrice !== undefined && (typeof currentPrice !== 'number' || currentPrice <= 0)) {
     errors.push('Current price must be a positive number');
   }

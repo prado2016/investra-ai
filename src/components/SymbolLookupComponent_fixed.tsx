@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Search, AlertCircle, CheckCircle, Clock, Zap, TrendingUp } from 'lucide-react';
+import { Search, AlertCircle, CheckCircle, Clock, TrendingUp } from 'lucide-react';
 import { useSymbolLookup } from '../hooks/useSymbolLookup';
 import type { SymbolLookupResult } from '../types/ai';
 
@@ -167,7 +167,7 @@ export function SymbolLookupComponent({
       )}
 
       {/* Results Dropdown */}
-      {showResults && symbolLookup.data?.success && symbolLookup.data.data && (
+      {showSuggestions && showResults && symbolLookup.data?.success && symbolLookup.data.data && (
         <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-96 overflow-y-auto">
           {/* Results */}
           {symbolLookup.data.data.results.length > 0 && (

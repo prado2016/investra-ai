@@ -374,7 +374,7 @@ export class OfflineStorageService {
       const queueItems = await this.promisifyRequest(store.getAll())
 
       for (const item of (queueItems as unknown[])) {
-        const syncItem = item as { table: string; operation: string; data: any; localId?: string; id: string };
+        const syncItem = item as SyncQueueItem & { data: { name: string; description: string; currency: string } };
         try {
           if (syncItem.table === STORES.PORTFOLIOS && syncItem.operation === 'CREATE') {
             const result = await SupabaseService.portfolio.createPortfolio(
