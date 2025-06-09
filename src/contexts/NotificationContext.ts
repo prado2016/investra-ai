@@ -1,4 +1,4 @@
-import { createContext } from 'react';
+import { createContext, useContext } from 'react';
 
 export type NotificationType = 'success' | 'error' | 'warning' | 'info';
 
@@ -40,3 +40,14 @@ export interface NotificationContextType {
 }
 
 export const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
+
+export const useNotifications = (): NotificationContextType => {
+  const context = useContext(NotificationContext);
+  if (context === undefined) {
+    throw new Error('useNotifications must be used within a NotificationProvider');
+  }
+  return context;
+};
+
+// Re-export NotificationProvider for convenience
+export { NotificationProvider } from './NotificationProvider';

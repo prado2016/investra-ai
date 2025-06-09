@@ -24,3 +24,6 @@ export interface RealtimeContextType {
 }
 
 export const RealtimeContext = createContext<RealtimeContextType | undefined>(undefined);
+
+// Re-export RealtimeProvider for convenience
+export { RealtimeProvider } from './RealtimeProvider';

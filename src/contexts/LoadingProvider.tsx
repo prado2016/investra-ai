@@ -53,5 +53,3 @@ export const LoadingProvider: React.FC<LoadingProviderProps> = ({ children }) =>
 };
 
 export default LoadingProvider;
-
-export default LoadingProvider;

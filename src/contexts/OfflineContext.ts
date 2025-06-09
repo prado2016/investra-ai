@@ -22,3 +22,6 @@ export interface OfflineContextType {
 }
 
 export const OfflineContext = createContext<OfflineContextType | undefined>(undefined);
+
+// Re-export OfflineProvider for convenience
+export { OfflineProvider } from './OfflineProvider';
