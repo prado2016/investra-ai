@@ -10,7 +10,50 @@ import { setupServer } from 'msw/node';
 import { useQuote, useSearch } from '../../hooks/useYahooFinance';
 import { usePositions, useTransactions } from '../../hooks/useStorage';
 import { setupContextMocks, renderHookWithProviders } from '../utils/test-wrapper';
-import type { Transaction, Position } from '../../types/portfolio';
+
+// Use the hook's own types to avoid interface conflicts
+type Currency = 'USD' | 'EUR' | 'GBP' | 'JPY' | 'CAD' | 'AUD' | 'CHF' | 'CNY' | 'BTC' | 'ETH';
+
+type Transaction = {
+  id: string;
+  portfolioId?: string;
+  assetId: string;
+  assetSymbol: string;
+  assetType: 'stock' | 'option' | 'forex' | 'crypto' | 'reit' | 'etf';
+  type: 'buy' | 'sell' | 'dividend' | 'split' | 'merger';
+  quantity: number;
+  price: number;
+  totalAmount: number;
+  fees?: number;
+  currency: Currency;
+  date: Date;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type Position = {
+  id: string;
+  assetId: string;
+  assetSymbol: string;
+  assetType: 'stock' | 'option' | 'forex' | 'crypto' | 'reit' | 'etf';
+  quantity: number;
+  averageCostBasis: number;
+  totalCostBasis: number;
+  currentMarketValue: number;
+  unrealizedPL: number;
+  unrealizedPLPercent: number;
+  realizedPL: number;
+  totalReturn: number;
+  totalReturnPercent: number;
+  currency: Currency;
+  openDate: Date;
+  lastTransactionDate: Date;
+  costBasisMethod: 'FIFO' | 'LIFO' | 'AVERAGE_COST' | 'SPECIFIC_LOT';
+  lots: any[];
+  createdAt: Date;
+  updatedAt: Date;
+};
 
 // Mock data for testing
 const mockQuoteData = {
@@ -159,7 +202,6 @@ describe('Hook Integration Tests', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
-  });
     mockNetworkStatus.isOnline = true;
     mockNetworkStatus.isOffline = false;
   });
@@ -297,6 +339,7 @@ describe('Hook Integration Tests', () => {
       const quoteData = quoteResult.current.data!;
       const newTransaction: Transaction = {
         id: 'integration-test-1',
+        portfolioId: 'test-portfolio-1',
         assetId: 'asset-aapl',
         assetSymbol: quoteData.symbol,
         assetType: 'stock',
@@ -343,6 +386,7 @@ describe('Hook Integration Tests', () => {
       // Act - Add some offline data
       const offlineTransaction: Transaction = {
         id: 'offline-transaction-1',
+        portfolioId: 'test-portfolio-1',
         assetId: 'asset-aapl',
         assetSymbol: 'AAPL',
         assetType: 'stock',
@@ -440,6 +484,7 @@ describe('Hook Integration Tests', () => {
       // Act - Add transaction through first hook
       const transaction: Transaction = {
         id: 'consistency-test-1',
+        portfolioId: 'test-portfolio-1',
         assetId: 'asset-aapl',
         assetSymbol: 'AAPL',
         assetType: 'stock',

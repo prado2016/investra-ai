@@ -84,6 +84,38 @@ const Tab = styled.button<{ active: boolean }>`
   }
 `;
 
+const LogEntryComponent: React.FC<{ level: string; children: React.ReactNode }> = ({ level, children }) => (
+  <div 
+    style={{
+      padding: '4px 8px',
+      margin: '2px 0',
+      borderRadius: '4px',
+      background: (() => {
+        switch (level) {
+          case 'error': return 'rgba(239, 68, 68, 0.2)';
+          case 'warn': return 'rgba(245, 158, 11, 0.2)';
+          case 'info': return 'rgba(59, 130, 246, 0.2)';
+          case 'debug': return 'rgba(156, 163, 175, 0.2)';
+          default: return 'rgba(75, 85, 99, 0.2)';
+        }
+      })(),
+      borderLeft: `3px solid ${(() => {
+        switch (level) {
+          case 'error': return '#ef4444';
+          case 'warn': return '#f59e0b';
+          case 'info': return '#3b82f6';
+          case 'debug': return '#9ca3af';
+          default: return '#6b7280';
+        }
+      })()}`,
+      fontSize: '11px',
+      lineHeight: 1.4
+    }}
+  >
+    {children}
+  </div>
+);
+
 const LogEntry = styled.div<{ level: string }>`
   padding: 4px 8px;
   margin: 2px 0;
@@ -126,16 +158,23 @@ const LogMessage = styled.div`
   margin-bottom: 4px;
 `;
 
-const LogData = styled.pre`
-  color: #d1d5db;
-  font-size: 10px;
-  white-space: pre-wrap;
-  word-break: break-all;
-  margin-top: 4px;
-  padding: 4px;
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 2px;
-`;
+const LogDataComponent: React.FC<{ children: React.ReactNode; style?: React.CSSProperties }> = ({ children, style }) => (
+  <pre 
+    style={{
+      color: '#d1d5db',
+      fontSize: '10px',
+      whiteSpace: 'pre-wrap',
+      wordBreak: 'break-all',
+      marginTop: '4px',
+      padding: '4px',
+      background: 'rgba(0, 0, 0, 0.3)',
+      borderRadius: '2px',
+      ...style
+    }}
+  >
+    {children}
+  </pre>
+);
 
 const ActionButton = styled.button`
   padding: 4px 8px;
@@ -184,6 +223,35 @@ const StatValue = styled.div`
   font-weight: 600;
 `;
 
+// Define proper types for the debug data
+interface LogEntry {
+  timestamp: Date;
+  level: 'log' | 'warn' | 'error' | 'info' | 'debug';
+  message: string;
+  data?: unknown;
+  source?: string;
+}
+
+interface ErrorEntry {
+  id: string;
+  timestamp: Date;
+  error: {
+    name: string;
+    message: string;
+    stack?: string;
+  };
+  context?: unknown;
+  userAgent?: string;
+  url?: string;
+  userId?: string;
+}
+
+interface MeasureEntry {
+  name: string;
+  duration: number;
+  timestamp: Date;
+}
+
 interface DebugPanelProps {
   enabled?: boolean;
 }
@@ -191,9 +259,9 @@ interface DebugPanelProps {
 export const DebugPanel: React.FC<DebugPanelProps> = ({ enabled = isDev || isDebug }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'logs' | 'errors' | 'performance'>('logs');
-  const [logs, setLogs] = useState<Array<Record<string, unknown>>>([]);
-  const [errors, setErrors] = useState<Array<Record<string, unknown>>>([]);
-  const [measures, setMeasures] = useState<Array<Record<string, unknown>>>([]);
+  const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [errors, setErrors] = useState<ErrorEntry[]>([]);
+  const [measures, setMeasures] = useState<MeasureEntry[]>([]);
   const [autoScroll, setAutoScroll] = useState(true);
 
   useEffect(() => {
@@ -246,6 +314,17 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({ enabled = isDev || isDeb
 
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString().split(' ')[0];
+  };
+
+  const safeStringify = (value: unknown): string => {
+    if (typeof value === 'string') return value;
+    if (value === null) return 'null';
+    if (value === undefined) return 'undefined';
+    try {
+      return JSON.stringify(value, null, 2);
+    } catch {
+      return String(value);
+    }
   };
 
   if (!isOpen) {
@@ -334,14 +413,14 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({ enabled = isDev || isDeb
         {activeTab === 'logs' && (
           <div>
             {logs.map((log, index) => (
-              <LogEntry key={index} level={log.level}>
-                <LogTime>{formatTime(new Date(log.timestamp))}</LogTime>
-                <LogSource>[{log.source}]</LogSource>
+              <LogEntryComponent key={index} level={log.level}>
+                <LogTime>{formatTime(log.timestamp)}</LogTime>
+                <LogSource>[{log.source || 'Unknown'}]</LogSource>
                 <LogMessage>{log.message}</LogMessage>
-                {log.data && (
-                  <LogData>{typeof log.data === 'string' ? log.data : JSON.stringify(log.data, null, 2)}</LogData>
-                )}
-              </LogEntry>
+                {log.data && typeof log.data !== 'undefined' ? (
+                  <LogDataComponent>{String(safeStringify(log.data))}</LogDataComponent>
+                ) : null}
+              </LogEntryComponent>
             ))}
             {logs.length === 0 && (
               <div style={{ color: '#888', textAlign: 'center', padding: '20px' }}>
@@ -354,16 +433,16 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({ enabled = isDev || isDeb
         {activeTab === 'errors' && (
           <div>
             {errors.map((error, index) => (
-              <LogEntry key={index} level="error">
-                <LogTime>{formatTime(new Date(error.timestamp))}</LogTime>
+              <LogEntryComponent key={index} level="error">
+                <LogTime>{formatTime(error.timestamp)}</LogTime>
                 <LogMessage>{error.error.message}</LogMessage>
                 {error.error.stack && (
-                  <LogData>{error.error.stack}</LogData>
+                  <LogDataComponent>{error.error.stack}</LogDataComponent>
                 )}
-                {error.context && (
-                  <LogData>Context: {JSON.stringify(error.context, null, 2)}</LogData>
-                )}
-              </LogEntry>
+                {error.context && typeof error.context !== 'undefined' ? (
+                  <LogDataComponent>Context: {String(safeStringify(error.context))}</LogDataComponent>
+                ) : null}
+              </LogEntryComponent>
             ))}
             {errors.length === 0 && (
               <div style={{ color: '#10b981', textAlign: 'center', padding: '20px' }}>
@@ -376,16 +455,16 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({ enabled = isDev || isDeb
         {activeTab === 'performance' && (
           <div>
             {measures.map((measure, index) => (
-              <LogEntry key={index} level="info">
-                <LogTime>{formatTime(new Date(measure.timestamp))}</LogTime>
+              <LogEntryComponent key={index} level="info">
+                <LogTime>{formatTime(measure.timestamp)}</LogTime>
                 <LogMessage>{measure.name}</LogMessage>
-                <LogData style={{ 
+                <LogDataComponent style={{ 
                   color: measure.duration > 100 ? '#ef4444' : 
                          measure.duration > 50 ? '#f59e0b' : '#10b981' 
                 }}>
                   {measure.duration.toFixed(2)}ms
-                </LogData>
-              </LogEntry>
+                </LogDataComponent>
+              </LogEntryComponent>
             ))}
             {measures.length === 0 && (
               <div style={{ color: '#888', textAlign: 'center', padding: '20px' }}>

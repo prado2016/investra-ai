@@ -151,7 +151,7 @@ const AIServicesTest: React.FC = () => {
 
   const [testQuery, setTestQuery] = useState('Apple stock');
   const [testResults, setTestResults] = useState<SymbolLookupResult[]>([]);
-  const [connectionResults, setConnectionResults] = useState<Record<string, boolean | string>>({});
+  const [connectionResults, setConnectionResults] = useState<Record<string, { success: boolean; error?: string; latency?: number }>>({});
 
   const handleSymbolLookup = async () => {
     if (!testQuery.trim()) return;
@@ -180,9 +180,9 @@ const AIServicesTest: React.FC = () => {
     return Object.entries(healthStatus).map(([provider, status]) => (
       <div key={provider} style={{ marginBottom: '0.5rem' }}>
         <strong>{provider.toUpperCase()}:</strong>{' '}
-        <StatusBadge $status={status.connected ? 'success' : 'error'}>
-          {status.connected ? <CheckCircle size={12} /> : <AlertCircle size={12} />}
-          {status.connected ? 'Connected' : 'Disconnected'}
+        <StatusBadge $status={status.available ? 'success' : 'error'}>
+          {status.available ? <CheckCircle size={12} /> : <AlertCircle size={12} />}
+          {status.available ? 'Available' : 'Unavailable'}
         </StatusBadge>
         {status.latency && <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>
           ({status.latency}ms)

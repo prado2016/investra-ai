@@ -8,10 +8,12 @@ import styled from 'styled-components';
 import { Search, Check, AlertCircle, TrendingUp, BarChart3, Zap } from 'lucide-react';
 import { useAISymbolLookup } from '../hooks/useAISymbolLookup';
 import type { 
-  SymbolLookupResponse, 
   SymbolSuggestionResponse, 
   SymbolValidationResponse, 
-  SymbolLookupResult 
+  SymbolLookupResult,
+  BatchLookupResponse,
+  MarketInsightsResponse,
+  APIResponse
 } from '../types/ai';
 
 // Interface for provider status in health check
@@ -172,16 +174,23 @@ const AISymbolLookupAPITest: React.FC = () => {
   const [insightsSymbol, setInsightsSymbol] = useState('AAPL');
 
   // State for results
-  const [searchResults, setSearchResults] = useState<SymbolLookupResponse | null>(null);
-  const [suggestions, setSuggestions] = useState<SymbolSuggestionResponse | null>(null);
-  const [validation, setValidation] = useState<SymbolValidationResponse | null>(null);
-  const [batchResults, setBatchResults] = useState<BatchLookupResponse | null>(null);
-  const [insights, setInsights] = useState<MarketInsightsResponse | null>(null);
-  const [healthStatus, setHealthStatus] = useState<Record<string, unknown> | null>(null);
+  const [searchResults, setSearchResults] = useState<APIResponse<SymbolLookupResult[]> | null>(null);
+  const [suggestions, setSuggestions] = useState<APIResponse<SymbolSuggestionResponse> | null>(null);
+  const [validation, setValidation] = useState<APIResponse<SymbolValidationResponse> | null>(null);
+  const [batchResults, setBatchResults] = useState<APIResponse<BatchLookupResponse> | null>(null);
+  const [insights, setInsights] = useState<APIResponse<MarketInsightsResponse> | null>(null);
+  const [healthStatus, setHealthStatus] = useState<APIResponse<{
+    status: 'healthy' | 'degraded' | 'unhealthy';
+    providers: Record<string, ProviderStatus>;
+    cache: {
+      entries: number;
+      hitRate: number;
+    };
+  }> | null>(null);
 
   // Test functions
   const handleSearch = async () => {
-    const response = await searchSymbols(searchQuery, { maxResults: 5 });
+    const response = await searchSymbols(searchQuery, { limit: 5 });
     setSearchResults(response);
   };
 
@@ -260,7 +269,7 @@ const AISymbolLookupAPITest: React.FC = () => {
           <div style={{ marginTop: '1rem' }}>
             <strong>Results:</strong>
             {searchResults.success ? (
-              searchResults.data?.results?.map((result: SymbolLookupResult, index: number) => (
+              searchResults.data?.map((result: SymbolLookupResult, index: number) => (
                 <ResultCard key={index}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <div>
@@ -404,7 +413,7 @@ const AISymbolLookupAPITest: React.FC = () => {
                 <div style={{ fontSize: '0.875rem', color: '#6b7280', margin: '0.5rem 0' }}>
                   {batchResults.data?.successfulQueries} of {batchResults.data?.totalQueries} successful
                 </div>
-                {batchResults.data?.results?.map((result: SymbolLookupResult, index: number) => (
+                {batchResults.data?.results?.map((result, index: number) => (
                   <ResultCard key={index}>
                     <strong>Query:</strong> {result.query}
                     <StatusBadge $status={result.success ? 'success' : 'error'}>
@@ -412,7 +421,7 @@ const AISymbolLookupAPITest: React.FC = () => {
                     </StatusBadge>
                     {result.success && (
                       <div style={{ marginTop: '0.5rem' }}>
-                        {result.symbols?.map((symbol: SymbolLookupResult, idx: number) => (
+                        {result.symbols?.map((symbol, idx: number) => (
                           <div key={idx} style={{ fontSize: '0.875rem' }}>
                             {symbol.symbol} - {symbol.name} ({Math.round(symbol.confidence * 100)}%)
                           </div>
@@ -481,7 +490,7 @@ const AISymbolLookupAPITest: React.FC = () => {
                     {insights.data?.insights?.summary}
                   </p>
                 </div>
-                {insights.data?.recommendations?.length > 0 && (
+                {insights.data?.recommendations && insights.data.recommendations.length > 0 && (
                   <div>
                     <strong>Recommendations:</strong>
                     <ul style={{ margin: '0.5rem 0', fontSize: '0.875rem' }}>

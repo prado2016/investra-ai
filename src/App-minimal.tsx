@@ -1,4 +1,3 @@
-import React from 'react';
 import { NotificationProvider, useNotifications } from './contexts/NotificationContext';
 import { AuthProvider } from './contexts/AuthContext';
 import { RealtimeProvider } from './contexts/RealtimeContext';

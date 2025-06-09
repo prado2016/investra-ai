@@ -43,6 +43,7 @@ interface Position {
 
 interface Transaction {
   id: string;
+  portfolioId?: string; // Make it optional to maintain backward compatibility
   assetId: string;
   assetSymbol: string;
   assetType: AssetType;

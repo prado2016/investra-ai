@@ -50,7 +50,7 @@ interface UseAISymbolLookupReturn {
       hitRate: number;
     };
   }>>;
-  clearCache: () => void;
+  clearCache: () => { cleared: number };
   
   // Error handling
   lastError: string | null;
