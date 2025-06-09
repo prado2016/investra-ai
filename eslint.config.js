@@ -25,4 +25,11 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    // Disable react-refresh rules for test files and utility files
+    files: ['**/*.test.{ts,tsx}', '**/test/**/*.{ts,tsx}', '**/*.spec.{ts,tsx}', '**/contexts/**/*.{ts,tsx}'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
 )

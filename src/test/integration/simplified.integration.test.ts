@@ -10,7 +10,7 @@ import type { Transaction, Position } from '../../types/portfolio';
 import type { AssetType, TransactionType, Currency } from '../../types/portfolio';
 import type { YahooFinanceQuote } from '../../types/api';
 import type { ApiError } from '../../types/api';
-import { setupIntegrationMocks, resetIntegrationMocks, mockYahooFinanceData, mockStorageData } from './test-setup';
+import { setupIntegrationMocks, resetIntegrationMocks, mockYahooFinanceData } from './test-setup';
 
 // Mock Yahoo Finance service for integration testing
 vi.mock('../../services/yahooFinanceService', () => ({

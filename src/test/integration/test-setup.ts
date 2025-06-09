@@ -3,7 +3,7 @@
  * Provides mocks and test utilities for integration testing
  */
 
-import { vi, beforeEach, afterEach } from 'vitest';
+import { vi } from 'vitest';
 import React from 'react';
 
 // Mock data for integration tests
