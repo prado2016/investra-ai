@@ -6,15 +6,19 @@ import ThemeToggle from '../components/ThemeToggle';
 const mockToggleTheme = vi.fn();
 const mockTheme = { isDark: false, toggleTheme: mockToggleTheme };
 
-vi.mock('../contexts/ThemeContext', () => ({
-  useTheme: () => mockTheme
-}));
+vi.mock('../contexts/ThemeContext', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    useTheme: () => mockTheme
+  };
+});
 
 describe('ThemeToggle Component', () => {
   it('should render theme toggle component', () => {
     render(<ThemeToggle />);
     
-    // Test for button with aria-label instead of text content
+    // The mock theme has isDark: false, so it shows "switch to dark mode"
     expect(screen.getByRole('button', { name: /switch to dark mode/i })).toBeInTheDocument();
     expect(screen.getByTitle(/switch to dark mode/i)).toBeInTheDocument();
   });
@@ -31,6 +35,7 @@ describe('ThemeToggle Component', () => {
   it('should display correct aria-label for light theme', () => {
     render(<ThemeToggle />);
     
+    // Mock theme has isDark: false, so it shows "switch to dark mode"
     expect(screen.getByRole('button', { name: /switch to dark mode/i })).toBeInTheDocument();
   });
 });

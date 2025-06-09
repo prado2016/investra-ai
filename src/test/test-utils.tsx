@@ -1,7 +1,8 @@
 import React from 'react'
 import { render, RenderOptions } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
-import { ThemeProvider } from 'styled-components'
+import { ThemeProvider as StyledThemeProvider } from 'styled-components'
+import { ThemeProvider } from '../contexts/ThemeContext'
 import { vi, MockedFunction } from 'vitest'
 
 // Mock theme for testing
@@ -56,7 +57,7 @@ const customRender = (
     // }
 
     if (withTheme) {
-      component = <ThemeProvider theme={mockTheme}>{component}</ThemeProvider>
+      component = <ThemeProvider>{component}</ThemeProvider>
     }
 
     if (withRouter) {
