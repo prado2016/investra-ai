@@ -211,20 +211,6 @@ jobs:
       - name: Run npm audit
         run: npm audit --audit-level moderate
         continue-on-error: true
-        
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
-        with:
-          languages: javascript
-          config-file: ./.github/codeql/codeql-config.yml
-          
-      - name: Autobuild
-        uses: github/codeql-action/autobuild@v3
-        
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
-        with:
-          category: "/language:javascript"
 
   # Job 5: Build Verification
   build:

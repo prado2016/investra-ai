@@ -37,6 +37,23 @@ jobs:
 
       - name: Finalize deployment
         run: |
+          # Detect web server user automatically
+          WEB_USER=""
+          if id nginx >/dev/null 2>&1; then
+            WEB_USER="nginx"
+          elif id www-data >/dev/null 2>&1; then
+            WEB_USER="www-data"
+          elif id apache >/dev/null 2>&1; then
+            WEB_USER="apache"
+          elif id httpd >/dev/null 2>&1; then
+            WEB_USER="httpd"
+          else
+            echo "⚠️  No standard web server user found, using current user: $USER"
+            WEB_USER="$USER"
+          fi
+
+          echo "🔍 Using web server user: $WEB_USER"
+
           # Backup current deployment if it exists
           if [ -d "/var/www/investra-ai/current" ]; then
             sudo mv /var/www/investra-ai/current /var/www/investra-ai/backup-$(date +%Y%m%d-%H%M%S)
@@ -44,7 +61,7 @@ jobs:
 
           # Move new deployment to final location
           sudo mv /tmp/investra-ai-deploy /var/www/investra-ai/current
-          sudo chown -R nginx:nginx /var/www/investra-ai/current
+          sudo chown -R "$WEB_USER:$WEB_USER" /var/www/investra-ai/current
           sudo chmod -R 755 /var/www/investra-ai/current
 
           # Create/update Nginx configuration
