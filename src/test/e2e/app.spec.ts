@@ -7,7 +7,7 @@ test.describe('Investra AI App', () => {
     
     // Ensure E2E test mode is set
     await page.addInitScript(() => {
-      (window as any).__E2E_TEST_MODE__ = true;
+      (window as unknown as Record<string, unknown>).__E2E_TEST_MODE__ = true;
       localStorage.setItem('__E2E_TEST_MODE__', 'true');
     });
     
