@@ -238,9 +238,12 @@ export function validateStock(stock: Partial<Stock>): ValidationResult {
   // Required fields
   if (!stock.symbol) errors.push('Stock symbol is required');
   if (!stock.name) errors.push('Stock name is required');
+  
   // Check if currentPrice is present and valid  
   const currentPrice = (stock as Stock & { currentPrice?: number }).currentPrice;
-  if (currentPrice !== undefined && (typeof currentPrice !== 'number' || currentPrice <= 0)) {
+  if (currentPrice === undefined) {
+    errors.push('Current price must be a positive number');
+  } else if (typeof currentPrice !== 'number' || currentPrice <= 0) {
     errors.push('Current price must be a positive number');
   }
   
