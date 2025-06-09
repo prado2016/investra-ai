@@ -61,10 +61,8 @@ jobs:
           if ! command -v nginx &> /dev/null; then
             echo "🔧 Installing Nginx..."
             if command -v dnf &> /dev/null; then
-              # RHEL 8/9, CentOS Stream, Fedora
               sudo dnf install -y nginx
             elif command -v yum &> /dev/null; then
-              # RHEL 7, CentOS 7
               sudo yum install -y nginx
             else
               echo "❌ Package manager not found. Please install Nginx manually."
@@ -74,29 +72,56 @@ jobs:
             echo "✅ Nginx is already installed"
           fi
 
-          # Ensure Nginx is enabled and started
-          sudo systemctl enable nginx
-          sudo systemctl start nginx
+          # Stop nginx first to clean up any existing configs
+          sudo systemctl stop nginx
 
-          # Create conf.d directory if it doesn't exist
+          # Backup and replace main nginx.conf to eliminate conflicts
+          sudo cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.backup
+          
+          # Create a clean nginx.conf without default server blocks
+          sudo tee /etc/nginx/nginx.conf > /dev/null << 'EOF'
+          user nginx;
+          worker_processes auto;
+          error_log /var/log/nginx/error.log;
+          pid /run/nginx.pid;
+          
+          include /usr/share/nginx/modules/*.conf;
+          
+          events {
+              worker_connections 1024;
+          }
+          
+          http {
+              log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                              '$status $body_bytes_sent "$http_referer" '
+                              '"$http_user_agent" "$http_x_forwarded_for"';
+          
+              access_log /var/log/nginx/access.log main;
+          
+              sendfile on;
+              tcp_nopush on;
+              tcp_nodelay on;
+              keepalive_timeout 65;
+              types_hash_max_size 4096;
+          
+              include /etc/nginx/mime.types;
+              default_type application/octet-stream;
+          
+              include /etc/nginx/conf.d/*.conf;
+          }
+          EOF
+
+          # Remove any default configurations
+          sudo rm -f /etc/nginx/conf.d/default.conf
+          sudo rm -rf /etc/nginx/sites-enabled/
+          sudo rm -rf /etc/nginx/sites-available/
+
+          # Create conf.d directory
           sudo mkdir -p /etc/nginx/conf.d
 
-          # Disable default Nginx site to prevent conflicts
-          if [ -f "/etc/nginx/nginx.conf" ]; then
-            echo "🔧 Disabling default Nginx configuration..."
-            sudo sed -i '/include \/etc\/nginx\/conf\.d\/\*\.conf;/a\    # Default server disabled for custom configs' /etc/nginx/nginx.conf
-            
-            # Comment out or remove default server block if it exists
-            if grep -q "server {" /etc/nginx/nginx.conf; then
-              sudo cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.backup
-              sudo sed -i '/server {/,/}/d' /etc/nginx/nginx.conf
-            fi
-          fi
-
-          # Remove default site configurations that might conflict
-          sudo rm -f /etc/nginx/conf.d/default.conf
-          sudo rm -f /etc/nginx/sites-enabled/default
-          sudo rm -f /etc/nginx/sites-available/default
+          # Start nginx
+          sudo systemctl enable nginx
+          sudo systemctl start nginx
 
           # Configure firewall for HTTP traffic (if firewalld is active)
           if systemctl is-active --quiet firewalld; then
@@ -169,11 +194,11 @@ jobs:
           sudo chmod -R 755 /var/www/investra-ai/current
 
           # Create/update Nginx configuration
-          sudo tee /etc/nginx/conf.d/investra-ai.conf > /dev/null << 'NGINX_EOF'
+          sudo tee /etc/nginx/conf.d/investra-ai.conf > /dev/null << 'EOF'
           server {
               listen 80 default_server;
               listen [::]:80 default_server;
-              server_name investra-ai.local localhost _;
+              server_name _;
 
               root /var/www/investra-ai/current;
               index index.html;
@@ -188,9 +213,12 @@ jobs:
               add_header X-XSS-Protection "1; mode=block" always;
               add_header Referrer-Policy "strict-origin-when-cross-origin" always;
 
-              # Error pages
-              error_page 404 /index.html;
-              error_page 500 502 503 504 /index.html;
+              # Health check endpoint - must come before catch-all location
+              location = /health {
+                  access_log off;
+                  return 200 "healthy\n";
+                  add_header Content-Type text/plain;
+              }
 
               # Cache static assets
               location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
@@ -199,31 +227,30 @@ jobs:
                   access_log off;
               }
 
-              # Health check endpoint
-              location /health {
-                  access_log off;
-                  return 200 "healthy\n";
-                  add_header Content-Type text/plain;
-              }
-
-              # Handle React Router (SPA routing)
+              # Handle React Router (SPA routing) - this catches everything else
               location / {
                   try_files $uri $uri/ /index.html;
               }
+
+              # Error pages
+              error_page 404 /index.html;
+              error_page 500 502 503 504 /index.html;
 
               # Detailed logging for debugging
               access_log /var/log/nginx/investra-ai-access.log;
               error_log /var/log/nginx/investra-ai-error.log;
           }
-          NGINX_EOF
+          EOF
 
           # Test Nginx configuration
           sudo nginx -t
 
-          # Reload Nginx if configuration is valid
+          # Restart Nginx completely to ensure clean state
           if [ $? -eq 0 ]; then
-              sudo systemctl reload nginx
-              echo "✅ Deployment successful! Nginx reloaded."
+              echo "✅ Nginx configuration is valid, restarting..."
+              sudo systemctl restart nginx
+              sleep 3
+              echo "✅ Deployment successful! Nginx restarted."
           else
               echo "❌ Nginx configuration test failed!"
               exit 1
