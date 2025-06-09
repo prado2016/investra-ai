@@ -101,13 +101,13 @@ export const useAISymbolLookup = (): UseAISymbolLookupReturn => {
       } else {
         debug.info('Symbol search successful', { 
           query, 
-          resultCount: response.data?.symbols?.length || 0 
+          resultCount: response.data?.results?.length || 0 
         }, 'useAISymbolLookup');
       }
 
       return {
         success: response.success,
-        data: response.data?.symbols || [],
+        data: response.data?.results || [],
         error: response.error,
         metadata: response.metadata
       };

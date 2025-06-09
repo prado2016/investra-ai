@@ -1,5 +1,5 @@
 import { createContext } from 'react';
-import type { SyncStatus } from '../services/offline/offlineStorageService';
+import type { SyncStatus } from '../services/offlineStorageService';
 import type { Portfolio } from '../lib/database/types';
 
 // Context interface

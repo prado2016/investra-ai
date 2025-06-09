@@ -177,28 +177,30 @@ export async function exampleHealthMonitoring() {
     const healthStatus = await aiServiceManager.getHealthStatus();
     
     console.log('AI Services Health Status:');
-    for (const [provider, status] of Object.entries(healthStatus)) {
-      console.log(`\n${provider}:`);
-      console.log(`  Configured: ${status.configured}`);
-      console.log(`  Connected: ${status.connected}`);
+    for (const [provider, status] of Object.entries(healthStatus)) {    const statusData = status as Record<string, unknown>; // Type assertion for unknown status structure
+    console.log(`\n${provider}:`);
+    console.log(`  Configured: ${statusData.configured}`);
+    console.log(`  Connected: ${statusData.connected}`);
+    
+    if (statusData.rateLimit) {
+      const rateLimit = statusData.rateLimit as Record<string, unknown>;
+      console.log(`  Rate Limit: ${rateLimit.requestsThisHour}/${rateLimit.maxRequestsPerHour} (hourly)`);
+      console.log(`  Rate Limit: ${rateLimit.requestsToday}/${rateLimit.maxRequestsPerDay} (daily)`);
+    }
+    
+    if (statusData.cache) {
+      const cache = statusData.cache as Record<string, unknown>;
+      console.log(`  Cache Hit Rate: ${((cache.hitRate as number) * 100).toFixed(1)}%`);
+      console.log(`  Cache Entries: ${cache.entriesCount}`);
+      console.log(`  Cache Memory: ${((cache.memoryUsage as number) / 1024).toFixed(1)} KB`);
+    }
       
-      if (status.rateLimit) {
-        console.log(`  Rate Limit: ${status.rateLimit.requestsThisHour}/${status.rateLimit.maxRequestsPerHour} (hourly)`);
-        console.log(`  Rate Limit: ${status.rateLimit.requestsToday}/${status.rateLimit.maxRequestsPerDay} (daily)`);
+      if (statusData.latency) {
+        console.log(`  Connection Latency: ${statusData.latency}ms`);
       }
       
-      if (status.cache) {
-        console.log(`  Cache Hit Rate: ${(status.cache.hitRate * 100).toFixed(1)}%`);
-        console.log(`  Cache Entries: ${status.cache.entriesCount}`);
-        console.log(`  Cache Memory: ${(status.cache.memoryUsage / 1024).toFixed(1)} KB`);
-      }
-      
-      if (status.latency) {
-        console.log(`  Connection Latency: ${status.latency}ms`);
-      }
-      
-      if (status.error) {
-        console.log(`  Error: ${status.error}`);
+      if (statusData.error) {
+        console.log(`  Error: ${statusData.error}`);
       }
     }
 
@@ -294,7 +296,7 @@ export async function exampleCacheOperations() {
 
     // Clear cache
     console.log('\nClearing cache...');
-    aiServiceManager.clearAllCaches();
+    aiServiceManager.clearCache();
 
     console.log('Making request after cache clear (should miss cache)...');
     const response3 = await aiServiceManager.lookupSymbols(request);

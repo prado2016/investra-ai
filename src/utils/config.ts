@@ -24,7 +24,7 @@ export interface AppConfig {
  * Validates that required environment variables are present
  */
 function validateEnvironment(): void {
-  const requiredVars = [];
+  const requiredVars: string[] = [];
   const missingVars = requiredVars.filter(varName => !import.meta.env[varName]);
   
   if (missingVars.length > 0) {

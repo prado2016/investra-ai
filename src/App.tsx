@@ -80,13 +80,13 @@ function AppContent() {
   // Check if we're in E2E test mode
   const isE2ETestMode = React.useMemo(() => {
     const testMode = (
-      (typeof window !== 'undefined' && (window as any).__E2E_TEST_MODE__) ||
+      (typeof window !== 'undefined' && (window as unknown as Record<string, unknown>).__E2E_TEST_MODE__) ||
       (typeof window !== 'undefined' && localStorage.getItem('__E2E_TEST_MODE__') === 'true') ||
       (typeof window !== 'undefined' && window.location.search.includes('e2e-test=true'))
     );
     
     console.log('🚀 App.tsx - E2E test mode check:', {
-      windowFlag: (window as any).__E2E_TEST_MODE__,
+      windowFlag: (window as unknown as Record<string, unknown>).__E2E_TEST_MODE__,
       localStorage: localStorage.getItem('__E2E_TEST_MODE__'),
       urlParam: window.location.search.includes('e2e-test=true'),
       isE2ETestMode: testMode

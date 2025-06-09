@@ -1,5 +1,5 @@
 import { useContext } from 'react';
-import { RealtimeContext, RealtimeContextType } from '../contexts/RealtimeContext';
+import { RealtimeContext, type RealtimeContextType } from '../contexts/RealtimeContext';
 
 /**
  * Hook to use real-time context

@@ -218,14 +218,15 @@ export const useAIServices = (): UseAIServicesReturn => {
 
   // Clear cache
   const clearCache = useCallback(() => {
-    aiServiceManager.clearAllCaches();
+    aiServiceManager.clearCache();
   }, []);
 
   // Refresh health status
   const refreshHealthStatus = useCallback(async () => {
     try {
       const status = await aiServiceManager.getHealthStatus();
-      setHealthStatus(status);
+      // Type assertion to match expected type
+      setHealthStatus(status as Record<string, { available: boolean; latency?: number; error?: string }>);
     } catch (error) {
       console.error('Failed to get health status:', error);
       setLastError(error instanceof Error ? error.message : 'Failed to get health status');

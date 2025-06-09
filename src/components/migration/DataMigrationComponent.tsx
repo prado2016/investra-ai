@@ -15,16 +15,6 @@ const DataMigrationComponent: React.FC = () => {
   const [showDetails, setShowDetails] = useState(false)
   const { success, error, warning, info } = useNotifications()
 
-  useEffect(() => {
-    // Subscribe to migration status updates
-    const unsubscribe = dataMigrationService.onStatusUpdate(setMigrationStatus)
-    
-    // Initial analysis
-    analyzeData()
-    
-    return unsubscribe
-  }, [analyzeData])
-
   const analyzeData = useCallback(async () => {
     try {
       const result = await dataMigrationService.analyzeLocalData()
@@ -37,6 +27,16 @@ const DataMigrationComponent: React.FC = () => {
       error('Analysis Failed', err instanceof Error ? err.message : 'Failed to analyze localStorage data')
     }
   }, [error, info])
+
+  useEffect(() => {
+    // Subscribe to migration status updates
+    const unsubscribe = dataMigrationService.onStatusUpdate(setMigrationStatus)
+    
+    // Initial analysis
+    analyzeData()
+    
+    return unsubscribe
+  }, [analyzeData])
 
   const startMigration = async () => {
     try {

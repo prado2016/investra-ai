@@ -72,6 +72,7 @@ interface TransactionFormData {
   currency: Currency;
   date: string;
   notes: string;
+  [key: string]: unknown; // Index signature for compatibility
 }
 
 interface TransactionFormProps {
@@ -141,7 +142,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       date: {
         required: 'Date is required',
         custom: (value) => {
-          const date = new Date(value);
+          const date = new Date(value as string | number | Date);
           const today = new Date();
           if (date > today) {
             return 'Date cannot be in the future';

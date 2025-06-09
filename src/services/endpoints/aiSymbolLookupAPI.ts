@@ -235,9 +235,9 @@ export class AISymbolLookupAPI {
           suggestion: validation.suggestion,
           confidence: validation.confidence,
           details: validation.details ? {
-            name: validation.details.name,
-            exchange: validation.details.exchange,
-            assetType: validation.details.assetType
+            name: (validation.details as { name?: string }).name || '',
+            exchange: (validation.details as { exchange?: string }).exchange || '',
+            assetType: (validation.details as { assetType?: string }).assetType || ''
           } : undefined
         };
 
@@ -455,7 +455,7 @@ export class AISymbolLookupAPI {
       for (const [provider, result] of Object.entries(healthResults)) {
         providers[provider] = {
           available: result.success,
-          latency: result.latency,
+          latency: result.latency || 0,
           error: result.error
         };
       }

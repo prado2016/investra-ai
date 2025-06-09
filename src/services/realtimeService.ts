@@ -102,7 +102,7 @@ export class RealtimeService {
           table: 'portfolios',
           filter: `user_id=eq.${user.id}`
         },
-        (payload) => this.handlePortfolioChange(payload)
+        (payload) => this.handlePortfolioChange(payload as RealtimePostgresChangesPayload<Portfolio>)
       )
 
       // Subscribe to positions changes (via portfolios relationship)
@@ -113,7 +113,7 @@ export class RealtimeService {
           schema: 'public',
           table: 'positions'
         },
-        (payload) => this.handlePositionChange(payload)
+        (payload) => this.handlePositionChange(payload as RealtimePostgresChangesPayload<Position>)
       )
 
       // Subscribe to transactions changes (via portfolios relationship)
@@ -124,7 +124,7 @@ export class RealtimeService {
           schema: 'public',
           table: 'transactions'
         },
-        (payload) => this.handleTransactionChange(payload)
+        (payload) => this.handleTransactionChange(payload as RealtimePostgresChangesPayload<Transaction>)
       )
 
       // Subscribe to assets changes (public data)
@@ -135,7 +135,7 @@ export class RealtimeService {
           schema: 'public',
           table: 'assets'
         },
-        (payload) => this.handleAssetChange(payload)
+        (payload) => this.handleAssetChange(payload as RealtimePostgresChangesPayload<Asset>)
       )
 
       // Set up connection event handlers

@@ -6,70 +6,12 @@
 import { formatDate } from './formatting';
 import { 
   calculateEnhancedPLForPeriod,
-  type PLCalculationOptions,
-  type CostBasisMethod
+  type PLCalculationOptions
 } from './plCalculations';
-
-// Inline types to avoid import issues
-type AssetType = 'stock' | 'option' | 'forex' | 'crypto' | 'reit' | 'etf';
-type TransactionType = 'buy' | 'sell' | 'dividend' | 'split' | 'merger';
-type Currency = 'USD' | 'EUR' | 'GBP' | 'JPY' | 'CAD' | 'AUD' | 'CHF' | 'CNY' | 'BTC' | 'ETH';
-
-interface PositionLot {
-  id: string;
-  transactionId: string;
-  quantity: number;
-  costBasis: number;
-  purchaseDate: Date;
-  remainingQuantity: number;
-}
-
-interface Position {
-  id: string;
-  assetId: string;
-  assetSymbol: string;
-  assetType: AssetType;
-  quantity: number;
-  averageCostBasis: number;
-  totalCostBasis: number;
-  currentMarketValue: number;
-  unrealizedPL: number;
-  unrealizedPLPercent: number;
-  realizedPL: number;
-  totalReturn: number;
-  totalReturnPercent: number;
-  currency: Currency;
-  openDate: Date;
-  lastTransactionDate: Date;
-  costBasisMethod: CostBasisMethod;
-  lots: PositionLot[];
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-interface Transaction {
-  id: string;
-  assetId: string;
-  assetSymbol: string;
-  assetType: AssetType;
-  type: TransactionType;
-  quantity: number;
-  price: number;
-  totalAmount: number;
-  fees?: number;
-  currency: Currency;
-  date: Date;
-  notes?: string;
-  strikePrice?: number;
-  expirationDate?: Date;
-  optionType?: 'call' | 'put';
-  exchangeRate?: number;
-  dividendPerShare?: number;
-  splitRatio?: number;
-  createdAt: Date;
-  updatedAt: Date;
-  source?: string;
-}
+import type { 
+  Transaction, 
+  Position
+} from '../types/portfolio';
 
 export interface DailyPLData {
   date: string; // YYYY-MM-DD format

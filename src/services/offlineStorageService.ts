@@ -209,7 +209,7 @@ export class OfflineStorageService {
       const transaction = this.db.transaction([storeName], 'readonly')
       const store = transaction.objectStore(storeName)
       const result = await this.promisifyRequest(store.getAll())
-      return result || []
+      return (result as T[]) || []
     } catch (error) {
       console.error(`❌ Failed to get all ${storeName} from local storage:`, error)
       return []
@@ -359,7 +359,7 @@ export class OfflineStorageService {
       const transaction = this.db.transaction([STORES.SYNC_QUEUE], 'readonly')
       const store = transaction.objectStore(STORES.SYNC_QUEUE)
       const count = await this.promisifyRequest(store.count())
-      return count
+      return (count as number) || 0
     } catch {
       return 0
     }
@@ -373,18 +373,19 @@ export class OfflineStorageService {
       const store = transaction.objectStore(STORES.SYNC_QUEUE)
       const queueItems = await this.promisifyRequest(store.getAll())
 
-      for (const item of queueItems) {
+      for (const item of (queueItems as unknown[])) {
+        const syncItem = item as { table: string; operation: string; data: any; localId?: string; id: string };
         try {
-          if (item.table === STORES.PORTFOLIOS && item.operation === 'CREATE') {
+          if (syncItem.table === STORES.PORTFOLIOS && syncItem.operation === 'CREATE') {
             const result = await SupabaseService.portfolio.createPortfolio(
-              item.data.name,
-              item.data.description,
-              item.data.currency
+              syncItem.data.name,
+              syncItem.data.description,
+              syncItem.data.currency
             )
             
             if (result.success && result.data) {
-              await this.updateLocalAfterSync(STORES.PORTFOLIOS, item.localId!, result.data)
-              await this.removeSyncItem(item.id)
+              await this.updateLocalAfterSync(STORES.PORTFOLIOS, syncItem.localId!, result.data)
+              await this.removeSyncItem(syncItem.id)
             }
           }
         } catch (error) {

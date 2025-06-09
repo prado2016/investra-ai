@@ -31,13 +31,6 @@ const TransactionsPage: React.FC = () => {
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
   // Fetch transactions when portfolio changes
-  useEffect(() => {
-    console.log('🔍 TRANSACTIONS_DEBUG: Portfolio changed:', { activePortfolio: activePortfolio?.id, name: activePortfolio?.name });
-    if (activePortfolio?.id) {
-      fetchTransactions();
-    }
-  }, [activePortfolio, fetchTransactions]);
-
   const fetchTransactions = useCallback(async () => {
     if (!activePortfolio?.id) {
       console.log('🔍 TRANSACTIONS_DEBUG: No active portfolio, skipping fetch');
@@ -68,6 +61,13 @@ const TransactionsPage: React.FC = () => {
       setLoading(false);
     }
   }, [activePortfolio?.id, notify]);
+
+  useEffect(() => {
+    console.log('🔍 TRANSACTIONS_DEBUG: Portfolio changed:', { activePortfolio: activePortfolio?.id, name: activePortfolio?.name });
+    if (activePortfolio?.id) {
+      fetchTransactions();
+    }
+  }, [activePortfolio, fetchTransactions]);
 
   const handleEditTransaction = (transactionWithAsset: TransactionWithAsset) => {
     // Convert database transaction to portfolio transaction format for the form

@@ -129,7 +129,7 @@ export function RetryWrapper<T>({
       retryOptions.onRetryAttempt?.(attempt, error);
     },
     onMaxAttemptsReached: (error) => {
-      onError?.(error);
+      onError?.(error as Error);
       retryOptions.onMaxAttemptsReached?.(error);
     }
   });
@@ -154,7 +154,7 @@ export function RetryWrapper<T>({
           execute,
           isRetrying: retry.isRetrying,
           currentAttempt: retry.currentAttempt,
-          lastError: retry.lastError,
+          lastError: retry.lastError as Error | null,
           result
         })}
       </>
@@ -182,7 +182,7 @@ export function RetryWrapper<T>({
       return {
         variant: 'error' as const,
         icon: <AlertCircle size={16} />,
-        message: `Error: ${retry.lastError.message || 'Something went wrong'}`
+        message: `Error: ${(retry.lastError as Error)?.message || 'Something went wrong'}`
       };
     }
     return null;

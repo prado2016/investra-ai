@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useRealtime } from './useRealtime';
-import type { RealtimeEvent, Portfolio, Position, Transaction, Asset } from '../types/database';
+import type { RealtimeEvent } from '../services/realtimeService';
+import type { Portfolio, Position, Transaction, Asset } from '../lib/database/types';
 
 /**
  * Hook for portfolio real-time updates

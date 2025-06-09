@@ -8,7 +8,7 @@ export * from './offlineStorageService';
 export * from './analytics/dailyPLService';
 export * from './ai';
 export * from './endpoints/symbolLookupEndpoint';
-export * from './endpoints/aiSymbolLookupAPI';
+// Skip aiSymbolLookupAPI to avoid export conflicts
 export * from './apiKeyService';
 export * from './aiIntegrationService';
 

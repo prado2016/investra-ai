@@ -1,6 +1,8 @@
 // Extended Database types for new schema additions
 // Tasks 1, 2, 14: API Keys, Extended Symbols, Enhanced Decimal Support
 
+import type { Asset } from './types';
+
 export type ApiProvider = 'gemini' | 'openai' | 'perplexity' | 'yahoo_finance'
 
 export interface ApiKey {

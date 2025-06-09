@@ -1,5 +1,5 @@
 import { createContext } from 'react';
-import type { SubscriptionStatus, RealtimeEvent } from '../services/realtime/realtimeService';
+import type { SubscriptionStatus, RealtimeEvent } from '../services/realtimeService';
 import type { Portfolio, Position, Transaction, Asset } from '../lib/database/types';
 
 // Context interface

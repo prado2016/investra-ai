@@ -99,7 +99,7 @@ export class GeminiAIService extends BaseAIService {
       const cacheKey = this.generateCacheKey('financial_analysis', request);
       const cachedResult = this.getCacheEntry<FinancialAnalysisResponse>(cacheKey);
       if (cachedResult) {
-        return { ...cachedResult, cached: true };
+        return cachedResult;
       }
 
       if (!this.model) {
@@ -203,7 +203,7 @@ export class GeminiAIService extends BaseAIService {
     let apiKey = this.config.apiKey;
     
     if (!apiKey) {
-      apiKey = ApiKeyStorage.getApiKeyWithFallback('gemini');
+      apiKey = ApiKeyStorage.getApiKeyWithFallback('gemini') || '';
     }
     
     if (!apiKey) {

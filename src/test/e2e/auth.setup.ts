@@ -3,9 +3,10 @@
  * Sets up test environment variables to bypass authentication
  */
 
-import { chromium, FullConfig } from '@playwright/test';
+import { chromium, type FullConfig } from '@playwright/test';
 
-async function globalSetup(config: FullConfig) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function globalSetup(_: FullConfig) {
   console.log('🔐 Setting up authentication bypass for E2E tests...');
   
   const browser = await chromium.launch();
@@ -14,12 +15,12 @@ async function globalSetup(config: FullConfig) {
   // Set environment variable to enable test mode
   await page.addInitScript(() => {
     // Set a global flag that the app can detect
-    (window as any).__E2E_TEST_MODE__ = true;
+    (window as unknown as Record<string, unknown>).__E2E_TEST_MODE__ = true;
     
     // Also set it in localStorage for persistence
     localStorage.setItem('__E2E_TEST_MODE__', 'true');
     
-    console.log('🧪 E2E test mode enabled - window.__E2E_TEST_MODE__:', (window as any).__E2E_TEST_MODE__);
+    console.log('🧪 E2E test mode enabled - window.__E2E_TEST_MODE__:', (window as unknown as Record<string, unknown>).__E2E_TEST_MODE__);
   });
   
   // Navigate to the app with test mode enabled

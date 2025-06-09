@@ -138,11 +138,13 @@ export function useAIService(): UseAIServiceReturn {
   }, []);
 
   const getHealthStatus = useCallback(async () => {
-    return await aiServiceManager.getHealthStatus();
+    const status = await aiServiceManager.getHealthStatus();
+    // Type assertion to match expected return type
+    return status as Record<string, { available: boolean; latency?: number; error?: string }>;
   }, []);
 
   const clearCache = useCallback(() => {
-    aiServiceManager.clearAllCaches();
+    aiServiceManager.clearCache();
   }, []);
 
   return {

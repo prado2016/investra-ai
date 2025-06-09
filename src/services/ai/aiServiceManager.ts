@@ -14,7 +14,6 @@ import type {
 } from '../../types/ai';
 import { GeminiAIService } from './geminiService';
 import { ApiKeyService } from '../apiKeyService';
-import { ApiKeyEncryption } from '../../utils/apiKeyUtils';
 
 export class AIServiceManager {
   private services: Map<AIProvider, IAIService> = new Map();
@@ -182,7 +181,7 @@ export class AIServiceManager {
     const results: Record<AIProvider, { success: boolean; error?: string; latency?: number }> = {
       openai: { success: false },
       gemini: { success: false },
-      claude: { success: false }
+      perplexity: { success: false }
     };
     
     for (const [provider, service] of this.services) {
@@ -197,6 +196,28 @@ export class AIServiceManager {
     }
 
     return results;
+  }
+
+  /**
+   * Test connection for a specific provider
+   */
+  async testConnection(provider: AIProvider): Promise<{ success: boolean; error?: string; latency?: number }> {
+    const service = this.getService(provider);
+    if (!service) {
+      return {
+        success: false,
+        error: `Service not initialized for provider: ${provider}`
+      };
+    }
+
+    try {
+      return await service.testConnection();
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error occurred'
+      };
+    }
   }
 
   /**
@@ -220,9 +241,11 @@ export class AIServiceManager {
   /**
    * Clear cache for all services
    */
-  clearAllCaches(): void {
+  clearCache(): void {
     for (const service of this.services.values()) {
-      service.clearCache();
+      if (typeof service.clearCache === 'function') {
+        service.clearCache();
+      }
     }
   }
 
@@ -346,14 +369,15 @@ export class AIServiceManager {
     return null;
   }
 
-  private async decryptApiKey(encryptedKey: string): Promise<string> {
-    try {
-      return await ApiKeyEncryption.decryptApiKey(encryptedKey);
-    } catch (error) {
-      console.error('Failed to decrypt API key:', error);
-      return '';
-    }
-  }
+  // Helper method for decrypting API keys (currently unused but may be needed for encrypted storage)
+  // private async decryptApiKey(encryptedKey: string): Promise<string> {
+  //   try {
+  //     return await ApiKeyEncryption.decryptApiKey(encryptedKey);
+  //   } catch (error) {
+  //     console.error('Failed to decrypt API key:', error);
+  //     return '';
+  //   }
+  // }
 }
 
 // Export singleton instance

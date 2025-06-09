@@ -341,6 +341,8 @@ export const EnhancedSymbolInput: React.FC<EnhancedSymbolInputProps> = ({
             onChange(result.parsedSymbol, {
               symbol: result.parsedSymbol,
               name: validation.name || result.parsedSymbol,
+              exchange: 'UNKNOWN',
+              assetType: 'stock' as const,
               confidence: result.confidence
             });
             

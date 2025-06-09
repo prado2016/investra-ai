@@ -102,7 +102,7 @@ export const useForm = <T extends Record<string, unknown>>(options: UseFormOptio
     // Email validation
     if (rules.email) {
       const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailPattern.test(value)) {
+      if (!emailPattern.test(String(value))) {
         return {
           type: 'email',
           message: typeof rules.email === 'string' ? rules.email : defaultValidationMessages.email
@@ -146,7 +146,7 @@ export const useForm = <T extends Record<string, unknown>>(options: UseFormOptio
     // URL validation
     if (rules.url) {
       try {
-        new URL(value);
+        new URL(String(value));
       } catch {
         return {
           type: 'url',

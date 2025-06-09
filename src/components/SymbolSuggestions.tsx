@@ -173,7 +173,15 @@ export const SymbolSuggestions: React.FC<SymbolSuggestionsProps> = ({
         const response = await getSuggestions(query, { limit: maxSuggestions });
         
         if (response.success && response.data?.suggestions) {
-          setSuggestions(response.data.suggestions);
+          // Convert string array to SymbolLookupResult array
+          const suggestionsAsResults = response.data.suggestions.map((symbol: string) => ({
+            symbol,
+            name: symbol,
+            exchange: 'UNKNOWN',
+            assetType: 'stock' as const,
+            confidence: 0.5
+          }));
+          setSuggestions(suggestionsAsResults);
         } else {
           setSuggestions([]);
         }
@@ -278,8 +286,8 @@ export const SymbolSuggestions: React.FC<SymbolSuggestionsProps> = ({
         onClick={() => handleSelectSuggestion(suggestion)}
       >
         <SuggestionContent>
-          <IconWrapper $type={suggestion.type || 'stock'}>
-            {getIcon(suggestion.type || 'stock')}
+          <IconWrapper $type={suggestion.assetType || 'stock'}>
+            {getIcon(suggestion.assetType || 'stock')}
           </IconWrapper>
           
           <SuggestionInfo>
@@ -290,7 +298,7 @@ export const SymbolSuggestions: React.FC<SymbolSuggestionsProps> = ({
           </SuggestionInfo>
           
           <TypeBadge>
-            {suggestion.type || 'stock'}
+            {suggestion.assetType || 'stock'}
           </TypeBadge>
         </SuggestionContent>
       </SuggestionItem>

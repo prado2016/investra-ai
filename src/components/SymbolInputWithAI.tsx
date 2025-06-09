@@ -145,7 +145,7 @@ export function SymbolInputWithAI({
       return (
         <p className="mt-1 text-sm text-red-600 flex items-center">
           <AlertTriangle className="w-4 h-4 mr-1" />
-          {error.message}
+          {error}
         </p>
       );
     }

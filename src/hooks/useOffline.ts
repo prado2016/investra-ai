@@ -1,5 +1,5 @@
 import { useContext } from 'react';
-import { OfflineContext, OfflineContextType } from '../contexts/OfflineContext';
+import { OfflineContext, type OfflineContextType } from '../contexts/OfflineContext';
 
 /**
  * Hook to use offline context

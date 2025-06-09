@@ -98,6 +98,7 @@ interface ContactFormData {
   website: string;
   bio: string;
   agreeToTerms: boolean;
+  [key: string]: unknown; // Index signature for compatibility
 }
 
 export const FormValidationDemo: React.FC = () => {
@@ -139,7 +140,7 @@ export const FormValidationDemo: React.FC = () => {
         required: 'Password is required',
         minLength: 8,
         custom: (value) => {
-          if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(value)) {
+          if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(value as string)) {
             return 'Password must contain uppercase, lowercase, and number';
           }
           return true;

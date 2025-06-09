@@ -4,6 +4,7 @@
  */
 
 import { storageService } from '../services/storageService'
+import type { Currency, TransactionType } from '../types/common'
 
 interface SampleDataOptions {
   portfolioCount?: number
@@ -16,7 +17,12 @@ export class SampleDataGenerator {
   /**
    * Generate sample data for migration testing
    */
-  static generateSampleData(options: SampleDataOptions = {}): void {
+  static generateSampleData(options: SampleDataOptions = {}): {
+    portfolios: number;
+    positions: number; 
+    transactions: number;
+    assets: number;
+  } {
     const {
       portfolioCount = 2,
       positionCount = 5,
@@ -35,7 +41,7 @@ export class SampleDataGenerator {
         id: `portfolio_${i + 1}`,
         name: `Sample Portfolio ${i + 1}`,
         description: `This is a sample portfolio for testing migration functionality`,
-        currency: i === 0 ? 'USD' : 'EUR',
+        currency: (i === 0 ? 'USD' : 'EUR') as Currency,
         totalValue: 10000 + (i * 5000),
         totalCostBasis: 8000 + (i * 4000),
         totalUnrealizedPL: 2000 + (i * 1000),
@@ -94,7 +100,7 @@ export class SampleDataGenerator {
         realizedPL: Math.random() * 500 - 250,
         totalReturn: quantity * (asset.price - avgCost) + (Math.random() * 500 - 250),
         totalReturnPercent: 0,
-        currency: 'USD' as const,
+        currency: 'USD' as Currency,
         openDate: new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000),
         lastTransactionDate: new Date(),
         costBasisMethod: 'FIFO' as const,
@@ -121,12 +127,12 @@ export class SampleDataGenerator {
         assetId: `asset_${asset.symbol}`,
         assetSymbol: asset.symbol,
         assetType: asset.type as 'stock' | 'option' | 'crypto' | 'etf',
-        type: Math.random() > 0.3 ? 'buy' : 'sell' as const,
+        type: (Math.random() > 0.3 ? 'buy' : 'sell') as TransactionType,
         quantity,
         price,
         totalAmount: quantity * price + fees,
         fees,
-        currency: 'USD' as const,
+        currency: 'USD' as Currency,
         date: new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000),
         notes: `Sample ${asset.type} transaction for ${asset.symbol}`,
         createdAt: new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000),
