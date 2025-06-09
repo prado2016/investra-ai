@@ -103,6 +103,7 @@ export const useSupabaseTransactions = (portfolioId?: string) => {
       // For now, just show a message
       notify.info('Delete functionality will be implemented soon');
       console.log('Delete transaction:', transactionId);
+      await fetchTransactions(); // Call fetchTransactions instead of depending on it
       return true;
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Unknown error occurred';

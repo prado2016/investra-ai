@@ -57,29 +57,27 @@ export function SymbolLookupComponent({
     onSymbolSelect?.(symbol, match);
   }, [onSymbolSelect]);
 
-  // Get all available options for keyboard navigation
-  const allOptions = symbolLookup.data?.data?.results || [];
-
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (!showResults || allOptions.length === 0) return;
+    const options = symbolLookup.data?.data?.results || [];
+    if (!showResults || options.length === 0) return;
 
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault();
         setSelectedIndex(prev => 
-          prev < allOptions.length - 1 ? prev + 1 : 0
+          prev < options.length - 1 ? prev + 1 : 0
         );
         break;
       case 'ArrowUp':
         e.preventDefault();
         setSelectedIndex(prev => 
-          prev > 0 ? prev - 1 : allOptions.length - 1
+          prev > 0 ? prev - 1 : options.length - 1
         );
         break;
       case 'Enter':
         e.preventDefault();
-        if (selectedIndex >= 0 && allOptions[selectedIndex]) {
-          const selected = allOptions[selectedIndex];
+        if (selectedIndex >= 0 && options[selectedIndex]) {
+          const selected = options[selectedIndex];
           handleSymbolSelect(selected.symbol, selected);
         }
         break;
@@ -88,7 +86,7 @@ export function SymbolLookupComponent({
         setSelectedIndex(-1);
         break;
     }
-  }, [showResults, allOptions, selectedIndex, handleSymbolSelect]);
+  }, [showResults, selectedIndex, handleSymbolSelect, symbolLookup.data?.data?.results]);
 
   // Hide results when clicking outside
   useEffect(() => {
