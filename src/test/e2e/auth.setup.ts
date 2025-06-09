@@ -53,7 +53,7 @@ async function globalSetup(_: FullConfig) {
     console.log('✅ Dashboard confirmed, setup complete!');
     
   } catch (error) {
-    console.log('⚠️ Initial setup failed, trying alternative approach...');
+    console.log('⚠️ Initial setup failed, trying alternative approach...', error instanceof Error ? error.message : 'Unknown error');
     
     // Alternative: Just ensure we have minimal viable state
     await page.evaluate(() => {
