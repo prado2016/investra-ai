@@ -84,7 +84,8 @@ function AppContent() {
       (typeof window !== 'undefined' && localStorage.getItem('__E2E_TEST_MODE__') === 'true') ||
       (typeof window !== 'undefined' && window.location.search.includes('e2e-test=true')) ||
       (typeof process !== 'undefined' && process.env.CI === 'true') || // CI environment
-      (typeof window !== 'undefined' && window.location.hostname === '127.0.0.1') // Local test server
+      (typeof window !== 'undefined' && window.location.hostname === '127.0.0.1') || // Local test server
+      (typeof window !== 'undefined' && (window as unknown as Record<string, unknown>).__CI_TEST_MODE__) // CI test flag
     );
     
     console.log('🚀 App.tsx - E2E test mode check:', {
@@ -93,6 +94,7 @@ function AppContent() {
       urlParam: window.location.search.includes('e2e-test=true'),
       ciEnv: typeof process !== 'undefined' && process.env.CI === 'true',
       localhost: typeof window !== 'undefined' && window.location.hostname === '127.0.0.1',
+      ciTestFlag: typeof window !== 'undefined' && (window as unknown as Record<string, unknown>).__CI_TEST_MODE__,
       isE2ETestMode: testMode
     });
     
