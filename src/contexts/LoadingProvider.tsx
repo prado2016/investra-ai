@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import type { ReactNode } from 'react';
 import { FullScreenLoading } from '../components/LoadingComponents';
-import { LoadingContext, LoadingContextType } from './LoadingContext';
+import { LoadingContext, type LoadingContextType } from './LoadingContext';
 
 interface LoadingProviderProps {
   children: ReactNode;
@@ -51,5 +51,13 @@ export const LoadingProvider: React.FC<LoadingProviderProps> = ({ children }) =>
     </LoadingContext.Provider>
   );
 };
+
+export function useLoading() {
+  const context = React.useContext(LoadingContext);
+  if (context === undefined) {
+    throw new Error('useLoading must be used within a LoadingProvider');
+  }
+  return context;
+}
 
 export default LoadingProvider;

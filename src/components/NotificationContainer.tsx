@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { createPortal } from 'react-dom';
-import { useNotifications } from '../contexts/NotificationContext';
+import { useNotifications } from '../hooks/useNotifications';
 import { NotificationItem } from './NotificationItem';
 
 const Container = styled.div<{ $position: NotificationPosition }>`

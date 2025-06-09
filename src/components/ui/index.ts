@@ -22,7 +22,7 @@ export type { ModalProps } from './Modal';
 
 // Layout components
 export { Container, Grid, Flex, Show, Hide, Stack } from './Layout';
-export { media, breakpoints } from './Layout';
+export { media, breakpoints } from '../../styles/breakpoints';
 
 // Re-export commonly used icons from lucide-react for convenience
 export {

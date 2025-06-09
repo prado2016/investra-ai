@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('Stock Tracker - UI Interactions', () => {
+test.describe('Investra AI - UI Interactions', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/', { waitUntil: 'domcontentloaded', timeout: 30000 });
   });

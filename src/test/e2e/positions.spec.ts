@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('Stock Tracker - Positions Flow', () => {
+test.describe('Investra AI - Positions Flow', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/', { waitUntil: 'domcontentloaded', timeout: 30000 });
   });

@@ -7,9 +7,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { realtimeService } from '../services/realtimeService';
 import type { RealtimeEvent, SubscriptionStatus } from '../services/realtimeService';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from './AuthProvider';
 import type { Portfolio, Position, Transaction, Asset } from '../lib/database/types';
-import { RealtimeContext, RealtimeContextType } from './RealtimeContext';
+import { RealtimeContext, type RealtimeContextType } from './RealtimeContext';
 
 // Provider props
 interface RealtimeProviderProps {

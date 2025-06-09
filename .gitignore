@@ -46,4 +46,7 @@ node_modules/
 # OS specific
 # Task files
 tasks.json
-tasks/ 
+tasks/
+
+# E2E test auth files
+src/test/e2e/.auth/ 

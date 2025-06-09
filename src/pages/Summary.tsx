@@ -76,14 +76,14 @@ const ErrorContainer = styled.div`
   margin: 1rem 0;
 `;
 
-const DayDetailsModal = styled.div<{ isOpen: boolean }>`
+const DayDetailsModal = styled.div<{ $isOpen: boolean }>`
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
   background: rgba(0, 0, 0, 0.5);
-  display: ${props => props.isOpen ? 'flex' : 'none'};
+  display: ${props => props.$isOpen ? 'flex' : 'none'};
   align-items: center;
   justify-content: center;
   z-index: 1000;
@@ -320,7 +320,7 @@ const Summary: React.FC = () => {
         />
       )}
 
-      <DayDetailsModal isOpen={isModalOpen}>
+      <DayDetailsModal $isOpen={isModalOpen}>
         <ModalContent>
           <ModalHeader>
             <ModalTitle>

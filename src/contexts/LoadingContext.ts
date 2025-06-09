@@ -13,6 +13,3 @@ export interface LoadingContextType {
 }
 
 export const LoadingContext = createContext<LoadingContextType | undefined>(undefined);
-
-// Re-export LoadingProvider for convenience
-export { LoadingProvider } from './LoadingProvider';

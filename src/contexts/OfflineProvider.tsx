@@ -7,7 +7,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { offlineStorageService } from '../services/offlineStorageService';
 import type { SyncStatus } from '../services/offlineStorageService';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from './AuthProvider';
 import type { Portfolio } from '../lib/database/types';
 import { OfflineContext } from './OfflineContext';
 import type { OfflineContextType } from './OfflineContext';

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { Plus } from 'lucide-react';
 import { SupabaseService } from '../services';
-import { useNotifications } from '../contexts/NotificationContext';
+import { useNotifications } from '../hooks/useNotifications';
 
 const FormContainer = styled.div`
   background: white;

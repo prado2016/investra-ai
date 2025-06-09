@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/AuthProvider';
 import { useDataManagement } from '../hooks/useStorage';
 import { useSupabasePortfolios } from '../hooks/useSupabasePortfolios';
 import { usePageTitle } from '../hooks/usePageTitle';

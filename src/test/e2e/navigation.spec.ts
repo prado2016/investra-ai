@@ -1,13 +1,13 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('Stock Tracker - Navigation Flow', () => {
+test.describe('Investra AI - Navigation Flow', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/', { waitUntil: 'domcontentloaded', timeout: 30000 });
   });
 
   test('should navigate between all pages', async ({ page }) => {
     // Test Dashboard
-    await expect(page.locator('h1')).toContainText('Stock', { timeout: 10000 });
+    await expect(page.locator('h1').filter({ hasText: 'Dashboard' })).toContainText('Dashboard', { timeout: 10000 });
     
     // Test Positions page
     await page.click('text=Positions', { timeout: 5000 });
@@ -32,7 +32,7 @@ test.describe('Stock Tracker - Navigation Flow', () => {
     await page.setViewportSize({ width: 375, height: 667 });
     
     // Check navigation is still accessible
-    await expect(page.locator('nav')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('nav.nav-container')).toBeVisible({ timeout: 5000 });
     
     // Test navigation still works on mobile
     await page.click('text=Positions', { timeout: 5000 });

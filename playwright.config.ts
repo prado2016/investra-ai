@@ -5,6 +5,8 @@ import { defineConfig, devices } from '@playwright/test'
  */
 export default defineConfig({
   testDir: './src/test/e2e',
+  /* Global setup for authentication */
+  globalSetup: './src/test/e2e/auth.setup.ts',
   /* Global timeout for the entire test run */
   globalTimeout: process.env.CI ? 30 * 60 * 1000 : 0, // 30 minutes on CI, no limit locally
   /* Timeout for each test */
@@ -55,33 +57,71 @@ export default defineConfig({
   /* Configure projects for major browsers - reduced for CI */
   projects: process.env.CI ? [
     {
+      name: 'setup',
+      testMatch: /.*\.setup\.ts/,
+    },
+    {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: { 
+        ...devices['Desktop Chrome'],
+        // Use auth state from setup
+        storageState: 'src/test/e2e/.auth/user.json',
+      },
+      dependencies: ['setup'],
     },
   ] : [
     {
+      name: 'setup',
+      testMatch: /.*\.setup\.ts/,
+    },
+    {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: { 
+        ...devices['Desktop Chrome'],
+        // Use auth state from setup
+        storageState: 'src/test/e2e/.auth/user.json',
+      },
+      dependencies: ['setup'],
     },
 
     {
       name: 'firefox',
-      use: { ...devices['Desktop Firefox'] },
+      use: { 
+        ...devices['Desktop Firefox'],
+        // Use auth state from setup
+        storageState: 'src/test/e2e/.auth/user.json',
+      },
+      dependencies: ['setup'],
     },
 
     {
       name: 'webkit',
-      use: { ...devices['Desktop Safari'] },
+      use: { 
+        ...devices['Desktop Safari'],
+        // Use auth state from setup
+        storageState: 'src/test/e2e/.auth/user.json',
+      },
+      dependencies: ['setup'],
     },
 
     /* Test against mobile viewports. */
     {
       name: 'Mobile Chrome',
-      use: { ...devices['Pixel 5'] },
+      use: { 
+        ...devices['Pixel 5'],
+        // Use auth state from setup
+        storageState: 'src/test/e2e/.auth/user.json',
+      },
+      dependencies: ['setup'],
     },
     {
       name: 'Mobile Safari',
-      use: { ...devices['iPhone 12'] },
+      use: { 
+        ...devices['iPhone 12'],
+        // Use auth state from setup
+        storageState: 'src/test/e2e/.auth/user.json',
+      },
+      dependencies: ['setup'],
     },
   ],
 

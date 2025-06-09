@@ -3,7 +3,7 @@
  */
 import React, { useState } from 'react';
 import { Eye, EyeOff, Loader } from 'lucide-react';
-import { useAuth } from '../../hooks/useAuth';
+import { useAuth } from '../../contexts/AuthProvider';
 
 interface AuthComponentProps {
   className?: string;

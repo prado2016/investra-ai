@@ -3,12 +3,12 @@ import styled from 'styled-components';
 import { debug, ErrorTracker, PerformanceTracker, isDev, isDebug } from '../utils/debug';
 import { Bug, X, Trash2, Download, Eye, EyeOff } from 'lucide-react';
 
-const DebugPanelContainer = styled.div<{ isOpen: boolean }>`
+const DebugPanelContainer = styled.div<{ $isOpen: boolean }>`
   position: fixed;
   bottom: 20px;
   right: 20px;
-  width: ${props => props.isOpen ? '400px' : '60px'};
-  height: ${props => props.isOpen ? '500px' : '60px'};
+  width: ${props => props.$isOpen ? '400px' : '60px'};
+  height: ${props => props.$isOpen ? '500px' : '60px'};
   background: rgba(0, 0, 0, 0.9);
   border: 1px solid #333;
   border-radius: 8px;
@@ -329,7 +329,7 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({ enabled = isDev || isDeb
 
   if (!isOpen) {
     return (
-      <DebugPanelContainer isOpen={false}>
+      <DebugPanelContainer $isOpen={false}>
         <DebugToggle onClick={() => setIsOpen(true)}>
           <Bug />
         </DebugToggle>
@@ -338,7 +338,7 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({ enabled = isDev || isDeb
   }
 
   return (
-    <DebugPanelContainer isOpen={true}>
+    <DebugPanelContainer $isOpen={true}>
       <DebugHeader>
         <span>🐛 Debug Panel</span>
         <div>
