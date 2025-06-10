@@ -12,16 +12,20 @@
     <link rel="icon" type="image/svg+xml" href="/investra-logo.svg" />
     <title>Investra - AI-Powered Investment Analytics</title>
     <script>
-      // Ultra-aggressive E2E mode detection - set immediately
+      // E2E mode detection for actual test environments only
       (function() {
-        // Check for test environment indicators
+        // Check for specific test environment indicators (not just HTTP)
         const isTestEnv = 
           window.location.hostname === '127.0.0.1' ||
           window.location.hostname === 'localhost' ||
           window.location.port === '5173' ||
           /headless/i.test(navigator.userAgent) ||
           /playwright/i.test(navigator.userAgent) ||
-          window.location.protocol === 'http:';
+          // Only activate for development server, not production HTTP
+          (window.location.protocol === 'http:' && 
+           (window.location.hostname === 'localhost' || 
+            window.location.hostname === '127.0.0.1' || 
+            window.location.port === '5173'));
           
         if (isTestEnv) {
           console.log('🚨 Emergency E2E mode activated by index.html script');
