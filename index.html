@@ -36,6 +36,17 @@
           localStorage.setItem('__CI_TEST_MODE__', 'true');
           localStorage.setItem('__AUTH_BYPASS__', 'true');
           localStorage.setItem('__EMERGENCY_E2E_MODE__', 'true');
+        } else {
+          // NOT in test environment - clear any old E2E flags
+          console.log('🧹 Clearing old E2E test flags from production environment');
+          localStorage.removeItem('__E2E_TEST_MODE__');
+          localStorage.removeItem('__CI_TEST_MODE__');
+          localStorage.removeItem('__AUTH_BYPASS__');
+          localStorage.removeItem('__EMERGENCY_E2E_MODE__');
+          // Clear window flags too
+          delete window.__E2E_TEST_MODE__;
+          delete window.__CI_TEST_MODE__;
+          delete window.__EMERGENCY_E2E_MODE__;
         }
       })();
     </script>
