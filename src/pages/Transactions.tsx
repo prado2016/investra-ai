@@ -60,14 +60,14 @@ const TransactionsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [activePortfolio?.id, notify]);
+  }, [activePortfolio?.id]); // Removed notify from dependencies
 
   useEffect(() => {
     console.log('🔍 TRANSACTIONS_DEBUG: Portfolio changed:', { activePortfolio: activePortfolio?.id, name: activePortfolio?.name });
     if (activePortfolio?.id) {
       fetchTransactions();
     }
-  }, [activePortfolio, fetchTransactions]);
+  }, [activePortfolio?.id, fetchTransactions]);
 
   const handleEditTransaction = (transactionWithAsset: TransactionWithAsset) => {
     // Convert database transaction to portfolio transaction format for the form
