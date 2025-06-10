@@ -50,7 +50,7 @@ async function globalSetup(_: FullConfig) {
       // Wait for Vite to inject the React app
       await page.waitForFunction(() => {
         // Check if Vite has loaded
-        return (window as any).__vite_is_modern_browser !== undefined;
+        return (window as unknown as Record<string, unknown>).__vite_is_modern_browser !== undefined;
       }, { timeout: 30000 }).catch(() => {
         console.log('⚠️ Vite detection timeout, proceeding anyway');
       });
@@ -67,7 +67,8 @@ async function globalSetup(_: FullConfig) {
             
             // Check for React content indicators
             const hasContent = root.innerHTML.length > 100;
-            const hasReactRoot = (root as any)._reactRootContainer || (root as any)._reactInternalFiber;
+            const hasReactRoot = (root as unknown as Record<string, unknown>)._reactRootContainer || 
+                               (root as unknown as Record<string, unknown>)._reactInternalFiber;
             const hasNavigation = !!document.querySelector('nav.nav-container');
             
             return hasContent || hasReactRoot || hasNavigation;
@@ -90,7 +91,6 @@ async function globalSetup(_: FullConfig) {
         console.log('🔍 Capturing page state for debugging...');
         
         // Capture debugging information
-        const html = await page.content();
         const rootContent = await page.evaluate(() => {
           const root = document.getElementById('root');
           return {
@@ -104,7 +104,8 @@ async function globalSetup(_: FullConfig) {
         
         // Check for JavaScript errors
         const errors = await page.evaluate(() => {
-          return (window as any).__playwright_errors || [];
+          const playwrightErrors = (window as unknown as Record<string, unknown>).__playwright_errors;
+          return Array.isArray(playwrightErrors) ? playwrightErrors : [];
         });
         
         if (errors.length > 0) {
