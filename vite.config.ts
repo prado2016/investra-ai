@@ -35,9 +35,10 @@ export default defineConfig({
     }
   },
   server: {
-    open: true, // Open browser automatically
-    host: true, // Listen on all network interfaces
+    open: !process.env.CI, // Don't open browser in CI
+    host: process.env.CI ? '127.0.0.1' : true, // Specific host for CI
     port: 5173,
+    strictPort: true, // Fail if port is busy
     proxy: {
       // Proxy Yahoo Finance API requests through a CORS proxy
       '/api/yahoo': {

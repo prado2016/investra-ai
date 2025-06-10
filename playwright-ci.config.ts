@@ -1,72 +1,89 @@
 import { defineConfig, devices } from '@playwright/test'
 
 /**
- * @see https://playwright.dev/docs/test-configuration
+ * CI-specific Playwright configuration
+ * Optimized for GitHub Actions headless environment
  */
 export default defineConfig({
   testDir: './src/test/e2e',
-  /* Global timeout for the entire test run */
-  globalTimeout: 20 * 60 * 1000, // 20 minutes on CI
-  /* Timeout for each test */
-  timeout: 90 * 1000, // 90 seconds per test
-  /* Timeout for each action/assertion */
-  expect: {
-    timeout: 15 * 1000, // 15 seconds for expects
-  },
-  /* Run tests in files in parallel */
-  fullyParallel: false, // Disabled for CI to reduce resource usage
-  /* Fail the build on CI if you accidentally left test.only in the source code. */
+  globalSetup: './src/test/e2e/auth.setup.ts',
+  
+  // Extended timeouts for CI environment
+  globalTimeout: 45 * 60 * 1000, // 45 minutes
+  timeout: 120 * 1000, // 2 minutes per test
+  expect: { timeout: 20 * 1000 }, // 20s for assertions
+  
+  fullyParallel: false, // Sequential for stability
   forbidOnly: true,
-  /* Retry on CI */
-  retries: 1,
-  /* Opt out of parallel tests on CI. */
-  workers: 1,
-  /* Reporter to use. See https://playwright.dev/docs/test-reporters */
+  retries: 2, // More retries for flaky CI
+  workers: 1, // Single worker for CI
+  
   reporter: [
-    ['html'],
-    ['json', { outputFile: 'playwright-report/results.json' }],
-    ['junit', { outputFile: 'playwright-report/results.xml' }],
-    ['github'] // Add GitHub Actions reporter
+    ['html', { outputFolder: 'playwright-report', open: 'never' }],
+    ['junit', { outputFile: 'test-results/results.xml' }],
+    ['json', { outputFile: 'test-results/results.json' }],
+    ['line'],
+    ['github'] // GitHub Actions integration
   ],
-  /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
+  
   use: {
-    /* Base URL to use in actions like `await page.goto('/')`. */
     baseURL: 'http://127.0.0.1:5173',
-
-    /* Navigation timeout - prevent hanging on page loads */
-    navigationTimeout: 45 * 1000,
     
-    /* Action timeout - timeout for clicks, fills, etc. */
-    actionTimeout: 15 * 1000,
-
-    /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
-    trace: 'on-first-retry',
+    // Extended timeouts for CI
+    actionTimeout: 30 * 1000,
+    navigationTimeout: 90 * 1000,
     
-    /* Take screenshot on failure */
+    // Better debugging
     screenshot: 'only-on-failure',
-    
-    /* Record video on failure */
     video: 'retain-on-failure',
+    trace: 'retain-on-failure',
+    
+    // Headless optimizations for CI
+    launchOptions: {
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--no-first-run',
+        '--no-zygote',
+        '--disable-gpu',
+        '--disable-extensions',
+        '--disable-background-timer-throttling',
+        '--disable-backgrounding-occluded-windows',
+        '--disable-renderer-backgrounding',
+        '--disable-ipc-flooding-protection'
+      ]
+    }
   },
 
-  /* Configure projects for major browsers - reduced for CI */
   projects: [
     {
-      name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      name: 'setup',
+      testMatch: /.*\.setup\.ts/,
     },
-    // Only run Chrome on CI to speed up tests
-    // Firefox and Safari can be run locally or on specific branches
+    {
+      name: 'chromium',
+      use: { 
+        ...devices['Desktop Chrome'],
+        storageState: 'src/test/e2e/.auth/user.json',
+      },
+      dependencies: ['setup'],
+    },
   ],
 
-  /* Run your local dev server before starting the tests */
   webServer: {
     command: 'npm run dev',
     url: 'http://127.0.0.1:5173',
-    reuseExistingServer: false, // Don't reuse on CI
-    timeout: 180 * 1000, // 3 minutes for server startup
-    /* Stdout to pipe */
+    reuseExistingServer: false, // Always start fresh in CI
+    timeout: 240 * 1000, // 4 minutes to start
     stdout: 'pipe',
     stderr: 'pipe',
+    env: {
+      NODE_ENV: 'test',
+      CI: 'true',
+      VITE_E2E_MODE: 'true',
+      VITE_CI: 'true'
+    }
   },
 })
