@@ -118,9 +118,6 @@ function AppContent() {
     
     return testMode;
   }, []);
-    
-    return testMode;
-  }, []);
 
   // Initialize theme and app title on app load
   React.useEffect(() => {
