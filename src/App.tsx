@@ -77,46 +77,35 @@ const AuthScreen: React.FC = () => (
 function AppContent() {
   const { user, loading } = useAuth();
 
-  // Check if we're in E2E test mode - MUCH more aggressive detection
+  // Check if we're in E2E test mode - restrictive detection for actual test environments only
   const isE2ETestMode = React.useMemo(() => {
-    // Check multiple indicators of test environment
-    const indicators = [
-      // Emergency flag from index.html
-      (typeof window !== 'undefined' && (window as unknown as Record<string, unknown>).__EMERGENCY_E2E_MODE__),
-      // Window flags
-      (typeof window !== 'undefined' && (window as unknown as Record<string, unknown>).__E2E_TEST_MODE__),
-      (typeof window !== 'undefined' && (window as unknown as Record<string, unknown>).__CI_TEST_MODE__),
-      // LocalStorage flags
-      (typeof window !== 'undefined' && localStorage.getItem('__E2E_TEST_MODE__') === 'true'),
-      (typeof window !== 'undefined' && localStorage.getItem('__AUTH_BYPASS__') === 'true'),
-      (typeof window !== 'undefined' && localStorage.getItem('__CI_TEST_MODE__') === 'true'),
-      (typeof window !== 'undefined' && localStorage.getItem('__EMERGENCY_E2E_MODE__') === 'true'),
-      // Environment detection
-      (typeof process !== 'undefined' && process.env.CI === 'true'),
-      (typeof process !== 'undefined' && process.env.NODE_ENV === 'test'),
-      // URL detection
-      (typeof window !== 'undefined' && window.location.search.includes('e2e-test=true')),
-      (typeof window !== 'undefined' && window.location.hostname === '127.0.0.1'),
-      (typeof window !== 'undefined' && window.location.hostname === 'localhost'),
-      // User agent detection for headless browsers
-      (typeof window !== 'undefined' && /headless/i.test(navigator.userAgent)),
-      (typeof window !== 'undefined' && /playwright/i.test(navigator.userAgent)),
-      // Additional CI detection
-      (typeof window !== 'undefined' && window.location.port === '5173')
-    ];
+    // Only activate E2E mode for very specific test conditions
+    const isActualTestEnvironment = 
+      // Explicit test flags that are only set by test frameworks
+      (typeof window !== 'undefined' && window.location.search.includes('e2e-test=true')) ||
+      // Playwright/headless browser detection
+      (typeof window !== 'undefined' && /playwright/i.test(navigator.userAgent)) ||
+      (typeof window !== 'undefined' && /headless/i.test(navigator.userAgent)) ||
+      // Only localhost development server (not production)
+      (typeof window !== 'undefined' && 
+       window.location.hostname === 'localhost' && 
+       window.location.port === '5173') ||
+      // Emergency flag from index.html (only set for actual test environments now)
+      (typeof window !== 'undefined' && (window as unknown as Record<string, unknown>).__EMERGENCY_E2E_MODE__) ||
+      // Explicit window flags (only set by test setup scripts)
+      (typeof window !== 'undefined' && (window as unknown as Record<string, unknown>).__E2E_TEST_MODE__);
     
-    // If ANY indicator is true, we're in test mode
-    const testMode = indicators.some(indicator => indicator);
+    // Debug logging to see what's triggering (but don't expose detailed indicators in production)
+    if (isActualTestEnvironment) {
+      console.log('🚀 App.tsx - E2E test mode check:', {
+        testMode: true,
+        userAgent: navigator.userAgent,
+        hostname: window.location.hostname,
+        port: window.location.port
+      });
+    }
     
-    console.log('🚀 App.tsx - E2E test mode check:', {
-      indicators: indicators.map((ind, i) => ({ [i]: !!ind })),
-      testMode,
-      userAgent: navigator.userAgent,
-      hostname: window.location.hostname,
-      port: window.location.port
-    });
-    
-    return testMode;
+    return isActualTestEnvironment;
   }, []);
 
   // Initialize theme and app title on app load

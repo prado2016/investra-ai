@@ -19,47 +19,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if we're in E2E test mode - ULTRA aggressive detection
-    const indicators = [
-      // Emergency flag from index.html
-      (typeof window !== 'undefined' && (window as unknown as Record<string, unknown>).__EMERGENCY_E2E_MODE__),
-      // Window flags
-      (typeof window !== 'undefined' && (window as unknown as Record<string, unknown>).__E2E_TEST_MODE__),
-      (typeof window !== 'undefined' && (window as unknown as Record<string, unknown>).__CI_TEST_MODE__),
-      // LocalStorage flags
-      (typeof window !== 'undefined' && localStorage.getItem('__E2E_TEST_MODE__') === 'true'),
-      (typeof window !== 'undefined' && localStorage.getItem('__AUTH_BYPASS__') === 'true'),
-      (typeof window !== 'undefined' && localStorage.getItem('__CI_TEST_MODE__') === 'true'),
-      (typeof window !== 'undefined' && localStorage.getItem('__EMERGENCY_E2E_MODE__') === 'true'),
-      // Environment detection
-      (typeof process !== 'undefined' && process.env.CI === 'true'),
-      (typeof process !== 'undefined' && process.env.NODE_ENV === 'test'),
-      // URL detection
-      (typeof window !== 'undefined' && window.location.search.includes('e2e-test=true')),
-      (typeof window !== 'undefined' && window.location.hostname === '127.0.0.1'),
-      (typeof window !== 'undefined' && window.location.hostname === 'localhost'),
-      // User agent detection for headless browsers
-      (typeof window !== 'undefined' && /headless/i.test(navigator.userAgent)),
-      (typeof window !== 'undefined' && /playwright/i.test(navigator.userAgent)),
-      // Port-based detection (Vite dev server)
-      (typeof window !== 'undefined' && window.location.port === '5173'),
-      // Protocol detection for test environments
-      (typeof window !== 'undefined' && window.location.protocol === 'http:')
-    ];
-    
-    // If ANY indicator is true, we're in test mode
-    const isE2ETestMode = indicators.some(indicator => indicator);
+    // Check if we're in E2E test mode - restrictive detection for actual test environments only
+    const isActualTestEnvironment = 
+      // Explicit test flags that are only set by test frameworks
+      (typeof window !== 'undefined' && window.location.search.includes('e2e-test=true')) ||
+      // Playwright/headless browser detection
+      (typeof window !== 'undefined' && /playwright/i.test(navigator.userAgent)) ||
+      (typeof window !== 'undefined' && /headless/i.test(navigator.userAgent)) ||
+      // Only localhost development server (not production)
+      (typeof window !== 'undefined' && 
+       window.location.hostname === 'localhost' && 
+       window.location.port === '5173') ||
+      // Emergency flag from index.html (only set for actual test environments now)
+      (typeof window !== 'undefined' && (window as unknown as Record<string, unknown>).__EMERGENCY_E2E_MODE__) ||
+      // Explicit window flags (only set by test setup scripts)
+      (typeof window !== 'undefined' && (window as unknown as Record<string, unknown>).__E2E_TEST_MODE__);
 
-    console.log('🔐 AuthProvider init - E2E test mode check:', {
-      indicators: indicators.map((ind, i) => ({ [i]: !!ind })),
-      isE2ETestMode,
-      userAgent: navigator.userAgent,
-      hostname: window.location.hostname,
-      port: window.location.port,
-      protocol: window.location.protocol
-    });
+    // Debug logging only for actual test environments
+    if (isActualTestEnvironment) {
+      console.log('🔐 AuthProvider init - E2E test mode check:', {
+        isE2ETestMode: true,
+        userAgent: navigator.userAgent,
+        hostname: window.location.hostname,
+        port: window.location.port,
+        protocol: window.location.protocol
+      });
+    }
 
-    if (isE2ETestMode) {
+    if (isActualTestEnvironment) {
       console.log('🧪 AuthProvider: E2E test mode detected - bypassing authentication');
       // Create a mock user for E2E tests
       const mockUser = {
@@ -143,7 +130,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     getSession();
 
     // Only set up auth state listener if not in E2E test mode
-    if (!isE2ETestMode) {
+    if (!isActualTestEnvironment) {
       // Listen for auth changes
       const { data: { subscription } } = supabase.auth.onAuthStateChange(
         async (event, session) => {
