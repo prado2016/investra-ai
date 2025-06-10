@@ -190,7 +190,9 @@ const LoadingOverlay = styled.div<{ $visible: boolean }>`
   pointer-events: ${({ $visible }) => $visible ? 'auto' : 'none'};
 `;
 
-const LoadingIcon = styled(Loader)<{ size?: number }>`
+const LoadingIcon = styled(Loader).withConfig({
+  shouldForwardProp: (prop) => prop !== 'size'
+})<{ size?: number }>`
   ${css`animation: ${spin} 1s linear infinite;`}
 `;
 

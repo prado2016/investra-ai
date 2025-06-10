@@ -90,6 +90,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 }) => {
   const { portfolios, activePortfolio, loading: portfoliosLoading } = useSupabasePortfolios();
   
+  console.log('🔍 FORM_DEBUG: TransactionForm initialized with:', { initialData, loading });
+  
   const initialValues: TransactionFormData = {
     portfolioId: initialData?.portfolioId || '',
     assetSymbol: initialData?.assetSymbol || '',

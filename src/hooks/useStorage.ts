@@ -421,6 +421,9 @@ export function useDataManagement() {
     try {
       setLoading(true);
       setError(null);
+      
+      // For now, we'll use the local storage service
+      // In a full Supabase implementation, we'd call a Supabase service instead
       const success = storageService.clearAllData();
       if (!success) {
         throw new Error('Failed to clear data');

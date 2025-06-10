@@ -99,12 +99,17 @@ export const useSupabaseTransactions = (portfolioId?: string) => {
   const deleteTransaction = useCallback(async (transactionId: string) => {
     setLoading(true);
     try {
-      // TODO: Implement deleteTransaction in TransactionService
-      // For now, just show a message
-      notify.info('Delete functionality will be implemented soon');
-      console.log('Delete transaction:', transactionId);
-      await fetchTransactions(); // Call fetchTransactions instead of depending on it
-      return true;
+      const response = await TransactionService.deleteTransaction(transactionId);
+      
+      if (response.success) {
+        notify.success('Transaction deleted successfully');
+        // Refresh transactions
+        fetchTransactions();
+        return true;
+      } else {
+        notify.error('Failed to delete transaction: ' + response.error);
+        return false;
+      }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Unknown error occurred';
       notify.error('Failed to delete transaction: ' + errorMsg);

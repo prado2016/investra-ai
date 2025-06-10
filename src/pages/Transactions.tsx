@@ -17,12 +17,6 @@ const TransactionsPage: React.FC = () => {
   usePageTitle('Transactions', { 
     subtitle: activePortfolio ? `${activePortfolio.name} Portfolio` : 'Portfolio Management' 
   });
-  console.log('🔍 TRANSACTIONS_DEBUG: Hook data:', { 
-    portfoliosCount: portfolios.length, 
-    activePortfolioId: activePortfolio?.id, 
-    portfoliosLoading,
-    portfolios: portfolios.map(p => ({ id: p.id, name: p.name }))
-  });
   
   const notify = useNotify();
   const [transactions, setTransactions] = useState<TransactionWithAsset[]>([]);
@@ -33,29 +27,23 @@ const TransactionsPage: React.FC = () => {
   // Fetch transactions when portfolio changes
   const fetchTransactions = useCallback(async () => {
     if (!activePortfolio?.id) {
-      console.log('🔍 TRANSACTIONS_DEBUG: No active portfolio, skipping fetch');
       return;
     }
     
-    console.log('🔍 TRANSACTIONS_DEBUG: Fetching transactions for portfolio:', activePortfolio.id);
     setLoading(true);
     setError(null);
     
     try {
       const response = await TransactionService.getTransactions(activePortfolio.id);
-      console.log('🔍 TRANSACTIONS_DEBUG: Transaction service response:', response);
       if (response.success) {
         setTransactions(response.data);
-        console.log('🔍 TRANSACTIONS_DEBUG: Transactions loaded:', response.data.length);
       } else {
         setError(response.error);
-        console.log('🔍 TRANSACTIONS_DEBUG: Error fetching transactions:', response.error);
         notify.error('Failed to fetch transactions: ' + response.error);
       }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Unknown error';
       setError(errorMsg);
-      console.log('🔍 TRANSACTIONS_DEBUG: Exception fetching transactions:', errorMsg);
       notify.error('Failed to fetch transactions: ' + errorMsg);
     } finally {
       setLoading(false);
@@ -63,11 +51,10 @@ const TransactionsPage: React.FC = () => {
   }, [activePortfolio?.id]); // Removed notify from dependencies
 
   useEffect(() => {
-    console.log('🔍 TRANSACTIONS_DEBUG: Portfolio changed:', { activePortfolio: activePortfolio?.id, name: activePortfolio?.name });
     if (activePortfolio?.id) {
       fetchTransactions();
     }
-  }, [activePortfolio?.id, fetchTransactions]);
+  }, [activePortfolio, fetchTransactions]);
 
   const handleEditTransaction = (transactionWithAsset: TransactionWithAsset) => {
     // Convert database transaction to portfolio transaction format for the form
@@ -88,6 +75,7 @@ const TransactionsPage: React.FC = () => {
       createdAt: new Date(transactionWithAsset.created_at),
       updatedAt: new Date(transactionWithAsset.updated_at)
     };
+    
     setEditingTransaction(portfolioTransaction);
   };
 
@@ -112,24 +100,49 @@ const TransactionsPage: React.FC = () => {
         return false;
       }
 
-      // Create the transaction
-      const response = await TransactionService.createTransaction(
-        activePortfolio.id,
-        assetResponse.data.id,
-        transactionData.type as TransactionType,
-        transactionData.quantity,
-        transactionData.price,
-        transactionData.date?.toISOString() || new Date().toISOString()
-      );
+      let response;
+      
+      if (editingTransaction) {
+        // Update existing transaction
+        response = await TransactionService.updateTransaction(
+          editingTransaction.id,
+          {
+            transaction_type: transactionData.type as TransactionType,
+            quantity: transactionData.quantity,
+            price: transactionData.price,
+            total_amount: transactionData.totalAmount,
+            fees: transactionData.fees || 0,
+            transaction_date: transactionData.date?.toISOString().split('T')[0] || new Date().toISOString().split('T')[0],
+            notes: transactionData.notes || undefined
+          }
+        );
+        
+        if (response.success) {
+          notify.success('Transaction updated successfully');
+        }
+      } else {
+        // Create new transaction
+        response = await TransactionService.createTransaction(
+          activePortfolio.id,
+          assetResponse.data.id,
+          transactionData.type as TransactionType,
+          transactionData.quantity,
+          transactionData.price,
+          transactionData.date?.toISOString() || new Date().toISOString()
+        );
+        
+        if (response.success) {
+          notify.success('Transaction created successfully');
+        }
+      }
 
       if (response.success) {
-        notify.success('Transaction created successfully');
         handleCloseForm();
         // Refresh transactions
         fetchTransactions();
         return true;
       } else {
-        notify.error('Failed to create transaction: ' + response.error);
+        notify.error('Failed to save transaction: ' + response.error);
         return false;
       }
     } catch (error) {
@@ -145,8 +158,17 @@ const TransactionsPage: React.FC = () => {
     if (window.confirm('Are you sure you want to delete this transaction?')) {
       try {
         setLoading(true);
-        notify.info('Delete functionality will be implemented soon');
-        console.log('Delete transaction:', id);
+        
+        // Call the TransactionService to delete the transaction
+        const response = await TransactionService.deleteTransaction(id);
+        
+        if (response.success) {
+          notify.success('Transaction deleted successfully');
+          // Refresh transactions
+          fetchTransactions();
+        } else {
+          notify.error('Failed to delete transaction: ' + response.error);
+        }
       } catch (error) {
         console.error('Failed to delete transaction:', error);
         notify.error('Failed to delete transaction');

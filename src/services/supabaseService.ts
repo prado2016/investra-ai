@@ -5,6 +5,10 @@
  */
 
 import { supabase } from '../lib/supabase'
+import { 
+  shouldUseMockServices, 
+  MockServices 
+} from './mockSupabaseService'
 import type { 
   Profile, 
   Portfolio, 
@@ -192,6 +196,11 @@ export class AssetService {
    * Get or create asset by symbol
    */
   static async getOrCreateAsset(symbol: string): Promise<ServiceResponse<Asset>> {
+    // Use mock service in test mode
+    if (shouldUseMockServices()) {
+      return MockServices.AssetService.getOrCreateAsset(symbol);
+    }
+
     try {
       // First try to get existing asset
       const { data: existingAsset } = await supabase
@@ -279,6 +288,11 @@ export class TransactionService {
    * Get all transactions for a portfolio
    */
   static async getTransactions(portfolioId: string): Promise<ServiceListResponse<Transaction & { asset: Asset }>> {
+    // Use mock service in test mode
+    if (shouldUseMockServices()) {
+      return MockServices.TransactionService.getTransactions(portfolioId);
+    }
+
     try {
       // Add 10-second timeout to prevent hanging
       const transactionQuery = supabase
@@ -321,6 +335,13 @@ export class TransactionService {
     price: number,
     transactionDate: string
   ): Promise<ServiceResponse<Transaction>> {
+    // Use mock service in test mode
+    if (shouldUseMockServices()) {
+      return MockServices.TransactionService.createTransaction(
+        portfolioId, assetId, transactionType, quantity, price, transactionDate
+      );
+    }
+
     try {
       const { data, error } = await supabase
         .from('transactions')
@@ -341,6 +362,154 @@ export class TransactionService {
       }
 
       return { data, error: null, success: true }
+    } catch (error) {
+      return { 
+        data: null, 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
+
+  /**
+   * Delete transaction
+   */
+  static async deleteTransaction(transactionId: string): Promise<ServiceResponse<boolean>> {
+    // Use mock service in test mode
+    if (shouldUseMockServices()) {
+      return MockServices.TransactionService.deleteTransaction(transactionId);
+    }
+
+    try {
+      const { error } = await supabase
+        .from('transactions')
+        .delete()
+        .eq('id', transactionId)
+
+      if (error) {
+        return { data: null, error: error.message, success: false }
+      }
+
+      return { data: true, error: null, success: true }
+    } catch (error) {
+      return { 
+        data: null, 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
+
+  /**
+   * Update transaction
+   */
+  static async updateTransaction(
+    transactionId: string,
+    updates: {
+      transaction_type?: TransactionType;
+      quantity?: number;
+      price?: number;
+      total_amount?: number;
+      fees?: number;
+      transaction_date?: string;
+      notes?: string;
+    }
+  ): Promise<ServiceResponse<Transaction>> {
+    // Use mock service in test mode
+    if (shouldUseMockServices()) {
+      return MockServices.TransactionService.updateTransaction(transactionId, updates);
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('transactions')
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', transactionId)
+        .select()
+        .single()
+
+      if (error) {
+        return { data: null, error: error.message, success: false }
+      }
+
+      return { data, error: null, success: true }
+    } catch (error) {
+      return { 
+        data: null, 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
+
+  /**
+   * Clear all user data (transactions, positions, portfolios)
+   */
+  static async clearAllUserData(): Promise<ServiceResponse<boolean>> {
+    // Use mock service in test mode
+    if (shouldUseMockServices()) {
+      return MockServices.TransactionService.clearAllUserData();
+    }
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (!user) {
+        return { data: null, error: 'User not authenticated', success: false }
+      }
+
+      // First get all portfolio IDs for the user
+      const { data: userPortfolios, error: portfolioFetchError } = await supabase
+        .from('portfolios')
+        .select('id')
+        .eq('user_id', user.id)
+
+      if (portfolioFetchError) {
+        return { data: null, error: `Failed to fetch portfolios: ${portfolioFetchError.message}`, success: false }
+      }
+
+      const portfolioIds = userPortfolios?.map(p => p.id) || []
+
+      if (portfolioIds.length === 0) {
+        // No portfolios to delete, but this is still considered success
+        return { data: true, error: null, success: true }
+      }
+
+      // Delete in order due to foreign key constraints
+      // 1. Delete transactions first
+      const { error: transactionsError } = await supabase
+        .from('transactions')
+        .delete()
+        .in('portfolio_id', portfolioIds)
+
+      if (transactionsError) {
+        return { data: null, error: `Failed to delete transactions: ${transactionsError.message}`, success: false }
+      }
+
+      // 2. Delete positions
+      const { error: positionsError } = await supabase
+        .from('positions')
+        .delete()
+        .in('portfolio_id', portfolioIds)
+
+      if (positionsError) {
+        return { data: null, error: `Failed to delete positions: ${positionsError.message}`, success: false }
+      }
+
+      // 3. Delete portfolios
+      const { error: portfoliosError } = await supabase
+        .from('portfolios')
+        .delete()
+        .eq('user_id', user.id)
+
+      if (portfoliosError) {
+        return { data: null, error: `Failed to delete portfolios: ${portfoliosError.message}`, success: false }
+      }
+
+      return { data: true, error: null, success: true }
     } catch (error) {
       return { 
         data: null, 

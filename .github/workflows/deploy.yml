@@ -26,6 +26,8 @@ jobs:
       - name: Build application
         run: |
           set -e
+          # Copy production environment variables
+          cp .env.production .env
           npm run build:prod
 
       - name: Pre-deployment system check

@@ -56,7 +56,9 @@ const LogoImage = styled.img`
   display: block;
 `;
 
-const FallbackIcon = styled(Building2)<{ size: 'sm' | 'md' | 'lg' }>`
+const FallbackIcon = styled(Building2).withConfig({
+  shouldForwardProp: (prop) => prop !== 'size'
+})<{ size: 'sm' | 'md' | 'lg' }>`
   color: var(--text-muted);
   
   ${({ size }) => {

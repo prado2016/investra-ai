@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { useAuth } from '../contexts/AuthProvider';
 import { useDataManagement } from '../hooks/useStorage';
+import { useSupabaseDataManagement } from '../hooks/useSupabaseDataManagement';
 import { useSupabasePortfolios } from '../hooks/useSupabasePortfolios';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { SupabaseService } from '../services/supabaseService';
@@ -193,7 +194,8 @@ const CheckboxLabel = styled.label`
 
 const Settings: React.FC = () => {
   const { signOut, user } = useAuth();
-  const { importData, clearAllData, getStorageInfo } = useDataManagement();
+  const { importData, getStorageInfo } = useDataManagement();
+  const { clearAllData } = useSupabaseDataManagement();
   const { portfolios } = useSupabasePortfolios();
   
   // Set page title
@@ -386,16 +388,17 @@ const Settings: React.FC = () => {
   };
 
   const handleClearAllData = async () => {
-    if (!window.confirm('Are you sure you want to clear all data? This action cannot be undone.')) {
-      return;
-    }
-
     setIsLoading(true);
     try {
-      await clearAllData();
-      showMessage('All data cleared successfully! Page will reload.', 'success');
-      setTimeout(() => window.location.reload(), 2000);
-    } catch {
+      const success = await clearAllData();
+      if (success) {
+        showMessage('All data cleared successfully! Page will reload.', 'success');
+        setTimeout(() => window.location.reload(), 2000);
+      } else {
+        showMessage('Failed to clear data. Please try again.', 'error');
+      }
+    } catch (error) {
+      console.error('Clear data error:', error);
       showMessage('Failed to clear data. Please try again.', 'error');
     } finally {
       setIsLoading(false);

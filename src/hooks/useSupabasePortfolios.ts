@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { SupabaseService } from '../services/supabaseService';
+import { useTestConfig } from './useTestConfig';
 import type { Portfolio } from '../lib/database/types';
 
 // Mock portfolio for testing
@@ -37,39 +38,34 @@ export function useSupabasePortfolios(): UsePortfoliosReturn {
   const [activePortfolio, setActivePortfolioState] = useState<Portfolio | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { isTestMode, mockPortfolio: testPortfolio } = useTestConfig();
 
   const fetchPortfolios = useCallback(async () => {
-    console.log('🔍 PORTFOLIO_HOOK_DEBUG: fetchPortfolios called');
     setLoading(true);
     setError(null);
 
     try {
-      // Use mock data if enabled for testing
-      console.log('🔍 PORTFOLIO_HOOK_DEBUG: VITE_USE_MOCK_DASHBOARD =', import.meta.env.VITE_USE_MOCK_DASHBOARD);
-      if (import.meta.env.VITE_USE_MOCK_DASHBOARD === 'true') {
+      // Use mock data if in test mode or specifically configured
+      if (isTestMode || import.meta.env.VITE_USE_MOCK_DASHBOARD === 'true') {
         console.log('🧪 Using mock portfolio data for testing');
-        setPortfolios([mockPortfolio]);
-        setActivePortfolioState(mockPortfolio);
+        const testPortfolios = [testPortfolio || mockPortfolio];
+        setPortfolios(testPortfolios);
+        setActivePortfolioState(testPortfolio || mockPortfolio);
         setLoading(false);
         return;
       }
 
-      console.log('🔍 PORTFOLIO_HOOK_DEBUG: Calling SupabaseService.portfolio.getPortfolios()');
       const result = await SupabaseService.portfolio.getPortfolios();
-      console.log('🔍 PORTFOLIO_HOOK_DEBUG: Service result:', result);
 
       if (result.success && result.data) {
-        console.log('🔍 PORTFOLIO_HOOK_DEBUG: Setting portfolios:', result.data.length);
         setPortfolios(result.data);
         
         // Set the first portfolio as active if none is selected
         if (result.data.length > 0 && !activePortfolio) {
           const defaultPortfolio = result.data.find(p => p.is_default) || result.data[0];
-          console.log('🔍 PORTFOLIO_HOOK_DEBUG: Setting active portfolio:', defaultPortfolio.id);
           setActivePortfolioState(defaultPortfolio);
         }
       } else {
-        console.log('🔍 PORTFOLIO_HOOK_DEBUG: Service failed:', result.error);
         setError(result.error || 'Failed to fetch portfolios');
         setPortfolios([]);
       }

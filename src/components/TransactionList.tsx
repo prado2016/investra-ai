@@ -368,6 +368,9 @@ const TransactionList: React.FC<TransactionListProps> = ({
     return transactions.filter(transaction => {
       const typeMatch = filterType === 'all' || transaction.transaction_type === filterType;
       const assetMatch = filterAsset === 'all' || transaction.asset?.asset_type === filterAsset;
+      
+
+      
       return typeMatch && assetMatch;
     });
   }, [transactions, filterType, filterAsset]);
@@ -406,6 +409,7 @@ const TransactionList: React.FC<TransactionListProps> = ({
         >
           <option value="all">All Assets</option>
           <option value="stock">Stocks</option>
+          <option value="etf">ETFs</option>
           <option value="option">Options</option>
           <option value="forex">Forex</option>
           <option value="crypto">Crypto</option>
