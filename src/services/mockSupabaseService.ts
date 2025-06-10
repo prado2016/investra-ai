@@ -25,7 +25,7 @@ class MockTransactionService {
   private static mockTransactions = getMockTransactions();
   private static mockAssets = getMockTransactions().map(t => t.asset);
 
-  static async getTransactions(_portfolioId: string): Promise<MockServiceListResponse<TransactionWithAsset>> {
+  static async getTransactions(): Promise<MockServiceListResponse<TransactionWithAsset>> {
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 100));
     

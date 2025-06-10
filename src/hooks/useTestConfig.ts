@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import type { Transaction, Portfolio } from '../types/portfolio';
+import type { Portfolio } from '../lib/database/types';
 import type { TransactionWithAsset } from '../components/TransactionList';
 
 // Check if we're in test mode
@@ -31,16 +31,12 @@ export const getMockPortfolio = (): Portfolio => ({
   id: 'test-portfolio-1',
   name: 'Test Portfolio',
   description: 'Portfolio for E2E testing',
-  totalValue: 150000,
-  dailyChange: 2500,
-  dailyChangePercent: 1.69,
   currency: 'USD',
-  isActive: true,
-  ownerId: 'test-user-1',
-  createdAt: new Date('2024-01-01'),
-  updatedAt: new Date(),
-  assetAllocation: [],
-  riskProfile: 'moderate'
+  user_id: 'test-user-1',
+  is_default: true,
+  is_active: true,
+  created_at: new Date('2024-01-01').toISOString(),
+  updated_at: new Date().toISOString()
 });
 
 // Mock transaction data for testing

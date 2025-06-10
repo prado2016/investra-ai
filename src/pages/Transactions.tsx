@@ -11,7 +11,7 @@ import type { TransactionWithAsset } from '../components/TransactionList';
 
 // Enhanced Transactions page with improved styling and contrast
 const TransactionsPage: React.FC = () => {
-  const { portfolios, activePortfolio, loading: portfoliosLoading } = useSupabasePortfolios();
+  const { activePortfolio, loading: portfoliosLoading } = useSupabasePortfolios();
   
   // Set dynamic page title
   usePageTitle('Transactions', { 
@@ -48,7 +48,7 @@ const TransactionsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [activePortfolio?.id]); // Removed notify from dependencies
+  }, [activePortfolio?.id, notify]); // Added notify to dependencies
 
   useEffect(() => {
     if (activePortfolio?.id) {

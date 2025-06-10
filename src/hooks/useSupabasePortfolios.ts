@@ -78,7 +78,7 @@ export function useSupabasePortfolios(): UsePortfoliosReturn {
     } finally {
       setLoading(false);
     }
-  }, [activePortfolio]);
+  }, [activePortfolio, isTestMode, testPortfolio]);
 
   const setActivePortfolio = useCallback((portfolio: Portfolio) => {
     setActivePortfolioState(portfolio);
