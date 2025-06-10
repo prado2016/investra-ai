@@ -43,7 +43,7 @@ test.describe('Investra AI - Positions Flow', () => {
         await expect(page.locator(selector)).toBeVisible({ timeout: 2000 });
         foundContent = true;
         break;
-      } catch (e) {
+      } catch {
         // Continue to next selector
       }
     }
