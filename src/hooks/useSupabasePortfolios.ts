@@ -3,7 +3,7 @@
  * Provides access to portfolio data with loading states and error handling
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { SupabaseService } from '../services/supabaseService';
 import { useTestConfig } from './useTestConfig';
 import type { Portfolio } from '../lib/database/types';
@@ -21,24 +21,38 @@ const mockPortfolio: Portfolio = {
   updated_at: new Date().toISOString()
 };
 
-interface UsePortfoliosReturn {
+export interface UsePortfoliosReturn {
   portfolios: Portfolio[];
   activePortfolio: Portfolio | null;
+  setActivePortfolio: (portfolio: Portfolio | null) => void;
   loading: boolean;
   error: string | null;
-  refreshPortfolios: () => Promise<void>;
-  setActivePortfolio: (portfolio: Portfolio) => void;
+  fetchPortfolios: () => Promise<void>;
+}
+
+export interface UseSupabasePortfoliosOptions {
+  isTestMode?: boolean;
+  testPortfolio?: Portfolio;
 }
 
 /**
  * Hook for managing portfolios from Supabase
  */
-export function useSupabasePortfolios(): UsePortfoliosReturn {
+export function useSupabasePortfolios(options: UseSupabasePortfoliosOptions = {}): UsePortfoliosReturn {
+  const renderCount = useRef(0);
+  
+  useEffect(() => {
+    renderCount.current += 1;
+    if (renderCount.current % 10 === 0) {  // Log every 10th render to avoid console spam
+      console.warn(`Portfolio hook re-rendered ${renderCount.current} times`);
+    }
+  });
+
+  const { isTestMode = false, testPortfolio } = options;
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
   const [activePortfolio, setActivePortfolioState] = useState<Portfolio | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { isTestMode, mockPortfolio: testPortfolio } = useTestConfig();
 
   const fetchPortfolios = useCallback(async () => {
     setLoading(true);
@@ -47,7 +61,6 @@ export function useSupabasePortfolios(): UsePortfoliosReturn {
     try {
       // Use mock data if in test mode or specifically configured
       if (isTestMode || import.meta.env.VITE_USE_MOCK_DASHBOARD === 'true') {
-        console.log('🧪 Using mock portfolio data for testing');
         const testPortfolios = [testPortfolio || mockPortfolio];
         setPortfolios(testPortfolios);
         setActivePortfolioState(testPortfolio || mockPortfolio);
@@ -81,7 +94,7 @@ export function useSupabasePortfolios(): UsePortfoliosReturn {
     }
   }, [isTestMode, testPortfolio]);
 
-  const setActivePortfolio = useCallback((portfolio: Portfolio) => {
+  const setActivePortfolio = useCallback((portfolio: Portfolio | null) => {
     setActivePortfolioState(portfolio);
   }, []);
 
@@ -97,10 +110,10 @@ export function useSupabasePortfolios(): UsePortfoliosReturn {
   return {
     portfolios,
     activePortfolio,
+    setActivePortfolio,
     loading,
     error,
-    refreshPortfolios,
-    setActivePortfolio
+    fetchPortfolios
   };
 }
 
