@@ -6,6 +6,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { SupabaseService } from '../services/supabaseService';
 import { useTestConfig } from './useTestConfig';
+import { useAuth } from '../contexts/AuthProvider';
 import type { Portfolio } from '../lib/database/types';
 
 // Mock portfolio for testing
@@ -39,6 +40,7 @@ export interface UseSupabasePortfoliosOptions {
  * Hook for managing portfolios from Supabase
  */
 export function useSupabasePortfolios(options: UseSupabasePortfoliosOptions = {}): UsePortfoliosReturn {
+  const { user, loading: authLoading } = useAuth();
   const renderCount = useRef(0);
   
   useEffect(() => {
@@ -102,10 +104,17 @@ export function useSupabasePortfolios(options: UseSupabasePortfoliosOptions = {}
     await fetchPortfolios();
   }, [fetchPortfolios]);
 
-  // Initial fetch
+  // Initial fetch - now dependent on user and auth loading state
   useEffect(() => {
-    fetchPortfolios();
-  }, [fetchPortfolios]);
+    // Only fetch if we have a user and auth is no longer loading
+    if (user && !authLoading) {
+      fetchPortfolios();
+    } else if (!authLoading && !user) {
+      // If auth is done and there's no user, clear any existing data
+      setPortfolios([]);
+      setActivePortfolioState(null);
+    }
+  }, [user, authLoading, fetchPortfolios]);
 
   return {
     portfolios,
