@@ -242,6 +242,9 @@ if (!supabaseUrl || !supabaseKey) {
 
 export const enhancedSupabase = new EnhancedSupabaseClient(supabaseUrl, supabaseKey);
 
+// Reset circuit breaker on startup to clear any stuck state
+enhancedSupabase.resetCircuitBreaker();
+
 // Add global reset function for debugging
 interface GlobalSupabaseReset {
   (): void;

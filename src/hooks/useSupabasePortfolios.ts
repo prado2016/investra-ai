@@ -88,6 +88,28 @@ export function useSupabasePortfolios(options: UseSupabasePortfoliosOptions = {}
           }
           return prev;
         });
+      } else if (result.success && result.data && result.data.length === 0) {
+        // No portfolios exist, create a default one
+        console.log('📝 No portfolios found, creating default portfolio');
+        try {
+          const createResult = await SupabaseService.portfolio.createPortfolio(
+            'My Portfolio',
+            'Default portfolio',
+            'USD'
+          );
+          
+          if (createResult.success && createResult.data) {
+            setPortfolios([createResult.data]);
+            setActivePortfolioState(createResult.data);
+          } else {
+            setError(createResult.error || 'Failed to create default portfolio');
+            setPortfolios([]);
+          }
+        } catch (createErr) {
+          console.warn('Failed to create default portfolio:', createErr);
+          setError('Failed to create default portfolio');
+          setPortfolios([]);
+        }
       } else {
         setError(result.error || 'Failed to fetch portfolios');
         setPortfolios([]);

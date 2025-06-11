@@ -146,6 +146,7 @@ export class PortfolioService {
       const healthStatus = enhancedSupabase.getHealthStatus();
       if (healthStatus.circuitBreakerOpen) {
         console.warn('🚫 Circuit breaker is open, returning empty portfolios');
+        console.warn('Health status:', healthStatus);
         return { data: [], error: 'Circuit breaker is open - try resetting', success: false };
       }
 
@@ -300,8 +301,6 @@ export class PositionService {
         return { data: [], error: error.message, success: false }
       }
 
-      // Record successful call
-      transactionRateLimiter.recordCall(rateLimitKey);
       return { data: data || [], error: null, success: true }
     } catch (error) {
       return { 
