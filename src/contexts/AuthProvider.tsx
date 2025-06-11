@@ -10,6 +10,18 @@ export function useAuth() {
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
+  
+  // Debug excessive calls in development
+  if (process.env.NODE_ENV === 'development') {
+    const callCount = (window as any).__authCallCount || 0;
+    (window as any).__authCallCount = callCount + 1;
+    
+    if (callCount > 0 && callCount % 50 === 0) {
+      console.warn(`⚠️ useAuth called ${callCount} times - potential loop detected`);
+      console.trace('useAuth call stack');
+    }
+  }
+  
   return context;
 }
 

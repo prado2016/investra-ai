@@ -14,6 +14,7 @@ import { OfflineIndicator } from './components/NetworkStatus';
 import DebugPanel from './components/DebugPanel';
 import ConnectionHealthDebug from './components/ConnectionHealthDebug';
 import CircuitBreakerReset from './components/CircuitBreakerReset';
+import ApiMonitoringDashboard from './components/ApiMonitoringDashboard';
 import AuthComponent from './components/auth/AuthComponent';
 import Dashboard from './pages/Dashboard';
 import Positions from './pages/Positions';
@@ -191,6 +192,7 @@ function AppContent() {
         <DebugPanel />
         <ConnectionHealthDebug />
         <CircuitBreakerReset />
+        <ApiMonitoringDashboard />
       </div>
       <NotificationContainer position="top-right" />
     </Router>

@@ -6,6 +6,8 @@
 
 import { supabase } from '../lib/supabase'
 import { enhancedSupabase } from '../lib/enhancedSupabase'
+import { portfolioRateLimiter, transactionRateLimiter } from '../utils/rateLimiter'
+import { emergencyStop } from '../utils/emergencyStop'
 import { 
   shouldUseMockServices, 
   MockServices 
@@ -113,10 +115,31 @@ export class PortfolioService {
    */
   static async getPortfolios(): Promise<ServiceListResponse<Portfolio>> {
     try {
+      // Check emergency stop first
+      if (emergencyStop.isBlocked()) {
+        const status = emergencyStop.getStatus();
+        return { 
+          data: [], 
+          error: `Emergency stop active: ${status.reason}`, 
+          success: false 
+        };
+      }
+
       const { data: { user } } = await supabase.auth.getUser()
       
       if (!user) {
         return { data: [], error: 'User not authenticated', success: false }
+      }
+
+      // Apply rate limiting
+      const rateLimitKey = `portfolios-${user.id}`;
+      if (!portfolioRateLimiter.isAllowed(rateLimitKey)) {
+        const waitTime = portfolioRateLimiter.getTimeUntilReset(rateLimitKey);
+        return { 
+          data: [], 
+          error: `Rate limited - please wait ${Math.ceil(waitTime / 1000)}s before retrying`, 
+          success: false 
+        };
       }
 
       // Check if circuit breaker is open and fail fast
@@ -143,6 +166,8 @@ export class PortfolioService {
         return { data: [], error: error.message, success: false }
       }
 
+      // Record successful call
+      portfolioRateLimiter.recordCall(rateLimitKey);
       return { data: data || [], error: null, success: true, count: count || 0 }
     } catch (error) {
       return { 
@@ -275,6 +300,8 @@ export class PositionService {
         return { data: [], error: error.message, success: false }
       }
 
+      // Record successful call
+      transactionRateLimiter.recordCall(rateLimitKey);
       return { data: data || [], error: null, success: true }
     } catch (error) {
       return { 
@@ -299,7 +326,28 @@ export class TransactionService {
       return MockServices.TransactionService.getTransactions(portfolioId);
     }
 
+    // Check emergency stop first
+    if (emergencyStop.isBlocked()) {
+      const status = emergencyStop.getStatus();
+      return { 
+        data: [], 
+        error: `Emergency stop active: ${status.reason}`, 
+        success: false 
+      };
+    }
+
     try {
+      // Apply rate limiting
+      const rateLimitKey = `transactions-${portfolioId}`;
+      if (!transactionRateLimiter.isAllowed(rateLimitKey)) {
+        const waitTime = transactionRateLimiter.getTimeUntilReset(rateLimitKey);
+        return { 
+          data: [], 
+          error: `Rate limited - please wait ${Math.ceil(waitTime / 1000)}s before retrying`, 
+          success: false 
+        };
+      }
+
       // Check if circuit breaker is open and fail fast
       const healthStatus = enhancedSupabase.getHealthStatus();
       if (healthStatus.circuitBreakerOpen) {

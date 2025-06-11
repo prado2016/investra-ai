@@ -6,6 +6,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { SupabaseService } from '../services/supabaseService';
 import { useAuth } from '../contexts/AuthProvider';
+import { requestDebouncer } from '../utils/requestDebouncer';
 import type { Portfolio } from '../lib/database/types';
 
 // Mock portfolio for testing
@@ -69,7 +70,14 @@ export function useSupabasePortfolios(options: UseSupabasePortfoliosOptions = {}
         return;
       }
 
-      const result = await SupabaseService.portfolio.getPortfolios();
+      // Debounce the actual API call
+      const debouncedFetch = requestDebouncer.debounce(
+        `portfolios-${user?.id}`,
+        () => SupabaseService.portfolio.getPortfolios(),
+        2000 // 2 second debounce for portfolios
+      );
+
+      const result = await debouncedFetch();
 
       if (result.success && result.data) {
         setPortfolios(result.data);
@@ -93,7 +101,7 @@ export function useSupabasePortfolios(options: UseSupabasePortfoliosOptions = {}
     } finally {
       setLoading(false);
     }
-  }, [isTestMode]); // Remove testPortfolio from dependencies
+  }, [isTestMode, user?.id]); // Include user.id for debounce key
 
   const setActivePortfolio = useCallback((portfolio: Portfolio | null) => {
     setActivePortfolioState(portfolio);
@@ -106,14 +114,16 @@ export function useSupabasePortfolios(options: UseSupabasePortfoliosOptions = {}
   // Initial fetch - now dependent on user and auth loading state
   useEffect(() => {
     // Only fetch if we have a user and auth is no longer loading
-    if (user && !authLoading) {
+    // And we haven't already loaded portfolios
+    if (user && !authLoading && portfolios.length === 0 && !loading) {
+      console.log('🏦 Fetching portfolios for user:', user.id);
       fetchPortfolios();
     } else if (!authLoading && !user) {
       // If auth is done and there's no user, clear any existing data
       setPortfolios([]);
       setActivePortfolioState(null);
     }
-  }, [user, authLoading, fetchPortfolios]);
+  }, [user?.id, authLoading]); // Only depend on user ID and auth loading state
 
   return {
     portfolios,
