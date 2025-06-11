@@ -9,23 +9,11 @@ import type { TransactionWithAsset } from '../components/TransactionList';
 
 // Check if we're in test mode
 export const isTestMode = () => {
-  // Only enable test mode if explicitly set via environment variable or test framework
   return (
-    // Environment variables take precedence
     import.meta.env.VITE_TEST_MODE === 'true' ||
     import.meta.env.VITE_APP_ENVIRONMENT === 'test' ||
-    // Test framework flags (only set during actual E2E tests)
-    (typeof window !== 'undefined' &&
-     window.location.hostname === 'localhost' &&
-     window.location.port === '5173' &&
-     (
-       // Must have explicit test flags set by test framework
-       localStorage.getItem('__E2E_TEST_MODE__') === 'true' ||
-       (window as unknown as Record<string, boolean>).__E2E_TEST_MODE__ === true ||
-       // Or be running in a test browser
-       /playwright|headless/i.test(navigator.userAgent)
-     )
-    )
+    localStorage.getItem('__E2E_TEST_MODE__') === 'true' ||
+    (window as unknown as Record<string, boolean>).__E2E_TEST_MODE__ === true
   );
 };
 
