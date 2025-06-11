@@ -12,20 +12,17 @@
     <link rel="icon" type="image/svg+xml" href="/investra-logo.svg" />
     <title>Investra - AI-Powered Investment Analytics</title>
     <script>
-      // E2E mode detection for actual test environments only
       (function() {
         // Check for specific test environment indicators (not just HTTP)
         const isTestEnv = 
-          window.location.hostname === '127.0.0.1' ||
-          window.location.hostname === 'localhost' ||
-          window.location.port === '5173' ||
-          /headless/i.test(navigator.userAgent) ||
-          /playwright/i.test(navigator.userAgent) ||
-          // Only activate for development server, not production HTTP
-          (window.location.protocol === 'http:' && 
-           (window.location.hostname === 'localhost' || 
-            window.location.hostname === '127.0.0.1' || 
-            window.location.port === '5173'));
+          // Only consider it a test environment if we're in a test browser
+          /headless|playwright/i.test(navigator.userAgent) ||
+          // Or if we have explicit test flags from the test framework
+          (window.location.hostname === 'localhost' && 
+           window.location.port === '5173' &&
+           (window.location.search.includes('e2e-test=true') ||
+            localStorage.getItem('__E2E_TEST_MODE__') === 'true' ||
+            window.__E2E_TEST_MODE__ === true));
           
         if (isTestEnv) {
           console.log('🚨 Emergency E2E mode activated by index.html script');
