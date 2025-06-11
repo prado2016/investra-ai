@@ -3,7 +3,7 @@
  * Provides mock transaction data when authentication is bypassed
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import type { Portfolio } from '../lib/database/types';
 import type { TransactionWithAsset } from '../components/TransactionList';
 
@@ -147,22 +147,19 @@ export const getMockTransactions = (): TransactionWithAsset[] => [
 
 // Hook to provide test configuration
 export const useTestConfig = () => {
-  const [isInTestMode, setIsInTestMode] = useState(false);
-  const [authBypassed, setAuthBypassed] = useState(false);
+  const testModeRef = useRef(isTestMode());
+  const authBypassRef = useRef(isAuthBypassed());
 
+  // Log test mode status only once
   useEffect(() => {
-    setIsInTestMode(isTestMode());
-    setAuthBypassed(isAuthBypassed());
-
-    // Log test mode status
-    if (isTestMode()) {
+    if (testModeRef.current) {
       console.log('🧪 Test mode enabled - using mock data');
     }
   }, []);
 
   return {
-    isTestMode: isInTestMode,
-    isAuthBypassed: authBypassed,
+    isTestMode: testModeRef.current,
+    isAuthBypassed: authBypassRef.current,
     mockPortfolio: getMockPortfolio(),
     mockTransactions: getMockTransactions()
   };
