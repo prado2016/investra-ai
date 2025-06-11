@@ -1,0 +1,141 @@
+/* Emergency CSS fix for Transactions page layout */
+
+.enhanced-page-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+  min-height: 100vh;
+}
+
+.enhanced-page-header {
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-primary, #e1e5e9);
+}
+
+.enhanced-header-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.enhanced-header-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.enhanced-header-icon {
+  width: 24px;
+  height: 24px;
+  color: var(--color-primary, #0066cc);
+}
+
+.enhanced-page-title {
+  font-size: 24px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--text-primary, #1a1a1a);
+}
+
+.enhanced-page-subtitle {
+  font-size: 14px;
+  color: var(--text-secondary, #666);
+  margin: 4px 0 0 0;
+}
+
+.enhanced-content-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+@media (max-width: 1024px) {
+  .enhanced-content-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.enhanced-form-section,
+.enhanced-transactions-section {
+  background: var(--bg-primary, #ffffff);
+  border: 1px solid var(--border-primary, #e1e5e9);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.enhanced-section-header {
+  padding: 16px 20px;
+  background: var(--bg-secondary, #f8f9fa);
+  border-bottom: 1px solid var(--border-primary, #e1e5e9);
+}
+
+.enhanced-section-header-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.enhanced-section-icon {
+  width: 20px;
+  height: 20px;
+  color: var(--color-primary, #0066cc);
+}
+
+.enhanced-section-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--text-primary, #1a1a1a);
+}
+
+.enhanced-section-subtitle {
+  font-size: 14px;
+  color: var(--text-secondary, #666);
+  margin: 4px 0 0 0;
+}
+
+.enhanced-form-wrapper,
+.enhanced-transactions-wrapper {
+  padding: 20px;
+}
+
+.enhanced-error-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-secondary, #666);
+}
+
+.error-icon-wrapper {
+  margin-bottom: 16px;
+}
+
+.error-icon {
+  width: 48px;
+  height: 48px;
+  color: var(--color-warning, #f59e0b);
+  margin: 0 auto;
+}
+
+.error-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+  color: var(--text-primary, #1a1a1a);
+}
+
+.error-description {
+  font-size: 16px;
+  margin: 0;
+  color: var(--text-secondary, #666);
+}
+
+/* Ensure transaction components fit properly */
+.enhanced-form-wrapper > * {
+  width: 100%;
+}
+
+.enhanced-transactions-wrapper > * {
+  width: 100%;
+}

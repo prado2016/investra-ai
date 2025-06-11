@@ -15,6 +15,7 @@ import DebugPanel from './components/DebugPanel';
 import ConnectionHealthDebug from './components/ConnectionHealthDebug';
 import CircuitBreakerReset from './components/CircuitBreakerReset';
 import ApiMonitoringDashboard from './components/ApiMonitoringDashboard';
+import EmergencyReload from './components/EmergencyReload';
 import AuthComponent from './components/auth/AuthComponent';
 import Dashboard from './pages/Dashboard';
 import Positions from './pages/Positions';
@@ -193,6 +194,7 @@ function AppContent() {
         <ConnectionHealthDebug />
         <CircuitBreakerReset />
         <ApiMonitoringDashboard />
+        <EmergencyReload />
       </div>
       <NotificationContainer position="top-right" />
     </Router>

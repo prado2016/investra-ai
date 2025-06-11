@@ -8,6 +8,7 @@ import TransactionList from '../components/TransactionList.tsx';
 import { Plus, TrendingUp, DollarSign } from 'lucide-react';
 import type { Transaction, TransactionType, Currency } from '../types/portfolio';
 import type { TransactionWithAsset } from '../components/TransactionList';
+import '../styles/transactions-layout.css';
 
 // Enhanced Transactions page with improved styling and contrast
 const TransactionsPage: React.FC = () => {

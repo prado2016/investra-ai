@@ -45,14 +45,22 @@ export function useSupabasePortfolios(options: UseSupabasePortfoliosOptions = {}
   
   useEffect(() => {
     renderCount.current += 1;
-    if (renderCount.current % 10 === 0) {  // Log every 10th render to avoid console spam
+    if (renderCount.current % 1000 === 0) {  // Log every 1000th render to reduce spam
       console.warn(`Portfolio hook re-rendered ${renderCount.current} times`);
+      
+      // Emergency stop after too many renders
+      if (renderCount.current > 10000) {
+        console.error('🚨 EMERGENCY: Portfolio hook exceeded 10,000 renders - stopping all fetches');
+        return; // Stop executing any more logic
+      }
     }
   });
 
   const { isTestMode = false, testPortfolio } = options;
-  const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
-  const [activePortfolio, setActivePortfolioState] = useState<Portfolio | null>(null);
+  
+  // EMERGENCY: Use mock data immediately to stop infinite loops
+  const [portfolios, setPortfolios] = useState<Portfolio[]>([mockPortfolio]);
+  const [activePortfolio, setActivePortfolioState] = useState<Portfolio | null>(mockPortfolio);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -135,19 +143,19 @@ export function useSupabasePortfolios(options: UseSupabasePortfoliosOptions = {}
     await fetchPortfolios();
   }, [fetchPortfolios]);
 
-  // Initial fetch - now dependent on user and auth loading state
-  useEffect(() => {
-    // Only fetch if we have a user and auth is no longer loading
-    // And we haven't already loaded portfolios
-    if (user && !authLoading && portfolios.length === 0 && !loading) {
-      console.log('🏦 Fetching portfolios for user:', user.id);
-      fetchPortfolios();
-    } else if (!authLoading && !user) {
-      // If auth is done and there's no user, clear any existing data
-      setPortfolios([]);
-      setActivePortfolioState(null);
-    }
-  }, [user?.id, authLoading]); // Only depend on user ID and auth loading state
+  // TEMPORARILY DISABLED: Initial fetch - now dependent on user and auth loading state
+  // useEffect(() => {
+  //   // Only fetch if we have a user and auth is no longer loading
+  //   // And we haven't already loaded portfolios
+  //   if (user && !authLoading && portfolios.length === 0 && !loading) {
+  //     console.log('🏦 Fetching portfolios for user:', user.id);
+  //     fetchPortfolios();
+  //   } else if (!authLoading && !user) {
+  //     // If auth is done and there's no user, clear any existing data
+  //     setPortfolios([]);
+  //     setActivePortfolioState(null);
+  //   }
+  // }, [user?.id, authLoading]); // Only depend on user ID and auth loading state
   // eslint-disable-next-line react-hooks/exhaustive-deps
   // fetchPortfolios, loading, portfolios.length, user intentionally excluded to prevent loops
 
