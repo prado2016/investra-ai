@@ -59,12 +59,13 @@ export function useSupabasePortfolios(): UsePortfoliosReturn {
 
       if (result.success && result.data) {
         setPortfolios(result.data);
-        
-        // Set the first portfolio as active if none is selected
-        if (result.data.length > 0 && !activePortfolio) {
-          const defaultPortfolio = result.data.find(p => p.is_default) || result.data[0];
-          setActivePortfolioState(defaultPortfolio);
-        }
+        // Use a functional update to avoid referencing outer activePortfolio
+        setActivePortfolioState(prev => {
+          if (result.data.length > 0 && !prev) {
+            return result.data.find(p => p.is_default) || result.data[0];
+          }
+          return prev;
+        });
       } else {
         setError(result.error || 'Failed to fetch portfolios');
         setPortfolios([]);
@@ -78,7 +79,7 @@ export function useSupabasePortfolios(): UsePortfoliosReturn {
     } finally {
       setLoading(false);
     }
-  }, [activePortfolio, isTestMode, testPortfolio]);
+  }, [isTestMode, testPortfolio]);
 
   const setActivePortfolio = useCallback((portfolio: Portfolio) => {
     setActivePortfolioState(portfolio);
