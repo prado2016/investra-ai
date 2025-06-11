@@ -93,7 +93,7 @@ export function useSupabasePortfolios(options: UseSupabasePortfoliosOptions = {}
     } finally {
       setLoading(false);
     }
-  }, [isTestMode, testPortfolio]);
+  }, [isTestMode]); // Remove testPortfolio from dependencies
 
   const setActivePortfolio = useCallback((portfolio: Portfolio | null) => {
     setActivePortfolioState(portfolio);

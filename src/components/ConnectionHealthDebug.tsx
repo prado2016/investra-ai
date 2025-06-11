@@ -108,6 +108,20 @@ const ConnectionHealthDebug: React.FC<Props> = ({ show = process.env.NODE_ENV ==
 
   return (
     <HealthContainer>
+      {health.supabaseHealth.circuitBreakerOpen && (
+        <div style={{ 
+          background: 'var(--color-error)',
+          color: 'white',
+          padding: '8px',
+          borderRadius: '4px',
+          marginBottom: '8px',
+          fontWeight: 'bold',
+          textAlign: 'center'
+        }}>
+          🚨 CIRCUIT BREAKER OPEN 🚨
+        </div>
+      )}
+
       <HealthHeader status={health.status}>
         {getStatusIcon()}
         Connection Health: {health.status.charAt(0).toUpperCase() + health.status.slice(1)}

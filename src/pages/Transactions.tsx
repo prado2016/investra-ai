@@ -52,9 +52,9 @@ const TransactionsPage: React.FC = () => {
 
   useEffect(() => {
     if (activePortfolio?.id) {
-      fetchTransactions();
+      fetchTransactions(activePortfolio.id);
     }
-  }, [activePortfolio?.id, fetchTransactions]);
+  }, [activePortfolio?.id]); // Remove fetchTransactions from dependencies
 
   const handleEditTransaction = (transactionWithAsset: TransactionWithAsset) => {
     // Convert database transaction to portfolio transaction format for the form

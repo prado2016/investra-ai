@@ -122,9 +122,9 @@ export const useSupabaseTransactions = (portfolioId?: string) => {
   // Load transactions on mount or when portfolioId changes
   useEffect(() => {
     if (portfolioId) {
-      fetchTransactions();
+      fetchTransactions(portfolioId);
     }
-  }, [portfolioId, fetchTransactions]);
+  }, [portfolioId]); // Remove fetchTransactions from dependencies
 
   return {
     transactions,

@@ -163,11 +163,11 @@ class EnhancedSupabaseClient {
   }
 
   /**
-   * Circuit breaker logic
+   * Circuit breaker logic with reset capability
    */
   private shouldCircuitBreak(): boolean {
     const maxConsecutiveFailures = 5;
-    const cooldownPeriod = 30000; // 30 seconds
+    const cooldownPeriod = 60000; // 60 seconds
 
     if (this.healthMetrics.consecutiveFailures >= maxConsecutiveFailures) {
       const timeSinceLastSuccess = Date.now() - this.healthMetrics.lastSuccessfulConnection;
@@ -175,6 +175,15 @@ class EnhancedSupabaseClient {
     }
 
     return false;
+  }
+
+  /**
+   * Force reset the circuit breaker
+   */
+  resetCircuitBreaker(): void {
+    this.healthMetrics.consecutiveFailures = 0;
+    this.healthMetrics.lastSuccessfulConnection = Date.now();
+    console.log('🔄 Circuit breaker manually reset');
   }
 
   /**
@@ -232,5 +241,11 @@ if (!supabaseUrl || !supabaseKey) {
 }
 
 export const enhancedSupabase = new EnhancedSupabaseClient(supabaseUrl, supabaseKey);
+
+// Add global reset function for debugging
+(window as any).__resetSupabaseCircuitBreaker = () => {
+  enhancedSupabase.resetCircuitBreaker();
+};
+
 export { EnhancedSupabaseClient };
 export type { Database };

@@ -13,6 +13,7 @@ import NotificationContainer from './components/NotificationContainer';
 import { OfflineIndicator } from './components/NetworkStatus';
 import DebugPanel from './components/DebugPanel';
 import ConnectionHealthDebug from './components/ConnectionHealthDebug';
+import CircuitBreakerReset from './components/CircuitBreakerReset';
 import AuthComponent from './components/auth/AuthComponent';
 import Dashboard from './pages/Dashboard';
 import Positions from './pages/Positions';
@@ -189,6 +190,7 @@ function AppContent() {
         </main>
         <DebugPanel />
         <ConnectionHealthDebug />
+        <CircuitBreakerReset />
       </div>
       <NotificationContainer position="top-right" />
     </Router>

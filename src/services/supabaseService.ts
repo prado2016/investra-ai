@@ -119,6 +119,13 @@ export class PortfolioService {
         return { data: [], error: 'User not authenticated', success: false }
       }
 
+      // Check if circuit breaker is open and fail fast
+      const healthStatus = enhancedSupabase.getHealthStatus();
+      if (healthStatus.circuitBreakerOpen) {
+        console.warn('🚫 Circuit breaker is open, returning empty portfolios');
+        return { data: [], error: 'Circuit breaker is open - try resetting', success: false };
+      }
+
       // Use enhanced client with retry logic
       const result = await enhancedSupabase.queryWithRetry(
         (client) => client
@@ -293,6 +300,13 @@ export class TransactionService {
     }
 
     try {
+      // Check if circuit breaker is open and fail fast
+      const healthStatus = enhancedSupabase.getHealthStatus();
+      if (healthStatus.circuitBreakerOpen) {
+        console.warn('🚫 Circuit breaker is open, returning empty transactions');
+        return { data: [], error: 'Circuit breaker is open - try resetting', success: false };
+      }
+
       // Use enhanced client with retry logic
       const result = await enhancedSupabase.queryWithRetry(
         (client) => client
