@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Building2 } from 'lucide-react';
 import styled from 'styled-components';
+import { SymbolValidator } from '../utils/symbolValidator';
 
 interface CompanyLogoProps {
   symbol: string;
@@ -86,6 +87,7 @@ const CompanyLogo: React.FC<CompanyLogoProps> = ({
 }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [currentSourceIndex, setCurrentSourceIndex] = useState(0);
 
   // Early return if symbol is not provided
   if (!symbol || typeof symbol !== 'string') {
@@ -96,13 +98,31 @@ const CompanyLogo: React.FC<CompanyLogoProps> = ({
     );
   }
 
-  // Try multiple logo services for better coverage
-  const logoSources = [
-    `https://logo.clearbit.com/${symbol.toLowerCase()}.com`,
-    `https://api.logo.dev/${symbol.toLowerCase()}.com?token=pk_live_51IyL8qGJGhH8Q0qQ8Q0qQ8Q0qQ8Q0qQ8Q0qQ8Q&format=png&size=128`,
-    `https://cdn.brandfetch.io/${symbol.toLowerCase()}.com`,
-    `https://img.logo.dev/${symbol.toLowerCase()}.com?token=pk_live_51IyL8qGJGhH8Q0qQ8Q0qQ8Q0qQ8Q0qQ8Q0qQ8Q0qQ8Q&format=png&size=64`
-  ];
+  // Normalize the symbol to handle typos and variations
+  const normalizedSymbol = SymbolValidator.normalizeSymbol(symbol);
+  const companyDomain = SymbolValidator.getCompanyDomain(normalizedSymbol);
+
+  // Generate multiple logo sources with validated domains
+  const generateLogoSources = (sym: string) => {
+    const sources: string[] = [];
+    
+    // Primary source: use company domain if available
+    if (companyDomain) {
+      sources.push(`https://logo.clearbit.com/${companyDomain}`);
+    }
+    
+    // Fallback sources
+    sources.push(
+      `https://logo.clearbit.com/${sym.toLowerCase()}.com`,
+      `https://api.logo.dev/${sym.toLowerCase()}.com?format=png&size=128`,
+      `https://cdn.brandfetch.io/${sym.toLowerCase()}.com`,
+      `https://img.logo.dev/${sym.toLowerCase()}.com?format=png&size=64`
+    );
+    
+    return sources;
+  };
+
+  const logoSources = generateLogoSources(normalizedSymbol);
 
   const handleImageLoad = () => {
     setImageLoaded(true);
@@ -110,8 +130,14 @@ const CompanyLogo: React.FC<CompanyLogoProps> = ({
   };
 
   const handleImageError = () => {
-    setImageError(true);
-    setImageLoaded(false);
+    // Try next source if available
+    if (currentSourceIndex < logoSources.length - 1) {
+      setCurrentSourceIndex(prev => prev + 1);
+      setImageLoaded(false);
+    } else {
+      setImageError(true);
+      setImageLoaded(false);
+    }
   };
 
   // Generate a fallback based on company name/symbol
@@ -159,14 +185,15 @@ const CompanyLogo: React.FC<CompanyLogoProps> = ({
     return knownCompanies[symbol.toUpperCase()] || null;
   };
 
-  const emojiIcon = generateFallback(symbol);
+  const emojiIcon = generateFallback(normalizedSymbol);
+  const currentLogoSource = logoSources[currentSourceIndex];
 
   return (
     <LogoContainer size={size} className={className}>
-      {!imageError ? (
+      {!imageError && currentLogoSource ? (
         <LogoImage
-          src={logoSources[0]} // Start with Clearbit
-          alt={`${symbol} logo`}
+          src={currentLogoSource}
+          alt={`${normalizedSymbol} logo`}
           onLoad={handleImageLoad}
           onError={handleImageError}
           style={{ display: imageLoaded ? 'block' : 'none' }}

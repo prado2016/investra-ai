@@ -5,6 +5,7 @@
  */
 
 import { supabase } from '../lib/supabase'
+import { enhancedSupabase } from '../lib/enhancedSupabase'
 import { 
   shouldUseMockServices, 
   MockServices 
@@ -118,19 +119,18 @@ export class PortfolioService {
         return { data: [], error: 'User not authenticated', success: false }
       }
 
-      // Add 10-second timeout to prevent hanging
-      const portfolioQuery = supabase
-        .from('portfolios')
-        .select('*', { count: 'exact' })
-        .eq('user_id', user.id)
-        .eq('is_active', true)
-        .order('created_at', { ascending: true })
+      // Use enhanced client with retry logic
+      const result = await enhancedSupabase.queryWithRetry(
+        (client) => client
+          .from('portfolios')
+          .select('*', { count: 'exact' })
+          .eq('user_id', user.id)
+          .eq('is_active', true)
+          .order('created_at', { ascending: true }),
+        'getPortfolios'
+      );
 
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Portfolio query timeout after 10 seconds')), 10000)
-      })
-
-      const { data, error, count } = await Promise.race([portfolioQuery, timeoutPromise])
+      const { data, error, count } = result;
 
       if (error) {
         return { data: [], error: error.message, success: false }
@@ -248,22 +248,21 @@ export class PositionService {
    */
   static async getPositions(portfolioId: string): Promise<ServiceListResponse<Position & { asset: Asset }>> {
     try {
-      // Add 10-second timeout to prevent hanging
-      const positionQuery = supabase
-        .from('positions')
-        .select(`
-          *,
-          asset:assets(*)
-        `)
-        .eq('portfolio_id', portfolioId)
-        .eq('is_active', true)
-        .order('created_at', { ascending: true })
+      // Use enhanced client with retry logic
+      const result = await enhancedSupabase.queryWithRetry(
+        (client) => client
+          .from('positions')
+          .select(`
+            *,
+            asset:assets(*)
+          `)
+          .eq('portfolio_id', portfolioId)
+          .eq('is_active', true)
+          .order('created_at', { ascending: true }),
+        'getPositions'
+      );
 
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Position query timeout after 10 seconds')), 10000)
-      })
-
-      const { data, error } = await Promise.race([positionQuery, timeoutPromise])
+      const { data, error } = result;
 
       if (error) {
         return { data: [], error: error.message, success: false }
@@ -294,21 +293,20 @@ export class TransactionService {
     }
 
     try {
-      // Add 10-second timeout to prevent hanging
-      const transactionQuery = supabase
-        .from('transactions')
-        .select(`
-          *,
-          asset:assets(*)
-        `)
-        .eq('portfolio_id', portfolioId)
-        .order('transaction_date', { ascending: false })
+      // Use enhanced client with retry logic
+      const result = await enhancedSupabase.queryWithRetry(
+        (client) => client
+          .from('transactions')
+          .select(`
+            *,
+            asset:assets(*)
+          `)
+          .eq('portfolio_id', portfolioId)
+          .order('transaction_date', { ascending: false }),
+        'getTransactions'
+      );
 
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Transaction query timeout after 10 seconds')), 10000)
-      })
-
-      const { data, error } = await Promise.race([transactionQuery, timeoutPromise])
+      const { data, error } = result;
 
       if (error) {
         return { data: [], error: error.message, success: false }

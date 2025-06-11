@@ -12,6 +12,7 @@ import Breadcrumb from './components/Breadcrumb';
 import NotificationContainer from './components/NotificationContainer';
 import { OfflineIndicator } from './components/NetworkStatus';
 import DebugPanel from './components/DebugPanel';
+import ConnectionHealthDebug from './components/ConnectionHealthDebug';
 import AuthComponent from './components/auth/AuthComponent';
 import Dashboard from './pages/Dashboard';
 import Positions from './pages/Positions';
@@ -187,6 +188,7 @@ function AppContent() {
           </Routes>
         </main>
         <DebugPanel />
+        <ConnectionHealthDebug />
       </div>
       <NotificationContainer position="top-right" />
     </Router>
