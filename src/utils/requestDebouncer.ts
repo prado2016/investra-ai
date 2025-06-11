@@ -3,7 +3,7 @@
  * Prevents duplicate/rapid API calls by debouncing requests
  */
 
-type DebouncedFunction<T extends (...args: any[]) => any> = (
+type DebouncedFunction<T extends (...args: unknown[]) => Promise<unknown>> = (
   ...args: Parameters<T>
 ) => Promise<ReturnType<T>>;
 
@@ -13,7 +13,7 @@ interface PendingRequest<T> {
 }
 
 class RequestDebouncer {
-  private pendingRequests = new Map<string, PendingRequest<any>>();
+  private pendingRequests = new Map<string, PendingRequest<unknown>>();
   private defaultDelay: number;
 
   constructor(defaultDelay: number = 500) {
@@ -23,7 +23,7 @@ class RequestDebouncer {
   /**
    * Debounce a function call by key
    */
-  debounce<T extends (...args: any[]) => Promise<any>>(
+  debounce<T extends (...args: unknown[]) => Promise<unknown>>(
     key: string,
     fn: T,
     delay: number = this.defaultDelay
@@ -35,7 +35,7 @@ class RequestDebouncer {
       // If there's a recent pending request, return that promise
       if (pending && (now - pending.timestamp) < delay) {
         console.log(`🔄 Debouncing duplicate request: ${key}`);
-        return pending.promise;
+        return pending.promise as ReturnType<T>;
       }
 
       // Create new request

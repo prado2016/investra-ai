@@ -243,7 +243,11 @@ if (!supabaseUrl || !supabaseKey) {
 export const enhancedSupabase = new EnhancedSupabaseClient(supabaseUrl, supabaseKey);
 
 // Add global reset function for debugging
-(window as any).__resetSupabaseCircuitBreaker = () => {
+interface GlobalSupabaseReset {
+  (): void;
+}
+
+(window as unknown as { __resetSupabaseCircuitBreaker: GlobalSupabaseReset }).__resetSupabaseCircuitBreaker = () => {
   enhancedSupabase.resetCircuitBreaker();
 };
 

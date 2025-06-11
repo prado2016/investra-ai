@@ -13,8 +13,13 @@ export function useAuth() {
   
   // Debug excessive calls in development
   if (process.env.NODE_ENV === 'development') {
-    const callCount = (window as any).__authCallCount || 0;
-    (window as any).__authCallCount = callCount + 1;
+    interface WindowWithAuthCount extends Window {
+      __authCallCount?: number;
+    }
+    
+    const windowWithCount = window as WindowWithAuthCount;
+    const callCount = windowWithCount.__authCallCount || 0;
+    windowWithCount.__authCallCount = callCount + 1;
     
     if (callCount > 0 && callCount % 50 === 0) {
       console.warn(`⚠️ useAuth called ${callCount} times - potential loop detected`);

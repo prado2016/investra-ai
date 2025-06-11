@@ -6,7 +6,6 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { enhancedSupabase } from '../lib/enhancedSupabase';
-import { portfolioRateLimiter, transactionRateLimiter } from '../utils/rateLimiter';
 import { emergencyStop } from '../utils/emergencyStop';
 import { requestDebouncer } from '../utils/requestDebouncer';
 import { performanceMonitor } from '../utils/performanceMonitor';

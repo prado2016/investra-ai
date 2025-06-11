@@ -102,6 +102,8 @@ export function useSupabasePortfolios(options: UseSupabasePortfoliosOptions = {}
       setLoading(false);
     }
   }, [isTestMode, user?.id]); // Include user.id for debounce key
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // testPortfolio intentionally excluded to prevent loops
 
   const setActivePortfolio = useCallback((portfolio: Portfolio | null) => {
     setActivePortfolioState(portfolio);
@@ -124,6 +126,8 @@ export function useSupabasePortfolios(options: UseSupabasePortfoliosOptions = {}
       setActivePortfolioState(null);
     }
   }, [user?.id, authLoading]); // Only depend on user ID and auth loading state
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // fetchPortfolios, loading, portfolios.length, user intentionally excluded to prevent loops
 
   return {
     portfolios,

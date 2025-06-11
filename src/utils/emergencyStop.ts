@@ -65,7 +65,13 @@ class EmergencyStop {
 export const emergencyStop = new EmergencyStop();
 
 // Add global controls for debugging
-(window as any).__emergencyStop = {
+interface GlobalEmergencyStop {
+  activate: (reason: string) => void;
+  deactivate: () => void;
+  status: () => ReturnType<EmergencyStop['getStatus']>;
+}
+
+(window as unknown as { __emergencyStop: GlobalEmergencyStop }).__emergencyStop = {
   activate: (reason: string) => emergencyStop.activate(reason),
   deactivate: () => emergencyStop.deactivate(),
   status: () => emergencyStop.getStatus()
