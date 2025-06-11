@@ -54,7 +54,8 @@ const TransactionsPage: React.FC = () => {
     if (activePortfolio?.id) {
       fetchTransactions();
     }
-  }, [activePortfolio, fetchTransactions]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePortfolio?.id, fetchTransactions]);
 
   const handleEditTransaction = (transactionWithAsset: TransactionWithAsset) => {
     // Convert database transaction to portfolio transaction format for the form
