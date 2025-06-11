@@ -13,7 +13,9 @@ interface BaseFieldProps {
 
 // Input field props
 interface InputFieldProps extends BaseFieldProps {
-  type?: 'text' | 'email' | 'number' | 'tel' | 'url' | 'date';
+  id?: string;
+  name?: string;
+  type?: 'text' | 'email' | 'number' | 'tel' | 'url' | 'date' | 'textarea';
   value: string | number;
   onChange: (value: string) => void;
   onBlur?: () => void;
@@ -27,6 +29,8 @@ interface InputFieldProps extends BaseFieldProps {
 }
 
 export const InputField: React.FC<InputFieldProps> = ({
+  id,
+  name,
   label,
   error,
   success,
@@ -52,6 +56,7 @@ export const InputField: React.FC<InputFieldProps> = ({
     <div className={`field-container ${className || ''}`}>
       {label && (
         <label 
+          htmlFor={id}
           className={`field-label ${required ? 'required' : ''} ${hasError ? 'error' : ''}`}
         >
           {label}
@@ -59,6 +64,8 @@ export const InputField: React.FC<InputFieldProps> = ({
       )}
       
       <input
+        id={id}
+        name={name}
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -193,8 +200,10 @@ export const PasswordField: React.FC<PasswordFieldProps> = ({
 
 // Select field props
 interface SelectFieldProps extends BaseFieldProps {
+  id?: string;
+  name?: string;
   value: string;
-  onChange: (value: string) => void;
+  onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
   onBlur?: () => void;
   options: Array<{ value: string; label: string; disabled?: boolean }>;
   placeholder?: string;
@@ -202,6 +211,8 @@ interface SelectFieldProps extends BaseFieldProps {
 }
 
 export const SelectField: React.FC<SelectFieldProps> = ({
+  id,
+  name,
   label,
   error,
   success,
@@ -222,6 +233,7 @@ export const SelectField: React.FC<SelectFieldProps> = ({
     <div className={`field-container ${className || ''}`}>
       {label && (
         <label 
+          htmlFor={id}
           className={`field-label ${required ? 'required' : ''} ${hasError ? 'error' : ''}`}
         >
           {label}
@@ -229,8 +241,10 @@ export const SelectField: React.FC<SelectFieldProps> = ({
       )}
       
       <select
+        id={id}
+        name={name}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={onChange}
         onBlur={onBlur}
         disabled={disabled}
         className={`form-select ${hasError ? 'error' : ''} ${hasSuccess ? 'success' : ''}`}
@@ -282,6 +296,8 @@ export const SelectField: React.FC<SelectFieldProps> = ({
 
 // Textarea field props
 interface TextareaFieldProps extends BaseFieldProps {
+  id?: string;
+  name?: string;
   value: string;
   onChange: (value: string) => void;
   onBlur?: () => void;
@@ -292,6 +308,8 @@ interface TextareaFieldProps extends BaseFieldProps {
 }
 
 export const TextareaField: React.FC<TextareaFieldProps> = ({
+  id,
+  name,
   label,
   error,
   success,
@@ -315,6 +333,7 @@ export const TextareaField: React.FC<TextareaFieldProps> = ({
     <div className={`field-container ${className || ''}`}>
       {label && (
         <label 
+          htmlFor={id}
           className={`field-label ${required ? 'required' : ''} ${hasError ? 'error' : ''}`}
         >
           {label}
@@ -322,6 +341,8 @@ export const TextareaField: React.FC<TextareaFieldProps> = ({
       )}
       
       <textarea
+        id={id}
+        name={name}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onBlur={onBlur}

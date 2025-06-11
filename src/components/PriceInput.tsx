@@ -55,6 +55,8 @@ const StyledPriceInput = styled(InputField)`
 `;
 
 interface PriceInputProps {
+  id?: string;
+  name?: string;
   label?: string;
   value: string | number;
   onChange: (value: string) => void;
@@ -68,6 +70,8 @@ interface PriceInputProps {
 }
 
 export const PriceInput: React.FC<PriceInputProps> = ({
+  id,
+  name,
   label = 'Price',
   value,
   onChange,
@@ -122,6 +126,8 @@ export const PriceInput: React.FC<PriceInputProps> = ({
       </CurrencyIcon>
       
       <StyledPriceInput
+        id={id}
+        name={name}
         label={label}
         type="number"
         value={value}

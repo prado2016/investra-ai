@@ -15,6 +15,8 @@ import {
 } from '../utils/symbolInputUtils';
 
 interface SymbolInputProps {
+  id?: string;
+  name?: string;
   label?: string;
   value: string;
   onChange: (value: string, metadata?: SymbolLookupResult) => void;
@@ -35,6 +37,8 @@ interface SymbolInputProps {
 }
 
 export const SymbolInput: React.FC<SymbolInputProps> = ({
+  id,
+  name,
   label = 'Symbol',
   value,
   onChange,
@@ -65,7 +69,7 @@ export const SymbolInput: React.FC<SymbolInputProps> = ({
     return (
       <div className={`symbol-input-container ${className || ''}`}>
         {label && (
-          <label className={`field-label ${required ? 'required' : ''} ${error ? 'error' : ''}`}>
+          <label htmlFor={id} className={`field-label ${required ? 'required' : ''} ${error ? 'error' : ''}`}>
             {label}
           </label>
         )}
@@ -109,13 +113,15 @@ export const SymbolInput: React.FC<SymbolInputProps> = ({
     <div className={`symbol-input-container ${className || ''}`}>
       <div className="field-container">
         {label && (
-          <label className={`field-label ${required ? 'required' : ''} ${finalError ? 'error' : ''}`}>
+          <label htmlFor={id} className={`field-label ${required ? 'required' : ''} ${finalError ? 'error' : ''}`}>
             {label}
           </label>
         )}
         
         <div style={{ position: 'relative' }}>
           <input
+            id={id}
+            name={name}
             type="text"
             value={value}
             onChange={(e) => handleInputChange(e.target.value)}

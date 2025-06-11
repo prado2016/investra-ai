@@ -242,144 +242,155 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   return (
     <form className="form-container" onSubmit={form.handleSubmit}>
       <div className="horizontal-fields-container">
+        <SelectField
+          id="portfolioId"
+          name="portfolioId"
+          label="Portfolio"
+          value={form.values.portfolioId}
+          onChange={(e) => form.setValue('portfolioId', e.target.value)}
+          options={portfolios.map(p => ({ value: p.id, label: p.name }))}
+          error={form.touched.portfolioId ? form.errors.portfolioId?.message : ''}
+          disabled={portfoliosLoading || portfolios.length === 0}
+          required
+        />
         <TooltipWrapper tooltip="Enter stock symbol or use natural language like 'Apple stock' or 'AAPL'. AI will help validate and convert to proper symbol.">
           <SymbolInput
+            id="assetSymbol"
+            name="assetSymbol"
             label="Symbol"
             value={form.values.assetSymbol}
             onChange={(value) => form.setValue('assetSymbol', value)}
             onBlur={() => form.setFieldTouched('assetSymbol')}
-            error={form.touched.assetSymbol ? form.errors.assetSymbol?.message : null}
+            error={form.touched.assetSymbol ? form.errors.assetSymbol?.message : ''}
             required
             disabled={form.isSubmitting || loading}
-            assetType={form.values.assetType}
-            enableAI={false}
-            showAIButton={false}
-            showSuggestions={false}
-            showValidation={false}
           />
         </TooltipWrapper>
-
-        <TooltipWrapper tooltip="Type of asset: Stock, ETF, Option, Crypto, Forex, or REIT">
-          <SelectField
-            label="Asset Type"
-            value={form.values.assetType}
-            onChange={(value) => form.setValue('assetType', value as AssetType)}
-            onBlur={() => form.setFieldTouched('assetType')}
-            options={assetTypeOptions}
-            disabled={form.isSubmitting || loading}
-          />
-        </TooltipWrapper>
-
-        <TooltipWrapper tooltip="Transaction type: Buy (purchase), Sell (sale), Dividend (dividend payment), or Stock Split">
-          <SelectField
-            label="Type"
-            value={form.values.type}
-            onChange={(value) => form.setValue('type', value as TransactionType)}
-            onBlur={() => form.setFieldTouched('type')}
-            options={transactionTypeOptions}
-            disabled={form.isSubmitting || loading}
-          />
-        </TooltipWrapper>
-
-        <TooltipWrapper tooltip="Number of shares or units. Supports fractional shares (e.g., 10.5 shares)">
-          <InputField
-            label="Quantity"
-            type="number"
-            value={form.values.quantity}
-            onChange={(value) => form.setValue('quantity', value)}
-            onBlur={() => form.setFieldTouched('quantity')}
-            error={form.touched.quantity ? form.errors.quantity?.message : null}
-            placeholder="100"
-            required
-            disabled={form.isSubmitting || loading}
-            min={0}
-            step={0.01}
-          />
-        </TooltipWrapper>
-
-        <TooltipWrapper tooltip="Price per share/unit. Enter with up to 4 decimal places for accuracy (e.g., 150.25)">
-          <PriceInput
-            label="Price"
-            value={form.values.price}
-            onChange={(value) => form.setValue('price', value)}
-            onBlur={() => form.setFieldTouched('price')}
-            error={form.touched.price ? form.errors.price?.message : null}
-            required
-            disabled={form.isSubmitting || loading}
-            assetType={form.values.assetType}
-          />
-        </TooltipWrapper>
-
-        <TooltipWrapper tooltip="Total transaction amount (quantity × price). This is calculated automatically">
-          <InputField
-            label="Total Amount"
-            type="number"
-            value={form.values.totalAmount}
-            onChange={(value) => form.setValue('totalAmount', value)}
-            onBlur={() => form.setFieldTouched('totalAmount')}
-            error={form.touched.totalAmount ? form.errors.totalAmount?.message : null}
-            placeholder="0.00"
-            required
-            disabled={true}
-            min={0}
-            step={0.01}
-          />
-        </TooltipWrapper>
-
-        <TooltipWrapper tooltip="Trading fees and commissions. Leave empty or 0 if no fees apply">
-          <InputField
-            label="Fees"
-            type="number"
-            value={form.values.fees}
-            onChange={(value) => form.setValue('fees', value)}
-            onBlur={() => form.setFieldTouched('fees')}
-            error={form.touched.fees ? form.errors.fees?.message : null}
-            placeholder="0.00"
-            disabled={form.isSubmitting || loading}
-            min={0}
-            step={0.01}
-          />
-        </TooltipWrapper>
-
-        <TooltipWrapper tooltip="Transaction date. Cannot be in the future. Use the date when the trade was executed">
-          <InputField
-            label="Date"
-            type="date"
-            value={form.values.date}
-            onChange={(value) => form.setValue('date', value)}
-            onBlur={() => form.setFieldTouched('date')}
-            error={form.touched.date ? form.errors.date?.message : null}
-            required
-            disabled={form.isSubmitting || loading}
-            max={new Date().toISOString().split('T')[0]}
-          />
-        </TooltipWrapper>
-
-        <TooltipWrapper tooltip="Save this transaction to your portfolio. All required fields must be filled correctly">
-          <div style={{ 
-            display: 'flex', 
-            alignItems: 'flex-end', 
-            justifyContent: 'center', 
-            height: '100%',
-            minHeight: '70px'
-          }}>
-            <button 
-              type="submit" 
-              className="btn btn-primary"
-              disabled={form.isSubmitting || loading || !form.isValid}
-              style={{ 
-                width: '100%', 
-                minHeight: 'var(--input-height)',
-                alignSelf: 'flex-end'
-              }}
-            >
-              {(form.isSubmitting || loading) && (
-                <Loader size={16} className="loading-spinner" />
-              )}
-              {initialData ? 'Update Transaction' : 'Add Transaction'}
-            </button>
-          </div>
-        </TooltipWrapper>
+      </div>
+      <div className="horizontal-fields-container">
+        <SelectField
+          id="assetType"
+          name="assetType"
+          label="Asset Type"
+          value={form.values.assetType}
+          onChange={(e) => form.setValue('assetType', e.target.value as AssetType)}
+          onBlur={() => form.setFieldTouched('assetType')}
+          options={assetTypeOptions}
+          error={form.touched.assetType ? form.errors.assetType?.message : ''}
+          required
+          disabled={form.isSubmitting || loading}
+        />
+        <SelectField
+          id="type"
+          name="type"
+          label="Transaction Type"
+          value={form.values.type}
+          onChange={(e) => form.setValue('type', e.target.value as TransactionType)}
+          onBlur={() => form.setFieldTouched('type')}
+          options={transactionTypeOptions}
+          error={form.touched.type ? form.errors.type?.message : ''}
+          required
+          disabled={form.isSubmitting || loading}
+        />
+      </div>
+      <div className="horizontal-fields-container">
+        <InputField
+          id="quantity"
+          name="quantity"
+          label="Quantity"
+          type="number"
+          placeholder="e.g., 100"
+          value={form.values.quantity}
+          onChange={(value) => form.setValue('quantity', value)}
+          onBlur={() => form.setFieldTouched('quantity')}
+          error={form.touched.quantity ? form.errors.quantity?.message : ''}
+          required
+          disabled={form.isSubmitting || loading}
+          min={0}
+          step={0.01}
+        />
+        <PriceInput
+          id="price"
+          name="price"
+          label="Price per Share"
+          value={form.values.price}
+          currency={form.values.currency}
+          onChange={(value) => form.setValue('price', value)}
+          onBlur={() => form.setFieldTouched('price')}
+          error={form.touched.price ? form.errors.price?.message : ''}
+          required
+          disabled={form.isSubmitting || loading}
+          assetType={form.values.assetType}
+        />
+      </div>
+      <div className="horizontal-fields-container">
+        <PriceInput
+          id="totalAmount"
+          name="totalAmount"
+          label="Total Amount"
+          value={form.values.totalAmount}
+          currency={form.values.currency}
+          onChange={(value) => form.setValue('totalAmount', value)}
+          onBlur={() => form.setFieldTouched('totalAmount')}
+          error={form.touched.totalAmount ? form.errors.totalAmount?.message : ''}
+          disabled
+          required
+        />
+        <PriceInput
+          id="fees"
+          name="fees"
+          label="Fees"
+          value={form.values.fees}
+          currency={form.values.currency}
+          onChange={(value) => form.setValue('fees', value)}
+          onBlur={() => form.setFieldTouched('fees')}
+          error={form.touched.fees ? form.errors.fees?.message : ''}
+          disabled={form.isSubmitting || loading}
+        />
+      </div>
+      <div className="horizontal-fields-container">
+        <InputField
+          id="date"
+          name="date"
+          label="Date"
+          type="date"
+          value={form.values.date}
+          onChange={(value) => form.setValue('date', value)}
+          onBlur={() => form.setFieldTouched('date')}
+          error={form.touched.date ? form.errors.date?.message : ''}
+          required
+          disabled={form.isSubmitting || loading}
+          max={new Date().toISOString().split('T')[0]}
+        />
+        <InputField
+          id="notes"
+          name="notes"
+          label="Notes"
+          type="textarea"
+          placeholder="e.g., Initial investment in tech stocks"
+          value={form.values.notes}
+          onChange={(value) => form.setValue('notes', value)}
+          onBlur={() => form.setFieldTouched('notes')}
+          error={form.touched.notes ? form.errors.notes?.message : ''}
+          disabled={form.isSubmitting || loading}
+        />
+      </div>
+      <div className="form-actions">
+        <button 
+          type="submit" 
+          className="btn btn-primary"
+          disabled={form.isSubmitting || loading || !form.isValid}
+          style={{ 
+            width: '100%', 
+            minHeight: 'var(--input-height)',
+            alignSelf: 'flex-end'
+          }}
+        >
+          {(form.isSubmitting || loading) && (
+            <Loader size={16} className="loading-spinner" />
+          )}
+          {initialData ? 'Update Transaction' : 'Add Transaction'}
+        </button>
       </div>
     </form>
   );
