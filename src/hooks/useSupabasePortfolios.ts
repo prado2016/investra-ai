@@ -5,7 +5,6 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { SupabaseService } from '../services/supabaseService';
-import { useTestConfig } from './useTestConfig';
 import { useAuth } from '../contexts/AuthProvider';
 import type { Portfolio } from '../lib/database/types';
 
@@ -122,7 +121,8 @@ export function useSupabasePortfolios(options: UseSupabasePortfoliosOptions = {}
     setActivePortfolio,
     loading,
     error,
-    fetchPortfolios
+    fetchPortfolios,
+    refreshPortfolios
   };
 }
 

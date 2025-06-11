@@ -64,7 +64,7 @@ class EnhancedSupabaseClient {
    * Enhanced query method with retry logic and connection monitoring
    */
   async queryWithRetry<T>(
-    queryFn: (client: SupabaseClient<Database>) => Promise<any>,
+    queryFn: (client: SupabaseClient<Database>) => Promise<T>,
     operation: string = 'query'
   ): Promise<T> {
     let lastError: Error | null = null;

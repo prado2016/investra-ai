@@ -3,7 +3,7 @@
  * Provides mock transaction data when authentication is bypassed
  */
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import type { Portfolio } from '../lib/database/types';
 import type { TransactionWithAsset } from '../components/TransactionList';
 
