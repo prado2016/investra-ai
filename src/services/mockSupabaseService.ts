@@ -113,7 +113,7 @@ class MockTransactionService {
     }
 
     return {
-      data: null as any,
+      data: null,
       error: 'Transaction not found',
       success: false
     };
