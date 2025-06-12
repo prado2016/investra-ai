@@ -293,7 +293,7 @@ const SimpleApiKeySettings: React.FC = () => {
           <SelectField
             label="Provider"
             value={provider}
-            onChange={setProvider}
+            onChange={(e) => setProvider(e.target.value)}
             options={API_PROVIDERS}
           />
         </FormGroup>

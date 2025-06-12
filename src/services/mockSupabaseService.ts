@@ -3,31 +3,35 @@
  * Provides mock data and simulates API responses when authentication is bypassed
  */
 
-import type { Portfolio } from '../types/portfolio';
+import type { Portfolio } from '../lib/database/types';
 import type { TransactionWithAsset } from '../components/TransactionList';
 import type { Transaction, Asset, TransactionType } from '../lib/database/types';
 import { getMockPortfolio, getMockTransactions, isTestMode } from '../hooks/useTestConfig';
 
 // Mock service responses
 interface MockServiceResponse<T> {
-  data: T;
-  error: null;
-  success: true;
+  data: T | null;
+  error: string | null;
+  success: boolean;
 }
 
 interface MockServiceListResponse<T> {
   data: T[];
-  error: null;
-  success: true;
+  error: string | null;
+  success: boolean;
 }
 
 class MockTransactionService {
   private static mockTransactions = getMockTransactions();
   private static mockAssets = getMockTransactions().map(t => t.asset);
 
-  static async getTransactions(): Promise<MockServiceListResponse<TransactionWithAsset>> {
+  static async getTransactions(portfolioId?: string): Promise<MockServiceListResponse<TransactionWithAsset>> {
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // In a real implementation, we would filter by portfolioId
+    // For mock purposes, we return all transactions
+    console.log('Mock service fetching transactions for portfolio:', portfolioId || 'all');
     
     return {
       data: [...this.mockTransactions],
@@ -89,7 +93,7 @@ class MockTransactionService {
       transaction_date?: string;
       notes?: string;
     }
-  ): Promise<MockServiceResponse<boolean>> {
+  ): Promise<MockServiceResponse<Transaction>> {
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 150));
 
@@ -100,12 +104,18 @@ class MockTransactionService {
         ...updates,
         updated_at: new Date().toISOString()
       };
+
+      return {
+        data: this.mockTransactions[transactionIndex] as Transaction,
+        error: null,
+        success: true
+      };
     }
 
     return {
-      data: true,
-      error: null,
-      success: true
+      data: null as any,
+      error: 'Transaction not found',
+      success: false
     };
   }
 
@@ -174,8 +184,11 @@ class MockPortfolioService {
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 100));
 
+    // Use the database Portfolio type directly since that's what SupabaseService returns
+    const mockPortfolio = getMockPortfolio();
+    
     return {
-      data: [getMockPortfolio()],
+      data: [mockPortfolio],
       error: null,
       success: true
     };

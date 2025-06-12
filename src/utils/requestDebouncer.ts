@@ -39,7 +39,7 @@ class RequestDebouncer {
       }
 
       // Create new request
-      const promise = fn(...args);
+      const promise = fn(...args) as ReturnType<T>;
       this.pendingRequests.set(key, {
         promise,
         timestamp: now

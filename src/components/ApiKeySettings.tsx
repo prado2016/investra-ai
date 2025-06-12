@@ -442,10 +442,10 @@ const ApiKeySettings: React.FC = () => {
               <SelectField
                 label="Provider"
                 value={formData.provider}
-                onChange={(value) => setFormData({ 
+                onChange={(e) => setFormData({ 
                   ...formData, 
-                  provider: value as ApiProvider,
-                  allowedFeatures: PROVIDER_FEATURES[value as ApiProvider] || []
+                  provider: e.target.value as ApiProvider,
+                  allowedFeatures: PROVIDER_FEATURES[e.target.value as ApiProvider] || []
                 })}
                 options={API_PROVIDERS.map(p => ({ value: p.value, label: p.label }))}
               />

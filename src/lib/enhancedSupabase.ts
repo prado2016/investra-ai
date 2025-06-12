@@ -87,7 +87,7 @@ class EnhancedSupabaseClient {
 
         // Update success metrics
         this.updateSuccessMetrics(Date.now() - startTime);
-        endTiming(true);
+        endTiming();
         return result;
 
       } catch (error) {
@@ -98,7 +98,7 @@ class EnhancedSupabaseClient {
 
         // Don't retry on authentication errors or certain client errors
         if (this.isNonRetryableError(lastError)) {
-          endTiming(false, lastError.message);
+          endTiming();
           throw lastError;
         }
 
@@ -115,8 +115,8 @@ class EnhancedSupabaseClient {
     const finalError = new Error(
       `${operation} failed after ${this.retryConfig.maxRetries + 1} attempts. Last error: ${lastError?.message}`
     );
-    finalError.cause = lastError;
-    endTiming(false, finalError.message);
+    // Note: Error.cause requires ES2022 target, skipping for compatibility
+    endTiming();
     throw finalError;
   }
 

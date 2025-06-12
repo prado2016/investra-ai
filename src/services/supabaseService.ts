@@ -152,7 +152,7 @@ export class PortfolioService {
 
       // Use enhanced client with retry logic
       const result = await enhancedSupabase.queryWithRetry(
-        (client) => client
+        async (client) => await client
           .from('portfolios')
           .select('*', { count: 'exact' })
           .eq('user_id', user.id)
@@ -161,7 +161,7 @@ export class PortfolioService {
         'getPortfolios'
       );
 
-      const { data, error, count } = result;
+      const { data, error, count } = result as { data: Portfolio[] | null; error: Error | null; count?: number };
 
       if (error) {
         return { data: [], error: error.message, success: false }
@@ -283,7 +283,7 @@ export class PositionService {
     try {
       // Use enhanced client with retry logic
       const result = await enhancedSupabase.queryWithRetry(
-        (client) => client
+        async (client) => await client
           .from('positions')
           .select(`
             *,
@@ -295,7 +295,7 @@ export class PositionService {
         'getPositions'
       );
 
-      const { data, error } = result;
+      const { data, error } = result as { data: (Position & { asset: Asset })[] | null; error: Error | null };
 
       if (error) {
         return { data: [], error: error.message, success: false }
@@ -308,6 +308,149 @@ export class PositionService {
         error: error instanceof Error ? error.message : 'Unknown error', 
         success: false 
       }
+    }
+  }
+
+  /**
+   * Get or create position for an asset in a portfolio
+   */
+  static async getOrCreatePosition(
+    portfolioId: string,
+    assetId: string
+  ): Promise<ServiceResponse<Position & { asset: Asset }>> {
+    try {
+      // First try to get existing position
+      const { data: existingPosition, error: fetchError } = await supabase
+        .from('positions')
+        .select(`
+          *,
+          asset:assets(*)
+        `)
+        .eq('portfolio_id', portfolioId)
+        .eq('asset_id', assetId)
+        .eq('is_active', true)
+        .single();
+
+      if (existingPosition && !fetchError) {
+        return { data: existingPosition, error: null, success: true };
+      }
+
+      // Create new position if it doesn't exist
+      const { data: newPosition, error: createError } = await supabase
+        .from('positions')
+        .insert({
+          portfolio_id: portfolioId,
+          asset_id: assetId,
+          quantity: 0,
+          average_cost_basis: 0,
+          total_cost_basis: 0,
+          realized_pl: 0,
+          open_date: new Date().toISOString().split('T')[0],
+          cost_basis_method: 'FIFO',
+          is_active: true
+        })
+        .select(`
+          *,
+          asset:assets(*)
+        `)
+        .single();
+
+      if (createError) {
+        return { data: null, error: createError.message, success: false };
+      }
+
+      return { data: newPosition, error: null, success: true };
+    } catch (error) {
+      return { 
+        data: null, 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      };
+    }
+  }
+
+  /**
+   * Update position based on transaction
+   */
+  static async updatePositionFromTransaction(
+    portfolioId: string,
+    assetId: string,
+    transactionType: TransactionType,
+    quantity: number,
+    price: number,
+    fees: number = 0
+  ): Promise<ServiceResponse<Position & { asset: Asset }>> {
+    try {
+      // Get or create the position
+      const positionResult = await this.getOrCreatePosition(portfolioId, assetId);
+      
+      if (!positionResult.success || !positionResult.data) {
+        return { data: null, error: positionResult.error || 'Failed to get position', success: false };
+      }
+
+      const position = positionResult.data;
+      const totalAmount = quantity * price + fees;
+
+      let newQuantity = position.quantity;
+      let newAverageCostBasis = position.average_cost_basis;
+      let newTotalCostBasis = position.total_cost_basis;
+      let newRealizedPL = position.realized_pl;
+
+      if (transactionType === 'buy') {
+        // Calculate weighted average cost basis for buy transactions
+        const currentValue = newQuantity * newAverageCostBasis;
+        const newValue = currentValue + totalAmount;
+        newQuantity += quantity;
+        
+        if (newQuantity > 0) {
+          newAverageCostBasis = newValue / newQuantity;
+          newTotalCostBasis = newValue;
+        }
+      } else if (transactionType === 'sell') {
+        // For sell transactions, calculate realized P&L
+        if (newQuantity >= quantity) {
+          const costOfSoldShares = quantity * newAverageCostBasis;
+          const saleProceeds = quantity * price - fees;
+          newRealizedPL += saleProceeds - costOfSoldShares;
+          
+          newQuantity -= quantity;
+          newTotalCostBasis -= costOfSoldShares;
+          
+          // Average cost basis remains the same for partial sells
+        } else {
+          return { data: null, error: 'Cannot sell more shares than owned', success: false };
+        }
+      }
+
+      // Update the position
+      const { data: updatedPosition, error: updateError } = await supabase
+        .from('positions')
+        .update({
+          quantity: newQuantity,
+          average_cost_basis: newAverageCostBasis,
+          total_cost_basis: newTotalCostBasis,
+          realized_pl: newRealizedPL,
+          is_active: newQuantity > 0,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', position.id)
+        .select(`
+          *,
+          asset:assets(*)
+        `)
+        .single();
+
+      if (updateError) {
+        return { data: null, error: updateError.message, success: false };
+      }
+
+      return { data: updatedPosition, error: null, success: true };
+    } catch (error) {
+      return { 
+        data: null, 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      };
     }
   }
 }
@@ -356,7 +499,7 @@ export class TransactionService {
 
       // Use enhanced client with retry logic
       const result = await enhancedSupabase.queryWithRetry(
-        (client) => client
+        async (client) => await client
           .from('transactions')
           .select(`
             *,
@@ -367,7 +510,7 @@ export class TransactionService {
         'getTransactions'
       );
 
-      const { data, error } = result;
+      const { data, error } = result as { data: (Transaction & { asset: Asset })[] | null; error: Error | null };
 
       if (error) {
         return { data: [], error: error.message, success: false }
@@ -418,6 +561,22 @@ export class TransactionService {
 
       if (error) {
         return { data: null, error: error.message, success: false }
+      }
+
+      // Update position after successful transaction creation
+      const positionUpdateResult = await PositionService.updatePositionFromTransaction(
+        portfolioId,
+        assetId,
+        transactionType,
+        quantity,
+        price,
+        0 // fees - not provided in this method signature
+      );
+
+      if (!positionUpdateResult.success) {
+        console.warn('Position update failed after transaction creation:', positionUpdateResult.error);
+        // Don't fail the transaction creation if position update fails
+        // The position can be updated later via reconciliation
       }
 
       return { data, error: null, success: true }
