@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import styled from 'styled-components';
-import { ArrowDownCircle, ArrowUpCircle, Gift, Edit3, Trash2, AlertTriangle, CheckCircle2, Info } from 'lucide-react'; // Added icons
+import { ArrowDownCircle, ArrowUpCircle, Gift, Edit3, Trash2, Info } from 'lucide-react'; // Removed AlertTriangle, CheckCircle2
 import type { Transaction, Asset } from '../lib/database/types';
 import { formatCurrency, formatDate } from '../utils/formatting';
 import CompanyLogo from './CompanyLogo';
