@@ -148,6 +148,53 @@ export class EnhancedAISymbolParser {
   private static async mockAIParsing(query: string): Promise<SymbolParseResult> {
     // Mock database of known queries
     const mockMappings: Record<string, SymbolParseResult> = {
+      // Stock examples
+      'apple stock': {
+        originalQuery: query,
+        parsedSymbol: 'AAPL',
+        confidence: 0.9,
+        type: 'stock'
+      },
+      'apple': {
+        originalQuery: query,
+        parsedSymbol: 'AAPL',
+        confidence: 0.8,
+        type: 'stock'
+      },
+      'tesla stock': {
+        originalQuery: query,
+        parsedSymbol: 'TSLA',
+        confidence: 0.9,
+        type: 'stock'
+      },
+      'microsoft': {
+        originalQuery: query,
+        parsedSymbol: 'MSFT',
+        confidence: 0.8,
+        type: 'stock'
+      },
+      
+      // ETF examples
+      'spy etf': {
+        originalQuery: query,
+        parsedSymbol: 'SPY',
+        confidence: 0.9,
+        type: 'etf'
+      },
+      'qqq etf': {
+        originalQuery: query,
+        parsedSymbol: 'QQQ',
+        confidence: 0.9,
+        type: 'etf'
+      },
+      's&p 500 etf': {
+        originalQuery: query,
+        parsedSymbol: 'SPY',
+        confidence: 0.8,
+        type: 'etf'
+      },
+      
+      // Option examples
       'soxl jun 6 $17 call': {
         originalQuery: query,
         parsedSymbol: 'SOXL250606C00017000',

@@ -14,6 +14,7 @@ import { EnhancedAISymbolParser } from '../services/ai/enhancedSymbolParser';
 import { YahooFinanceValidator } from '../services/yahooFinanceValidator';
 import { debug, PerformanceTracker } from '../utils/debug';
 import type { SymbolLookupResult } from '../types/ai';
+import type { AssetType } from '../types/portfolio';
 
 const InputContainer = styled.div`
   position: relative;
@@ -337,12 +338,23 @@ export const EnhancedSymbolInput: React.FC<EnhancedSymbolInputProps> = ({
               validatedName: validation.name 
             }, 'EnhancedSymbolInput');
             
+            // Map AI parser types to our AssetType
+            const mapToAssetType = (type: string): AssetType => {
+              switch (type) {
+                case 'option': return 'option';
+                case 'etf': return 'etf';
+                case 'stock':
+                case 'index':
+                default: return 'stock';
+              }
+            };
+            
             // Auto-fill with the validated symbol
             onChange(result.parsedSymbol, {
               symbol: result.parsedSymbol,
               name: validation.name || result.parsedSymbol,
               exchange: 'UNKNOWN',
-              assetType: 'stock' as const,
+              assetType: mapToAssetType(result.type), // Use AI-detected asset type with mapping
               confidence: result.confidence
             });
             
