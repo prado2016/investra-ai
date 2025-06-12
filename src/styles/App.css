@@ -929,8 +929,6 @@ html {
   height: 100%;
   background: linear-gradient(
     135deg,
-  background: linear-gradient(
-    135deg,
     hsla(var(--color-accent-700)/0.05) 0%, /* USE NEW ACCENT VARIABLE */
     hsla(var(--color-primary-700)/0.08) 50%, /* USE NEW PRIMARY VARIABLE */
     hsla(var(--color-accent-800)/0.06) 100% /* USE NEW ACCENT VARIABLE */
