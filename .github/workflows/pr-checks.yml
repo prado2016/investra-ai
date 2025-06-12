@@ -44,12 +44,19 @@ jobs:
         with:
           types: |
             feat
+            Feat
             fix
+            Fix
             docs
+            Docs
             style
+            Style
             refactor
+            Refactor
             test
+            Test
             chore
+            Chore
           requireScope: false
           
       - name: Check for large files
