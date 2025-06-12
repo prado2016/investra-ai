@@ -88,14 +88,14 @@ export const InputField: React.FC<InputFieldProps> = ({
       
       {hasError && (
         <div id={`${label}-error`} className="error-message" role="alert">
-          <AlertCircle />
+          <AlertCircle size={16} />
           {error}
         </div>
       )}
       
       {hasSuccess && (
         <div id={`${label}-success`} className="success-message">
-          <CheckCircle />
+          <CheckCircle size={16} />
           {success}
         </div>
       )}
@@ -157,34 +157,24 @@ export const PasswordField: React.FC<PasswordFieldProps> = ({
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="btn btn-ghost"
-            style={{
-              position: 'absolute',
-              right: 'var(--space-3)',
-              background: 'none',
-              border: 'none',
-              padding: 'var(--space-1)',
-              borderRadius: 'var(--radius-sm)',
-              color: 'var(--text-muted)',
-              cursor: 'pointer'
-            }}
+            className="btn btn-ghost password-toggle-btn" /* MODIFIED: Removed inline styles, added new class */
             aria-label={showPassword ? 'Hide password' : 'Show password'}
           >
-            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
           </button>
         )}
       </div>
       
       {hasError && (
         <div id={`${props.label}-error`} className="error-message" role="alert">
-          <AlertCircle />
+          <AlertCircle size={16} />
           {props.error}
         </div>
       )}
       
       {hasSuccess && (
         <div id={`${props.label}-success`} className="success-message">
-          <CheckCircle />
+          <CheckCircle size={16} />
           {props.success}
         </div>
       )}
@@ -273,14 +263,14 @@ export const SelectField: React.FC<SelectFieldProps> = ({
       
       {hasError && (
         <div id={`${label}-error`} className="error-message" role="alert">
-          <AlertCircle />
+          <AlertCircle size={16} />
           {error}
         </div>
       )}
       
       {hasSuccess && (
         <div id={`${label}-success`} className="success-message">
-          <CheckCircle />
+          <CheckCircle size={16} />
           {success}
         </div>
       )}
@@ -374,14 +364,14 @@ export const TextareaField: React.FC<TextareaFieldProps> = ({
       
       {hasError && (
         <div id={`${label}-error`} className="error-message" role="alert">
-          <AlertCircle />
+          <AlertCircle size={16} />
           {error}
         </div>
       )}
       
       {hasSuccess && (
         <div id={`${label}-success`} className="success-message">
-          <CheckCircle />
+          <CheckCircle size={16} />
           {success}
         </div>
       )}
