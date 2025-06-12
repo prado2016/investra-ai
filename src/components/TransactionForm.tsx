@@ -5,7 +5,9 @@ import { PriceInput } from './PriceInput';
 import { SymbolInput } from './SymbolInput';
 import { useForm } from '../hooks/useForm';
 import { useSupabasePortfolios } from '../hooks/useSupabasePortfolios';
+import { detectAssetType } from '../utils/assetCategorization';
 import type { Transaction, AssetType, TransactionType, Currency } from '../types/portfolio';
+import type { SymbolLookupResult } from '../types/ai';
 
 // Modern tooltip wrapper component
 interface TooltipWrapperProps {
@@ -172,6 +174,31 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     }
   });
 
+  // Auto-detect and set asset type when symbol changes
+  const handleSymbolChange = (value: string, metadata?: SymbolLookupResult) => {
+    // Set the symbol value
+    form.setValue('assetSymbol', value);
+    
+    // Auto-detect asset type from AI metadata or symbol pattern
+    let detectedType: AssetType | null = null;
+    
+    // First, try to use AI-detected asset type from metadata
+    if (metadata?.assetType) {
+      detectedType = metadata.assetType;
+    } else if (value.trim()) {
+      // Fallback to pattern-based detection
+      detectedType = detectAssetType(value.trim().toUpperCase());
+    }
+    
+    // Only auto-set if we detected 'stock' or 'option' as requested
+    if (detectedType === 'stock' || detectedType === 'option') {
+      // Only change if current asset type is different to avoid unnecessary updates
+      if (form.values.assetType !== detectedType) {
+        form.setValue('assetType', detectedType);
+      }
+    }
+  };
+
   // Auto-calculate total amount when quantity or price changes
   React.useEffect(() => {
     const quantity = parseFloat(form.values.quantity);
@@ -257,7 +284,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
             name="assetSymbol"
             label="Symbol"
             value={form.values.assetSymbol}
-            onChange={(value) => form.setValue('assetSymbol', value)}
+            onChange={handleSymbolChange}
             onBlur={() => form.setFieldTouched('assetSymbol')}
             error={form.touched.assetSymbol ? form.errors.assetSymbol?.message : ''}
             required
