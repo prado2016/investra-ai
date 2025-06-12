@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { usePortfolios } from '../contexts/PortfolioContext';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { TransactionService, AssetService } from '../services/supabaseService';
@@ -24,6 +24,9 @@ const TransactionsPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  
+  // Debounce fetch to prevent excessive API calls
+  const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Fetch transactions when portfolio changes
   const fetchTransactions = useCallback(async () => {
@@ -49,13 +52,30 @@ const TransactionsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [activePortfolio?.id, notify]); // Added notify to dependencies
+  }, [activePortfolio?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  // notify is intentionally excluded as it should be stable
 
   useEffect(() => {
     if (activePortfolio?.id) {
-      fetchTransactions();
+      // Clear previous timeout if any
+      if (fetchTimeoutRef.current) {
+        clearTimeout(fetchTimeoutRef.current);
+      }
+
+      // Set up a debounced fetch to prevent rate limiting
+      fetchTimeoutRef.current = setTimeout(() => {
+        fetchTransactions();
+      }, 300); // 300ms debounce time
     }
-  }, [activePortfolio?.id, fetchTransactions]);
+    
+    // Cleanup timeout on unmount
+    return () => {
+      if (fetchTimeoutRef.current) {
+        clearTimeout(fetchTimeoutRef.current);
+      }
+    };
+  }, [activePortfolio?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  // fetchTransactions is intentionally excluded to prevent dependency cycles
 
   const handleEditTransaction = (transactionWithAsset: TransactionWithAsset) => {
     // Convert database transaction to portfolio transaction format for the form

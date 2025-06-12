@@ -115,7 +115,7 @@ export const portfolioRateLimiter = new RateLimiter({
 });
 
 export const transactionRateLimiter = new RateLimiter({
-  maxCalls: 10,
+  maxCalls: 20,
   windowMs: 60000, // 1 minute
   cooldownMs: 5000  // 5 seconds
 });
@@ -126,5 +126,17 @@ setInterval(() => {
   portfolioRateLimiter.cleanup();
   transactionRateLimiter.cleanup();
 }, 60000); // Cleanup every minute
+
+// Utility function to reset transaction rate limiter if needed
+export const resetTransactionRateLimit = (portfolioId: string) => {
+  const rateLimitKey = `transactions-${portfolioId}`;
+  transactionRateLimiter.reset(rateLimitKey);
+  console.log(`🔄 Reset rate limit for portfolio: ${portfolioId}`);
+};
+
+// Add this to window for debugging in dev mode
+if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+  (window as typeof window & { resetTransactionRateLimit?: typeof resetTransactionRateLimit }).resetTransactionRateLimit = resetTransactionRateLimit;
+}
 
 export { RateLimiter };
