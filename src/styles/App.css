@@ -2,8 +2,8 @@
 
 .App {
   min-height: 100vh;
-  background-color: var(--background-color, #f8fafc);
-  color: var(--text-color, #333);
+  background-color: var(--bg-secondary); /* USE NEW VARIABLE: Was #f8fafc (similar to --color-gray-50) */
+  color: var(--text-primary); /* USE NEW VARIABLE: Was #333 (similar to --color-gray-800) */
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
@@ -15,6 +15,33 @@ main {
   @media (min-width: 640px) {
     padding: 0;
   }
+}
+
+/* Password visibility toggle button in form fields */
+.password-toggle-btn {
+  position: absolute;
+  right: var(--space-3);
+  top: 50%; /* Added for better vertical centering */
+  transform: translateY(-50%); /* Added for better vertical centering */
+  background: none;
+  border: none;
+  padding: var(--space-1);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  display: inline-flex; /* Added to help center icon */
+  align-items: center; /* Added to help center icon */
+  justify-content: center; /* Added to help center icon */
+}
+
+.password-toggle-btn:hover {
+  color: var(--text-primary);
+  background-color: var(--bg-tertiary); /* Subtle hover effect */
+}
+
+.password-toggle-btn svg { /* Ensure icon size is consistent */
+  width: 18px;
+  height: 18px;
 }
 
 /* Global responsive utilities */
@@ -225,16 +252,16 @@ html {
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--background-color, #f8fafc);
+  background: var(--bg-secondary); /* USE NEW VARIABLE: Was #f8fafc */
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: var(--color-gray-300); /* USE NEW VARIABLE: Was #cbd5e1 */
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: var(--color-gray-400); /* USE NEW VARIABLE: Was #94a3b8 */
 }
 
 /* Print styles */
@@ -249,7 +276,7 @@ html {
 
 .btn-secondary {
   &:hover:not(:disabled) {
-    background: var(--color-gray-600);
+    background: var(--color-secondary-600); /* USE NEW VARIABLE: Was --color-gray-600, now new secondary */
     transform: translateY(-1px);
     box-shadow: var(--shadow-md);
   }
@@ -261,11 +288,11 @@ html {
 
 .btn-outline {
   background: transparent;
-  color: var(--color-teal-600);
-  border: 1px solid var(--color-teal-600);
+  color: var(--color-primary-700); /* USE NEW VARIABLE: Was --color-teal-600, now new primary */
+  border: 1px solid var(--color-primary-700); /* USE NEW VARIABLE: Was --color-teal-600, now new primary */
   
   &:hover:not(:disabled) {
-    background: var(--color-teal-600);
+    background: var(--color-primary-700); /* USE NEW VARIABLE: Was --color-teal-600, now new primary */
     color: var(--text-inverse);
   }
 }
@@ -420,7 +447,7 @@ html {
   
   /* Enhanced dark mode contrast */
   [data-theme="dark"] & {
-    color: #f1f5f9; /* Higher contrast white for labels */
+    color: var(--form-text, var(--text-primary)); /* Use form-text for dark theme consistency with inputs */
   }
   
   &.required::after {
@@ -432,7 +459,7 @@ html {
     color: var(--color-danger-600);
     
     [data-theme="dark"] & {
-      color: #fca5a5; /* Lighter red for dark mode */
+      color: var(--color-danger-400); /* Adjusted for better visibility on dark gold theme if label is outside form */
     }
   }
 }
@@ -484,15 +511,16 @@ html {
   
   &:focus {
     outline: none;
-    border-color: var(--border-focus);
-    box-shadow: 0 0 0 3px rgba(94, 234, 212, 0.15);
+    border-color: var(--border-focus); /* This will use the new primary teal */
+    box-shadow: 0 0 0 3px hsla(var(--color-primary-700)/0.15); /* Adjusted focus shadow to new primary */
     background-color: var(--bg-primary);
     color: var(--text-primary);
     
     [data-theme="dark"] & {
       background-color: var(--form-bg, var(--bg-tertiary));
       color: var(--form-text, var(--text-primary));
-      box-shadow: 0 0 0 3px rgba(94, 234, 212, 0.25);
+      border-color: var(--form-border, var(--border-primary)); /* Ensure border uses form-border for dark theme */
+      box-shadow: 0 0 0 3px hsla(var(--color-primary-400)/0.25);
     }
   }
   
@@ -527,21 +555,26 @@ html {
   @extend .form-input;
   cursor: pointer;
   appearance: none;
-  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23A0AEC0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e"); /* Fallback to encoded --color-gray-400 for stroke */
   background-repeat: no-repeat;
   background-position: right var(--space-3) center;
-  background-size: 16px;
-  padding-right: calc(var(--space-3) + 20px);
+  background-size: 1.25em; /* Slightly larger icon */
+  padding-right: calc(var(--space-3) + 24px); /* Adjust padding for larger icon */
   
   &::-ms-expand {
     display: none;
+  }
+
+  [data-theme="dark"] & {
+    /* In dark theme, text-muted is gold-ish. Let's use a gray for the select arrow for better contrast against form-bg */
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23CBD5E1' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e"); /* Encoded --color-gray-300 */
   }
 }
 
 .form-textarea {
   @extend .form-input;
   resize: vertical;
-  min-height: 100px;
+  min-height: 120px; /* Increased min-height */
   line-height: var(--leading-relaxed);
 }
 
@@ -565,9 +598,9 @@ html {
   z-index: 4;
   
   [data-theme="dark"] & {
-    background-color: var(--form-bg, #334155) !important;
-    border-color: var(--form-border, #64748b) !important;
-    color: var(--form-text, #ffffff) !important;
+    background-color: var(--form-bg, var(--bg-tertiary)) !important; /* form-bg is dark gold */
+    border-color: var(--form-border, var(--border-primary)) !important; /* form-border is dark gold */
+    color: var(--form-text, var(--text-primary)) !important; /* form-text is dark gold */
   }
   
   &::placeholder {
@@ -575,17 +608,17 @@ html {
     opacity: 0.7;
     
     [data-theme="dark"] & {
-      color: #94a3b8;
+      color: var(--text-muted); /* USE NEW VARIABLE */
       opacity: 0.8;
     }
   }
   
   &:focus {
     [data-theme="dark"] & {
-      background-color: var(--form-bg, #334155) !important;
-      color: var(--form-text, #ffffff) !important;
-      border-color: var(--color-teal-400) !important;
-      box-shadow: 0 0 0 3px rgba(94, 234, 212, 0.25) !important;
+      background-color: var(--form-bg, var(--bg-tertiary)) !important;
+      color: var(--form-text, var(--text-primary)) !important;
+      border-color: var(--color-primary-400) !important; /* Lighter teal for dark focus */
+      box-shadow: 0 0 0 3px hsla(var(--color-primary-400)/0.25) !important; /* Lighter teal shadow */
     }
   }
 }
@@ -615,14 +648,15 @@ html {
   align-items: center;
   gap: var(--space-2);
   color: var(--color-danger-600);
-  font-size: var(--text-xs);
-  margin-top: var(--space-1);
+  font-size: var(--text-sm); /* Slightly larger for better readability */
+  margin-top: var(--space-2); /* More space from input */
   line-height: var(--leading-tight);
   
   svg {
     flex-shrink: 0;
-    width: 14px;
-    height: 14px;
+    width: 16px; /* Slightly larger icon */
+    height: 16px;
+    margin-right: var(--space-1); /* Space between icon and text */
   }
 }
 
@@ -631,21 +665,22 @@ html {
   align-items: center;
   gap: var(--space-2);
   color: var(--color-success-600);
-  font-size: var(--text-xs);
-  margin-top: var(--space-1);
+  font-size: var(--text-sm); /* Slightly larger for better readability */
+  margin-top: var(--space-2); /* More space from input */
   line-height: var(--leading-tight);
   
   svg {
     flex-shrink: 0;
-    width: 14px;
-    height: 14px;
+    width: 16px; /* Slightly larger icon */
+    height: 16px;
+    margin-right: var(--space-1); /* Space between icon and text */
   }
 }
 
 .help-text {
   color: var(--text-muted);
-  font-size: var(--text-xs);
-  margin-top: var(--space-1);
+  font-size: var(--text-sm); /* Consistent with error/success messages */
+  margin-top: var(--space-2); /* More space from input */
   line-height: var(--leading-tight);
 }
 
@@ -894,9 +929,11 @@ html {
   height: 100%;
   background: linear-gradient(
     135deg,
-    rgba(255, 215, 0, 0.05) 0%,
-    rgba(47, 82, 51, 0.08) 50%,
-    rgba(184, 134, 11, 0.06) 100%
+  background: linear-gradient(
+    135deg,
+    hsla(var(--color-accent-700)/0.05) 0%, /* USE NEW ACCENT VARIABLE */
+    hsla(var(--color-primary-700)/0.08) 50%, /* USE NEW PRIMARY VARIABLE */
+    hsla(var(--color-accent-800)/0.06) 100% /* USE NEW ACCENT VARIABLE */
   );
   animation: gradientShift 8s ease-in-out infinite;
   z-index: 2;
@@ -918,7 +955,7 @@ html {
 .shape {
   position: absolute;
   border-radius: 50%;
-  background: linear-gradient(135deg, rgba(255, 215, 0, 0.3), rgba(47, 82, 51, 0.3));
+  background: linear-gradient(135deg, hsla(var(--color-accent-700)/0.3), hsla(var(--color-primary-700)/0.3)); /* USE NEW ACCENT/PRIMARY */
   opacity: 0.15;
   animation: float 20s linear infinite;
 }
@@ -980,13 +1017,13 @@ html {
 
 /* Glassmorphism Effect */
 .glass {
-  background: rgba(245, 245, 220, 0.15);
+  background: hsla(var(--bg-primary)/0.15); /* Use new bg-primary with alpha */
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid hsla(var(--text-inverse)/0.2);
   box-shadow: 
-    0 8px 32px rgba(47, 82, 51, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    0 8px 32px hsla(var(--color-primary-800)/0.2), /* Use new primary for shadow */
+    inset 0 1px 0 hsla(var(--text-inverse)/0.2);
 }
 
 /* Main Auth Card */
@@ -1046,18 +1083,18 @@ html {
 @keyframes pulse {
   0%, 100% {
     transform: scale(1);
-    box-shadow: 0 0 0 0 rgba(94, 234, 212, 0.4);
+    box-shadow: 0 0 0 0 hsla(var(--color-primary-500)/0.4); /* USE NEW PRIMARY */
   }
   50% {
     transform: scale(1.05);
-    box-shadow: 0 0 0 20px rgba(94, 234, 212, 0);
+    box-shadow: 0 0 0 20px hsla(var(--color-primary-500)/0); /* USE NEW PRIMARY */
   }
 }
 
 .auth-logo h1 {
   font-size: var(--text-3xl);
   font-weight: var(--font-weight-bold);
-  background: var(--gradient-primary);
+  background: var(--gradient-primary); /* This will use the new primary teal gradient */
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -1095,7 +1132,7 @@ html {
   }
   50% {
     transform: scale(1.02);
-    filter: drop-shadow(0 6px 12px rgba(255, 215, 0, 0.3));
+    filter: drop-shadow(0 6px 12px hsla(var(--color-accent-700)/0.3)); /* USE NEW ACCENT */
   }
 }
 
@@ -1174,8 +1211,8 @@ html {
 }
 
 .mode-btn.active {
-  background: var(--gradient-primary);
-  color: white;
+  background: var(--gradient-primary); /* This will use the new primary teal gradient */
+  color: var(--text-inverse); /* USE NEW VARIABLE */
   box-shadow: var(--shadow-md);
   transform: translateY(-1px);
 }
@@ -1240,11 +1277,11 @@ html {
 
 .auth-input:focus {
   outline: none;
-  border-color: var(--color-teal-400);
+  border-color: var(--color-primary-500); /* USE NEW PRIMARY */
   box-shadow: 
-    0 0 0 3px rgba(94, 234, 212, 0.2),
+    0 0 0 3px hsla(var(--color-primary-500)/0.2), /* USE NEW PRIMARY */
     0 4px 12px rgba(0, 0, 0, 0.2);
-  background: rgba(255, 255, 255, 0.08);
+  background: hsla(var(--text-inverse)/0.08); /* USE NEW TEXT INVERSE */
 }
 
 .password-toggle {
@@ -1368,7 +1405,7 @@ html {
 }
 
 .feature-item svg {
-  color: var(--color-teal-400);
+  color: var(--color-primary-500); /* USE NEW PRIMARY */
 }
 
 .feature-item span {
@@ -1419,11 +1456,11 @@ html {
 @keyframes successPulse {
   0%, 100% {
     transform: scale(1);
-    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+    box-shadow: 0 0 0 0 hsla(var(--color-success-500)/0.4); /* USE SUCCESS VARIABLE */
   }
   50% {
     transform: scale(1.05);
-    box-shadow: 0 0 0 20px rgba(16, 185, 129, 0);
+    box-shadow: 0 0 0 20px hsla(var(--color-success-500)/0); /* USE SUCCESS VARIABLE */
   }
 }
 
@@ -1461,7 +1498,7 @@ html {
 
 .verification-badge.pending {
   background: rgba(245, 158, 11, 0.2);
-  color: #f59e0b;
+  color: var(--color-accent-700); /* USE NEW ACCENT VARIABLE */
   border: 1px solid rgba(245, 158, 11, 0.3);
 }
 
@@ -1493,7 +1530,7 @@ html {
 }
 
 .preview-stat svg {
-  color: var(--color-teal-400);
+  color: var(--color-primary-500); /* USE NEW PRIMARY */
 }
 
 .preview-stat span {
@@ -1559,12 +1596,12 @@ html {
   /* Enhanced button in last column - CRITICAL FIX FOR BUTTON VISIBILITY */
   & > *:last-child button {
     /* ALWAYS VISIBLE - Base state with high contrast */
-    background: linear-gradient(135deg, #14b8a6 0%, #3b82f6 100%) !important;
-    color: #ffffff !important;
-    border: 2px solid #14b8a6 !important;
-    font-weight: 700 !important;
-    font-size: 0.875rem !important;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+    background: linear-gradient(135deg, var(--color-primary-600) 0%, var(--color-primary-700) 100%) !important; /* USE NEW PRIMARY */
+    color: var(--text-inverse) !important; /* USE NEW VARIABLE */
+    border: 2px solid var(--color-primary-700) !important; /* USE NEW PRIMARY */
+    font-weight: var(--font-weight-bold) !important; /* USE NEW VARIABLE */
+    font-size: var(--text-sm) !important; /* USE NEW VARIABLE */
+    box-shadow: var(--shadow-md) !important; /* USE NEW VARIABLE */
     transition: all 0.2s ease !important;
     min-height: 44px !important;
     padding: 12px 16px !important;
@@ -1573,24 +1610,24 @@ html {
     
     /* CRITICAL: Enhanced dark mode button visibility */
     [data-theme="dark"] & {
-      background: linear-gradient(135deg, #5eead4 0%, #60a5fa 100%) !important;
-      color: #0f172a !important;
-      border-color: #5eead4 !important;
+      background: linear-gradient(135deg, var(--color-primary-400) 0%, var(--color-primary-500) 100%) !important; /* Lighter teal for dark */
+      color: var(--text-inverse) !important; /* Keep text light on darker teal */
+      border-color: var(--color-primary-400) !important;
       box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4) !important;
     }
     
     &:hover:not(:disabled) {
-      background: linear-gradient(135deg, #0f766e 0%, #1d4ed8 100%) !important;
+      background: linear-gradient(135deg, var(--color-primary-700) 0%, var(--color-primary-800) 100%) !important; /* Darker teal on hover */
       transform: translateY(-2px) !important;
-      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
-      border-color: #0f766e !important;
+      box-shadow: var(--shadow-lg) !important; /* USE NEW VARIABLE */
+      border-color: var(--color-primary-800) !important;
       
       /* Enhanced dark mode button hover */
       [data-theme="dark"] & {
-        background: linear-gradient(135deg, #2dd4bf 0%, #3b82f6 100%) !important;
-        color: #ffffff !important;
+        background: linear-gradient(135deg, var(--color-primary-500) 0%, var(--color-primary-600) 100%) !important;
+        color: var(--text-inverse) !important;
         box-shadow: 0 6px 12px rgba(0, 0, 0, 0.5) !important;
-        border-color: #2dd4bf !important;
+        border-color: var(--color-primary-500) !important;
       }
     }
     
@@ -1599,7 +1636,7 @@ html {
     }
     
     &:focus {
-      outline: 2px solid #5eead4 !important;
+      outline: 2px solid var(--color-primary-500) !important; /* USE NEW PRIMARY */
       outline-offset: 2px !important;
     }
   }
@@ -1633,10 +1670,10 @@ html {
   
   &:focus {
     [data-theme="dark"] & {
-      background-color: var(--form-bg, var(--bg-tertiary)) !important;
-      color: var(--form-text, var(--text-primary)) !important;
-      border-color: var(--color-teal-400) !important;
-      box-shadow: 0 0 0 3px rgba(94, 234, 212, 0.25) !important;
+      background-color: var(--form-bg, var(--bg-tertiary)) !important; /* form-bg is dark gold */
+      color: var(--form-text, var(--text-primary)) !important; /* form-text is dark gold */
+      border-color: var(--color-primary-400) !important; /* Lighter teal for dark focus */
+      box-shadow: 0 0 0 3px hsla(var(--color-primary-400)/0.25) !important; /* Lighter teal shadow */
     }
   }
 }
@@ -1645,24 +1682,24 @@ html {
 .symbol-input {
   /* CRITICAL: Enhanced fixes for symbol input visibility in dark mode */
   [data-theme="dark"] & {
-    background-color: var(--form-bg, #334155) !important;
-    border-color: var(--form-border, #64748b) !important;
-    color: var(--form-text, #ffffff) !important;
+    background-color: var(--form-bg, var(--bg-tertiary)) !important; /* form-bg is dark gold */
+    border-color: var(--form-border, var(--border-primary)) !important; /* form-border is dark gold */
+    color: var(--form-text, var(--text-primary)) !important; /* form-text is dark gold */
   }
   
   &::placeholder {
     [data-theme="dark"] & {
-      color: #94a3b8 !important;
-      opacity: 0.8 !important;
+    color: var(--form-text, var(--text-muted)); /* Use form-text for placeholder in dark mode for consistency */
+    opacity: 0.7; /* Adjusted opacity for dark mode placeholder */
     }
   }
   
   &:focus {
     [data-theme="dark"] & {
-      background-color: var(--form-bg, #334155) !important;
-      color: var(--form-text, #ffffff) !important;
-      border-color: var(--color-teal-400) !important;
-      box-shadow: 0 0 0 3px rgba(94, 234, 212, 0.25) !important;
+      background-color: var(--form-bg, var(--bg-tertiary)) !important;
+      color: var(--form-text, var(--text-primary)) !important;
+      border-color: var(--color-primary-400) !important;
+      box-shadow: 0 0 0 3px hsla(var(--color-primary-400)/0.25) !important;
     }
   }
 }
@@ -1671,23 +1708,23 @@ html {
 .field-label {
   /* Enhanced dark mode contrast for labels */
   [data-theme="dark"] & {
-    color: #f1f5f9 !important; /* Higher contrast white for labels */
+    color: var(--form-text, var(--text-primary)) !important; /* USE NEW VARIABLE (form-text from dark gold theme) */
   }
   
   &.error {
     [data-theme="dark"] & {
-      color: #fca5a5 !important; /* Lighter red for dark mode */
+      color: var(--color-danger-300) !important; /* Lighter red for dark mode, if available */
     }
   }
 }
 
 /* Modern gradient backgrounds for brand elements */
 .gradient-primary {
-  background: linear-gradient(135deg, var(--color-teal-600) 0%, var(--color-primary-600) 100%);
+  background: linear-gradient(135deg, var(--color-primary-600) 0%, var(--color-primary-700) 100%); /* USE NEW PRIMARY */
 }
 
 .gradient-secondary {
-  background: linear-gradient(135deg, var(--color-navy-700) 0%, var(--color-navy-900) 100%);
+  background: linear-gradient(135deg, var(--color-secondary-700) 0%, var(--color-secondary-800) 100%); /* USE NEW SECONDARY */
 }
 
 /* CRITICAL: Additional button visibility fixes */
@@ -1702,33 +1739,33 @@ html {
 .horizontal-fields-container button,
 .btn {
   /* Override base button reset */
-  background: linear-gradient(135deg, #14b8a6 0%, #3b82f6 100%) !important;
-  color: #ffffff !important;
-  border: 2px solid #14b8a6 !important;
+  background: linear-gradient(135deg, var(--color-primary-600) 0%, var(--color-primary-700) 100%) !important; /* USE NEW PRIMARY */
+  color: var(--text-inverse) !important; /* USE NEW VARIABLE */
+  border: 2px solid var(--color-primary-700) !important; /* USE NEW PRIMARY */
   padding: 12px 16px !important;
-  border-radius: 8px !important;
-  font-weight: 600 !important;
-  font-size: 0.875rem !important;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
+  border-radius: var(--radius-md) !important; /* USE NEW VARIABLE */
+  font-weight: var(--font-weight-semibold) !important; /* USE NEW VARIABLE */
+  font-size: var(--text-sm) !important; /* USE NEW VARIABLE */
+  box-shadow: var(--shadow-sm) !important; /* USE NEW VARIABLE */
   transition: all 0.2s ease !important;
   cursor: pointer !important;
   
   [data-theme="dark"] & {
-    background: linear-gradient(135deg, #5eead4 0%, #60a5fa 100%) !important;
-    color: #0f172a !important;
-    border-color: #5eead4 !important;
+    background: linear-gradient(135deg, var(--color-primary-400) 0%, var(--color-primary-500) 100%) !important; /* Lighter teal for dark */
+    color: var(--text-inverse) !important; /* Keep text light on darker teal */
+    border-color: var(--color-primary-400) !important;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4) !important;
   }
   
   &:hover:not(:disabled) {
-    background: linear-gradient(135deg, #0f766e 0%, #1d4ed8 100%) !important;
+    background: linear-gradient(135deg, var(--color-primary-700) 0%, var(--color-primary-800) 100%) !important; /* Darker teal on hover */
     transform: translateY(-1px) !important;
-    box-shadow: 0 6px 10px -2px rgba(0, 0, 0, 0.2) !important;
+    box-shadow: var(--shadow-md) !important; /* USE NEW VARIABLE */
     
     [data-theme="dark"] & {
-      background: linear-gradient(135deg, #2dd4bf 0%, #3b82f6 100%) !important;
-      color: #ffffff !important;
-      border-color: #2dd4bf !important;
+      background: linear-gradient(135deg, var(--color-primary-500) 0%, var(--color-primary-600) 100%) !important;
+      color: var(--text-inverse) !important;
+      border-color: var(--color-primary-500) !important;
     }
   }
   
@@ -1745,24 +1782,24 @@ html {
 
 .btn-primary {
   /* Force primary button visibility */
-  background: linear-gradient(135deg, #14b8a6 0%, #3b82f6 100%) !important;
-  color: #ffffff !important;
-  border: 2px solid #14b8a6 !important;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
+  background: linear-gradient(135deg, var(--color-primary-600) 0%, var(--color-primary-700) 100%) !important; /* USE NEW PRIMARY */
+  color: var(--text-inverse) !important; /* USE NEW VARIABLE */
+  border: 2px solid var(--color-primary-700) !important; /* USE NEW PRIMARY */
+  box-shadow: var(--shadow-md) !important; /* USE NEW VARIABLE */
   
   [data-theme="dark"] & {
-    background: linear-gradient(135deg, #5eead4 0%, #60a5fa 100%) !important;
-    color: #0f172a !important;
-    border-color: #5eead4 !important;
+    background: linear-gradient(135deg, var(--color-primary-400) 0%, var(--color-primary-500) 100%) !important; /* Lighter teal for dark */
+    color: var(--text-inverse) !important;
+    border-color: var(--color-primary-400) !important;
   }
   
   &:hover {
-    background: linear-gradient(135deg, #0f766e 0%, #1d4ed8 100%) !important;
+    background: linear-gradient(135deg, var(--color-primary-700) 0%, var(--color-primary-800) 100%) !important; /* Darker teal on hover */
     transform: translateY(-1px) !important;
     
     [data-theme="dark"] & {
-      background: linear-gradient(135deg, #2dd4bf 0%, #3b82f6 100%) !important;
-      color: #ffffff !important;
+      background: linear-gradient(135deg, var(--color-primary-500) 0%, var(--color-primary-600) 100%) !important;
+      color: var(--text-inverse) !important;
     }
   }
 }
@@ -1771,41 +1808,41 @@ html {
 button[type="submit"].btn.btn-primary,
 .btn.btn-primary[type="submit"] {
   /* Nuclear option - force visibility with highest specificity */
-  background: linear-gradient(135deg, #14b8a6 0%, #3b82f6 100%) !important;
-  color: #ffffff !important;
-  border: 2px solid #14b8a6 !important;
+  background: linear-gradient(135deg, var(--color-primary-600) 0%, var(--color-primary-700) 100%) !important; /* USE NEW PRIMARY */
+  color: var(--text-inverse) !important; /* USE NEW VARIABLE */
+  border: 2px solid var(--color-primary-700) !important; /* USE NEW PRIMARY */
   opacity: 1 !important;
   visibility: visible !important;
   display: flex !important;
   
   [data-theme="dark"] & {
-    background: linear-gradient(135deg, #5eead4 0%, #60a5fa 100%) !important;
-    color: #0f172a !important;
-    border-color: #5eead4 !important;
+    background: linear-gradient(135deg, var(--color-primary-400) 0%, var(--color-primary-500) 100%) !important; /* Lighter teal for dark */
+    color: var(--text-inverse) !important;
+    border-color: var(--color-primary-400) !important;
   }
   
   &:hover:not(:disabled) {
-    background: linear-gradient(135deg, #0f766e 0%, #1d4ed8 100%) !important;
+    background: linear-gradient(135deg, var(--color-primary-700) 0%, var(--color-primary-800) 100%) !important; /* Darker teal on hover */
     transform: translateY(-1px) !important;
     
     [data-theme="dark"] & {
-      background: linear-gradient(135deg, #2dd4bf 0%, #3b82f6 100%) !important;
-      color: #ffffff !important;
+      background: linear-gradient(135deg, var(--color-primary-500) 0%, var(--color-primary-600) 100%) !important;
+      color: var(--text-inverse) !important;
     }
   }
   
   &:disabled {
-    background: linear-gradient(135deg, #94a3b8 0%, #9ca3af 100%) !important;
-    color: #ffffff !important;
-    border-color: #94a3b8 !important;
+    background: linear-gradient(135deg, var(--color-gray-400) 0%, var(--color-gray-500) 100%) !important; /* USE NEW GRAYS */
+    color: var(--text-inverse) !important;
+    border-color: var(--color-gray-500) !important; /* USE NEW GRAYS */
     opacity: 0.6 !important;
     cursor: not-allowed !important;
     transform: none !important;
     
     [data-theme="dark"] & {
-      background: linear-gradient(135deg, #64748b 0%, #6b7280 100%) !important;
-      color: #cbd5e1 !important;
-      border-color: #64748b !important;
+      background: linear-gradient(135deg, var(--color-gray-600) 0%, var(--color-gray-700) 100%) !important; /* USE NEW GRAYS */
+      color: var(--color-gray-300) !important; /* USE NEW GRAYS */
+      border-color: var(--color-gray-700) !important; /* USE NEW GRAYS */
     }
   }
 }
@@ -1987,16 +2024,16 @@ button[type="submit"].btn.btn-primary,
   
   &:focus {
     outline: none !important;
-    border-color: var(--border-focus) !important;
-    box-shadow: 0 0 0 3px rgba(94, 234, 212, 0.15) !important;
+    border-color: var(--border-focus) !important; /* This will use new primary teal */
+    box-shadow: 0 0 0 3px hsla(var(--color-primary-700)/0.15) !important; /* Adjusted shadow for new primary */
     background-color: var(--bg-primary) !important;
     color: var(--text-primary) !important;
     
     [data-theme="dark"] & {
-      background-color: var(--form-bg, var(--bg-tertiary)) !important;
-      color: var(--form-text, var(--text-primary)) !important;
-      border-color: var(--color-teal-400) !important;
-      box-shadow: 0 0 0 3px rgba(94, 234, 212, 0.25) !important;
+      background-color: var(--form-bg, var(--bg-tertiary)) !important; /* form-bg is dark gold */
+      color: var(--form-text, var(--text-primary)) !important; /* form-text is dark gold */
+      border-color: var(--color-primary-400) !important; /* Lighter teal for dark focus */
+      box-shadow: 0 0 0 3px hsla(var(--color-primary-400)/0.25) !important; /* Lighter teal shadow */
     }
   }
   
@@ -2043,21 +2080,22 @@ button[type="submit"].btn.btn-primary,
     flex-shrink: 0 !important;
     
     /* Ensure proper colors */
-    background: var(--gradient-primary) !important;
+    /* Ensure proper colors */
+    background: var(--gradient-primary) !important; /* This will use new primary teal gradient */
     color: var(--text-inverse) !important;
-    border: 1px solid var(--color-teal-600) !important;
+    border: 1px solid var(--color-primary-700) !important; /* USE NEW PRIMARY */
     
     [data-theme="dark"] & {
-      background: var(--gradient-primary) !important;
+      background: var(--gradient-primary) !important; /* This will use new primary teal gradient */
       color: var(--text-inverse) !important;
-      border-color: var(--color-teal-400) !important;
+      border-color: var(--color-primary-400) !important; /* Lighter teal for dark */
     }
     
     &:hover {
-      background: linear-gradient(135deg, var(--color-teal-700) 0%, var(--color-primary-700) 100%) !important;
+      background: linear-gradient(135deg, var(--color-primary-700) 0%, var(--color-primary-800) 100%) !important; /* Darker teal gradient on hover */
       
       [data-theme="dark"] & {
-        background: linear-gradient(135deg, var(--color-teal-400) 0%, var(--color-primary-400) 100%) !important;
+        background: linear-gradient(135deg, var(--color-primary-500) 0%, var(--color-primary-600) 100%) !important; /* Darker teal gradient for dark hover */
       }
     }
   }

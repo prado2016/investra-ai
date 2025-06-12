@@ -4,55 +4,55 @@
 @import './components.css';
 
 :root {
-  /* Conservative Professional Palette - Research Recommended */
-  --color-primary-50: #f0f9ff;
-  --color-primary-100: #e0f2fe;
-  --color-primary-200: #bae6fd;
-  --color-primary-300: #7dd3fc;
-  --color-primary-400: #38bdf8;
-  --color-primary-500: #0ea5e9;
-  --color-primary-600: #0284c7;
-  --color-primary-700: #0369a1;
-  --color-primary-800: #075985;
-  --color-primary-900: #0c4a6e;
-  
-  /* Navy Blue for Primary Elements (#112E51) */
-  --color-navy-50: #f8fafc;
-  --color-navy-100: #f1f5f9;
-  --color-navy-200: #e2e8f0;
-  --color-navy-300: #cbd5e1;
-  --color-navy-400: #94a3b8;
-  --color-navy-500: #64748b;
-  --color-navy-600: #475569;
-  --color-navy-700: #334155;
-  --color-navy-800: #1e293b;
-  --color-navy-900: #112e51;
-  
-  /* Teal for Interactive Components (#0095A8) */
-  --color-teal-50: #f0fdfa;
-  --color-teal-100: #ccfbf1;
-  --color-teal-200: #99f6e4;
-  --color-teal-300: #5eead4;
-  --color-teal-400: #2dd4bf;
-  --color-teal-500: #14b8a6;
-  --color-teal-600: #0095a8;
-  --color-teal-700: #0f766e;
-  --color-teal-800: #115e59;
-  --color-teal-900: #134e4a;
-  
-  /* Neutral Grays for Data (#78909C) */
-  --color-gray-50: #f9fafb;
-  --color-gray-100: #f3f4f6;
-  --color-gray-200: #e5e7eb;
-  --color-gray-300: #d1d5db;
-  --color-gray-400: #9ca3af;
-  --color-gray-500: #78909c;
-  --color-gray-600: #4b5563;
-  --color-gray-700: #374151;
-  --color-gray-800: #1f2937;
-  --color-gray-900: #111827;
-  
-  /* Success/Growth Colors (Blue/Green alternative for accessibility) */
+  /* New Primary Color: Sophisticated Teal (#00796B) */
+  --color-primary-50: #e0f2f1;    /* Lightest Teal */
+  --color-primary-100: #b2dfdb;
+  --color-primary-200: #80cbc4;
+  --color-primary-300: #4db6ac;
+  --color-primary-400: #26a69a;
+  --color-primary-500: #009688;    /* Base Teal */
+  --color-primary-600: #00897b;    /* Main Primary - Darker Teal */
+  --color-primary-700: #00796B;    /* Chosen Primary */
+  --color-primary-800: #00695c;
+  --color-primary-900: #004d40;    /* Darkest Teal */
+
+  /* New Secondary Color: Dark Blue-Gray (#4A5568) */
+  --color-secondary-50: #eceff1;   /* Lightest Blue-Gray */
+  --color-secondary-100: #cfd8dc;
+  --color-secondary-200: #b0bec5;
+  --color-secondary-300: #90a4ae;
+  --color-secondary-400: #78909c;
+  --color-secondary-500: #607d8b;   /* Base Blue-Gray */
+  --color-secondary-600: #546e7a;
+  --color-secondary-700: #4A5568;   /* Chosen Secondary */
+  --color-secondary-800: #37474f;
+  --color-secondary-900: #263238;   /* Darkest Blue-Gray */
+
+  /* New Accent Color: Warm Gold/Amber (#F59E0B) */
+  --color-accent-50: #fff8e1;    /* Lightest Amber */
+  --color-accent-100: #ffecb3;
+  --color-accent-200: #ffe082;
+  --color-accent-300: #ffd54f;
+  --color-accent-400: #ffca28;
+  --color-accent-500: #ffc107;    /* Base Amber */
+  --color-accent-600: #ffb300;
+  --color-accent-700: #F59E0B;    /* Chosen Accent */
+  --color-accent-800: #ffa000;
+  --color-accent-900: #ff8f00;    /* Darkest Amber */
+
+  /* Refined Neutral Grays (Inspired by Tailwind) */
+  --color-gray-50: #F7FAFC;
+  --color-gray-100: #EDF2F7;
+  --color-gray-200: #E2E8F0;
+  --color-gray-300: #CBD5E1;
+  --color-gray-400: #A0AEC0;
+  --color-gray-500: #718096;
+  --color-gray-600: #4A5568;    /* Matches New Secondary */
+  --color-gray-700: #2D3748;
+  --color-gray-800: #1A202C;
+  --color-gray-900: #171923;
+
+  /* Success/Growth Colors (Keeping existing for now) */
   --color-success-50: #ecfdf5;
   --color-success-100: #d1fae5;
   --color-success-500: #10b981;
@@ -60,44 +60,44 @@
   --color-success-700: #047857;
   
   /* Alert/Warning Colors (Orange instead of pure red for accessibility) */
-  --color-warning-50: #fff7ed;
-  --color-warning-100: #ffedd5;
-  --color-warning-500: #f97316;
-  --color-warning-600: #ea580c;
-  --color-warning-700: #c2410c;
+  --color-warning-50: var(--color-accent-50);   /* Aligning with new Accent scale */
+  --color-warning-100: var(--color-accent-100);
+  --color-warning-500: var(--color-accent-700); /* #F59E0B */
+  --color-warning-600: #dd8e0a; /* Darker shade of accent */
+  --color-warning-700: #c07b09; /* Even darker shade */
   
-  /* Critical/Danger Colors (Red for alerts only) */
+  /* Critical/Danger Colors (Red for alerts only - Keeping existing) */
   --color-danger-50: #fef2f2;
   --color-danger-100: #fee2e2;
   --color-danger-500: #ef4444;
   --color-danger-600: #dc2626;
   --color-danger-700: #b91c1c;
   
-  /* Light Theme Variables */
+  /* Light Theme Variables - Updated with new palette */
   --bg-primary: #ffffff;
-  --bg-secondary: #f8fafc;
-  --bg-tertiary: #f1f5f9;
+  --bg-secondary: var(--color-gray-50);    /* #F7FAFC */
+  --bg-tertiary: var(--color-gray-100);   /* #EDF2F7 */
   --bg-card: #ffffff;
-  --bg-overlay: rgba(255, 255, 255, 0.95);
+  --bg-overlay: rgba(255, 255, 255, 0.95); /* Keeping as is, can be refined later if needed */
   
-  --text-primary: #1e293b;
-  --text-secondary: #475569;
-  --text-tertiary: #64748b;
-  --text-muted: #94a3b8;
+  --text-primary: var(--color-gray-800);   /* #1A202C */
+  --text-secondary: var(--color-gray-600); /* #4A5568 */
+  --text-tertiary: var(--color-gray-500);  /* #718096 */
+  --text-muted: var(--color-gray-400);    /* #A0AEC0 */
   --text-inverse: #ffffff;
   
-  --border-primary: #e2e8f0;
-  --border-secondary: #cbd5e1;
-  --border-focus: var(--color-teal-600);
+  --border-primary: var(--color-gray-200); /* #E2E8F0 */
+  --border-secondary: var(--color-gray-300);/* #CBD5E1 */
+  --border-focus: var(--color-primary-700); /* #00796B - New Primary Teal */
   
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05); /* Keeping existing shadows */
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
   
-  /* Typography - Financial Data Optimized */
-  --font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
-  --font-family-mono: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Source Code Pro', 'Menlo', 'Consolas', monospace;
-  --font-family-financial: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  /* Typography - Updated with "Inter" */
+  --font-family-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  --font-family-mono: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Source Code Pro', 'Menlo', 'Consolas', monospace; /* Keeping mono stack */
+  --font-family-financial: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
   
   /* Font weights */
   --font-weight-normal: 400;
@@ -178,7 +178,7 @@
   /* Dark theme borders with golden highlights */
   --border-primary: #CA8A04;       /* Main brand gold */
   --border-secondary: #A16207;     /* Darker gold */
-  --border-focus: var(--color-primary-300);
+  --border-focus: var(--color-primary-400); /* Lighter teal for dark theme focus */
   
   /* Enhanced shadows for dark theme with warm tones */
   --shadow-sm: 0 1px 2px 0 rgba(202, 138, 4, 0.1);
@@ -186,13 +186,14 @@
   --shadow-lg: 0 10px 15px -3px rgba(202, 138, 4, 0.2), 0 4px 6px -2px rgba(202, 138, 4, 0.15);
   
   /* Adjust interactive colors for better dark theme visibility */
-  --color-primary-600: #FACC15;    /* Brighter gold for buttons */
-  --color-primary-500: #EAB308;    /* Medium gold for interactions */
+  /* Adjust interactive colors for better dark theme visibility - using new teals for primary actions, gold for text */
+  --color-primary-600: var(--color-primary-400);    /* Lighter Teal for dark mode buttons e.g. #26a69a */
+  --color-primary-500: var(--color-primary-500);    /* Base Teal for dark mode interactions e.g. #009688 */
   
-  /* Enhanced form field backgrounds for better contrast */
-  --form-bg: #3a2f26;
-  --form-border: #CA8A04;
-  --form-text: #FEF3C7;
+  /* Enhanced form field backgrounds using existing dark gold theme, as it's already "premium" */
+  --form-bg: #3a2f26;            /* Keeping existing dark gold theme form bg */
+  --form-border: #CA8A04;         /* Keeping existing dark gold theme form border */
+  --form-text: #FEF3C7;           /* Keeping existing dark gold theme form text */
 }
 
 /* Base styles with modern reset */
@@ -222,7 +223,7 @@ html {
 }
 
 body {
-  font-family: var(--font-family-base);
+  font-family: var(--font-family-base); /* Updated with Inter */
   font-weight: var(--font-weight-normal);
   color: var(--text-primary);
   background-color: var(--bg-primary);
@@ -237,7 +238,7 @@ body {
 
 /* Typography improvements for financial interfaces */
 h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-family-financial);
+  font-family: var(--font-family-financial); /* Updated with Inter */
   font-weight: var(--font-weight-semibold);
   line-height: var(--leading-tight);
   color: var(--text-primary);
@@ -269,17 +270,17 @@ p {
 
 /* Link styles with golden theme */
 a {
-  color: var(--color-primary-600);
+  color: var(--color-primary-700); /* Updated to new primary teal */
   text-decoration: none;
   transition: color var(--transition-fast);
   
   &:hover {
-    color: var(--color-primary-700);
+    color: var(--color-primary-800); /* Darker shade of new primary teal */
     text-decoration: underline;
   }
   
   &:focus-visible {
-    outline: 2px solid var(--border-focus);
+    outline: 2px solid var(--border-focus); /* Uses new primary teal for focus */
     outline-offset: 2px;
     border-radius: var(--radius-sm);
   }
@@ -322,8 +323,8 @@ input, select, textarea {
   
   &:focus {
     outline: none;
-    border-color: var(--border-focus);
-    box-shadow: 0 0 0 3px rgba(202, 138, 4, 0.1);
+    border-color: var(--border-focus); /* Updated to new primary teal */
+    box-shadow: 0 0 0 3px hsla(var(--color-primary-700)/0.1); /* Shadow to match new primary teal */
   }
   
   &:disabled {
@@ -520,18 +521,18 @@ input, select, textarea {
 
 /* Modern gradient backgrounds for brand elements with golden theme */
 .gradient-primary {
-  background: linear-gradient(135deg, var(--color-primary-500) 0%, var(--color-primary-600) 100%);
+  background: linear-gradient(135deg, var(--color-primary-600) 0%, var(--color-primary-700) 100%); /* New primary teal gradient */
 }
 
 .gradient-secondary {
-  background: linear-gradient(135deg, var(--color-primary-700) 0%, var(--color-primary-800) 100%);
+  background: linear-gradient(135deg, var(--color-secondary-600) 0%, var(--color-secondary-700) 100%); /* New secondary blue-gray gradient */
 }
 
-/* Investra-specific gradient combinations */
+/* Investra-specific gradient combinations - updated with new accent and primary */
 .gradient-investra {
-  background: linear-gradient(135deg, #FACC15 0%, #EAB308 50%, #CA8A04 100%);
+  background: linear-gradient(135deg, var(--color-accent-500) 0%, var(--color-accent-700) 50%, var(--color-accent-900) 100%); /* Gold accent gradient */
 }
 
 .gradient-investra-subtle {
-  background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%);
+  background: linear-gradient(135deg, var(--color-accent-50) 0%, var(--color-accent-100) 100%); /* Lighter gold accent gradient */
 }
