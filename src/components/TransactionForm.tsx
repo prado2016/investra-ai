@@ -4,7 +4,7 @@ import { InputField, SelectField } from './FormFields';
 import { PriceInput } from './PriceInput';
 import { SymbolInput } from './SymbolInput';
 import { useForm } from '../hooks/useForm';
-import { usePortfolios } from '../contexts/PortfolioContext';
+import { useSupabasePortfolios } from '../hooks/useSupabasePortfolios';
 import type { Transaction, AssetType, TransactionType, Currency } from '../types/portfolio';
 
 // Modern tooltip wrapper component
@@ -314,7 +314,6 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           name="price"
           label="Price per Share"
           value={form.values.price}
-          currency={form.values.currency}
           onChange={(value) => form.setValue('price', value)}
           onBlur={() => form.setFieldTouched('price')}
           error={form.touched.price ? form.errors.price?.message : ''}
@@ -329,7 +328,6 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           name="totalAmount"
           label="Total Amount"
           value={form.values.totalAmount}
-          currency={form.values.currency}
           onChange={(value) => form.setValue('totalAmount', value)}
           onBlur={() => form.setFieldTouched('totalAmount')}
           error={form.touched.totalAmount ? form.errors.totalAmount?.message : ''}
@@ -341,7 +339,6 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           name="fees"
           label="Fees"
           value={form.values.fees}
-          currency={form.values.currency}
           onChange={(value) => form.setValue('fees', value)}
           onBlur={() => form.setFieldTouched('fees')}
           error={form.touched.fees ? form.errors.fees?.message : ''}

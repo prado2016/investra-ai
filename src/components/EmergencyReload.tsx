@@ -46,7 +46,7 @@ const EmergencyReload: React.FC<Props> = ({ show = true }) => {
     }
     
     // Reset any global state
-    (window as any).__authCallCount = 0;
+    (window as typeof window & { __authCallCount?: number }).__authCallCount = 0;
     
     // Force reload
     window.location.reload();

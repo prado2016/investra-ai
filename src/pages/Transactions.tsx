@@ -53,11 +53,9 @@ const TransactionsPage: React.FC = () => {
 
   useEffect(() => {
     if (activePortfolio?.id) {
-      fetchTransactions(activePortfolio.id);
+      fetchTransactions();
     }
-  }, [activePortfolio?.id]); // Remove fetchTransactions from dependencies
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  // fetchTransactions intentionally excluded to prevent infinite loops
+  }, [activePortfolio?.id, fetchTransactions]);
 
   const handleEditTransaction = (transactionWithAsset: TransactionWithAsset) => {
     // Convert database transaction to portfolio transaction format for the form

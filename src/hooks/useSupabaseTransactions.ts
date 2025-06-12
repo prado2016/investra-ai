@@ -124,9 +124,7 @@ export const useSupabaseTransactions = (portfolioId?: string) => {
     if (portfolioId) {
       fetchTransactions(portfolioId);
     }
-  }, [portfolioId]); // Remove fetchTransactions from dependencies
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  // fetchTransactions intentionally excluded to prevent infinite loops
+  }, [portfolioId, fetchTransactions]);
 
   return {
     transactions,
