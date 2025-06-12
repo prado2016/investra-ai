@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from './database/types'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
@@ -8,7 +8,16 @@ if (!supabaseUrl || !supabaseKey) {
   throw new Error('Missing Supabase environment variables')
 }
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseKey)
+// Singleton instance to prevent multiple GoTrueClient instances
+let supabaseInstance: SupabaseClient<Database> | null = null;
+
+export const supabase = (() => {
+  if (!supabaseInstance) {
+    supabaseInstance = createClient<Database>(supabaseUrl, supabaseKey);
+    console.log('🔐 Supabase client initialized (singleton)');
+  }
+  return supabaseInstance;
+})();
 
 export type { Database }
 export * from './database/types'

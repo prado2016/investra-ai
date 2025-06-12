@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { useSupabasePortfolios } from './useSupabasePortfolios';
+import { usePortfolios } from '../contexts/PortfolioContext';
 import { dailyPLAnalyticsService } from '../services/analytics/dailyPLService';
 import { SupabaseService } from '../services/supabaseService';
 import { getMockDashboardMetrics, USE_MOCK_DATA } from '../utils/mockDashboardData';
@@ -30,7 +30,7 @@ interface UseDashboardMetricsReturn {
 }
 
 export function useDashboardMetrics(): UseDashboardMetricsReturn {
-  const { activePortfolio } = useSupabasePortfolios();
+  const { activePortfolio } = usePortfolios();
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

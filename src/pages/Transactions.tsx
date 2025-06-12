@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useSupabasePortfolios } from '../hooks/useSupabasePortfolios';
+import { usePortfolios } from '../contexts/PortfolioContext';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { TransactionService, AssetService } from '../services/supabaseService';
 import { useNotify } from '../hooks/useNotify';
@@ -12,7 +12,7 @@ import '../styles/transactions-layout.css';
 
 // Enhanced Transactions page with improved styling and contrast
 const TransactionsPage: React.FC = () => {
-  const { activePortfolio, loading: portfoliosLoading } = useSupabasePortfolios();
+  const { activePortfolio, loading: portfoliosLoading } = usePortfolios();
   
   // Set dynamic page title
   usePageTitle('Transactions', { 

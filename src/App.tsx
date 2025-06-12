@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthProvider';
+import { PortfolioProvider } from './contexts/PortfolioContext';
 import { RealtimeProvider } from './contexts/RealtimeContext';
 import { OfflineProvider } from './contexts/OfflineContext';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -10,6 +11,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import Navigation from './components/Navigation';
 import Breadcrumb from './components/Breadcrumb';
 import NotificationContainer from './components/NotificationContainer';
+import PortfolioDebugInfo from './components/PortfolioDebugInfo';
 import { OfflineIndicator } from './components/NetworkStatus';
 import DebugPanel from './components/DebugPanel';
 import ConnectionHealthDebug from './components/ConnectionHealthDebug';
@@ -195,6 +197,7 @@ function AppContent() {
         <CircuitBreakerReset />
         <ApiMonitoringDashboard />
         <EmergencyReload />
+        <PortfolioDebugInfo />
       </div>
       <NotificationContainer position="top-right" />
     </Router>
@@ -244,22 +247,24 @@ function App() {
           <ThemeProvider>
             <NotificationProvider maxNotifications={5} defaultDuration={5000}>
               <LoadingProvider>
-                <ErrorBoundary 
-                  onError={(error, errorInfo) => {
-                    // Enhanced error tracking with debug integration
-                    debug.error('App Error Boundary caught error', error, 'ErrorBoundary');
-                    ErrorTracker.trackError(error, { 
-                      errorInfo, 
-                      boundary: 'App',
-                      timestamp: new Date().toISOString()
-                    });
-                    
-                    // In production, this would send to your error tracking service
-                    console.error('App Error Boundary caught error:', error, errorInfo);
-                  }}
-                >
-                  <AppContent />
-                </ErrorBoundary>
+                <PortfolioProvider>
+                  <ErrorBoundary 
+                    onError={(error, errorInfo) => {
+                      // Enhanced error tracking with debug integration
+                      debug.error('App Error Boundary caught error', error, 'ErrorBoundary');
+                      ErrorTracker.trackError(error, { 
+                        errorInfo, 
+                        boundary: 'App',
+                        timestamp: new Date().toISOString()
+                      });
+                      
+                      // In production, this would send to your error tracking service
+                      console.error('App Error Boundary caught error:', error, errorInfo);
+                    }}
+                  >
+                    <AppContent />
+                  </ErrorBoundary>
+                </PortfolioProvider>
               </LoadingProvider>
             </NotificationProvider>
           </ThemeProvider>

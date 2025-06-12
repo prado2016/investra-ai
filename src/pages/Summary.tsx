@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import MonthlyCalendar from '../components/MonthlyCalendar';
 import PortfolioCreationForm from '../components/PortfolioCreationForm';
-import { useSupabasePortfolios } from '../hooks/useSupabasePortfolios';
+import { usePortfolios } from '../contexts/PortfolioContext';
 import { usePageTitle } from '../hooks/usePageTitle';
 import type { DailyPLData } from '../services/analytics/dailyPLService';
 
@@ -186,7 +186,7 @@ const TransactionDetails = styled.div`
 `;
 
 const Summary: React.FC = () => {
-  const { portfolios, activePortfolio, loading: portfoliosLoading, error: portfoliosError, setActivePortfolio, refreshPortfolios } = useSupabasePortfolios();
+  const { portfolios, activePortfolio, loading: portfoliosLoading, error: portfoliosError, setActivePortfolio, refreshPortfolios } = usePortfolios();
   const [selectedDayData, setSelectedDayData] = useState<DailyPLData | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 

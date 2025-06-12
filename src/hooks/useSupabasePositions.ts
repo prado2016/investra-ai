@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { SupabaseService } from '../services/supabaseService';
-import { useSupabasePortfolios } from './useSupabasePortfolios';
+import { usePortfolios } from '../contexts/PortfolioContext';
 import type { Position as DbPosition, Asset } from '../lib/database/types';
 import type { Position as FrontendPosition, Currency } from '../types/portfolio';
 
@@ -56,7 +56,7 @@ export function useSupabasePositions(): UseSupabasePositionsReturn {
   const [error, setError] = useState<string | null>(null);
   
   // Get the active portfolio to fetch positions for
-  const { activePortfolio } = useSupabasePortfolios();
+  const { activePortfolio } = usePortfolios();
 
   const fetchPositions = useCallback(async () => {
     if (!activePortfolio) {

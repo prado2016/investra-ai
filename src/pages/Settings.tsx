@@ -3,7 +3,7 @@ import styled from 'styled-components';
 import { useAuth } from '../contexts/AuthProvider';
 import { useDataManagement } from '../hooks/useStorage';
 import { useSupabaseDataManagement } from '../hooks/useSupabaseDataManagement';
-import { useSupabasePortfolios } from '../hooks/useSupabasePortfolios';
+import { usePortfolios } from '../contexts/PortfolioContext';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { SupabaseService } from '../services/supabaseService';
 import ThemeToggle from '../components/ThemeToggle';
@@ -196,7 +196,7 @@ const Settings: React.FC = () => {
   const { signOut, user } = useAuth();
   const { importData, getStorageInfo } = useDataManagement();
   const { clearAllData } = useSupabaseDataManagement();
-  const { portfolios } = useSupabasePortfolios();
+  const { portfolios } = usePortfolios();
   
   // Set page title
   usePageTitle('Settings', { subtitle: 'App Configuration' });

@@ -4,7 +4,7 @@ import { InputField, SelectField } from './FormFields';
 import { PriceInput } from './PriceInput';
 import { SymbolInput } from './SymbolInput';
 import { useForm } from '../hooks/useForm';
-import { useSupabasePortfolios } from '../hooks/useSupabasePortfolios';
+import { usePortfolios } from '../contexts/PortfolioContext';
 import type { Transaction, AssetType, TransactionType, Currency } from '../types/portfolio';
 
 // Modern tooltip wrapper component

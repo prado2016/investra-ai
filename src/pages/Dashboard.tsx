@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { Eye, EyeOff, RefreshCw } from 'lucide-react';
-import { useSupabasePortfolios } from '../hooks/useSupabasePortfolios';
+import { usePortfolios } from '../contexts/PortfolioContext';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useDashboardMetrics } from '../hooks/useDashboardMetrics';
 import PortfolioCreationForm from '../components/PortfolioCreationForm';
@@ -152,7 +152,7 @@ const LastUpdated = styled.div`
 `;
 
 const Dashboard: React.FC = () => {
-  const { portfolios, activePortfolio, setActivePortfolio, loading: portfoliosLoading, error: portfoliosError, refreshPortfolios } = useSupabasePortfolios();
+  const { portfolios, activePortfolio, setActivePortfolio, loading: portfoliosLoading, error: portfoliosError, refreshPortfolios } = usePortfolios();
   const { metrics, loading: metricsLoading, error: metricsError, refreshMetrics } = useDashboardMetrics();
   const [isPrivacyMode, setIsPrivacyMode] = useState(false);
 
