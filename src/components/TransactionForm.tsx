@@ -262,6 +262,11 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
             error={form.touched.assetSymbol ? form.errors.assetSymbol?.message : ''}
             required
             disabled={form.isSubmitting || loading}
+            enableAI={true}
+            showAIButton={true}
+            showSuggestions={true}
+            showValidation={true}
+            assetType={form.values.assetType}
           />
         </TooltipWrapper>
       </div>
