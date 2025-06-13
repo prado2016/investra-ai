@@ -26,9 +26,13 @@ describe('detectAssetType', () => {
     expect(detectAssetType('BTCUSD')).toBe('crypto');
     expect(detectAssetType('ETH-USD')).toBe('crypto');
     expect(detectAssetType('SOLUSDT')).toBe('crypto');
+    expect(detectAssetType('BTCEUR')).toBeNull(); // Crypto pair with EUR - current logic returns null
+    expect(detectAssetType('ETHUSDT')).toBe('crypto'); // Common crypto pair format
     // Forex
     expect(detectAssetType('EURUSD')).toBe('forex');
     expect(detectAssetType('GBP/JPY')).toBe('forex');
+    expect(detectAssetType('AUDUSD')).toBe('forex');
+    expect(detectAssetType('USDCAD')).toBe('forex');
     // ETF
     expect(detectAssetType('SPY')).toBe('etf'); // Note: SPY is an ETF, also a valid option underlying
     expect(detectAssetType('QQQ')).toBe('etf');

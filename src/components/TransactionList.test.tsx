@@ -1,18 +1,14 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, cleanup, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import TransactionList, { TransactionWithAsset } from './TransactionList';
-import { parseOptionSymbol } from '../utils/assetCategorization';
+import * as assetCategorization from '../utils/assetCategorization';
 
 // Mock CompanyLogo component
-jest.mock('./CompanyLogo', () => () => <div data-testid="company-logo-mock">Logo</div>);
+vi.mock('./CompanyLogo', () => ({ default: () => <div data-testid="company-logo-mock">Logo</div> }));
 
-// Mock parseOptionSymbol from the actual implementation path
-// We will spy on this to ensure it's called for options
-jest.mock('../utils/assetCategorization', () => ({
-  ...jest.requireActual('../utils/assetCategorization'), // Import and retain default behavior
-  parseOptionSymbol: jest.fn(jest.requireActual('../utils/assetCategorization').parseOptionSymbol),
-}));
+// Spy on parseOptionSymbol
+let parseOptionSymbolSpy: ReturnType<typeof vi.spyOn>;
 
 
 const mockTransactions: TransactionWithAsset[] = [
@@ -92,14 +88,25 @@ const mockTransactions: TransactionWithAsset[] = [
 ];
 
 describe('TransactionList', () => {
-  const mockOnEdit = jest.fn();
-  const mockOnDelete = jest.fn();
+  const mockOnEdit = vi.fn();
+  const mockOnDelete = vi.fn();
 
   beforeEach(() => {
     // Reset mocks before each test
     mockOnEdit.mockClear();
     mockOnDelete.mockClear();
-    (parseOptionSymbol as jest.Mock).mockClear();
+    // Create the spy anew or restore if already created
+    if (parseOptionSymbolSpy) {
+      parseOptionSymbolSpy.mockRestore();
+    }
+    parseOptionSymbolSpy = vi.spyOn(assetCategorization, 'parseOptionSymbol');
+  });
+
+  afterEach(() => {
+    cleanup(); // Clean up DOM after each test
+    if (parseOptionSymbolSpy) {
+      parseOptionSymbolSpy.mockRestore(); // Ensure spy is restored after all tests in describe block
+    }
   });
 
   it('renders transactions and displays option and stock symbols correctly', () => {
@@ -116,27 +123,29 @@ describe('TransactionList', () => {
     // Expected format: "UNDERLYING originalSymbolInLowercase"
     const optionSymbolElementSPY = screen.getByText('SPY spy250117c00400000');
     expect(optionSymbolElementSPY).toBeInTheDocument();
-    expect(parseOptionSymbol).toHaveBeenCalledWith('SPY250117C00400000');
+    expect(parseOptionSymbolSpy).toHaveBeenCalledWith('SPY250117C00400000');
 
     // Check AssetTypeBadge for SPY option
-    const optionRowSPY = optionSymbolElementSPY.closest('div[class*="TableRow"]'); // Find parent TableRow
-    expect(optionRowSPY).not.toBeNull();
-    if (optionRowSPY) {
-      const assetTypeBadgeOptionSPY = optionRowSPY.querySelector('span[class*="AssetTypeBadge"]');
-      expect(assetTypeBadgeOptionSPY).toHaveTextContent('option');
+    const symbolTextElementSPY = optionSymbolElementSPY.parentElement;
+    expect(symbolTextElementSPY).not.toBeNull();
+    if (symbolTextElementSPY) {
+      const assetTypeBadgeOptionSPY = within(symbolTextElementSPY).getByText('option');
+      expect(assetTypeBadgeOptionSPY).toBeInTheDocument();
+      expect(assetTypeBadgeOptionSPY.tagName).toBe('SPAN');
     }
 
 
     // Verify option transaction (AAPL)
     const optionSymbolElementAAPL = screen.getByText('AAPL aapl231215p00150000');
     expect(optionSymbolElementAAPL).toBeInTheDocument();
-    expect(parseOptionSymbol).toHaveBeenCalledWith('AAPL231215P00150000');
+    expect(parseOptionSymbolSpy).toHaveBeenCalledWith('AAPL231215P00150000');
 
-    const optionRowAAPL = optionSymbolElementAAPL.closest('div[class*="TableRow"]');
-     expect(optionRowAAPL).not.toBeNull();
-    if (optionRowAAPL) {
-      const assetTypeBadgeOptionAAPL = optionRowAAPL.querySelector('span[class*="AssetTypeBadge"]');
-      expect(assetTypeBadgeOptionAAPL).toHaveTextContent('option');
+    const symbolTextElementAAPL = optionSymbolElementAAPL.parentElement;
+    expect(symbolTextElementAAPL).not.toBeNull();
+    if (symbolTextElementAAPL) {
+      const assetTypeBadgeOptionAAPL = within(symbolTextElementAAPL).getByText('option');
+      expect(assetTypeBadgeOptionAAPL).toBeInTheDocument();
+      expect(assetTypeBadgeOptionAAPL.tagName).toBe('SPAN');
     }
 
     // Verify stock transaction (MSFT)
@@ -144,15 +153,16 @@ describe('TransactionList', () => {
     expect(stockSymbolElement).toBeInTheDocument();
 
     // Check AssetTypeBadge for MSFT stock
-    const stockRow = stockSymbolElement.closest('div[class*="TableRow"]');
-    expect(stockRow).not.toBeNull();
-    if (stockRow) {
-      const assetTypeBadgeStock = stockRow.querySelector('span[class*="AssetTypeBadge"]');
-      expect(assetTypeBadgeStock).toHaveTextContent('stock');
+    const symbolTextElementMSFT = stockSymbolElement.parentElement;
+    expect(symbolTextElementMSFT).not.toBeNull();
+    if (symbolTextElementMSFT) {
+      const assetTypeBadgeStock = within(symbolTextElementMSFT).getByText('stock');
+      expect(assetTypeBadgeStock).toBeInTheDocument();
+      expect(assetTypeBadgeStock.tagName).toBe('SPAN');
     }
 
-    // Ensure parseOptionSymbol was called for option assets and not for stock
-    expect(parseOptionSymbol).toHaveBeenCalledTimes(2); // Called for SPY and AAPL options
+    // Ensure parseOptionSymbolSpy was called for option assets and not for stock
+    expect(parseOptionSymbolSpy).toHaveBeenCalledTimes(2); // Called for SPY and AAPL options
   });
 
   it('displays "N/A" for missing asset symbol', () => {
@@ -197,17 +207,18 @@ describe('TransactionList', () => {
       />
     );
     expect(screen.getByText('BTC-USD')).toBeInTheDocument();
-    const cryptoRow = screen.getByText('BTC-USD').closest('div[class*="TableRow"]');
-    expect(cryptoRow).not.toBeNull();
-    if (cryptoRow) {
-      const assetTypeBadgeCrypto = cryptoRow.querySelector('span[class*="AssetTypeBadge"]');
-      expect(assetTypeBadgeCrypto).toHaveTextContent('crypto');
+    const symbolTextElementCrypto = screen.getByText('BTC-USD').parentElement;
+    expect(symbolTextElementCrypto).not.toBeNull();
+    if (symbolTextElementCrypto) {
+      const assetTypeBadgeCrypto = within(symbolTextElementCrypto).getByText('crypto');
+      expect(assetTypeBadgeCrypto).toBeInTheDocument();
+      expect(assetTypeBadgeCrypto.tagName).toBe('SPAN');
     }
-    expect(parseOptionSymbol).not.toHaveBeenCalledWith('BTC-USD');
+    expect(parseOptionSymbolSpy).not.toHaveBeenCalledWith('BTC-USD');
   });
 
   it('displays original symbol if asset is option but parseOptionSymbol returns null', () => {
-    (parseOptionSymbol as jest.Mock).mockReturnValueOnce(null); // Force parsing to fail for one option
+    parseOptionSymbolSpy.mockReturnValueOnce(null); // Force parsing to fail for one option
     const optionWithFailedParsing: TransactionWithAsset[] = [
       {
         ...mockTransactions[0], // This is an option
@@ -227,7 +238,7 @@ describe('TransactionList', () => {
     );
     // Expect the original (albeit invalid for parsing here) symbol to be displayed
     expect(screen.getByText('INVALIDOPT')).toBeInTheDocument();
-    expect(parseOptionSymbol).toHaveBeenCalledWith('INVALIDOPT');
+    expect(parseOptionSymbolSpy).toHaveBeenCalledWith('INVALIDOPT');
   });
 
 });
