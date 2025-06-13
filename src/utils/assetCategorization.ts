@@ -138,22 +138,22 @@ export function detectAssetType(symbol: string): AssetType | null {
   // Parse the ticker symbol first
   const parsed = parseTickerSymbol(symbol);
   const cleanSymbol = parsed.cleanSymbol;
-  
+
+  // Forex patterns (currency pairs) - Check before crypto
+  if (isForexPair(cleanSymbol) || isForexPair(parsed.originalSymbol)) {
+    return 'forex';
+  }
+
   // Cryptocurrency patterns
   if (isCryptocurrency(cleanSymbol)) {
     return 'crypto';
-  }
-  
-  // Forex patterns (currency pairs)
-  if (isForexPair(cleanSymbol) || isForexPair(parsed.originalSymbol)) {
-    return 'forex';
   }
   
   // Option patterns
   if (isOption(cleanSymbol)) {
     return 'option';
   }
-  
+
   // ETF patterns (check before stock as ETFs trade like stocks)
   if (isETF(cleanSymbol)) {
     return 'etf';

@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import { ArrowDownCircle, ArrowUpCircle, Gift, Edit3, Trash2, Info } from 'lucide-react'; // Removed AlertTriangle, CheckCircle2
 import type { Transaction, Asset } from '../lib/database/types';
 import { formatCurrency, formatDate } from '../utils/formatting';
+import { parseOptionSymbol } from '../utils/assetCategorization';
 import CompanyLogo from './CompanyLogo';
 
 // Extended transaction type that includes asset information
@@ -486,8 +487,18 @@ const TransactionList: React.FC<TransactionListProps> = ({
                   size="md"
                 />
                 <SymbolText>
-                  <SymbolName>{transaction.asset?.symbol || 'N/A'}</SymbolName>
-                  <div 
+                  <SymbolName>
+                    {(() => {
+                      if (transaction.asset?.asset_type === 'option') {
+                        const parsedSymbol = parseOptionSymbol(transaction.asset.symbol);
+                        if (parsedSymbol) {
+                          return `${parsedSymbol.underlying.toUpperCase()} ${transaction.asset.symbol.toLowerCase()}`;
+                        }
+                      }
+                      return transaction.asset?.symbol || 'N/A';
+                    })()}
+                  </SymbolName>
+                  <div
                     className="transaction-company-name"
                     title={transaction.asset?.name || 'Unknown Company'}
                   >
