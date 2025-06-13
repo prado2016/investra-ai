@@ -650,6 +650,54 @@ export class TransactionService {
         return { data: [], error: error.message, success: false }
       }
 
+      // Correct asset types for any assets that have incorrect types
+      if (data && data.length > 0) {
+        const { detectAssetType } = await import('../utils/assetCategorization');
+        const assetsToUpdate: { id: string; symbol: string; currentType: string; correctType: string }[] = [];
+        
+        // Check each asset for correct type
+        for (const transaction of data) {
+          if (transaction.asset) {
+            const correctType = detectAssetType(transaction.asset.symbol);
+            if (correctType && correctType !== transaction.asset.asset_type) {
+              assetsToUpdate.push({
+                id: transaction.asset.id,
+                symbol: transaction.asset.symbol,
+                currentType: transaction.asset.asset_type,
+                correctType
+              });
+            }
+          }
+        }
+
+        // Update incorrect asset types
+        if (assetsToUpdate.length > 0) {
+          console.log(`Correcting asset types for ${assetsToUpdate.length} assets`);
+          
+          for (const asset of assetsToUpdate) {
+            try {
+              await supabase
+                .from('assets')
+                .update({
+                  asset_type: asset.correctType,
+                  last_updated: new Date().toISOString()
+                })
+                .eq('id', asset.id);
+              
+              console.log(`Updated ${asset.symbol} from ${asset.currentType} to ${asset.correctType}`);
+              
+              // Update the asset type in the returned data
+              const transaction = data.find(t => t.asset?.id === asset.id);
+              if (transaction?.asset) {
+                transaction.asset.asset_type = asset.correctType as any;
+              }
+            } catch (updateError) {
+              console.warn(`Failed to update asset ${asset.symbol}:`, updateError);
+            }
+          }
+        }
+      }
+
       return { data: data || [], error: null, success: true }
     } catch (error) {
       return { 
