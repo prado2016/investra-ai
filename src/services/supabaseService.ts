@@ -8,7 +8,6 @@ import { supabase } from '../lib/supabase'
 import { enhancedSupabase } from '../lib/enhancedSupabase'
 import { portfolioRateLimiter, transactionRateLimiter } from '../utils/rateLimiter'
 import { emergencyStop } from '../utils/emergencyStop'
-import { detectAssetType } from '../utils/assetCategorization'
 import { 
   shouldUseMockServices, 
   MockServices 
@@ -248,13 +247,12 @@ export class AssetService {
       }
 
       // Create new asset if it doesn't exist
-      const assetType = detectAssetType(symbol) || 'stock';
       const { data, error } = await supabase
         .from('assets')
         .insert({
           symbol: symbol.toUpperCase(),
-          name: symbol.toUpperCase(), // Assuming name is same as symbol for new assets
-          asset_type: assetType
+          name: symbol.toUpperCase(),
+          asset_type: 'stock'
         })
         .select()
         .single()

@@ -138,7 +138,7 @@ export function detectAssetType(symbol: string): AssetType | null {
   // Parse the ticker symbol first
   const parsed = parseTickerSymbol(symbol);
   const cleanSymbol = parsed.cleanSymbol;
-  
+
   // Cryptocurrency patterns
   if (isCryptocurrency(cleanSymbol)) {
     return 'crypto';
@@ -153,7 +153,7 @@ export function detectAssetType(symbol: string): AssetType | null {
   if (isOption(cleanSymbol)) {
     return 'option';
   }
-  
+
   // ETF patterns (check before stock as ETFs trade like stocks)
   if (isETF(cleanSymbol)) {
     return 'etf';
