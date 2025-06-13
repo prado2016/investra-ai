@@ -24,6 +24,7 @@ const TransactionsPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [fixingAssetTypes, setFixingAssetTypes] = useState(false);
   
   // Debounce fetch to prevent excessive API calls
   const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -199,6 +200,31 @@ const TransactionsPage: React.FC = () => {
     }
   };
 
+  const handleFixAssetTypes = async () => {
+    if (!window.confirm('This will update asset types for all existing assets based on their symbols. Continue?')) {
+      return;
+    }
+
+    try {
+      setFixingAssetTypes(true);
+      
+      const response = await AssetService.fixAssetTypes();
+      
+      if (response.success) {
+        notify.success(`Successfully updated ${response.data?.updated || 0} asset types`);
+        // Refresh transactions to show updated asset types
+        fetchTransactions();
+      } else {
+        notify.error('Failed to fix asset types: ' + response.error);
+      }
+    } catch (error) {
+      console.error('Failed to fix asset types:', error);
+      notify.error('Failed to fix asset types');
+    } finally {
+      setFixingAssetTypes(false);
+    }
+  };
+
   if (portfoliosLoading) {
     return (
       <div className="enhanced-page-container">
@@ -301,6 +327,20 @@ const TransactionsPage: React.FC = () => {
                 </p>
               </div>
             </div>
+            <button
+              onClick={handleFixAssetTypes}
+              disabled={fixingAssetTypes || loading}
+              className="btn"
+              style={{
+                background: 'var(--color-secondary-600)',
+                borderColor: 'var(--color-secondary-600)',
+                fontSize: '0.875rem',
+                padding: '8px 16px'
+              }}
+              title="Fix asset types for existing transactions"
+            >
+              {fixingAssetTypes ? 'Fixing...' : 'Fix Asset Types'}
+            </button>
           </div>
           
           <div className="enhanced-transactions-wrapper">

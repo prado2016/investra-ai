@@ -242,7 +242,32 @@ export class AssetService {
         .eq('symbol', symbol.toUpperCase())
         .maybeSingle()
 
+      // Detect asset type using the categorization utility
+      const { detectAssetType } = await import('../utils/assetCategorization');
+      const detectedType = detectAssetType(symbol.toUpperCase()) || 'stock';
+
       if (existingAsset) {
+        // Check if existing asset has wrong type and update if needed
+        if (existingAsset.asset_type !== detectedType) {
+          const { data: updatedAsset, error: updateError } = await supabase
+            .from('assets')
+            .update({
+              asset_type: detectedType,
+              last_updated: new Date().toISOString()
+            })
+            .eq('id', existingAsset.id)
+            .select()
+            .single()
+
+          if (updateError) {
+            console.warn(`Failed to update asset type for ${symbol}:`, updateError.message);
+            // Return existing asset even if update failed
+            return { data: existingAsset, error: null, success: true }
+          }
+
+          return { data: updatedAsset, error: null, success: true }
+        }
+
         return { data: existingAsset, error: null, success: true }
       }
 
@@ -252,7 +277,8 @@ export class AssetService {
         .insert({
           symbol: symbol.toUpperCase(),
           name: symbol.toUpperCase(),
-          asset_type: 'stock'
+          asset_type: detectedType,
+          currency: 'USD' // Default currency
         })
         .select()
         .single()
@@ -261,7 +287,102 @@ export class AssetService {
         return { data: null, error: error.message, success: false }
       }
 
+
       return { data, error: null, success: true }
+    } catch (error) {
+      return { 
+        data: null, 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
+
+  /**
+   * Update asset type for existing asset
+   */
+  static async updateAssetType(assetId: string, newAssetType: string): Promise<ServiceResponse<Asset>> {
+    // Use mock service in test mode
+    if (shouldUseMockServices()) {
+      // Mock service doesn't need this feature for now
+      return { data: null, error: 'Not implemented in mock service', success: false };
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('assets')
+        .update({
+          asset_type: newAssetType as any,
+          last_updated: new Date().toISOString()
+        })
+        .eq('id', assetId)
+        .select()
+        .single()
+
+      if (error) {
+        return { data: null, error: error.message, success: false }
+      }
+
+      return { data, error: null, success: true }
+    } catch (error) {
+      return { 
+        data: null, 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
+
+  /**
+   * Fix asset types for all existing assets based on symbol patterns
+   */
+  static async fixAssetTypes(): Promise<ServiceResponse<{ updated: number }>> {
+    // Use mock service in test mode
+    if (shouldUseMockServices()) {
+      return { data: { updated: 0 }, error: 'Not implemented in mock service', success: false };
+    }
+
+    try {
+      // Get all assets
+      const { data: assets, error: fetchError } = await supabase
+        .from('assets')
+        .select('*')
+
+      if (fetchError) {
+        return { data: null, error: fetchError.message, success: false }
+      }
+
+      if (!assets || assets.length === 0) {
+        return { data: { updated: 0 }, error: null, success: true }
+      }
+
+      // Import asset detection utility
+      const { detectAssetType } = await import('../utils/assetCategorization');
+      
+      let updatedCount = 0;
+      
+      // Process each asset
+      for (const asset of assets) {
+        const detectedType = detectAssetType(asset.symbol);
+        
+        // Update if detected type is different from current type
+        if (detectedType && detectedType !== asset.asset_type) {
+          const { error: updateError } = await supabase
+            .from('assets')
+            .update({
+              asset_type: detectedType,
+              last_updated: new Date().toISOString()
+            })
+            .eq('id', asset.id)
+
+          if (!updateError) {
+            updatedCount++;
+            console.log(`Updated asset ${asset.symbol} from ${asset.asset_type} to ${detectedType}`);
+          }
+        }
+      }
+
+      return { data: { updated: updatedCount }, error: null, success: true }
     } catch (error) {
       return { 
         data: null, 

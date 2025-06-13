@@ -35,6 +35,17 @@ const SymbolName = styled.div`
   }
 `;
 
+const OptionFullSymbol = styled.div`
+  font-size: var(--text-xs); /* Smaller than main symbol */
+  color: var(--text-secondary); /* Muted color */
+  font-family: var(--font-family-mono);
+  letter-spacing: 0.25px;
+  
+  [data-theme="dark"] & {
+    color: var(--text-secondary);
+  }
+`;
+
 const Container = styled.div`
   display: flex;
   flex-direction: column;
@@ -492,12 +503,17 @@ const TransactionList: React.FC<TransactionListProps> = ({
                       if (transaction.asset?.asset_type === 'option') {
                         const parsedSymbol = parseOptionSymbol(transaction.asset.symbol);
                         if (parsedSymbol) {
-                          return `${parsedSymbol.underlying.toUpperCase()} ${transaction.asset.symbol.toLowerCase()}`;
+                          return parsedSymbol.underlying.toUpperCase();
                         }
                       }
                       return transaction.asset?.symbol || 'N/A';
                     })()}
                   </SymbolName>
+                  {transaction.asset?.asset_type === 'option' && (
+                    <OptionFullSymbol>
+                      {transaction.asset.symbol}
+                    </OptionFullSymbol>
+                  )}
                   <div
                     className="transaction-company-name"
                     title={transaction.asset?.name || 'Unknown Company'}

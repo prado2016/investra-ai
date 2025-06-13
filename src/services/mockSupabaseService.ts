@@ -155,12 +155,16 @@ class MockAssetService {
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 100));
 
+    // Detect asset type using the categorization utility
+    const { detectAssetType } = await import('../utils/assetCategorization');
+    const detectedType = detectAssetType(symbol.toUpperCase()) || 'stock';
+
     // Return a mock asset based on symbol
     const mockAsset: Asset = {
       id: `test-asset-${symbol.toLowerCase()}`,
       symbol: symbol.toUpperCase(),
       name: `${symbol.toUpperCase()} Test Company`,
-      asset_type: 'stock',
+      asset_type: detectedType,
       exchange: 'TEST',
       currency: 'USD',
       sector: 'Technology',
