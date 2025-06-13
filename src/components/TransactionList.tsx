@@ -494,7 +494,16 @@ const TransactionList: React.FC<TransactionListProps> = ({
             <TableRow key={transaction.id}>
               <SymbolContainer>
                 <CompanyLogo
-                  symbol={transaction.asset?.symbol || 'N/A'}
+                  symbol={(() => {
+                    // For options, use the underlying symbol for the logo
+                    if (transaction.asset?.asset_type === 'option') {
+                      const parsedSymbol = parseOptionSymbol(transaction.asset.symbol);
+                      if (parsedSymbol) {
+                        return parsedSymbol.underlying.toUpperCase();
+                      }
+                    }
+                    return transaction.asset?.symbol || 'N/A';
+                  })()}
                   size="md"
                 />
                 <SymbolText>
@@ -503,6 +512,7 @@ const TransactionList: React.FC<TransactionListProps> = ({
                       if (transaction.asset?.asset_type === 'option') {
                         const parsedSymbol = parseOptionSymbol(transaction.asset.symbol);
                         if (parsedSymbol) {
+                          // Show the underlying symbol as the main name
                           return parsedSymbol.underlying.toUpperCase();
                         }
                       }
@@ -511,7 +521,7 @@ const TransactionList: React.FC<TransactionListProps> = ({
                   </SymbolName>
                   {transaction.asset?.asset_type === 'option' && (
                     <OptionFullSymbol>
-                      {transaction.asset.symbol}
+                      {transaction.asset.symbol.toLowerCase()}
                     </OptionFullSymbol>
                   )}
                   <div

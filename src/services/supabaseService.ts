@@ -247,8 +247,9 @@ export class AssetService {
       const detectedType = detectAssetType(symbol.toUpperCase()) || 'stock';
 
       if (existingAsset) {
-        // Check if existing asset has wrong type and update if needed
+        // Always check if existing asset has wrong type and update if needed
         if (existingAsset.asset_type !== detectedType) {
+          console.log(`Updating asset ${symbol} from ${existingAsset.asset_type} to ${detectedType}`);
           const { data: updatedAsset, error: updateError } = await supabase
             .from('assets')
             .update({
@@ -272,11 +273,23 @@ export class AssetService {
       }
 
       // Create new asset if it doesn't exist
+      let assetName = symbol.toUpperCase();
+      
+      // For options, try to use a more meaningful name based on the underlying
+      if (detectedType === 'option') {
+        const { parseOptionSymbol } = await import('../utils/assetCategorization');
+        const parsed = parseOptionSymbol(symbol.toUpperCase());
+        if (parsed) {
+          const expiryStr = parsed.expiration.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+          assetName = `${parsed.underlying} ${expiryStr} $${parsed.strike} ${parsed.type.toUpperCase()}`;
+        }
+      }
+
       const { data, error } = await supabase
         .from('assets')
         .insert({
           symbol: symbol.toUpperCase(),
-          name: symbol.toUpperCase(),
+          name: assetName,
           asset_type: detectedType,
           currency: 'USD' // Default currency
         })
