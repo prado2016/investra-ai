@@ -521,7 +521,18 @@ const TransactionList: React.FC<TransactionListProps> = ({
                   </SymbolName>
                   {transaction.asset?.asset_type === 'option' && (
                     <OptionFullSymbol>
-                      {transaction.asset.symbol.toLowerCase()}
+                      {(() => {
+                        const parsedSymbol = parseOptionSymbol(transaction.asset.symbol);
+                        if (parsedSymbol) {
+                          // Format: "May 16 $0 CALL"
+                          const month = parsedSymbol.expiration.toLocaleDateString('en-US', { month: 'short' });
+                          const day = parsedSymbol.expiration.getDate();
+                          const strike = parsedSymbol.strike === 0 ? '0' : parsedSymbol.strike.toString();
+                          const type = parsedSymbol.type.toUpperCase();
+                          return `${month} ${day} $${strike} ${type}`;
+                        }
+                        return transaction.asset.symbol.toLowerCase();
+                      })()}
                     </OptionFullSymbol>
                   )}
                   <div
