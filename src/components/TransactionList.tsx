@@ -535,12 +535,14 @@ const TransactionList: React.FC<TransactionListProps> = ({
                       })()}
                     </OptionFullSymbol>
                   )}
-                  <div
-                    className="transaction-company-name"
-                    title={transaction.asset?.name || 'Unknown Company'}
-                  >
-                    {transaction.asset?.name || 'Unknown Company'}
-                  </div>
+                  {transaction.asset?.asset_type !== 'option' && (
+                    <div
+                      className="transaction-company-name"
+                      title={transaction.asset?.name || 'Unknown Company'}
+                    >
+                      {transaction.asset?.name || 'Unknown Company'}
+                    </div>
+                  )}
                   <AssetTypeBadge type={transaction.asset?.asset_type || 'stock'}>
                     {transaction.asset?.asset_type || 'stock'}
                   </AssetTypeBadge>
