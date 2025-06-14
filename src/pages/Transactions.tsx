@@ -154,14 +154,14 @@ const TransactionsPage: React.FC = () => {
         transactionData.quantity,
         transactionData.price,
         (() => {
-          if (!transactionData.date) return new Date().toISOString();
+          if (!transactionData.date) return new Date().toISOString().split('T')[0];
           
-          // For create transaction, we need full ISO string but preserve local date
+          // Convert Date object to YYYY-MM-DD string, preserving local date
           const date = transactionData.date;
           const year = date.getFullYear();
           const month = String(date.getMonth() + 1).padStart(2, '0');
           const day = String(date.getDate()).padStart(2, '0');
-          return `${year}-${month}-${day}T12:00:00.000Z`; // Use noon UTC to avoid timezone issues
+          return `${year}-${month}-${day}`;
         })()
       );
       
