@@ -52,9 +52,16 @@
 
 .transaction-grid-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 0.6fr 1.4fr; /* Give right side more space: 30% left, 70% right */
   gap: var(--space-6, 24px);
   align-items: start;
+}
+
+/* For larger screens, give even more space to the right side */
+@media (min-width: 1200px) {
+  .transaction-grid-row {
+    grid-template-columns: 0.55fr 1.45fr; /* 27.5% left, 72.5% right on larger screens */
+  }
 }
 
 @media (max-width: 1024px) {
