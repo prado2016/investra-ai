@@ -592,7 +592,7 @@ export class PositionService {
    * Recalculate all positions for a portfolio from transactions
    * This will rebuild positions from scratch based on all transactions
    */
-  static async recalculatePositions(portfolioId: string): Promise<ServiceResponse<{ updated: number; created: number }>> {
+  static async recalculatePositions(portfolioId: string): Promise<ServiceResponse<{ updated: number; created: number; deleted: number }>> {
     try {
       console.log('🔄 Recalculating positions for portfolio:', portfolioId);
       
@@ -605,8 +605,21 @@ export class PositionService {
       const transactions = transactionsResult.data;
       console.log('📊 Found transactions:', transactions.length);
       
+      // If no transactions, delete all positions for this portfolio
       if (transactions.length === 0) {
-        return { data: { updated: 0, created: 0 }, error: null, success: true };
+        console.log('🧹 No transactions found, cleaning up all positions...');
+        const { error: deleteError } = await supabase
+          .from('positions')
+          .delete()
+          .eq('portfolio_id', portfolioId);
+          
+        if (deleteError) {
+          console.error('❌ Error deleting positions:', deleteError);
+          return { data: null, error: deleteError.message, success: false };
+        }
+        
+        console.log('✅ All positions deleted successfully');
+        return { data: { updated: 0, created: 0, deleted: 1 }, error: null, success: true };
       }
       
       // Group transactions by asset
@@ -620,6 +633,32 @@ export class PositionService {
       }
       
       console.log('🎯 Assets with transactions:', transactionsByAsset.size);
+      
+      // Get all existing positions for this portfolio to know which ones to delete
+      const { data: existingPositions } = await supabase
+        .from('positions')
+        .select('id, asset_id')
+        .eq('portfolio_id', portfolioId);
+      
+      const existingAssetIds = new Set(existingPositions?.map(p => p.asset_id) || []);
+      const assetsWithTransactions = new Set(transactionsByAsset.keys());
+      
+      // Delete positions for assets that no longer have transactions
+      const assetsToDelete = Array.from(existingAssetIds).filter(assetId => !assetsWithTransactions.has(assetId));
+      let deletedCount = 0;
+      
+      if (assetsToDelete.length > 0) {
+        console.log('🧹 Deleting positions for assets without transactions:', assetsToDelete);
+        const { error: deleteError } = await supabase
+          .from('positions')
+          .delete()
+          .eq('portfolio_id', portfolioId)
+          .in('asset_id', assetsToDelete);
+          
+        if (!deleteError) {
+          deletedCount = assetsToDelete.length;
+        }
+      }
       
       let createdCount = 0;
       let updatedCount = 0;
@@ -665,7 +704,7 @@ export class PositionService {
         
         console.log(`💰 Asset ${assetId}: quantity=${quantity}, avgCost=${weightedAverageCost}, totalCost=${totalCostBasis}`);
         
-        // Create or update position
+        // Create or update position only if quantity > 0
         if (quantity > 0) {
           // Check if position already exists
           const { data: existingPosition } = await supabase
@@ -705,11 +744,23 @@ export class PositionService {
               });
             createdCount++;
           }
+        } else {
+          // If quantity is 0 or negative, delete the position
+          console.log(`🧹 Deleting position for asset ${assetId} with zero quantity`);
+          const { error: deleteError } = await supabase
+            .from('positions')
+            .delete()
+            .eq('portfolio_id', portfolioId)
+            .eq('asset_id', assetId);
+            
+          if (!deleteError) {
+            deletedCount++;
+          }
         }
       }
       
-      console.log(`✅ Position recalculation complete: ${createdCount} created, ${updatedCount} updated`);
-      return { data: { created: createdCount, updated: updatedCount }, error: null, success: true };
+      console.log(`✅ Position recalculation complete: ${createdCount} created, ${updatedCount} updated, ${deletedCount} deleted`);
+      return { data: { created: createdCount, updated: updatedCount, deleted: deletedCount }, error: null, success: true };
       
     } catch (error) {
       console.error('❌ Error recalculating positions:', error);
