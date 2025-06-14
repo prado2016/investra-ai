@@ -4,17 +4,17 @@
 @import './components.css';
 
 :root {
-  /* New Primary Color: Sophisticated Teal (#00796B) */
-  --color-primary-50: #e0f2f1;    /* Lightest Teal */
-  --color-primary-100: #b2dfdb;
-  --color-primary-200: #80cbc4;
-  --color-primary-300: #4db6ac;
-  --color-primary-400: #26a69a;
-  --color-primary-500: #009688;    /* Base Teal */
-  --color-primary-600: #00897b;    /* Main Primary - Darker Teal */
-  --color-primary-700: #00796B;    /* Chosen Primary */
-  --color-primary-800: #00695c;
-  --color-primary-900: #004d40;    /* Darkest Teal */
+  /* Primary Color: Logo Gold/Amber Colors */
+  --color-primary-50: #faebd0;     /* Based on logo hex #faebd0 */
+  --color-primary-100: #fbedd3;    /* Based on logo hex #fbedd3 */
+  --color-primary-200: #fbedd1;    /* Based on logo hex #fbedd1 */
+  --color-primary-300: #fbecd2;    /* Based on logo hex #fbecd2 */
+  --color-primary-400: #fbedd2;    /* Based on logo hex #fbedd2 */
+  --color-primary-500: #D97706;    /* Main gold color */
+  --color-primary-600: #CA8A04;    /* Darker gold */
+  --color-primary-700: #A16207;    /* Logo's darker gold */
+  --color-primary-800: #854D0E;    /* Even darker gold */
+  --color-primary-900: #713F12;    /* Darkest gold */
 
   /* New Secondary Color: Dark Blue-Gray (#4A5568) */
   --color-secondary-50: #eceff1;   /* Lightest Blue-Gray */
@@ -88,7 +88,7 @@
   
   --border-primary: var(--color-gray-200); /* #E2E8F0 */
   --border-secondary: var(--color-gray-300);/* #CBD5E1 */
-  --border-focus: var(--color-primary-700); /* #00796B - New Primary Teal */
+  --border-focus: var(--color-primary-600); /* Updated to match new gold color scheme */
   
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05); /* Keeping existing shadows */
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
@@ -178,7 +178,7 @@
   /* Dark theme borders with golden highlights */
   --border-primary: #CA8A04;       /* Main brand gold */
   --border-secondary: #A16207;     /* Darker gold */
-  --border-focus: var(--color-primary-400); /* Lighter teal for dark theme focus */
+  --border-focus: var(--color-primary-500); /* Updated gold color for dark theme focus */
   
   /* Enhanced shadows for dark theme with warm tones */
   --shadow-sm: 0 1px 2px 0 rgba(202, 138, 4, 0.1);

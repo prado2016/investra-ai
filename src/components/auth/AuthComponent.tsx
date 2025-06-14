@@ -88,12 +88,13 @@ export const AuthComponent: React.FC<AuthComponentProps> = () => {
     }}>
       <div style={{
         width: '100%',
-        maxWidth: '400px',
+        maxWidth: '420px',
         background: 'var(--bg-card)',
         borderRadius: 'var(--radius-xl)',
         boxShadow: 'var(--shadow-lg)',
         border: '1px solid var(--border-primary)',
-        padding: 'var(--space-8)'
+        padding: 'var(--space-8)',
+        margin: '0 auto'
       }}>
         {/* Logo and Header */}
         <div style={{
@@ -104,16 +105,19 @@ export const AuthComponent: React.FC<AuthComponentProps> = () => {
             src="/investra-logo.svg" 
             alt="Investra AI" 
             style={{
-              width: '200px',
-              height: '60px',
-              marginBottom: 'var(--space-4)',
-              maxWidth: '100%'
+              width: '280px',
+              height: '84px',
+              marginBottom: 'var(--space-6)',
+              maxWidth: '100%',
+              display: 'block',
+              margin: '0 auto var(--space-6) auto'
             }}
           />
           <p style={{
             color: 'var(--text-secondary)',
-            fontSize: 'var(--text-sm)',
-            margin: 0
+            fontSize: 'var(--text-base)',
+            margin: 0,
+            fontWeight: 'var(--font-weight-medium)'
           }}>
             {mode === 'signin' ? 'Sign in to your account' : 'Create your account'}
           </p>
@@ -243,7 +247,9 @@ export const AuthComponent: React.FC<AuthComponentProps> = () => {
                   border: 'none',
                   color: 'var(--color-primary-600)',
                   cursor: 'pointer',
-                  padding: 'var(--space-1)'
+                  padding: 'var(--space-1)',
+                  borderRadius: 'var(--radius-sm)',
+                  transition: 'all var(--transition-fast)'
                 }}
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
               >

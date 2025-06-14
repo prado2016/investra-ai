@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Investra AI - Logo & Button Color Fix</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f8fafc;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        
+        .section {
+            padding: 30px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .section:last-child {
+            border-bottom: none;
+        }
+        
+        h1 {
+            color: #1a202c;
+            margin: 0 0 20px 0;
+            font-size: 28px;
+            font-weight: 700;
+        }
+        
+        h2 {
+            color: #2d3748;
+            margin: 0 0 15px 0;
+            font-size: 20px;
+            font-weight: 600;
+        }
+        
+        .comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin: 20px 0;
+        }
+        
+        .before, .after {
+            padding: 20px;
+            border-radius: 8px;
+            border: 2px solid #e2e8f0;
+        }
+        
+        .before {
+            background: #fef5e7;
+            border-color: #f6ad55;
+        }
+        
+        .after {
+            background: #f0fff4;
+            border-color: #48bb78;
+        }
+        
+        .mock-auth-form {
+            background: white;
+            padding: 32px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 420px;
+            margin: 15px auto;
+        }
+        
+        .old-logo {
+            width: 200px;
+            height: 60px;
+        }
+        
+        .new-logo {
+            width: 280px;
+            height: 84px;
+            max-width: 100%;
+        }
+        
+        /* Old teal buttons */
+        .old-toggle-btn {
+            padding: 8px 16px;
+            background: #009688;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            margin: 0 2px;
+        }
+        
+        .old-sign-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #009688 0%, #00796B 100%);
+            color: white;
+            border: 2px solid #00796B;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 15px;
+        }
+        
+        /* New gold buttons */
+        .new-toggle-btn {
+            padding: 8px 16px;
+            background: #CA8A04;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            margin: 0 2px;
+        }
+        
+        .new-sign-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #CA8A04 0%, #A16207 100%);
+            color: white;
+            border: 2px solid #A16207;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 15px;
+        }
+        
+        .new-sign-btn:hover {
+            background: linear-gradient(135deg, #A16207 0%, #854D0E 100%);
+            border-color: #854D0E;
+        }
+        
+        .inactive-btn {
+            background: transparent;
+            color: #718096;
+        }
+        
+        .input-field {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 14px;
+            margin-top: 8px;
+            box-sizing: border-box;
+        }
+        
+        .label {
+            font-size: 12px;
+            color: #718096;
+            margin-top: 8px;
+            font-weight: 500;
+        }
+        
+        .issue {
+            color: #e53e3e;
+            font-weight: 600;
+        }
+        
+        .fixed {
+            color: #38a169;
+            font-weight: 600;
+        }
+        
+        .highlight-box {
+            border: 3px dashed #ffd700;
+            background: rgba(255, 215, 0, 0.1);
+            padding: 10px;
+            border-radius: 8px;
+            position: relative;
+        }
+        
+        .center-guide {
+            border: 2px dashed #ff4444;
+            background: rgba(255, 68, 68, 0.05);
+            padding: 20px;
+            border-radius: 8px;
+        }
+        
+        @media (max-width: 768px) {
+            .comparison {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="section">
+            <h1>🎯 Investra AI - Logo & Button Color Fixes</h1>
+            <p>Fixed the UI design issues: logo size, centering, and button colors to match the logo identity.</p>
+        </div>
+        
+        <div class="section">
+            <h2>Issue 1: Logo Size & Centering</h2>
+            <div class="comparison">
+                <div class="before">
+                    <h3 class="issue">❌ Before - Too Small & Off-Center</h3>
+                    <div class="mock-auth-form">
+                        <img src="/investra-logo.svg" alt="Investra AI" class="old-logo">
+                        <p style="color: #718096; font-size: 14px; margin: 16px 0 0 0;">Sign in to your account</p>
+                    </div>
+                    <div class="label">200px × 60px - Logo too small for form</div>
+                </div>
+                
+                <div class="after">
+                    <h3 class="fixed">✅ After - Proper Size & Centered</h3>
+                    <div class="center-guide">
+                        <div class="highlight-box">
+                            <div class="mock-auth-form">
+                                <img src="/investra-logo.svg" alt="Investra AI" class="new-logo">
+                                <p style="color: #718096; font-size: 16px; margin: 24px 0 0 0; font-weight: 500;">Sign in to your account</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="label">280px × 84px - Fills yellow area, centered in red box</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>Issue 2: Button Colors Don't Match Logo</h2>
+            <div class="comparison">
+                <div class="before">
+                    <h3 class="issue">❌ Before - Teal Colors (Wrong Identity)</h3>
+                    <div class="mock-auth-form">
+                        <div style="display: flex; margin-bottom: 24px; background: #f8fafc; border-radius: 8px; padding: 4px;">
+                            <button class="old-toggle-btn">Sign In</button>
+                            <button class="old-toggle-btn inactive-btn">Sign Up</button>
+                        </div>
+                        
+                        <div style="text-align: left; margin-bottom: 16px;">
+                            <label style="display: block; margin-bottom: 8px; color: #2d3748; font-size: 14px; font-weight: 500;">Email</label>
+                            <input type="email" placeholder="Enter your email" class="input-field">
+                        </div>
+                        
+                        <div style="text-align: left; margin-bottom: 24px;">
+                            <label style="display: block; margin-bottom: 8px; color: #2d3748; font-size: 14px; font-weight: 500;">Password</label>
+                            <input type="password" placeholder="Enter your password" class="input-field">
+                        </div>
+                        
+                        <button class="old-sign-btn">Sign In</button>
+                    </div>
+                    <div class="label">Teal (#009688) - Doesn't match logo colors</div>
+                </div>
+                
+                <div class="after">
+                    <h3 class="fixed">✅ After - Gold Colors (Matches Logo)</h3>
+                    <div class="mock-auth-form">
+                        <div style="display: flex; margin-bottom: 24px; background: #f8fafc; border-radius: 8px; padding: 4px;">
+                            <button class="new-toggle-btn">Sign In</button>
+                            <button class="new-toggle-btn inactive-btn">Sign Up</button>
+                        </div>
+                        
+                        <div style="text-align: left; margin-bottom: 16px;">
+                            <label style="display: block; margin-bottom: 8px; color: #2d3748; font-size: 14px; font-weight: 500;">Email</label>
+                            <input type="email" placeholder="Enter your email" class="input-field">
+                        </div>
+                        
+                        <div style="text-align: left; margin-bottom: 24px;">
+                            <label style="display: block; margin-bottom: 8px; color: #2d3748; font-size: 14px; font-weight: 500;">Password</label>
+                            <input type="password" placeholder="Enter your password" class="input-field">
+                        </div>
+                        
+                        <button class="new-sign-btn">Sign In</button>
+                    </div>
+                    <div class="label">Gold (#CA8A04, #A16207) - Matches logo identity</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>Color Palette Update</h2>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
+                <div>
+                    <h3>New Primary Colors (From Logo)</h3>
+                    <div style="display: grid; gap: 8px;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div style="width: 40px; height: 40px; background: #faebd0; border-radius: 6px; border: 1px solid #ddd;"></div>
+                            <div>
+                                <div style="font-weight: 600;">#faebd0</div>
+                                <div style="font-size: 12px; color: #666;">Primary 50</div>
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div style="width: 40px; height: 40px; background: #CA8A04; border-radius: 6px; border: 1px solid #ddd;"></div>
+                            <div>
+                                <div style="font-weight: 600; color: white;">#CA8A04</div>
+                                <div style="font-size: 12px; color: #666;">Primary 600 (Main)</div>
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div style="width: 40px; height: 40px; background: #A16207; border-radius: 6px; border: 1px solid #ddd;"></div>
+                            <div>
+                                <div style="font-weight: 600; color: white;">#A16207</div>
+                                <div style="font-size: 12px; color: #666;">Primary 700 (Dark)</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div>
+                    <h3>Applied To:</h3>
+                    <ul style="margin: 0; padding-left: 20px;">
+                        <li>✅ Sign In / Sign Up toggle buttons</li>
+                        <li>✅ Primary action buttons</li>
+                        <li>✅ Submit buttons</li>
+                        <li>✅ Focus states and borders</li>
+                        <li>✅ Interactive elements</li>
+                        <li>✅ Password visibility toggle</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>✅ All Changes Summary</h2>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
+                <div>
+                    <h3>Logo Improvements</h3>
+                    <ul>
+                        <li>✅ Increased auth form logo: 200px → 280px</li>
+                        <li>✅ Better aspect ratio: 60px → 84px height</li>
+                        <li>✅ Proper centering with margin: auto</li>
+                        <li>✅ Form width: 400px → 420px for better proportions</li>
+                        <li>✅ Enhanced subtitle font weight and size</li>
+                    </ul>
+                </div>
+                
+                <div>
+                    <h3>Color System Update</h3>
+                    <ul>
+                        <li>✅ Primary colors updated to logo gold palette</li>
+                        <li>✅ All buttons now use gold gradients</li>
+                        <li>✅ Consistent hover states</li>
+                        <li>✅ Focus states match brand colors</li>
+                        <li>✅ Interactive elements unified</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
