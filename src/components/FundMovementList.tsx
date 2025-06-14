@@ -132,6 +132,11 @@ const FundMovementList: React.FC<FundMovementListProps> = ({
                         Rate: {movement.exchangeRate.toFixed(6)}
                       </div>
                     )}
+                    {movement.exchangeFees && movement.exchangeFees > 0 && (
+                      <div className="exchange-fees-info">
+                        Exchange Fees: {movement.exchangeFees.toFixed(4)}%
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className={`transaction-amount ${movement.type === 'withdraw' ? 'negative' : 'positive'}`}>

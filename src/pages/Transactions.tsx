@@ -327,7 +327,7 @@ const TransactionsPage: React.FC = () => {
           return `${year}-${month}-${day}`;
         })(),
         {
-          fees: fundMovementData.fees,
+          fees: fundMovementData.fees || 0,
           notes: fundMovementData.notes,
           originalAmount: fundMovementData.originalAmount,
           originalCurrency: fundMovementData.originalCurrency,

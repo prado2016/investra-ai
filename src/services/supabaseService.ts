@@ -1272,23 +1272,62 @@ export class FundMovementService {
         }
       }
 
+      // Validate and sanitize numeric values to prevent NaN or invalid values
+      const sanitizeNumber = (value: number | undefined, defaultValue: number = 0): number => {
+        if (value === undefined || value === null || isNaN(value) || !isFinite(value)) {
+          return defaultValue;
+        }
+        return value;
+      };
+
+      // Validate numeric constraints to prevent database overflow
+      const maxDecimal15_6 = 999999999.999999; // DECIMAL(15,6) max value
+      const maxDecimal15_8 = 9999999.99999999; // DECIMAL(15,8) max value
+      const maxDecimal5_4 = 9.9999; // DECIMAL(5,4) max value
+      
+      // Sanitize and validate amount constraints
+      const sanitizedAmount = sanitizeNumber(amount);
+      if (sanitizedAmount > maxDecimal15_6) {
+        return { data: null, error: `Amount exceeds maximum allowed value (${maxDecimal15_6})`, success: false };
+      }
+      
+      const sanitizedOriginalAmount = sanitizeNumber(options.originalAmount);
+      if (sanitizedOriginalAmount > maxDecimal15_6) {
+        return { data: null, error: `Original amount exceeds maximum allowed value (${maxDecimal15_6})`, success: false };
+      }
+      
+      const sanitizedConvertedAmount = sanitizeNumber(options.convertedAmount);
+      if (sanitizedConvertedAmount > maxDecimal15_6) {
+        return { data: null, error: `Converted amount exceeds maximum allowed value (${maxDecimal15_6})`, success: false };
+      }
+      
+      const sanitizedExchangeRate = sanitizeNumber(options.exchangeRate);
+      if (sanitizedExchangeRate > maxDecimal15_8) {
+        return { data: null, error: `Exchange rate exceeds maximum allowed value (${maxDecimal15_8})`, success: false };
+      }
+      
+      const sanitizedExchangeFees = sanitizeNumber(options.exchangeFees);
+      if (sanitizedExchangeFees > maxDecimal5_4) {
+        return { data: null, error: `Exchange fees percentage exceeds maximum allowed value (${maxDecimal5_4}%)`, success: false };
+      }
+
       const { data, error } = await supabase
         .from('fund_movements')
         .insert({
           portfolio_id: portfolioId,
           type,
-          amount,
+          amount: Math.min(sanitizedAmount, maxDecimal15_6),
           currency,
           status,
           movement_date: date,
-          fees: options.fees || 0,
+          fees: options.fees ? Math.min(sanitizeNumber(options.fees), maxDecimal15_6) : 0,
           notes: options.notes,
-          original_amount: options.originalAmount,
+          original_amount: sanitizedOriginalAmount > 0 ? Math.min(sanitizedOriginalAmount, maxDecimal15_6) : null,
           original_currency: options.originalCurrency,
-          converted_amount: options.convertedAmount,
+          converted_amount: sanitizedConvertedAmount > 0 ? Math.min(sanitizedConvertedAmount, maxDecimal15_6) : null,
           converted_currency: options.convertedCurrency,
-          exchange_rate: options.exchangeRate,
-          exchange_fees: options.exchangeFees || 0,
+          exchange_rate: sanitizedExchangeRate > 0 ? Math.min(sanitizedExchangeRate, maxDecimal15_8) : null,
+          exchange_fees: Math.min(sanitizedExchangeFees, maxDecimal5_4),
           account: options.account,
           from_account: options.fromAccount,
           to_account: options.toAccount

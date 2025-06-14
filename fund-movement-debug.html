@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Fund Movement Debug Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .test-result { margin: 10px 0; padding: 10px; border: 1px solid #ccc; }
+        .error { background-color: #ffe6e6; border-color: #ff0000; }
+        .success { background-color: #e6ffe6; border-color: #00ff00; }
+        .warning { background-color: #fff6e6; border-color: #ff9900; }
+        button { margin: 5px; padding: 10px 15px; }
+        input { margin: 5px; padding: 5px; width: 150px; }
+        .output { white-space: pre-wrap; font-family: monospace; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Fund Movement Numeric Overflow Debug</h1>
+        
+        <div>
+            <h3>Test Currency Conversion Calculation</h3>
+            <input type="number" id="originalAmount" placeholder="Original Amount" value="13000" step="0.01">
+            <input type="number" id="exchangeRate" placeholder="Exchange Rate" value="0.710347" step="0.000001">
+            <button onclick="testCalculation()">Test Calculation</button>
+            <button onclick="testConstraints()">Test All Constraints</button>
+        </div>
+        
+        <div id="results"></div>
+        
+        <div>
+            <h3>Quick Tests</h3>
+            <button onclick="testLargeAmount()">Test Large Amount</button>
+            <button onclick="testSmallRate()">Test Small Rate</button>
+            <button onclick="testHighPrecision()">Test High Precision</button>
+            <button onclick="testEdgeCases()">Test Edge Cases</button>
+        </div>
+    </div>
+
+    <script>
+        function log(message, type = 'info') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = `<strong>[${new Date().toLocaleTimeString()}]</strong><br><div class="output">${message}</div>`;
+            results.appendChild(div);
+            results.scrollTop = results.scrollHeight;
+        }
+
+        function testCalculation() {
+            const originalAmount = parseFloat(document.getElementById('originalAmount').value);
+            const exchangeRate = parseFloat(document.getElementById('exchangeRate').value);
+            
+            log('=== TESTING CALCULATION ===');
+            log(`Input: ${originalAmount} at rate ${exchangeRate}`);
+            
+            try {
+                // Same calculation as in the form
+                const realRate = exchangeRate / 0.99;
+                const convertedAmount = originalAmount * exchangeRate;
+                const feeAmount = (originalAmount * realRate) - convertedAmount;
+                const feePercentage = originalAmount > 0 ? (feeAmount / originalAmount) * 100 : 0;
+                
+                // Apply constraints
+                const validConvertedAmount = Math.max(0, convertedAmount);
+                const validFeePercentage = Math.min(Math.max(0, feePercentage), 9.9999);
+                const maxAmount = 999999999.999999;
+                const finalConvertedAmount = Math.min(validConvertedAmount, maxAmount);
+                
+                const results = {
+                    realRate,
+                    convertedAmount,
+                    feeAmount,
+                    feePercentage,
+                    validConvertedAmount,
+                    validFeePercentage,
+                    finalConvertedAmount
+                };
+                
+                log(`Results:\n${JSON.stringify(results, null, 2)}`, 'success');
+                
+                // Check constraints
+                const constraints = {
+                    'Original amount > DECIMAL(15,6)': originalAmount > 999999999.999999,
+                    'Converted amount > DECIMAL(15,6)': finalConvertedAmount > 999999999.999999,
+                    'Exchange rate > DECIMAL(15,8)': exchangeRate > 9999999.99999999,
+                    'Fee percentage > DECIMAL(5,4)': validFeePercentage > 9.9999,
+                    'Fee percentage is NaN': isNaN(feePercentage),
+                    'Fee percentage is Infinity': !isFinite(feePercentage)
+                };
+                
+                const violations = Object.entries(constraints).filter(([, violated]) => violated);
+                
+                if (violations.length > 0) {
+                    log(`CONSTRAINT VIOLATIONS:\n${violations.map(([msg]) => `- ${msg}`).join('\n')}`, 'error');
+                } else {
+                    log('✅ All constraints satisfied', 'success');
+                }
+                
+                // Test database payload
+                const dbPayload = {
+                    amount: finalConvertedAmount,
+                    original_amount: originalAmount,
+                    converted_amount: finalConvertedAmount,
+                    exchange_rate: exchangeRate,
+                    exchange_fees: validFeePercentage
+                };
+                
+                log(`Database payload:\n${JSON.stringify(dbPayload, null, 2)}`);
+                
+            } catch (error) {
+                log(`ERROR: ${error.message}\n${error.stack}`, 'error');
+            }
+        }
+
+        function testConstraints() {
+            log('=== TESTING ALL CONSTRAINTS ===');
+            
+            const testCases = [
+                { originalAmount: 13000, exchangeRate: 0.710347, name: 'Normal case' },
+                { originalAmount: 900000000, exchangeRate: 0.75, name: 'Large amount' },
+                { originalAmount: 10000, exchangeRate: 0.000001, name: 'Small rate' },
+                { originalAmount: 10000, exchangeRate: 1.5, name: 'Rate > 1' },
+                { originalAmount: 999999999, exchangeRate: 0.000001, name: 'Max amount, min rate' },
+                { originalAmount: 1, exchangeRate: 10000000, name: 'Max rate' }
+            ];
+            
+            testCases.forEach(testCase => {
+                document.getElementById('originalAmount').value = testCase.originalAmount;
+                document.getElementById('exchangeRate').value = testCase.exchangeRate;
+                log(`\n--- ${testCase.name} ---`);
+                testCalculation();
+            });
+        }
+
+        function testLargeAmount() {
+            document.getElementById('originalAmount').value = 900000000;
+            document.getElementById('exchangeRate').value = 0.75;
+            testCalculation();
+        }
+
+        function testSmallRate() {
+            document.getElementById('originalAmount').value = 10000;
+            document.getElementById('exchangeRate').value = 0.000001;
+            testCalculation();
+        }
+
+        function testHighPrecision() {
+            document.getElementById('originalAmount').value = 50000.123456;
+            document.getElementById('exchangeRate').value = 0.123456789;
+            testCalculation();
+        }
+
+        function testEdgeCases() {
+            log('=== TESTING EDGE CASES ===');
+            
+            // Test maximum DECIMAL values
+            const edgeCases = [
+                { val: 999999999.999999, type: 'DECIMAL(15,6) max' },
+                { val: 9999999.99999999, type: 'DECIMAL(15,8) max' },
+                { val: 9.9999, type: 'DECIMAL(5,4) max' },
+                { val: 1000000000, type: 'DECIMAL(15,6) overflow' },
+                { val: 10, type: 'DECIMAL(5,4) overflow' }
+            ];
+            
+            edgeCases.forEach(({ val, type }) => {
+                log(`${type}: ${val}`);
+                log(`  String: "${val.toString()}"`);
+                log(`  JSON: ${JSON.stringify(val)}`);
+                log(`  Precision: ${val.toString().replace('.', '').length} digits`);
+                log(`  Decimal places: ${(val.toString().split('.')[1] || '').length}`);
+            });
+        }
+
+        // Auto-run initial test
+        window.onload = function() {
+            testCalculation();
+        };
+    </script>
+</body>
+</html>

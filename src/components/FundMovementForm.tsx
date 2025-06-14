@@ -158,19 +158,19 @@ const FundMovementForm: React.FC<FundMovementFormProps> = ({
           const [year, month, day] = values.date.split('-').map(Number);
           return new Date(year, month - 1, day);
         })(),
-        amount: parseFloat(values.amount),
+        amount: parseFloat(values.amount) || 0,
         currency: values.currency,
-        fees: values.fees ? parseFloat(values.fees) : undefined,
+        fees: values.fees ? parseFloat(values.fees) : 0,
         notes: values.notes.trim() || undefined,
         
         // Conversion fields
         ...(values.type === 'conversion' && {
-          originalAmount: parseFloat(values.originalAmount),
+          originalAmount: parseFloat(values.originalAmount) || 0,
           originalCurrency: values.originalCurrency,
-          convertedAmount: parseFloat(values.convertedAmount),
+          convertedAmount: parseFloat(values.convertedAmount) || 0,
           convertedCurrency: values.convertedCurrency,
-          exchangeRate: parseFloat(values.exchangeRate),
-          exchangeFees: values.exchangeFees ? parseFloat(values.exchangeFees) : undefined,
+          exchangeRate: parseFloat(values.exchangeRate) || 0,
+          exchangeFees: values.exchangeFees ? parseFloat(values.exchangeFees) : 0,
           account: values.account
         }),
         
@@ -203,14 +203,22 @@ const FundMovementForm: React.FC<FundMovementFormProps> = ({
         // Calculate fee: (originalAmount × realRate) - convertedAmount
         const feeAmount = (originalAmount * realRate) - convertedAmount;
         
-        // Ensure values are valid and positive (prevent validation errors)
-        const validConvertedAmount = Math.max(0, convertedAmount);
-        const validFeeAmount = Math.max(0, feeAmount);
+        // Calculate fee percentage: (feeAmount / originalAmount) * 100
+        const feePercentage = originalAmount > 0 ? (feeAmount / originalAmount) * 100 : 0;
         
-        // Set calculated values with proper validation
-        form.setValue('convertedAmount', validConvertedAmount.toFixed(2));
-        form.setValue('amount', validConvertedAmount.toFixed(2));
-        form.setValue('exchangeFees', validFeeAmount.toFixed(2));
+        // Ensure values are valid and within database constraints
+        const validConvertedAmount = Math.max(0, convertedAmount);
+        // Cap exchange fees to database limit: DECIMAL(5,4) max value is 9.9999
+        const validFeePercentage = Math.min(Math.max(0, feePercentage), 9.9999);
+        
+        // Validate amounts don't exceed DECIMAL(15,6) constraint (999,999,999.999999)
+        const maxAmount = 999999999.999999;
+        const finalConvertedAmount = Math.min(validConvertedAmount, maxAmount);
+        
+        // Set calculated values with proper validation and constraints
+        form.setValue('convertedAmount', finalConvertedAmount.toFixed(2));
+        form.setValue('amount', finalConvertedAmount.toFixed(2));
+        form.setValue('exchangeFees', validFeePercentage.toFixed(4));
       }
     }
   }, [form.values.originalAmount, form.values.exchangeRate, form.values.type, form]);
@@ -395,7 +403,7 @@ const FundMovementForm: React.FC<FundMovementFormProps> = ({
                   <InputField
                     id="exchangeFees"
                     name="exchangeFees"
-                    label="Exchange Fees (USD)"
+                    label="Exchange Fees (%)"
                     type="number"
                     placeholder="Auto-calculated"
                     value={form.values.exchangeFees}
@@ -404,7 +412,8 @@ const FundMovementForm: React.FC<FundMovementFormProps> = ({
                     error={form.touched.exchangeFees ? form.errors.exchangeFees?.message : ''}
                     disabled={true} // Auto-calculated field
                     min={0}
-                    step={0.01}
+                    max={9.9999}
+                    step={0.0001}
                   />
                 </div>
                 <div className="horizontal-fields-container">
