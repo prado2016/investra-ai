@@ -2526,6 +2526,8 @@ button[type="submit"].btn.btn-primary,
 
 .actions-cell {
   /* Actions container styling */
+}
+
 .transaction-actions {
   display: flex;
   gap: var(--space-2);
