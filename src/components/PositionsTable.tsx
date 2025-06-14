@@ -283,21 +283,17 @@ export const PositionsTable: React.FC<PositionsTableProps> = ({
   // Get asset information lookup
   const assetInfoMap = useMemo(() => getAssetInfo(), []);
 
-  // Fetch real-time quotes with stable symbols array
-  const stableSymbols = useMemo(() => 
-    positions.map(position => position.assetSymbol),
-    [positions.length, positions.map(p => p.assetSymbol).join(',')]
-  );
-  
+  // COMPLETELY DISABLE real-time quotes to prevent infinite loop
+  const emptySymbols = useMemo(() => [], []); // Stable empty array
   const { 
     data: quotes, 
     loading: quotesLoading, 
     refetch,
     retryState 
-  } = useQuotes(stableSymbols, {
-    enabled: stableSymbols.length > 0 && stableSymbols.length < 50, // Limit to prevent too many API calls
-    refetchInterval: 60000, // Increase to 60 seconds to reduce load
-    useCache: true
+  } = useQuotes(emptySymbols, {
+    enabled: false,
+    refetchInterval: undefined, // Remove interval completely
+    useCache: false
   });
 
   // Create a map of current prices

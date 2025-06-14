@@ -218,10 +218,12 @@ export function useQuotes(symbols: string[], options: UseQuotesOptions = {}) {
     }
   }, [symbols, enabled, useCache, network.isOnline, notify, retry]);
 
-  // Initial fetch
+  // Initial fetch - only run if enabled
   useEffect(() => {
-    fetchQuotes();
-  }, [fetchQuotes]);
+    if (enabled) {
+      fetchQuotes();
+    }
+  }, [fetchQuotes, enabled]);
 
   // Set up interval for real-time updates
   useEffect(() => {

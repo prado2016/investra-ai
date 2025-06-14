@@ -61,33 +61,25 @@ export function useSupabasePositions(): UseSupabasePositionsReturn {
 
   const fetchPositions = useCallback(async () => {
     if (!activePortfolio) {
-      console.log('🔍 POSITIONS_HOOK_DEBUG: No active portfolio, skipping fetch');
       setPositions([]);
       setLoading(false);
       return;
     }
 
-    console.log('🔍 POSITIONS_HOOK_DEBUG: fetchPositions called for portfolio:', activePortfolio.id);
     setLoading(true);
     setError(null);
 
     try {
-      console.log('🔍 POSITIONS_HOOK_DEBUG: Calling SupabaseService.position.getPositions()');
       const result = await SupabaseService.position.getPositions(activePortfolio.id);
-      console.log('🔍 POSITIONS_HOOK_DEBUG: Service result:', result);
 
       if (result.success && result.data) {
-        console.log('🔍 POSITIONS_HOOK_DEBUG: Mapping positions:', result.data.length);
         const mappedPositions = result.data.map(mapDbPositionToFrontend);
-        console.log('🔍 POSITIONS_HOOK_DEBUG: Mapped positions:', mappedPositions);
         setPositions(mappedPositions);
       } else {
-        console.log('🔍 POSITIONS_HOOK_DEBUG: Service failed:', result.error);
         setError(result.error || 'Failed to fetch positions');
         setPositions([]);
       }
     } catch (err) {
-      console.error('🔍 POSITIONS_HOOK_DEBUG: Error fetching positions:', err);
       setError(err instanceof Error ? err.message : 'Unknown error occurred');
       setPositions([]);
     } finally {
