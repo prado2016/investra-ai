@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { debug, ErrorTracker, PerformanceTracker, isDev, isDebug } from '../utils/debug';
+import { useDebugSettings } from '../contexts/DebugContext';
 import { Bug, X, Trash2, Download, Eye, EyeOff } from 'lucide-react';
 
 const DebugPanelContainer = styled.div<{ $isOpen: boolean }>`
@@ -84,37 +85,41 @@ const Tab = styled.button<{ active: boolean }>`
   }
 `;
 
-const LogEntryComponent: React.FC<{ level: string; children: React.ReactNode }> = ({ level, children }) => (
-  <div 
-    style={{
-      padding: '4px 8px',
-      margin: '2px 0',
-      borderRadius: '4px',
-      background: (() => {
-        switch (level) {
-          case 'error': return 'rgba(239, 68, 68, 0.2)';
-          case 'warn': return 'rgba(245, 158, 11, 0.2)';
-          case 'info': return 'rgba(59, 130, 246, 0.2)';
-          case 'debug': return 'rgba(156, 163, 175, 0.2)';
-          default: return 'rgba(75, 85, 99, 0.2)';
-        }
-      })(),
-      borderLeft: `3px solid ${(() => {
-        switch (level) {
-          case 'error': return '#ef4444';
-          case 'warn': return '#f59e0b';
-          case 'info': return '#3b82f6';
-          case 'debug': return '#9ca3af';
-          default: return '#6b7280';
-        }
-      })()}`,
-      fontSize: '11px',
-      lineHeight: 1.4
-    }}
-  >
-    {children}
-  </div>
-);
+const LogEntryComponent: React.FC<{ level: string; children: React.ReactNode }> = ({ level, children }) => {
+  const { settings } = useDebugSettings();
+  
+  return (
+    <div 
+      style={{
+        padding: '4px 8px',
+        margin: '2px 0',
+        borderRadius: '4px',
+        background: (() => {
+          switch (level) {
+            case 'error': return 'rgba(239, 68, 68, 0.2)';
+            case 'warn': return 'rgba(245, 158, 11, 0.2)';
+            case 'info': return 'rgba(59, 130, 246, 0.2)';
+            case 'debug': return 'rgba(156, 163, 175, 0.2)';
+            default: return 'rgba(75, 85, 99, 0.2)';
+          }
+        })(),
+        borderLeft: `3px solid ${(() => {
+          switch (level) {
+            case 'error': return '#ef4444';
+            case 'warn': return '#f59e0b';
+            case 'info': return '#3b82f6';
+            case 'debug': return '#9ca3af';
+            default: return '#6b7280';
+          }
+        })()}`,
+        fontSize: settings.largerLogText ? '13px' : '11px',
+        lineHeight: 1.4
+      }}
+    >
+      {children}
+    </div>
+  );
+};
 
 const LogEntry = styled.div<{ level: string }>`
   padding: 4px 8px;

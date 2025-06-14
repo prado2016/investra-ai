@@ -6,6 +6,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { useConnectionHealth } from '../hooks/useConnectionHealth';
+import { useDebugSettings } from '../contexts/DebugContext';
 import { Activity, AlertCircle, CheckCircle, Clock } from 'lucide-react';
 
 const HealthContainer = styled.div`
@@ -52,23 +53,23 @@ const ErrorList = styled.div`
   border-top: 1px solid var(--border-secondary);
 `;
 
-const ErrorItem = styled.div`
+const ErrorItem = styled.div<{ $largerText?: boolean }>`
   color: var(--color-error);
-  font-size: 11px;
+  font-size: ${props => props.$largerText ? '13px' : '11px'};
   margin-bottom: 2px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 `;
 
-const RefreshButton = styled.button`
+const RefreshButton = styled.button<{ $largerText?: boolean }>`
   background: none;
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-sm);
   padding: 4px 8px;
   color: var(--text-secondary);
   cursor: pointer;
-  font-size: 11px;
+  font-size: ${props => props.$largerText ? '13px' : '11px'};
   margin-top: 8px;
   
   &:hover {
@@ -82,6 +83,7 @@ interface Props {
 
 const ConnectionHealthDebug: React.FC<Props> = ({ show = process.env.NODE_ENV === 'development' }) => {
   const { health, refresh } = useConnectionHealth();
+  const { settings } = useDebugSettings();
 
   if (!show) return null;
 
@@ -163,14 +165,14 @@ const ConnectionHealthDebug: React.FC<Props> = ({ show = process.env.NODE_ENV ==
         <ErrorList>
           <div style={{ fontWeight: 600, marginBottom: 4 }}>Recent Errors:</div>
           {health.metrics.recentErrors.slice(0, 3).map((error, index) => (
-            <ErrorItem key={index} title={error}>
+            <ErrorItem key={index} title={error} $largerText={settings.largerLogText}>
               {error}
             </ErrorItem>
           ))}
         </ErrorList>
       )}
 
-      <RefreshButton onClick={refresh}>
+      <RefreshButton onClick={refresh} $largerText={settings.largerLogText}>
         <Clock size={12} style={{ marginRight: 4 }} />
         Refresh
       </RefreshButton>

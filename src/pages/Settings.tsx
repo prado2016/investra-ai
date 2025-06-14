@@ -5,6 +5,7 @@ import { useDataManagement } from '../hooks/useStorage';
 import { useSupabaseDataManagement } from '../hooks/useSupabaseDataManagement';
 import { usePortfolios } from '../contexts/PortfolioContext';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { useDebugSettings } from '../contexts/DebugContext';
 import { SupabaseService } from '../services/supabaseService';
 import ThemeToggle from '../components/ThemeToggle';
 import ApiKeySettings from '../components/SimpleApiKeySettings';
@@ -197,6 +198,7 @@ const Settings: React.FC = () => {
   const { importData, getStorageInfo } = useDataManagement();
   const { clearAllData } = useSupabaseDataManagement();
   const { portfolios } = usePortfolios();
+  const { settings: debugSettings, updateSetting: updateDebugSetting, resetToDefaults } = useDebugSettings();
   
   // Set page title
   usePageTitle('Settings', { subtitle: 'App Configuration' });
@@ -635,6 +637,102 @@ const Settings: React.FC = () => {
             This setting affects daily summary calculations and trade timestamps.
           </Description>
         </FormGroup>
+      </Section>
+
+      <Section>
+        <SectionTitle>Developer & Debug Options</SectionTitle>
+        <Description>
+          Enable debug panels and development tools. These are useful for troubleshooting issues 
+          and monitoring app performance. Enable only what you need to avoid cluttering the interface.
+        </Description>
+        
+        <FormGroup>
+          <CheckboxLabel>
+            <Checkbox
+              checked={debugSettings.showDebugPanel}
+              onChange={(e) => updateDebugSetting('showDebugPanel', e.target.checked)}
+            />
+            Show Debug Panel
+          </CheckboxLabel>
+          <Description style={{ fontSize: '0.875rem', marginTop: '0.25rem', marginBottom: '0.75rem' }}>
+            Display the main debug panel with system information and logs.
+          </Description>
+
+          <CheckboxLabel>
+            <Checkbox
+              checked={debugSettings.showConnectionHealth}
+              onChange={(e) => updateDebugSetting('showConnectionHealth', e.target.checked)}
+            />
+            Show Connection Health Monitor
+          </CheckboxLabel>
+          <Description style={{ fontSize: '0.875rem', marginTop: '0.25rem', marginBottom: '0.75rem' }}>
+            Monitor database connection status and health metrics.
+          </Description>
+
+          <CheckboxLabel>
+            <Checkbox
+              checked={debugSettings.showEmergencyReload}
+              onChange={(e) => updateDebugSetting('showEmergencyReload', e.target.checked)}
+            />
+            Show Emergency Reload Button
+          </CheckboxLabel>
+          <Description style={{ fontSize: '0.875rem', marginTop: '0.25rem', marginBottom: '0.75rem' }}>
+            Display an emergency reload button for when the app becomes unresponsive.
+          </Description>
+
+          <CheckboxLabel>
+            <Checkbox
+              checked={debugSettings.showCircuitBreakerReset}
+              onChange={(e) => updateDebugSetting('showCircuitBreakerReset', e.target.checked)}
+            />
+            Show Circuit Breaker Reset
+          </CheckboxLabel>
+          <Description style={{ fontSize: '0.875rem', marginTop: '0.25rem', marginBottom: '0.75rem' }}>
+            Allow manual reset of the circuit breaker when API calls are blocked.
+          </Description>
+
+          <CheckboxLabel>
+            <Checkbox
+              checked={debugSettings.showApiMonitoring}
+              onChange={(e) => updateDebugSetting('showApiMonitoring', e.target.checked)}
+            />
+            Show API Monitoring Dashboard
+          </CheckboxLabel>
+          <Description style={{ fontSize: '0.875rem', marginTop: '0.25rem', marginBottom: '0.75rem' }}>
+            Monitor API performance, response times, and error rates.
+          </Description>
+
+          <CheckboxLabel>
+            <Checkbox
+              checked={debugSettings.showPortfolioDebug}
+              onChange={(e) => updateDebugSetting('showPortfolioDebug', e.target.checked)}
+            />
+            Show Portfolio Debug Info
+          </CheckboxLabel>
+          <Description style={{ fontSize: '0.875rem', marginTop: '0.25rem', marginBottom: '0.75rem' }}>
+            Display detailed portfolio and context information for debugging.
+          </Description>
+
+          <CheckboxLabel>
+            <Checkbox
+              checked={debugSettings.largerLogText}
+              onChange={(e) => updateDebugSetting('largerLogText', e.target.checked)}
+            />
+            Use Larger Log Text
+          </CheckboxLabel>
+          <Description style={{ fontSize: '0.875rem', marginTop: '0.25rem', marginBottom: '0.75rem' }}>
+            Increase the font size of log messages for better visibility.
+          </Description>
+        </FormGroup>
+
+        <ButtonGroup>
+          <Button 
+            $variant="secondary" 
+            onClick={resetToDefaults}
+          >
+            Reset Debug Settings
+          </Button>
+        </ButtonGroup>
       </Section>
 
       <Section>

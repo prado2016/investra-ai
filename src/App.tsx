@@ -7,6 +7,7 @@ import { OfflineProvider } from './contexts/OfflineContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { LoadingProvider } from './contexts/LoadingProvider';
 import { NotificationProvider } from './contexts/NotificationContext';
+import { DebugProvider, useDebugSettings } from './contexts/DebugContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import Navigation from './components/Navigation';
 import Breadcrumb from './components/Breadcrumb';
@@ -26,6 +27,22 @@ import Summary from './pages/Summary';
 import Settings from './pages/Settings';
 import { debug, ErrorTracker, isDev } from './utils/debug';
 import './styles/App.css';
+
+// Component to conditionally render debug components
+const ConditionalDebugComponents: React.FC = () => {
+  const { settings } = useDebugSettings();
+  
+  return (
+    <>
+      {settings.showDebugPanel && <DebugPanel />}
+      {settings.showConnectionHealth && <ConnectionHealthDebug />}
+      {settings.showCircuitBreakerReset && <CircuitBreakerReset />}
+      {settings.showApiMonitoring && <ApiMonitoringDashboard />}
+      {settings.showEmergencyReload && <EmergencyReload />}
+      {settings.showPortfolioDebug && <PortfolioDebugInfo />}
+    </>
+  );
+};
 
 // Modern loading component with improved styling
 const LoadingScreen: React.FC = () => (
@@ -192,12 +209,7 @@ function AppContent() {
             <Route path="/settings" element={<Settings />} />
           </Routes>
         </main>
-        <DebugPanel />
-        <ConnectionHealthDebug />
-        <CircuitBreakerReset />
-        <ApiMonitoringDashboard />
-        <EmergencyReload />
-        <PortfolioDebugInfo />
+        <ConditionalDebugComponents />
       </div>
       <NotificationContainer position="top-right" />
     </Router>
@@ -242,34 +254,36 @@ function App() {
 
   return (
     <AuthProvider>
-      <OfflineProvider>
-        <RealtimeProvider>
-          <ThemeProvider>
-            <NotificationProvider maxNotifications={5} defaultDuration={5000}>
-              <LoadingProvider>
-                <PortfolioProvider>
-                  <ErrorBoundary 
-                    onError={(error, errorInfo) => {
-                      // Enhanced error tracking with debug integration
-                      debug.error('App Error Boundary caught error', error, 'ErrorBoundary');
-                      ErrorTracker.trackError(error, { 
-                        errorInfo, 
-                        boundary: 'App',
-                        timestamp: new Date().toISOString()
-                      });
-                      
-                      // In production, this would send to your error tracking service
-                      console.error('App Error Boundary caught error:', error, errorInfo);
-                    }}
-                  >
-                    <AppContent />
-                  </ErrorBoundary>
-                </PortfolioProvider>
-              </LoadingProvider>
-            </NotificationProvider>
-          </ThemeProvider>
-        </RealtimeProvider>
-      </OfflineProvider>
+      <DebugProvider>
+        <OfflineProvider>
+          <RealtimeProvider>
+            <ThemeProvider>
+              <NotificationProvider maxNotifications={5} defaultDuration={5000}>
+                <LoadingProvider>
+                  <PortfolioProvider>
+                    <ErrorBoundary 
+                      onError={(error, errorInfo) => {
+                        // Enhanced error tracking with debug integration
+                        debug.error('App Error Boundary caught error', error, 'ErrorBoundary');
+                        ErrorTracker.trackError(error, { 
+                          errorInfo, 
+                          boundary: 'App',
+                          timestamp: new Date().toISOString()
+                        });
+                        
+                        // In production, this would send to your error tracking service
+                        console.error('App Error Boundary caught error:', error, errorInfo);
+                      }}
+                    >
+                      <AppContent />
+                    </ErrorBoundary>
+                  </PortfolioProvider>
+                </LoadingProvider>
+              </NotificationProvider>
+            </ThemeProvider>
+          </RealtimeProvider>
+        </OfflineProvider>
+      </DebugProvider>
     </AuthProvider>
   );
 }
