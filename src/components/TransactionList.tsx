@@ -429,9 +429,9 @@ const TransactionList: React.FC<TransactionListProps> = ({
     );
   }, [filteredTransactions]);
 
-  // Show only the last 10 transactions for the "Recent Transactions" display
+  // Show all transactions with proper scrolling
   const recentTransactions = useMemo(() => {
-    return sortedTransactions.slice(0, 10);
+    return sortedTransactions; // Show all transactions, scrolling handled by container
   }, [sortedTransactions]);
 
   if (loading) {
@@ -469,20 +469,6 @@ const TransactionList: React.FC<TransactionListProps> = ({
         </FilterSelect>
       </FilterBar>
 
-      {sortedTransactions.length > 10 && (
-        <div style={{ 
-          fontSize: 'var(--text-sm)', 
-          color: 'var(--text-secondary)', 
-          marginBottom: 'var(--space-3)',
-          padding: 'var(--space-2)',
-          background: 'var(--bg-secondary)',
-          borderRadius: 'var(--radius-md)',
-          textAlign: 'center'
-        }}>
-          Showing {recentTransactions.length} most recent transactions out of {sortedTransactions.length} total
-        </div>
-      )}
-
       {recentTransactions.length === 0 ? (
         <EmptyState>
           {transactions.length === 0 
@@ -502,7 +488,7 @@ const TransactionList: React.FC<TransactionListProps> = ({
             <div>Actions</div>
           </TableHeader>
           
-          <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+          <div style={{ maxHeight: '600px', overflowY: 'auto' }}>
             {recentTransactions
               .filter(transaction => transaction && transaction.id) // Filter out invalid transactions
               .map((transaction) => (
@@ -589,7 +575,17 @@ const TransactionList: React.FC<TransactionListProps> = ({
               </div>
               
               <div>
-                {formatDate(transaction.transaction_date)}
+                {(() => {
+                  // Handle timezone-safe date formatting for database date strings
+                  const dateStr = transaction.transaction_date;
+                  if (typeof dateStr === 'string') {
+                    // Parse date string safely to avoid timezone shifts
+                    const [year, month, day] = dateStr.split('-').map(Number);
+                    const safeDate = new Date(year, month - 1, day); // month is 0-indexed
+                    return formatDate(safeDate);
+                  }
+                  return formatDate(dateStr);
+                })()}
               </div>
               
               <div>
