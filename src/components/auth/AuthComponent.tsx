@@ -88,7 +88,7 @@ export const AuthComponent: React.FC<AuthComponentProps> = () => {
     }}>
       <div style={{
         width: '100%',
-        maxWidth: '420px',
+        maxWidth: '450px',
         background: 'var(--bg-card)',
         borderRadius: 'var(--radius-xl)',
         boxShadow: 'var(--shadow-lg)',
@@ -105,22 +105,14 @@ export const AuthComponent: React.FC<AuthComponentProps> = () => {
             src="/investra-logo.svg" 
             alt="Investra AI" 
             style={{
-              width: '280px',
-              height: '84px',
-              marginBottom: 'var(--space-6)',
+              width: '320px',
+              height: '96px',
+              marginBottom: 'var(--space-4)',
               maxWidth: '100%',
               display: 'block',
-              margin: '0 auto var(--space-6) auto'
+              margin: '0 auto var(--space-4) auto'
             }}
           />
-          <p style={{
-            color: 'var(--text-secondary)',
-            fontSize: 'var(--text-base)',
-            margin: 0,
-            fontWeight: 'var(--font-weight-medium)'
-          }}>
-            {mode === 'signin' ? 'Sign in to your account' : 'Create your account'}
-          </p>
         </div>
 
         {/* Mode Toggle */}
