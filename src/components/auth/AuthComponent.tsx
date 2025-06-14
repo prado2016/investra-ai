@@ -104,19 +104,12 @@ export const AuthComponent: React.FC<AuthComponentProps> = () => {
             src="/investra-logo.svg" 
             alt="Investra AI" 
             style={{
-              width: '48px',
-              height: '48px',
-              marginBottom: 'var(--space-4)'
+              width: '200px',
+              height: '60px',
+              marginBottom: 'var(--space-4)',
+              maxWidth: '100%'
             }}
           />
-          <h1 style={{
-            fontSize: 'var(--text-2xl)',
-            fontWeight: 'var(--font-weight-bold)',
-            color: 'var(--text-primary)',
-            margin: '0 0 var(--space-2) 0'
-          }}>
-            Investra AI
-          </h1>
           <p style={{
             color: 'var(--text-secondary)',
             fontSize: 'var(--text-sm)',

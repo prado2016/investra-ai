@@ -58,32 +58,16 @@ const Navigation: React.FC<NavigationProps> = ({ className }) => {
           position: 'relative'
         }}
       >
-        <div className="nav-logo-container" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+        <div className="nav-logo-container" style={{ display: 'flex', alignItems: 'center' }}>
           <img 
             src="/investra-logo.svg" 
             alt="Investra" 
             style={{
-              width: '32px',
-              height: '32px',
+              width: '120px',
+              height: '36px',
               objectFit: 'contain'
             }}
           />
-          <h1 
-            className="nav-logo"
-            style={{
-              color: 'var(--text-primary)',
-              margin: 0,
-              fontSize: 'var(--text-xl)',
-              fontWeight: 'var(--font-weight-bold)',
-              fontFamily: 'var(--font-family-financial)',
-              background: 'linear-gradient(135deg, var(--color-primary-600), var(--color-primary-500))',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text'
-            }}
-          >
-            Investra AI
-          </h1>
         </div>
 
         <button
@@ -265,6 +249,11 @@ const Navigation: React.FC<NavigationProps> = ({ className }) => {
           
           .mobile-menu-overlay {
             display: block !important;
+          }
+          
+          .nav-logo-container img {
+            width: 100px !important;
+            height: 30px !important;
           }
         }
         
