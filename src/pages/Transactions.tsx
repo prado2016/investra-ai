@@ -125,14 +125,24 @@ const TransactionsPage: React.FC = () => {
       
       if (editingTransaction) {
         // Update existing transaction
+        console.log('Updating transaction:', editingTransaction.id, 'with asset:', assetResponse.data.id);
+        
+        // Check if asset changed - this might require position reconciliation
+        const assetChanged = editingTransaction.assetSymbol !== transactionData.assetSymbol;
+        if (assetChanged) {
+          console.log('Asset changed from', editingTransaction.assetSymbol, 'to', transactionData.assetSymbol);
+        }
+        
         response = await TransactionService.updateTransaction(
           editingTransaction.id,
           {
+            asset_id: assetResponse.data.id, // Fix: Update asset_id to new asset
             transaction_type: transactionData.type as TransactionType,
             quantity: transactionData.quantity,
             price: transactionData.price,
             total_amount: transactionData.totalAmount,
             fees: transactionData.fees || 0,
+            currency: transactionData.currency, // Fix: Update currency field
             transaction_date: transactionData.date?.toISOString().split('T')[0] || new Date().toISOString().split('T')[0],
             notes: transactionData.notes || undefined
           }
@@ -140,6 +150,15 @@ const TransactionsPage: React.FC = () => {
         
         if (response.success) {
           notify.success('Transaction updated successfully');
+          console.log('Transaction updated successfully:', response.data);
+          
+          // If asset changed, we might need to reconcile positions
+          if (assetChanged) {
+            console.log('Asset changed - position reconciliation may be needed');
+            // Note: Position reconciliation will happen automatically on next position fetch
+          }
+        } else {
+          console.error('Failed to update transaction:', response.error);
         }
       } else {
         // Create new transaction

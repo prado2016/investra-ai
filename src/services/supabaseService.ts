@@ -453,8 +453,8 @@ export class PositionService {
     assetId: string
   ): Promise<ServiceResponse<Position & { asset: Asset }>> {
     try {
-      // First try to get existing position
-      const { data: existingPosition, error: fetchError } = await supabase
+      // First try to get existing position (active or inactive)
+      const { data: existingPositions, error: fetchError } = await supabase
         .from('positions')
         .select(`
           *,
@@ -462,17 +462,48 @@ export class PositionService {
         `)
         .eq('portfolio_id', portfolioId)
         .eq('asset_id', assetId)
-        .eq('is_active', true)
-        .single();
+        .order('updated_at', { ascending: false })
+        .limit(1);
 
-      if (existingPosition && !fetchError) {
+      if (fetchError) {
+        console.warn('Error fetching existing position:', fetchError.message);
+      }
+
+      // If we have an existing position (active or inactive), return it
+      if (existingPositions && existingPositions.length > 0) {
+        const existingPosition = existingPositions[0];
+        
+        // If position exists but is inactive, reactivate it
+        if (!existingPosition.is_active) {
+          const { data: reactivatedPosition, error: reactivateError } = await supabase
+            .from('positions')
+            .update({
+              is_active: true,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', existingPosition.id)
+            .select(`
+              *,
+              asset:assets(*)
+            `)
+            .single();
+
+          if (reactivateError) {
+            console.warn('Failed to reactivate position:', reactivateError.message);
+            return { data: existingPosition, error: null, success: true };
+          }
+
+          return { data: reactivatedPosition, error: null, success: true };
+        }
+
         return { data: existingPosition, error: null, success: true };
       }
 
       // Create new position if it doesn't exist
+      // Use upsert to handle race conditions
       const { data: newPosition, error: createError } = await supabase
         .from('positions')
-        .insert({
+        .upsert({
           portfolio_id: portfolioId,
           asset_id: assetId,
           quantity: 0,
@@ -481,7 +512,12 @@ export class PositionService {
           realized_pl: 0,
           open_date: new Date().toISOString().split('T')[0],
           cost_basis_method: 'FIFO',
-          is_active: true
+          is_active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'portfolio_id,asset_id',
+          ignoreDuplicates: false
         })
         .select(`
           *,
@@ -490,7 +526,24 @@ export class PositionService {
         .single();
 
       if (createError) {
-        return { data: null, error: createError.message, success: false };
+        // If upsert failed, try to fetch the existing position again
+        // This handles the race condition where another process created it
+        const { data: fallbackPositions, error: fallbackError } = await supabase
+          .from('positions')
+          .select(`
+            *,
+            asset:assets(*)
+          `)
+          .eq('portfolio_id', portfolioId)
+          .eq('asset_id', assetId)
+          .order('updated_at', { ascending: false })
+          .limit(1);
+
+        if (fallbackError || !fallbackPositions || fallbackPositions.length === 0) {
+          return { data: null, error: createError.message, success: false };
+        }
+
+        return { data: fallbackPositions[0], error: null, success: true };
       }
 
       return { data: newPosition, error: null, success: true };
@@ -930,6 +983,7 @@ export class TransactionService {
       }
 
       // Update position after successful transaction creation
+      console.log('Updating position for transaction:', { portfolioId, assetId, transactionType, quantity, price });
       const positionUpdateResult = await PositionService.updatePositionFromTransaction(
         portfolioId,
         assetId,
@@ -940,9 +994,12 @@ export class TransactionService {
       );
 
       if (!positionUpdateResult.success) {
-        console.warn('Position update failed after transaction creation:', positionUpdateResult.error);
+        console.error('Position update failed after transaction creation:', positionUpdateResult.error);
         // Don't fail the transaction creation if position update fails
         // The position can be updated later via reconciliation
+        // But we should notify the user about this issue
+      } else {
+        console.log('Position updated successfully:', positionUpdateResult.data?.id);
       }
 
       return { data, error: null, success: true }
@@ -990,11 +1047,13 @@ export class TransactionService {
   static async updateTransaction(
     transactionId: string,
     updates: {
+      asset_id?: string;
       transaction_type?: TransactionType;
       quantity?: number;
       price?: number;
       total_amount?: number;
       fees?: number;
+      currency?: string;
       transaction_date?: string;
       notes?: string;
     }
