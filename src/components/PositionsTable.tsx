@@ -283,21 +283,20 @@ export const PositionsTable: React.FC<PositionsTableProps> = ({
   // Get asset information lookup
   const assetInfoMap = useMemo(() => getAssetInfo(), []);
 
-  // Extract symbols for real-time price fetching
-  const symbols = useMemo(() => 
+  // Fetch real-time quotes with stable symbols array
+  const stableSymbols = useMemo(() => 
     positions.map(position => position.assetSymbol),
-    [positions]
+    [positions.length, positions.map(p => p.assetSymbol).join(',')]
   );
-
-  // Fetch real-time quotes
+  
   const { 
     data: quotes, 
     loading: quotesLoading, 
     refetch,
     retryState 
-  } = useQuotes(symbols, {
-    enabled: symbols.length > 0,
-    refetchInterval: 30000, // 30 seconds
+  } = useQuotes(stableSymbols, {
+    enabled: stableSymbols.length > 0 && stableSymbols.length < 50, // Limit to prevent too many API calls
+    refetchInterval: 60000, // Increase to 60 seconds to reduce load
     useCache: true
   });
 

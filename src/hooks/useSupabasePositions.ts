@@ -121,7 +121,7 @@ export function useSupabasePositions(): UseSupabasePositionsReturn {
   // Fetch positions when active portfolio changes
   useEffect(() => {
     fetchPositions();
-  }, [fetchPositions]);
+  }, [activePortfolio?.id]); // Only depend on the portfolio ID, not the entire fetchPositions function
 
   return {
     positions,
