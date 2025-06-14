@@ -132,7 +132,7 @@ const FundMovementForm: React.FC<FundMovementFormProps> = ({
         requiredIf: (values) => ['withdraw', 'transfer'].includes(values.type)
       },
       toAccount: {
-        requiredIf: (values) => ['deposit', 'transfer'].includes(values.type)
+        requiredIf: (values) => ['deposit', 'transfer', 'withdraw'].includes(values.type)
       }
     },
     validateOnChange: true,
@@ -166,7 +166,7 @@ const FundMovementForm: React.FC<FundMovementFormProps> = ({
         ...(['withdraw', 'transfer'].includes(values.type) && {
           fromAccount: values.fromAccount
         }),
-        ...(['deposit', 'transfer'].includes(values.type) && {
+        ...(['deposit', 'transfer', 'withdraw'].includes(values.type) && {
           toAccount: values.toAccount
         })
       };
@@ -429,7 +429,7 @@ const FundMovementForm: React.FC<FundMovementFormProps> = ({
                       disabled={form.isSubmitting || loading}
                     />
                   )}
-                  {['deposit', 'transfer'].includes(form.values.type) && (
+                  {['deposit', 'transfer', 'withdraw'].includes(form.values.type) && (
                     <SelectField
                       id="toAccount"
                       name="toAccount"
