@@ -420,85 +420,91 @@ const TransactionsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Enhanced Content Layout */}
+      {/* Enhanced Content Layout - 2x2 Grid */}
       <div className="enhanced-content-layout">
-        {/* Add Transaction Section */}
-        <div className="enhanced-form-section">
-          <div className="enhanced-section-header" style={{ cursor: 'pointer' }} onClick={() => setIsTransactionFormMinimized(!isTransactionFormMinimized)}>
-            <div className="enhanced-section-header-content">
-              <Plus className="enhanced-section-icon" />
-              <div className="enhanced-section-text">
-                <h2 className="enhanced-section-title">Add Transaction</h2>
-                <p className="enhanced-section-subtitle">
-                  Enter transaction details to add to your portfolio
-                </p>
+        {/* Top Row: Add Transaction and Recent Transactions */}
+        <div className="transaction-grid-row">
+          {/* Add Transaction Section */}
+          <div className="enhanced-form-section">
+            <div className="enhanced-section-header" style={{ cursor: 'pointer' }} onClick={() => setIsTransactionFormMinimized(!isTransactionFormMinimized)}>
+              <div className="enhanced-section-header-content">
+                <Plus className="enhanced-section-icon" />
+                <div className="enhanced-section-text">
+                  <h2 className="enhanced-section-title">Add Transaction</h2>
+                  <p className="enhanced-section-subtitle">
+                    Enter transaction details to add to your portfolio
+                  </p>
+                </div>
+                {isTransactionFormMinimized ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
               </div>
-              {isTransactionFormMinimized ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
             </div>
+            
+            {!isTransactionFormMinimized && (
+              <div className="enhanced-form-wrapper">
+                <TransactionForm
+                  onSave={handleSaveTransaction}
+                  onCancel={() => {}} // No cancel needed for add-only form
+                />
+              </div>
+            )}
           </div>
-          
-          {!isTransactionFormMinimized && (
-            <div className="enhanced-form-wrapper">
-              <TransactionForm
-                onSave={handleSaveTransaction}
-                onCancel={() => {}} // No cancel needed for add-only form
+
+          {/* Recent Transactions Section */}
+          <div className="enhanced-transactions-section">
+            <div className="enhanced-section-header">
+              <div className="enhanced-section-header-content">
+                <DollarSign className="enhanced-section-icon" />
+                <div className="enhanced-section-text">
+                  <h2 className="enhanced-section-title">Recent Transactions</h2>
+                  <p className="enhanced-section-subtitle">
+                    View and manage your transaction history
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="enhanced-transactions-wrapper">
+              <TransactionList
+                transactions={transactions}
+                loading={loading}
+                error={error}
+                onEdit={handleEditTransaction}
+                onDelete={handleDeleteTransaction}
               />
             </div>
-          )}
-        </div>
-
-        {/* Add Fund Movement Section */}
-        <FundMovementForm
-          onSave={handleSaveFundMovement}
-          loading={loading}
-        />
-
-        {/* Recent Transactions Section */}
-        <div className="enhanced-transactions-section">
-          <div className="enhanced-section-header">
-            <div className="enhanced-section-header-content">
-              <DollarSign className="enhanced-section-icon" />
-              <div className="enhanced-section-text">
-                <h2 className="enhanced-section-title">Recent Transactions</h2>
-                <p className="enhanced-section-subtitle">
-                  View and manage your transaction history
-                </p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="enhanced-transactions-wrapper">
-            <TransactionList
-              transactions={transactions}
-              loading={loading}
-              error={error}
-              onEdit={handleEditTransaction}
-              onDelete={handleDeleteTransaction}
-            />
           </div>
         </div>
 
-        {/* Recent Fund Movements Section */}
-        <div className="enhanced-transactions-section">
-          <div className="enhanced-section-header">
-            <div className="enhanced-section-header-content">
-              <ArrowUpDown className="enhanced-section-icon" />
-              <div className="enhanced-section-text">
-                <h2 className="enhanced-section-title">Recent Funds</h2>
-                <p className="enhanced-section-subtitle">
-                  View and manage your fund transfers, deposits, withdrawals, and conversions
-                </p>
+        {/* Bottom Row: Add Funds and Recent Funds */}
+        <div className="transaction-grid-row">
+          {/* Add Fund Movement Section */}
+          <FundMovementForm
+            onSave={handleSaveFundMovement}
+            loading={loading}
+          />
+
+          {/* Recent Fund Movements Section */}
+          <div className="enhanced-transactions-section">
+            <div className="enhanced-section-header">
+              <div className="enhanced-section-header-content">
+                <ArrowUpDown className="enhanced-section-icon" />
+                <div className="enhanced-section-text">
+                  <h2 className="enhanced-section-title">Recent Funds</h2>
+                  <p className="enhanced-section-subtitle">
+                    View and manage your fund transfers, deposits, withdrawals, and conversions
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
-          
-          <div className="enhanced-transactions-wrapper">
-            <FundMovementList
-              fundMovements={fundMovements}
-              loading={loading}
-              error={error}
-              onDelete={handleDeleteFundMovement}
-            />
+            
+            <div className="enhanced-transactions-wrapper">
+              <FundMovementList
+                fundMovements={fundMovements}
+                loading={loading}
+                error={error}
+                onDelete={handleDeleteFundMovement}
+              />
+            </div>
           </div>
         </div>
       </div>
