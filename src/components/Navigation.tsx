@@ -43,7 +43,7 @@ const Navigation: React.FC<NavigationProps> = ({ className }) => {
         top: 0,
         zIndex: 'var(--z-fixed)',
         backdropFilter: 'blur(8px)',
-        minHeight: 'var(--navbar-height)'
+        minHeight: '72px'
       }}
     >
       <div 
@@ -63,8 +63,8 @@ const Navigation: React.FC<NavigationProps> = ({ className }) => {
             src="/investra-logo.svg" 
             alt="Investra" 
             style={{
-              width: '120px',
-              height: '36px',
+              width: '160px',
+              height: '48px',
               objectFit: 'contain'
             }}
           />
@@ -252,8 +252,8 @@ const Navigation: React.FC<NavigationProps> = ({ className }) => {
           }
           
           .nav-logo-container img {
-            width: 100px !important;
-            height: 30px !important;
+            width: 120px !important;
+            height: 36px !important;
           }
         }
         

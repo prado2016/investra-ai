@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Navigation Logo Fix - Investra AI</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f8fafc;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        
+        .section {
+            padding: 30px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .section:last-child {
+            border-bottom: none;
+        }
+        
+        h1 {
+            color: #1a202c;
+            margin: 0 0 20px 0;
+            font-size: 28px;
+            font-weight: 700;
+        }
+        
+        h2 {
+            color: #2d3748;
+            margin: 0 0 15px 0;
+            font-size: 20px;
+            font-weight: 600;
+        }
+        
+        .comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin: 20px 0;
+        }
+        
+        .before, .after {
+            padding: 20px;
+            border-radius: 8px;
+            border: 2px solid #e2e8f0;
+        }
+        
+        .before {
+            background: #fef5e7;
+            border-color: #f6ad55;
+        }
+        
+        .after {
+            background: #f0fff4;
+            border-color: #48bb78;
+        }
+        
+        .mock-nav {
+            background: white;
+            padding: 16px 24px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin: 15px 0;
+            min-height: 56px;
+        }
+        
+        .mock-nav-improved {
+            min-height: 72px;
+        }
+        
+        .nav-left {
+            display: flex;
+            align-items: center;
+        }
+        
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #718096;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .nav-link.active {
+            color: #CA8A04;
+            background: rgba(202, 138, 4, 0.1);
+            border: 1px solid rgba(202, 138, 4, 0.2);
+        }
+        
+        .small-logo {
+            width: 120px;
+            height: 36px;
+        }
+        
+        .large-logo {
+            width: 160px;
+            height: 48px;
+        }
+        
+        .icon {
+            width: 18px;
+            height: 18px;
+            fill: currentColor;
+        }
+        
+        .label {
+            font-size: 12px;
+            color: #718096;
+            margin-top: 8px;
+            font-weight: 500;
+        }
+        
+        .issue {
+            color: #e53e3e;
+            font-weight: 600;
+        }
+        
+        .fixed {
+            color: #38a169;
+            font-weight: 600;
+        }
+        
+        .highlight-box {
+            border: 3px dashed #ff4444;
+            background: rgba(255, 68, 68, 0.05);
+            padding: 2px;
+            border-radius: 8px;
+            display: inline-block;
+        }
+        
+        @media (max-width: 768px) {
+            .comparison {
+                grid-template-columns: 1fr;
+            }
+            
+            .nav-right {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="section">
+            <h1>🎯 Navigation Logo Fix - Investra AI</h1>
+            <p>Making the dashboard navigation logo bigger and more prominent to match the improved auth page.</p>
+        </div>
+        
+        <div class="section">
+            <h2>Navigation Bar Logo Comparison</h2>
+            <div class="comparison">
+                <div class="before">
+                    <h3 class="issue">❌ Before - Too Small in Navigation</h3>
+                    <div class="mock-nav">
+                        <div class="nav-left">
+                            <div class="highlight-box">
+                                <img src="/investra-logo.svg" alt="Investra" class="small-logo">
+                            </div>
+                        </div>
+                        <div class="nav-right">
+                            <a href="#" class="nav-link active">
+                                <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/>
+                                </svg>
+                                Dashboard
+                            </a>
+                            <a href="#" class="nav-link">
+                                <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z"/>
+                                </svg>
+                                Positions
+                            </a>
+                            <a href="#" class="nav-link">
+                                <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M7 4V2C7 1.45 7.45 1 8 1H16C16.55 1 17 1.45 17 2V4H20C20.55 4 21 4.45 21 5S20.55 6 20 6H19V19C19 20.1 18.1 21 17 21H7C5.9 21 5 20.1 5 19V6H4C3.45 6 3 5.55 3 5S3.45 4 4 4H7Z"/>
+                                </svg>
+                                Transactions
+                            </a>
+                        </div>
+                    </div>
+                    <div class="label">120px × 36px - Logo lacks presence</div>
+                </div>
+                
+                <div class="after">
+                    <h3 class="fixed">✅ After - Proper Size & Prominence</h3>
+                    <div class="mock-nav mock-nav-improved">
+                        <div class="nav-left">
+                            <img src="/investra-logo.svg" alt="Investra" class="large-logo">
+                        </div>
+                        <div class="nav-right">
+                            <a href="#" class="nav-link active">
+                                <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/>
+                                </svg>
+                                Dashboard
+                            </a>
+                            <a href="#" class="nav-link">
+                                <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z"/>
+                                </svg>
+                                Positions
+                            </a>
+                            <a href="#" class="nav-link">
+                                <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M7 4V2C7 1.45 7.45 1 8 1H16C16.55 1 17 1.45 17 2V4H20C20.55 4 21 4.45 21 5S20.55 6 20 6H19V19C19 20.1 18.1 21 17 21H7C5.9 21 5 20.1 5 19V6H4C3.45 6 3 5.55 3 5S3.45 4 4 4H7Z"/>
+                                </svg>
+                                Transactions
+                            </a>
+                        </div>
+                    </div>
+                    <div class="label">160px × 48px - Strong brand presence</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>✅ Navigation Improvements Applied</h2>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
+                <div>
+                    <h3>Logo Size Enhancement</h3>
+                    <ul>
+                        <li>✅ <strong>Desktop:</strong> 120px → 160px width (+33%)</li>
+                        <li>✅ <strong>Height:</strong> 36px → 48px (+33%)</li>
+                        <li>✅ <strong>Mobile:</strong> Responsive 120px × 36px</li>
+                        <li>✅ <strong>Navigation height:</strong> Increased to 72px</li>
+                        <li>✅ <strong>Better proportions:</strong> Logo-to-nav ratio improved</li>
+                    </ul>
+                </div>
+                
+                <div>
+                    <h3>Visual Impact</h3>
+                    <ul>
+                        <li>✅ <strong>Brand prominence:</strong> Logo more visible</li>
+                        <li>✅ <strong>Professional appearance:</strong> Better balance</li>
+                        <li>✅ <strong>Consistent branding:</strong> Matches auth page scale</li>
+                        <li>✅ <strong>Responsive design:</strong> Works on all devices</li>
+                        <li>✅ <strong>Gold color scheme:</strong> Consistent throughout</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>📐 Complete Logo Specifications</h2>
+            <div style="background: #f8fafc; padding: 20px; border-radius: 8px; border-left: 4px solid #CA8A04;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
+                    <div>
+                        <h3 style="margin-top: 0;">Navigation Bar</h3>
+                        <ul style="margin-bottom: 0;">
+                            <li><strong>Desktop:</strong> 160px × 48px</li>
+                            <li><strong>Mobile:</strong> 120px × 36px</li>
+                            <li><strong>Container height:</strong> 72px</li>
+                            <li><strong>Position:</strong> Left aligned</li>
+                        </ul>
+                    </div>
+                    
+                    <div>
+                        <h3 style="margin-top: 0;">Auth Form</h3>
+                        <ul style="margin-bottom: 0;">
+                            <li><strong>Size:</strong> 320px × 96px</li>
+                            <li><strong>Container:</strong> 450px max-width</li>
+                            <li><strong>Position:</strong> Center aligned</li>
+                            <li><strong>No subtitle text</strong></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
