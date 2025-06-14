@@ -448,7 +448,6 @@ const TransactionList: React.FC<TransactionListProps> = ({
           <option value="buy">Buy</option>
           <option value="sell">Sell</option>
           <option value="dividend">Dividend</option>
-          <option value="split">Split</option>
         </FilterSelect>
         
         <FilterSelect

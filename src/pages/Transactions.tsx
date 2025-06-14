@@ -5,6 +5,7 @@ import { TransactionService, AssetService } from '../services/supabaseService';
 import { useNotify } from '../hooks/useNotify';
 import TransactionForm from '../components/TransactionForm.tsx';
 import TransactionList from '../components/TransactionList.tsx';
+import TransactionEditModal from '../components/TransactionEditModal.tsx';
 import { Plus, TrendingUp, DollarSign } from 'lucide-react';
 import type { Transaction, TransactionType, Currency } from '../types/portfolio';
 import type { TransactionWithAsset } from '../components/TransactionList';
@@ -23,7 +24,8 @@ const TransactionsPage: React.FC = () => {
   const [transactions, setTransactions] = useState<TransactionWithAsset[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [editingTransaction, setEditingTransaction] = useState<TransactionWithAsset | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
   
   // Debounce fetch to prevent excessive API calls
   const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -78,30 +80,53 @@ const TransactionsPage: React.FC = () => {
   // fetchTransactions is intentionally excluded to prevent dependency cycles
 
   const handleEditTransaction = (transactionWithAsset: TransactionWithAsset) => {
-    // Convert database transaction to portfolio transaction format for the form
-    const portfolioTransaction: Transaction = {
-      id: transactionWithAsset.id,
-      portfolioId: transactionWithAsset.portfolio_id,
-      assetId: transactionWithAsset.asset_id,
-      assetSymbol: transactionWithAsset.asset?.symbol || '',
-      assetType: transactionWithAsset.asset?.asset_type || 'stock',
-      type: transactionWithAsset.transaction_type as TransactionType,
-      quantity: transactionWithAsset.quantity,
-      price: transactionWithAsset.price,
-      totalAmount: transactionWithAsset.total_amount,
-      fees: transactionWithAsset.fees || 0,
-      currency: transactionWithAsset.currency as Currency,
-      date: new Date(transactionWithAsset.transaction_date),
-      notes: transactionWithAsset.notes || undefined,
-      createdAt: new Date(transactionWithAsset.created_at),
-      updatedAt: new Date(transactionWithAsset.updated_at)
-    };
-    
-    setEditingTransaction(portfolioTransaction);
+    setEditingTransaction(transactionWithAsset);
+    setShowEditModal(true);
   };
 
-  const handleCloseForm = () => {
+  const handleCloseEditModal = () => {
     setEditingTransaction(null);
+    setShowEditModal(false);
+  };
+
+  const handleSaveEditTransaction = async (updatedData: {
+    transaction_type: string;
+    quantity: number;
+    price: number;
+    transaction_date: string;
+  }) => {
+    if (!editingTransaction) return;
+
+    try {
+      setLoading(true);
+      
+      // Calculate total amount
+      const totalAmount = updatedData.quantity * updatedData.price;
+      
+      const response = await TransactionService.updateTransaction(
+        editingTransaction.id,
+        {
+          transaction_type: updatedData.transaction_type as TransactionType,
+          quantity: updatedData.quantity,
+          price: updatedData.price,
+          total_amount: totalAmount,
+          transaction_date: updatedData.transaction_date
+        }
+      );
+      
+      if (response.success) {
+        notify.success('Transaction updated successfully');
+        fetchTransactions(); // Refresh the list
+      } else {
+        throw new Error(response.error || 'Failed to update transaction');
+      }
+    } catch (error) {
+      console.error('Failed to update transaction:', error);
+      notify.error('Failed to update transaction: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      throw error; // Re-throw to let modal handle it
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSaveTransaction = async (transactionData: Omit<Transaction, 'id' | 'assetId' | 'createdAt' | 'updatedAt'>): Promise<boolean> => {
@@ -121,81 +146,27 @@ const TransactionsPage: React.FC = () => {
         return false;
       }
 
-      let response;
-      
-      if (editingTransaction) {
-        // Update existing transaction
-        console.log('Updating transaction:', editingTransaction.id, 'with asset:', assetResponse.data.id);
-        
-        // Check if asset changed - this might require position reconciliation
-        const assetChanged = editingTransaction.assetSymbol !== transactionData.assetSymbol;
-        if (assetChanged) {
-          console.log('Asset changed from', editingTransaction.assetSymbol, 'to', transactionData.assetSymbol);
-        }
-        
-        response = await TransactionService.updateTransaction(
-          editingTransaction.id,
-          {
-            asset_id: assetResponse.data.id, // Fix: Update asset_id to new asset
-            transaction_type: transactionData.type as TransactionType,
-            quantity: transactionData.quantity,
-            price: transactionData.price,
-            total_amount: transactionData.totalAmount,
-            fees: transactionData.fees || 0,
-            currency: transactionData.currency, // Fix: Update currency field
-            transaction_date: (() => {
-              if (!transactionData.date) return new Date().toISOString().split('T')[0];
-              
-              // Ensure date stays in local timezone - no UTC conversion
-              const date = transactionData.date;
-              const year = date.getFullYear();
-              const month = String(date.getMonth() + 1).padStart(2, '0');
-              const day = String(date.getDate()).padStart(2, '0');
-              return `${year}-${month}-${day}`;
-            })(),
-            notes: transactionData.notes || undefined
-          }
-        );
-        
-        if (response.success) {
-          notify.success('Transaction updated successfully');
-          console.log('Transaction updated successfully:', response.data);
+      // Always create new transaction (no editing through main form anymore)
+      const response = await TransactionService.createTransaction(
+        activePortfolio.id,
+        assetResponse.data.id,
+        transactionData.type as TransactionType,
+        transactionData.quantity,
+        transactionData.price,
+        (() => {
+          if (!transactionData.date) return new Date().toISOString();
           
-          // If asset changed, we might need to reconcile positions
-          if (assetChanged) {
-            console.log('Asset changed - position reconciliation may be needed');
-            // Note: Position reconciliation will happen automatically on next position fetch
-          }
-        } else {
-          console.error('Failed to update transaction:', response.error);
-        }
-      } else {
-        // Create new transaction
-        response = await TransactionService.createTransaction(
-          activePortfolio.id,
-          assetResponse.data.id,
-          transactionData.type as TransactionType,
-          transactionData.quantity,
-          transactionData.price,
-          (() => {
-            if (!transactionData.date) return new Date().toISOString();
-            
-            // For create transaction, we need full ISO string but preserve local date
-            const date = transactionData.date;
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            return `${year}-${month}-${day}T12:00:00.000Z`; // Use noon UTC to avoid timezone issues
-          })()
-        );
-        
-        if (response.success) {
-          notify.success('Transaction created successfully');
-        }
-      }
-
+          // For create transaction, we need full ISO string but preserve local date
+          const date = transactionData.date;
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}T12:00:00.000Z`; // Use noon UTC to avoid timezone issues
+        })()
+      );
+      
       if (response.success) {
-        handleCloseForm();
+        notify.success('Transaction created successfully');
         // Refresh transactions
         fetchTransactions();
         return true;
@@ -304,14 +275,9 @@ const TransactionsPage: React.FC = () => {
             <div className="enhanced-section-header-content">
               <Plus className="enhanced-section-icon" />
               <div className="enhanced-section-text">
-                <h2 className="enhanced-section-title">
-                  {editingTransaction ? 'Edit Transaction' : 'Add New Transaction'}
-                </h2>
+                <h2 className="enhanced-section-title">Add New Transaction</h2>
                 <p className="enhanced-section-subtitle">
-                  {editingTransaction 
-                    ? 'Update transaction details and save changes'
-                    : 'Enter transaction details to add to your portfolio'
-                  }
+                  Enter transaction details to add to your portfolio
                 </p>
               </div>
             </div>
@@ -319,9 +285,8 @@ const TransactionsPage: React.FC = () => {
           
           <div className="enhanced-form-wrapper">
             <TransactionForm
-              initialData={editingTransaction}
               onSave={handleSaveTransaction}
-              onCancel={handleCloseForm}
+              onCancel={() => {}} // No cancel needed for add-only form
             />
           </div>
         </div>
@@ -351,6 +316,16 @@ const TransactionsPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Edit Transaction Modal */}
+      {editingTransaction && (
+        <TransactionEditModal
+          transaction={editingTransaction}
+          isOpen={showEditModal}
+          onClose={handleCloseEditModal}
+          onSave={handleSaveEditTransaction}
+        />
+      )}
     </div>
   );
 };

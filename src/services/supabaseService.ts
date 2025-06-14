@@ -1071,7 +1071,7 @@ export class TransactionService {
           updated_at: new Date().toISOString()
         })
         .eq('id', transactionId)
-        .select()
+        .select('*')
         .single()
 
       if (error) {

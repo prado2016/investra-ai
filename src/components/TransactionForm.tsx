@@ -192,8 +192,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   const transactionTypeOptions = [
     { value: 'buy', label: 'Buy' },
     { value: 'sell', label: 'Sell' },
-    { value: 'dividend', label: 'Dividend' },
-    { value: 'split', label: 'Stock Split' }
+    { value: 'dividend', label: 'Dividend' }
   ];
 
   const assetTypeOptions = [
