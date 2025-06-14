@@ -131,7 +131,6 @@ export class PositionDebugger {
       // Calculate expected quantities for each asset
       for (const [assetId, assetTransactions] of transactionsByAsset) {
         let expectedQuantity = 0;
-        let expectedCostBasis = 0;
         let weightedAvgCost = 0;
         
         for (const t of assetTransactions) {
@@ -141,12 +140,9 @@ export class PositionDebugger {
             expectedQuantity += t.quantity;
             if (expectedQuantity > 0) {
               weightedAvgCost = (currentValue + cost) / expectedQuantity;
-              expectedCostBasis = currentValue + cost;
             }
           } else if (t.transaction_type === 'sell') {
-            const costOfSold = t.quantity * weightedAvgCost;
             expectedQuantity -= t.quantity;
-            expectedCostBasis -= costOfSold;
           }
         }
         
@@ -207,5 +203,5 @@ export class PositionDebugger {
 
 // Export for use in browser console
 if (typeof window !== 'undefined') {
-  (window as any).PositionDebugger = PositionDebugger;
+  (window as Record<string, unknown>).PositionDebugger = PositionDebugger;
 }

@@ -9,59 +9,6 @@ import { detectAssetType } from '../utils/assetCategorization';
 import type { Transaction, AssetType, TransactionType, Currency } from '../types/portfolio';
 import type { SymbolLookupResult } from '../types/ai';
 
-// Modern tooltip wrapper component
-interface TooltipWrapperProps {
-  children: React.ReactNode;
-  tooltip: string;
-  className?: string;
-}
-
-const TooltipWrapper: React.FC<TooltipWrapperProps> = ({ 
-  children, 
-  tooltip, 
-  className 
-}) => {
-  const [showTooltip, setShowTooltip] = React.useState(false);
-  const hoverTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
-
-  const handleMouseEnter = React.useCallback(() => {
-    if (hoverTimeoutRef.current) {
-      clearTimeout(hoverTimeoutRef.current);
-    }
-    hoverTimeoutRef.current = setTimeout(() => {
-      setShowTooltip(true);
-    }, 1200);
-  }, []);
-
-  const handleMouseLeave = React.useCallback(() => {
-    if (hoverTimeoutRef.current) {
-      clearTimeout(hoverTimeoutRef.current);
-    }
-    setShowTooltip(false);
-  }, []);
-
-  React.useEffect(() => {
-    return () => {
-      if (hoverTimeoutRef.current) {
-        clearTimeout(hoverTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  return (
-    <div
-      className={`tooltip-wrapper ${className || ''}`}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-    >
-      {children}
-      <div className={`tooltip ${showTooltip ? 'visible' : 'hidden'}`}>
-        {tooltip}
-      </div>
-    </div>
-  );
-};
-
 interface TransactionFormData {
   portfolioId: string;
   assetSymbol: string;
@@ -107,7 +54,14 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
             ? (initialData.date as string).split('T')[0] 
             : (initialData.date as Date).toISOString().split('T')[0]
           )
-        : new Date().toISOString().split('T')[0],
+        : (() => {
+            // Use local date to avoid timezone issues
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const day = String(today.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+          })(),
     notes: initialData?.notes || ''
   };
 
@@ -197,6 +151,15 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         form.setValue('assetType', detectedType);
       }
     }
+    
+    // Auto-detect currency for Canadian symbols (.TO suffix)
+    const upperSymbol = value.trim().toUpperCase();
+    if (upperSymbol.includes('.TO')) {
+      // Set currency to CAD for Toronto Stock Exchange symbols
+      if (form.values.currency !== 'CAD') {
+        form.setValue('currency', 'CAD');
+      }
+    }
   };
 
   // Auto-calculate total amount when quantity or price changes
@@ -278,24 +241,22 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           disabled={portfoliosLoading || portfolios.length === 0}
           required
         />
-        <TooltipWrapper tooltip="Enter stock symbol or use natural language like 'Apple stock' or 'AAPL'. AI will help validate and convert to proper symbol.">
-          <SymbolInput
-            id="assetSymbol"
-            name="assetSymbol"
-            label="Symbol"
-            value={form.values.assetSymbol}
-            onChange={handleSymbolChange}
-            onBlur={() => form.setFieldTouched('assetSymbol')}
-            error={form.touched.assetSymbol ? form.errors.assetSymbol?.message : ''}
-            required
-            disabled={form.isSubmitting || loading}
-            enableAI={true}
-            showAIButton={true}
-            showSuggestions={true}
-            showValidation={true}
-            assetType={form.values.assetType}
-          />
-        </TooltipWrapper>
+        <SymbolInput
+          id="assetSymbol"
+          name="assetSymbol"
+          label="Symbol"
+          value={form.values.assetSymbol}
+          onChange={handleSymbolChange}
+          onBlur={() => form.setFieldTouched('assetSymbol')}
+          error={form.touched.assetSymbol ? form.errors.assetSymbol?.message : ''}
+          required
+          disabled={form.isSubmitting || loading}
+          enableAI={true}
+          showAIButton={true}
+          showSuggestions={true}
+          showValidation={true}
+          assetType={form.values.assetType}
+        />
       </div>
       <div className="horizontal-fields-container">
         <SelectField
@@ -329,7 +290,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           name="quantity"
           label="Quantity"
           type="number"
-          placeholder="e.g., 100"
+          placeholder="e.g., 100.1234"
           value={form.values.quantity}
           onChange={(value) => form.setValue('quantity', value)}
           onBlur={() => form.setFieldTouched('quantity')}
@@ -337,7 +298,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           required
           disabled={form.isSubmitting || loading}
           min={0}
-          step={0.01}
+          step={0.0001}
         />
         <PriceInput
           id="price"
@@ -374,6 +335,24 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           error={form.touched.fees ? form.errors.fees?.message : ''}
           disabled={form.isSubmitting || loading}
         />
+        <SelectField
+          id="currency"
+          name="currency"
+          label="Currency"
+          value={form.values.currency}
+          onChange={(e) => form.setValue('currency', e.target.value as Currency)}
+          onBlur={() => form.setFieldTouched('currency')}
+          options={[
+            { value: 'USD', label: 'USD ($)' },
+            { value: 'CAD', label: 'CAD (C$)' },
+            { value: 'EUR', label: 'EUR (€)' },
+            { value: 'GBP', label: 'GBP (£)' },
+            { value: 'JPY', label: 'JPY (¥)' }
+          ]}
+          error={form.touched.currency ? form.errors.currency?.message : ''}
+          required
+          disabled={form.isSubmitting || loading}
+        />
       </div>
       <div className="horizontal-fields-container">
         <InputField
@@ -387,7 +366,14 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           error={form.touched.date ? form.errors.date?.message : ''}
           required
           disabled={form.isSubmitting || loading}
-          max={new Date().toISOString().split('T')[0]}
+          max={(() => {
+            // Use local date to avoid timezone issues
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const day = String(today.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+          })()}
         />
         <InputField
           id="notes"

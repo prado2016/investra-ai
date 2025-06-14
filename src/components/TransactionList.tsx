@@ -121,10 +121,8 @@ const TransactionTable = styled.div`
 
 const TableHeader = styled.div`
   display: grid;
-  /* Adjusted grid columns for better spacing and to accommodate icons later */
-  display: grid;
-  /* Adjusted grid columns for better spacing and to accommodate icons later */
-  grid-template-columns: 2.5fr 1.2fr 1fr 1fr 1fr 1.5fr 1.2fr;
+  /* Adjusted grid columns: Symbol, Type, Quantity, Price, Total, Date, Actions */
+  grid-template-columns: 2.2fr 1fr 0.9fr 1fr 1fr 1.3fr 1.5fr;
   gap: var(--space-4, 1rem); /* Use CSS var */
   padding: var(--space-3, 0.75rem) var(--space-4, 1rem); /* Use CSS vars */
   background-color: var(--bg-tertiary);
@@ -146,10 +144,8 @@ const TableHeader = styled.div`
 
 const TableRow = styled.div`
   display: grid;
-  /* Adjusted grid columns to match TableHeader */
-  display: grid;
-  /* Adjusted grid columns to match TableHeader */
-  grid-template-columns: 2.5fr 1.2fr 1fr 1fr 1fr 1.5fr 1.2fr;
+  /* Adjusted grid columns to match TableHeader: Symbol, Type, Quantity, Price, Total, Date, Actions */
+  grid-template-columns: 2.2fr 1fr 0.9fr 1fr 1fr 1.3fr 1.5fr;
   gap: var(--space-4, 1rem); /* Use CSS var */
   padding: var(--space-4, 1rem); /* Use CSS var */
   align-items: center; /* Vertically align items in row */

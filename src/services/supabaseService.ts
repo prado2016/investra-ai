@@ -325,7 +325,7 @@ export class AssetService {
       const { data, error } = await supabase
         .from('assets')
         .update({
-          asset_type: newAssetType as any,
+          asset_type: newAssetType as Database['public']['Tables']['assets']['Row']['asset_type'],
           last_updated: new Date().toISOString()
         })
         .eq('id', assetId)
@@ -873,7 +873,7 @@ export class TransactionService {
               // Update the asset type in the returned data
               const transaction = data.find(t => t.asset?.id === asset.id);
               if (transaction?.asset) {
-                transaction.asset.asset_type = asset.correctType as any;
+                transaction.asset.asset_type = asset.correctType as Database['public']['Tables']['assets']['Row']['asset_type'];
               }
             } catch (updateError) {
               console.warn(`Failed to update asset ${asset.symbol}:`, updateError);

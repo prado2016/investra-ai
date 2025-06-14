@@ -26,6 +26,7 @@ interface InputFieldProps extends BaseFieldProps {
   step?: number;
   autoComplete?: string;
   maxLength?: number;
+  tabIndex?: number;
 }
 
 export const InputField: React.FC<InputFieldProps> = ({
@@ -47,7 +48,8 @@ export const InputField: React.FC<InputFieldProps> = ({
   max,
   step,
   autoComplete,
-  maxLength
+  maxLength,
+  tabIndex
 }) => {
   const hasError = !!error;
   const hasSuccess = !!success && !hasError;
@@ -77,6 +79,7 @@ export const InputField: React.FC<InputFieldProps> = ({
         step={step}
         autoComplete={autoComplete}
         maxLength={maxLength}
+        tabIndex={tabIndex}
         className={`form-input ${hasError ? 'error' : ''} ${hasSuccess ? 'success' : ''}`}
         aria-invalid={hasError}
         aria-describedby={
