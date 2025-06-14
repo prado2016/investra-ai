@@ -1,30 +1,170 @@
-                    <div className="fees-info">
-                      Fees: {formatCurrency(movement.fees, movement.currency)}
+                    import React from 'react';
+import { Edit2, Trash2, ArrowUpCircle, ArrowDownCircle, ArrowLeftRight, RefreshCw } from 'lucide-react';
+import { formatCurrency, formatDate } from '../utils/formatting';
+import type { FundMovement } from '../types/portfolio';
+
+// Use FundMovement directly since no additional metadata is needed currently
+// If additional fields are needed in the future, uncomment and extend:
+// export interface FundMovementWithMetadata extends FundMovement {
+//   additionalField?: string;
+// }
+export type FundMovementWithMetadata = FundMovement;
+
+interface FundMovementListProps {
+  fundMovements: FundMovementWithMetadata[];
+  loading?: boolean;
+  error?: string | null;
+  onEdit?: (movement: FundMovementWithMetadata) => void;
+  onDelete?: (movementId: string) => void;
+}
+
+const FundMovementList: React.FC<FundMovementListProps> = ({
+  fundMovements,
+  loading = false,
+  error,
+  onEdit,
+  onDelete
+}) => {
+  if (loading) {
+    return (
+      <div className="loading-container">
+        <div className="loading-content">
+          <RefreshCw className="loading-icon" size={20} />
+          <span>Loading fund movements...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="error-container">
+        <p>Error loading fund movements: {error}</p>
+      </div>
+    );
+  }
+
+  if (fundMovements.length === 0) {
+    return (
+      <div className="empty-container">
+        <p>No fund movements found</p>
+      </div>
+    );
+  }
+
+  const getMovementIcon = (type: string) => {
+    switch (type) {
+      case 'deposit':
+        return <ArrowDownCircle className="movement-type-icon deposit" size={16} />;
+      case 'withdraw':
+        return <ArrowUpCircle className="movement-type-icon withdraw" size={16} />;
+      case 'transfer':
+        return <ArrowLeftRight className="movement-type-icon transfer" size={16} />;
+      case 'conversion':
+        return <RefreshCw className="movement-type-icon conversion" size={16} />;
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="fund-movement-list">
+      <div className="fund-movement-container">
+        <div className="fund-movement-grid transaction-header-grid">
+          <div>Type</div>
+          <div>Account</div>
+          <div>Status</div>
+          <div>Date</div>
+          <div>Amount</div>
+          <div>Actions</div>
+        </div>
+
+        <div className="fund-movement-items">
+          {fundMovements.map((movement) => (
+            <div key={movement.id} className="fund-movement-row transaction-grid">
+              <div className="transaction-type-cell">
+                <div className="movement-type">
+                  {getMovementIcon(movement.type)}
+                  <span className="movement-type-text">{movement.type}</span>
+                </div>
+              </div>
+
+              <div className="account-cell">
+                <div className="account-info">
+                  {movement.type === 'conversion' && movement.account && (
+                    <div>{movement.account}</div>
+                  )}
+                  {movement.type === 'transfer' && (
+                    <div>
+                      {movement.fromAccount} → {movement.toAccount}
                     </div>
                   )}
+                  {movement.type === 'withdraw' && movement.fromAccount && (
+                    <div>From: {movement.fromAccount}</div>
+                  )}
+                  {movement.type === 'deposit' && movement.toAccount && (
+                    <div>To: {movement.toAccount}</div>
+                  )}
                 </div>
+              </div>
 
-                <div className="actions-cell">
-                  <div className="transaction-actions">
-                    {onEdit && (
-                      <button
-                        className="action-btn edit-btn"
-                        onClick={() => onEdit(movement)}
-                        title="Edit fund movement"
-                      >
-                        <Edit2 size={14} />
-                      </button>
-                    )}
-                    {onDelete && (
-                      <button
-                        className="action-btn delete-btn"
-                        onClick={() => onDelete(movement.id)}
-                        title="Delete fund movement"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+              <div className="status-cell">
+                <span className={`status-badge ${movement.status}`}>
+                  {movement.status}
+                </span>
+              </div>
+
+              <div className="date-cell">
+                {formatDate(movement.date)}
+              </div>
+
+              <div className="amount-cell">
+                {movement.type === 'conversion' ? (
+                  <div className="conversion-amounts">
+                    <div className="original-amount">
+                      {formatCurrency(movement.originalAmount || 0, movement.originalCurrency || 'USD')}
+                    </div>
+                    <div className="converted-amount">
+                      {formatCurrency(movement.convertedAmount || 0, movement.convertedCurrency || 'USD')}
+                    </div>
+                    {movement.exchangeRate && (
+                      <div className="exchange-rate">
+                        Rate: {movement.exchangeRate.toFixed(6)}
+                      </div>
                     )}
                   </div>
+                ) : (
+                  <div className={`transaction-amount ${movement.type === 'withdraw' ? 'negative' : 'positive'}`}>
+                    {formatCurrency(movement.amount, movement.currency)}
+                  </div>
+                )}
+                {movement.fees && movement.fees > 0 && (
+                  <div className="fees-info">
+                    Fees: {formatCurrency(movement.fees, movement.currency)}
+                  </div>
+                )}
+              </div>
+
+              <div className="actions-cell">
+                <div className="transaction-actions">
+                  {onEdit && (
+                    <button
+                      className="action-btn edit-btn"
+                      onClick={() => onEdit(movement)}
+                      title="Edit fund movement"
+                    >
+                      <Edit2 size={14} />
+                    </button>
+                  )}
+                  {onDelete && (
+                    <button
+                      className="action-btn delete-btn"
+                      onClick={() => onDelete(movement.id)}
+                      title="Delete fund movement"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -38,173 +178,6 @@
           ))}
         </div>
       </div>
-
-      <style jsx>{`
-        .fund-movement-grid {
-          grid-template-columns: 1fr 2fr 1fr 1fr 1.5fr 100px;
-          gap: var(--space-4);
-          align-items: center;
-        }
-
-        .fund-movement-row {
-          border-left: 4px solid var(--color-primary-200);
-        }
-
-        .fund-movement-row:hover {
-          border-left-color: var(--color-primary-500);
-        }
-
-        .movement-type-icon {
-          margin-right: var(--space-2);
-        }
-
-        .movement-type-icon.deposit {
-          color: var(--color-success-600);
-        }
-
-        .movement-type-icon.withdraw {
-          color: var(--color-error-600);
-        }
-
-        .movement-type-icon.transfer {
-          color: var(--color-primary-600);
-        }
-
-        .movement-type-icon.conversion {
-          color: var(--color-warning-600);
-        }
-
-        .movement-type-text {
-          font-weight: 500;
-          text-transform: capitalize;
-        }
-
-        .account-info {
-          font-size: 0.875rem;
-          color: var(--color-text-secondary);
-          line-height: 1.3;
-          max-width: 200px;
-          word-wrap: break-word;
-        }
-
-        .status-badge {
-          display: inline-block;
-          padding: 2px 8px;
-          border-radius: var(--radius-sm);
-          font-size: 0.75rem;
-          font-weight: 500;
-          text-transform: uppercase;
-        }
-
-        .status-badge.completed {
-          background-color: var(--color-success-100);
-          color: var(--color-success-800);
-        }
-
-        .status-badge.pending {
-          background-color: var(--color-warning-100);
-          color: var(--color-warning-800);
-        }
-
-        .status-badge.failed {
-          background-color: var(--color-error-100);
-          color: var(--color-error-800);
-        }
-
-        .status-badge.cancelled {
-          background-color: var(--color-neutral-100);
-          color: var(--color-neutral-800);
-        }
-
-        .conversion-amounts {
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-        }
-
-        .original-amount {
-          font-size: 0.875rem;
-          color: var(--color-text-secondary);
-        }
-
-        .converted-amount {
-          font-weight: 600;
-          color: var(--color-primary-700);
-        }
-
-        .exchange-rate {
-          font-size: 0.75rem;
-          color: var(--color-text-tertiary);
-        }
-
-        .fees-info {
-          font-size: 0.75rem;
-          color: var(--color-text-tertiary);
-          margin-top: 2px;
-        }
-
-        .transaction-amount.negative {
-          color: var(--color-error-600);
-        }
-
-        .transaction-amount.positive {
-          color: var(--color-success-600);
-        }
-
-        @media (max-width: 768px) {
-          .fund-movement-grid {
-            grid-template-columns: 1fr;
-            gap: var(--space-2);
-          }
-
-          .fund-movement-row {
-            padding: var(--space-4);
-          }
-
-          .transaction-header-grid {
-            display: none;
-          }
-
-          .transaction-grid > div {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: var(--space-2) 0;
-            border-bottom: 1px solid var(--color-border);
-          }
-
-          .transaction-grid > div:before {
-            content: attr(data-label);
-            font-weight: 600;
-            color: var(--color-text-secondary);
-            font-size: 0.875rem;
-          }
-
-          .transaction-type-cell:before {
-            content: "Type";
-          }
-
-          .account-cell:before {
-            content: "Account";
-          }
-
-          .status-cell:before {
-            content: "Status";
-          }
-
-          .date-cell:before {
-            content: "Date";
-          }
-
-          .amount-cell:before {
-            content: "Amount";
-          }
-
-          .actions-cell:before {
-            content: "Actions";
-          }
-        }
-      `}</style>
     </div>
   );
 };

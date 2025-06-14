@@ -42,7 +42,7 @@ interface FundMovementFormProps {
 const FundMovementForm: React.FC<FundMovementFormProps> = ({
   initialData,
   onSave,
-  onCancel,
+  onCancel: _onCancel, // Marked as unused - reserved for future functionality
   loading = false
 }) => {
   const { portfolios, activePortfolio, loading: portfoliosLoading } = useSupabasePortfolios();

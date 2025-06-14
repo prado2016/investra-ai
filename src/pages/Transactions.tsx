@@ -9,7 +9,7 @@ import TransactionEditModal from '../components/TransactionEditModal.tsx';
 import FundMovementForm from '../components/FundMovementForm.tsx';
 import FundMovementList from '../components/FundMovementList.tsx';
 import { Plus, TrendingUp, DollarSign, ArrowUpDown } from 'lucide-react';
-import type { Transaction, TransactionType, Currency, FundMovement } from '../types/portfolio';
+import type { Transaction, TransactionType, FundMovement, FundMovementType, FundMovementStatus, Currency } from '../types/portfolio';
 import type { TransactionWithAsset } from '../components/TransactionList';
 import type { FundMovementWithMetadata } from '../components/FundMovementList';
 import '../styles/transactions-layout.css';
@@ -70,8 +70,36 @@ const TransactionsPage: React.FC = () => {
       const response = await FundMovementService.getFundMovements(activePortfolio.id);
       if (response.success) {
         // Transform the data to match our types
-        const transformedMovements = response.data.map((movement: any) => ({
+        interface RawMovementData {
+          id: string;
+          portfolio_id: string;
+          type: string;
+          status: string;
+          movement_date: string | Date;
+          amount: number;
+          currency: string;
+          fees?: number;
+          notes?: string;
+          original_amount?: number;
+          original_currency?: string;
+          converted_amount?: number;
+          converted_currency?: string;
+          exchange_rate?: number;
+          exchange_fees?: number;
+          from_account?: string;
+          to_account?: string;
+          account?: string;
+          created_at: string;
+          updated_at: string;
+        }
+        
+        const transformedMovements = response.data.map((movement: RawMovementData) => ({
           ...movement,
+          type: movement.type as FundMovementType,
+          status: movement.status as FundMovementStatus,
+          currency: movement.currency as Currency,
+          originalCurrency: movement.original_currency as Currency | undefined,
+          convertedCurrency: movement.converted_currency as Currency | undefined,
           date: (() => {
             // Parse date string properly to avoid timezone shifts
             const dateStr = movement.movement_date;
@@ -83,9 +111,7 @@ const TransactionsPage: React.FC = () => {
           })(),
           portfolioId: movement.portfolio_id,
           originalAmount: movement.original_amount,
-          originalCurrency: movement.original_currency,
           convertedAmount: movement.converted_amount,
-          convertedCurrency: movement.converted_currency,
           exchangeRate: movement.exchange_rate,
           exchangeFees: movement.exchange_fees,
           fromAccount: movement.from_account,
