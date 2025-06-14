@@ -274,11 +274,11 @@ export const TransactionEditModal: React.FC<TransactionEditModalProps> = ({
             <Label>Price per Share *</Label>
             <Input
               type="number"
-              step="0.01"
+              step="0.0001"
               min="0"
               value={formData.price}
               onChange={(e) => handleChange('price', e.target.value)}
-              placeholder="Enter price"
+              placeholder="Enter price (e.g., 108.6099)"
               required
             />
           </FieldGroup>
