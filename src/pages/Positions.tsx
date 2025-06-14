@@ -28,7 +28,7 @@ const PageSubtitle = styled.p`
 `;
 
 const PositionsPage: React.FC = () => {
-  const { positions, loading, error, refreshPositions } = useSupabasePositions();
+  const { positions, loading, error, refreshPositions, recalculatePositions } = useSupabasePositions();
   
   // Set page title
   usePageTitle('Positions', { subtitle: 'Open Holdings' });
@@ -47,6 +47,7 @@ const PositionsPage: React.FC = () => {
         loading={loading}
         error={error || undefined}
         onRefresh={refreshPositions}
+        onRecalculate={recalculatePositions}
       />
     </PageContainer>
   );

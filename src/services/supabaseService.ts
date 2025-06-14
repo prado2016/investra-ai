@@ -587,6 +587,139 @@ export class PositionService {
       };
     }
   }
+
+  /**
+   * Recalculate all positions for a portfolio from transactions
+   * This will rebuild positions from scratch based on all transactions
+   */
+  static async recalculatePositions(portfolioId: string): Promise<ServiceResponse<{ updated: number; created: number }>> {
+    try {
+      console.log('🔄 Recalculating positions for portfolio:', portfolioId);
+      
+      // Get all transactions for the portfolio
+      const transactionsResult = await TransactionService.getTransactions(portfolioId);
+      if (!transactionsResult.success || !transactionsResult.data) {
+        return { data: null, error: 'Failed to fetch transactions', success: false };
+      }
+      
+      const transactions = transactionsResult.data;
+      console.log('📊 Found transactions:', transactions.length);
+      
+      if (transactions.length === 0) {
+        return { data: { updated: 0, created: 0 }, error: null, success: true };
+      }
+      
+      // Group transactions by asset
+      const transactionsByAsset = new Map<string, typeof transactions>();
+      for (const transaction of transactions) {
+        const assetId = transaction.asset_id;
+        if (!transactionsByAsset.has(assetId)) {
+          transactionsByAsset.set(assetId, []);
+        }
+        transactionsByAsset.get(assetId)!.push(transaction);
+      }
+      
+      console.log('🎯 Assets with transactions:', transactionsByAsset.size);
+      
+      let createdCount = 0;
+      let updatedCount = 0;
+      
+      // Process each asset
+      for (const [assetId, assetTransactions] of transactionsByAsset) {
+        // Sort transactions by date
+        assetTransactions.sort((a, b) => new Date(a.transaction_date).getTime() - new Date(b.transaction_date).getTime());
+        
+        // Calculate final position values
+        let quantity = 0;
+        let totalCostBasis = 0;
+        let realizedPL = 0;
+        let weightedAverageCost = 0;
+        
+        for (const transaction of assetTransactions) {
+          const transactionQuantity = transaction.quantity;
+          const transactionPrice = transaction.price;
+          const fees = transaction.fees || 0;
+          const totalAmount = transactionQuantity * transactionPrice + fees;
+          
+          if (transaction.transaction_type === 'buy') {
+            // Update weighted average cost basis
+            const currentValue = quantity * weightedAverageCost;
+            const newValue = currentValue + totalAmount;
+            quantity += transactionQuantity;
+            
+            if (quantity > 0) {
+              weightedAverageCost = newValue / quantity;
+              totalCostBasis = newValue;
+            }
+          } else if (transaction.transaction_type === 'sell') {
+            if (quantity >= transactionQuantity) {
+              const costOfSoldShares = transactionQuantity * weightedAverageCost;
+              const saleProceeds = transactionQuantity * transactionPrice - fees;
+              realizedPL += saleProceeds - costOfSoldShares;
+              
+              quantity -= transactionQuantity;
+              totalCostBasis -= costOfSoldShares;
+            }
+          }
+        }
+        
+        console.log(`💰 Asset ${assetId}: quantity=${quantity}, avgCost=${weightedAverageCost}, totalCost=${totalCostBasis}`);
+        
+        // Create or update position
+        if (quantity > 0) {
+          // Check if position already exists
+          const { data: existingPosition } = await supabase
+            .from('positions')
+            .select('id')
+            .eq('portfolio_id', portfolioId)
+            .eq('asset_id', assetId)
+            .single();
+          
+          const positionData = {
+            portfolio_id: portfolioId,
+            asset_id: assetId,
+            quantity,
+            average_cost_basis: weightedAverageCost,
+            total_cost_basis: totalCostBasis,
+            realized_pl: realizedPL,
+            open_date: assetTransactions[0].transaction_date,
+            cost_basis_method: 'FIFO' as const,
+            is_active: true,
+            updated_at: new Date().toISOString()
+          };
+          
+          if (existingPosition) {
+            // Update existing position
+            await supabase
+              .from('positions')
+              .update(positionData)
+              .eq('id', existingPosition.id);
+            updatedCount++;
+          } else {
+            // Create new position
+            await supabase
+              .from('positions')
+              .insert({
+                ...positionData,
+                created_at: new Date().toISOString()
+              });
+            createdCount++;
+          }
+        }
+      }
+      
+      console.log(`✅ Position recalculation complete: ${createdCount} created, ${updatedCount} updated`);
+      return { data: { created: createdCount, updated: updatedCount }, error: null, success: true };
+      
+    } catch (error) {
+      console.error('❌ Error recalculating positions:', error);
+      return { 
+        data: null, 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
 }
 
 /**

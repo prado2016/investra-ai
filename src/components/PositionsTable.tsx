@@ -263,17 +263,20 @@ interface PositionsTableProps {
   loading?: boolean;
   error?: string;
   onRefresh?: () => void;
+  onRecalculate?: () => Promise<void>;
 }
 
 export const PositionsTable: React.FC<PositionsTableProps> = ({
   positions,
   loading = false,
   error,
-  onRefresh
+  onRefresh,
+  onRecalculate
 }) => {
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
   const [filterText, setFilterText] = useState('');
+  const [recalculating, setRecalculating] = useState(false);
   const notify = useNotify();
   const network = useNetwork();
 
@@ -403,6 +406,20 @@ export const PositionsTable: React.FC<PositionsTableProps> = ({
     }
   };
 
+  const handleRecalculate = async () => {
+    if (!onRecalculate) return;
+    
+    try {
+      setRecalculating(true);
+      await onRecalculate();
+      notify.success('Positions Recalculated', 'All positions have been recalculated from transaction history');
+    } catch (error) {
+      notify.error('Failed to recalculate positions: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    } finally {
+      setRecalculating(false);
+    }
+  };
+
   if (loading) {
     return (
       <TableContainer>
@@ -482,6 +499,23 @@ export const PositionsTable: React.FC<PositionsTableProps> = ({
               : 'Refresh'
             }
           </RefreshButton>
+          {onRecalculate && (
+            <RefreshButton 
+              onClick={handleRecalculate}
+              disabled={recalculating || quotesLoading || retryState.isRetrying}
+              style={{ 
+                marginLeft: '0.5rem',
+                background: 'var(--color-accent-600)',
+                borderColor: 'var(--color-accent-600)'
+              }}
+            >
+              <RefreshCw 
+                size={16} 
+                className={recalculating ? 'animate-spin' : ''}
+              />
+              {recalculating ? 'Recalculating...' : 'Recalculate Positions'}
+            </RefreshButton>
+          )}
         </FilterContainer>
       </TableHeader>
 

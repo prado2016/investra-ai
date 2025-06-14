@@ -45,6 +45,7 @@ interface UseSupabasePositionsReturn {
   loading: boolean;
   error: string | null;
   refreshPositions: () => Promise<void>;
+  recalculatePositions: () => Promise<void>;
 }
 
 /**
@@ -98,6 +99,25 @@ export function useSupabasePositions(): UseSupabasePositionsReturn {
     await fetchPositions();
   }, [fetchPositions]);
 
+  const recalculatePositions = useCallback(async () => {
+    if (!activePortfolio) {
+      throw new Error('No active portfolio');
+    }
+
+    console.log('🔄 Starting position recalculation for portfolio:', activePortfolio.id);
+    
+    const result = await SupabaseService.position.recalculatePositions(activePortfolio.id);
+    
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to recalculate positions');
+    }
+    
+    console.log('✅ Recalculation complete:', result.data);
+    
+    // Refresh positions after recalculation
+    await fetchPositions();
+  }, [activePortfolio, fetchPositions]);
+
   // Fetch positions when active portfolio changes
   useEffect(() => {
     fetchPositions();
@@ -107,7 +127,8 @@ export function useSupabasePositions(): UseSupabasePositionsReturn {
     positions,
     loading,
     error,
-    refreshPositions
+    refreshPositions,
+    recalculatePositions
   };
 }
 
