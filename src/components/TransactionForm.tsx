@@ -49,19 +49,23 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     totalAmount: initialData?.totalAmount?.toString() || '',
     fees: initialData?.fees?.toString() || '',
     currency: initialData?.currency || 'USD',
-    date: initialData?.date 
-        ? (typeof initialData.date === 'string' 
-            ? (initialData.date as string).split('T')[0] 
-            : (initialData.date as Date).toISOString().split('T')[0]
-          )
-        : (() => {
-            // Use local date to avoid timezone issues
-            const today = new Date();
-            const year = today.getFullYear();
-            const month = String(today.getMonth() + 1).padStart(2, '0');
-            const day = String(today.getDate()).padStart(2, '0');
-            return `${year}-${month}-${day}`;
-          })(),
+    date: (() => {
+      // If editing an existing transaction, use its date
+      if (initialData?.date) {
+        if (typeof initialData.date === 'string') {
+          return initialData.date.split('T')[0];
+        } else {
+          return initialData.date.toISOString().split('T')[0];
+        }
+      }
+      
+      // For new transactions, always use today's date
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    })(),
     notes: initialData?.notes || ''
   };
 
@@ -120,7 +124,11 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         totalAmount: parseFloat(values.totalAmount),
         fees: values.fees ? parseFloat(values.fees) : 0,
         currency: values.currency,
-        date: new Date(values.date + 'T12:00:00.000Z'),
+        date: (() => {
+          // Parse the date string and create a Date object that preserves the local date
+          const [year, month, day] = values.date.split('-').map(Number);
+          return new Date(year, month - 1, day); // month is 0-indexed
+        })(),
         notes: values.notes.trim() || undefined
       };
 

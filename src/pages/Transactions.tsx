@@ -143,7 +143,16 @@ const TransactionsPage: React.FC = () => {
             total_amount: transactionData.totalAmount,
             fees: transactionData.fees || 0,
             currency: transactionData.currency, // Fix: Update currency field
-            transaction_date: transactionData.date?.toISOString().split('T')[0] || new Date().toISOString().split('T')[0],
+            transaction_date: (() => {
+              if (!transactionData.date) return new Date().toISOString().split('T')[0];
+              
+              // Ensure date stays in local timezone - no UTC conversion
+              const date = transactionData.date;
+              const year = date.getFullYear();
+              const month = String(date.getMonth() + 1).padStart(2, '0');
+              const day = String(date.getDate()).padStart(2, '0');
+              return `${year}-${month}-${day}`;
+            })(),
             notes: transactionData.notes || undefined
           }
         );
@@ -168,7 +177,16 @@ const TransactionsPage: React.FC = () => {
           transactionData.type as TransactionType,
           transactionData.quantity,
           transactionData.price,
-          transactionData.date?.toISOString() || new Date().toISOString()
+          (() => {
+            if (!transactionData.date) return new Date().toISOString();
+            
+            // For create transaction, we need full ISO string but preserve local date
+            const date = transactionData.date;
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}T12:00:00.000Z`; // Use noon UTC to avoid timezone issues
+          })()
         );
         
         if (response.success) {
