@@ -1,9 +1,9 @@
 /* Emergency CSS fix for Transactions page layout */
 
 .enhanced-page-container {
-  max-width: 1200px;
+  max-width: 1400px; /* Increased from 1200px for more overall space */
   margin: 0 auto;
-  padding: var(--space-8, 32px); /* Increased padding */
+  padding: var(--space-6, 24px); /* Reduced padding to give more content space */
   min-height: 100vh;
 }
 
@@ -47,20 +47,30 @@
 .enhanced-content-layout {
   display: flex;
   flex-direction: column;
-  gap: var(--space-6, 24px);
+  gap: var(--space-5, 20px); /* Reduced from 24px for more content space */
 }
 
 .transaction-grid-row {
   display: grid;
-  grid-template-columns: 0.6fr 1.4fr; /* Give right side more space: 30% left, 70% right */
-  gap: var(--space-6, 24px);
+  grid-template-columns: 0.8fr 1.2fr; /* Better balance: 40% left, 60% right */
+  gap: var(--space-5, 20px); /* Reduced gap for more content space */
   align-items: start;
 }
 
-/* For larger screens, give even more space to the right side */
+/* For larger screens, optimize the ratio further */
 @media (min-width: 1200px) {
   .transaction-grid-row {
-    grid-template-columns: 0.55fr 1.45fr; /* 27.5% left, 72.5% right on larger screens */
+    grid-template-columns: 0.75fr 1.25fr; /* 37.5% left, 62.5% right on larger screens */
+  }
+}
+
+/* For extra-wide screens, increase container width even more */
+@media (min-width: 1600px) {
+  .enhanced-page-container {
+    max-width: 1600px; /* Even more space for very wide screens */
+  }
+  .transaction-grid-row {
+    grid-template-columns: 0.7fr 1.3fr; /* 35% left, 65% right for ultra-wide */
   }
 }
 
@@ -74,10 +84,10 @@
 /* Added a breakpoint for smaller tablets / larger phones if needed, but 1024px might be fine */
 @media (max-width: 768px) {
   .enhanced-page-container {
-    padding: var(--space-6, 24px); /* Reduce padding for smaller screens */
+    padding: var(--space-4, 16px); /* Further reduce padding for smaller screens */
   }
   .enhanced-content-layout {
-    gap: var(--space-5, 20px); /* Further reduce gap */
+    gap: var(--space-4, 16px); /* Further reduce gap */
   }
   .enhanced-page-title {
     font-size: 20px; /* Reduced from 24px */
