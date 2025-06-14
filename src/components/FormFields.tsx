@@ -65,29 +65,50 @@ export const InputField: React.FC<InputFieldProps> = ({
         </label>
       )}
       
-      <input
-        id={id}
-        name={name}
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onBlur={onBlur}
-        placeholder={placeholder}
-        disabled={disabled}
-        min={min}
-        max={max}
-        step={step}
-        autoComplete={autoComplete}
-        maxLength={maxLength}
-        tabIndex={tabIndex}
-        className={`form-input ${hasError ? 'error' : ''} ${hasSuccess ? 'success' : ''}`}
-        aria-invalid={hasError}
-        aria-describedby={
-          hasError ? `${label}-error` : 
-          hasSuccess ? `${label}-success` : 
-          helpText ? `${label}-help` : undefined
-        }
-      />
+      {type === 'textarea' ? (
+        <textarea
+          id={id}
+          name={name}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onBlur={onBlur}
+          placeholder={placeholder}
+          disabled={disabled}
+          maxLength={maxLength}
+          rows={4}
+          className={`form-textarea ${hasError ? 'error' : ''} ${hasSuccess ? 'success' : ''}`}
+          aria-invalid={hasError}
+          aria-describedby={
+            hasError ? `${label}-error` : 
+            hasSuccess ? `${label}-success` : 
+            helpText ? `${label}-help` : undefined
+          }
+        />
+      ) : (
+        <input
+          id={id}
+          name={name}
+          type={type}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onBlur={onBlur}
+          placeholder={placeholder}
+          disabled={disabled}
+          min={min}
+          max={max}
+          step={step}
+          autoComplete={autoComplete}
+          maxLength={maxLength}
+          tabIndex={tabIndex}
+          className={`form-input ${hasError ? 'error' : ''} ${hasSuccess ? 'success' : ''}`}
+          aria-invalid={hasError}
+          aria-describedby={
+            hasError ? `${label}-error` : 
+            hasSuccess ? `${label}-success` : 
+            helpText ? `${label}-help` : undefined
+          }
+        />
+      )}
       
       {hasError && (
         <div id={`${label}-error`} className="error-message" role="alert">
@@ -130,6 +151,7 @@ export const PasswordField: React.FC<PasswordFieldProps> = ({
     <div className={`field-container ${className || ''}`}>
       {props.label && (
         <label 
+          htmlFor={props.id}
           className={`field-label ${props.required ? 'required' : ''} ${hasError ? 'error' : ''}`}
         >
           {props.label}
@@ -138,6 +160,8 @@ export const PasswordField: React.FC<PasswordFieldProps> = ({
       
       <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
         <input
+          id={props.id}
+          name={props.name}
           type={showPassword ? 'text' : 'password'}
           value={props.value}
           onChange={(e) => props.onChange(e.target.value)}

@@ -227,6 +227,7 @@ interface EnhancedSymbolInputProps {
   maxLength?: number;
   className?: string;
   'data-testid'?: string;
+  inputId?: string;
 }
 
 export const EnhancedSymbolInput: React.FC<EnhancedSymbolInputProps> = ({
@@ -240,7 +241,8 @@ export const EnhancedSymbolInput: React.FC<EnhancedSymbolInputProps> = ({
   showValidation = true,
   maxLength = 200, // Increased to allow natural language queries
   className,
-  'data-testid': testId
+  'data-testid': testId,
+  inputId
 }) => {
   const [showSuggestionsList, setShowSuggestionsList] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
@@ -531,6 +533,7 @@ export const EnhancedSymbolInput: React.FC<EnhancedSymbolInputProps> = ({
       >
         <StyledInput
           ref={inputRef}
+          id={inputId}
           type="text"
           value={value}
           onChange={handleInputChange}

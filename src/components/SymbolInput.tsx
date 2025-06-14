@@ -84,6 +84,8 @@ export const SymbolInput: React.FC<SymbolInputProps> = ({
           showSuggestions={showSuggestions}
           showValidation={showValidation}
           maxLength={validation.maxLength}
+          data-testid={id}
+          inputId={id}
         />
         
         {error && (
