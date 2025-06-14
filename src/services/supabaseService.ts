@@ -1216,6 +1216,194 @@ export class UtilityService {
   }
 }
 
+/**
+ * Fund Movement Service - Handle fund deposits, withdrawals, transfers, and conversions
+ */
+export class FundMovementService {
+  /**
+   * Create a new fund movement
+   */
+  static async createFundMovement(
+    portfolioId: string,
+    type: 'conversion' | 'withdraw' | 'deposit' | 'transfer',
+    amount: number,
+    currency: string,
+    status: 'pending' | 'completed' | 'failed' | 'cancelled',
+    date: string,
+    options: {
+      fees?: number;
+      notes?: string;
+      // For conversions
+      originalAmount?: number;
+      originalCurrency?: string;
+      convertedAmount?: number;
+      convertedCurrency?: string;
+      exchangeRate?: number;
+      exchangeFees?: number;
+      account?: string;
+      // For transfers
+      fromAccount?: string;
+      toAccount?: string;
+    } = {}
+  ): Promise<ServiceResponse<any>> {
+    // Use mock service in test mode
+    if (shouldUseMockServices()) {
+      return MockServices.FundMovementService.createFundMovement(
+        portfolioId, type, amount, currency, status, date, options
+      );
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('fund_movements')
+        .insert({
+          portfolio_id: portfolioId,
+          type,
+          amount,
+          currency,
+          status,
+          movement_date: date,
+          fees: options.fees,
+          notes: options.notes,
+          original_amount: options.originalAmount,
+          original_currency: options.originalCurrency,
+          converted_amount: options.convertedAmount,
+          converted_currency: options.convertedCurrency,
+          exchange_rate: options.exchangeRate,
+          exchange_fees: options.exchangeFees,
+          account: options.account,
+          from_account: options.fromAccount,
+          to_account: options.toAccount
+        })
+        .select()
+        .single()
+
+      if (error) {
+        return { data: null, error: error.message, success: false }
+      }
+
+      return { data, error: null, success: true }
+    } catch (error) {
+      return { 
+        data: null, 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
+
+  /**
+   * Get fund movements for a portfolio
+   */
+  static async getFundMovements(portfolioId: string): Promise<ServiceListResponse<any>> {
+    // Use mock service in test mode
+    if (shouldUseMockServices()) {
+      return MockServices.FundMovementService.getFundMovements(portfolioId);
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('fund_movements')
+        .select('*')
+        .eq('portfolio_id', portfolioId)
+        .order('movement_date', { ascending: false })
+
+      if (error) {
+        return { data: [], error: error.message, success: false, total: 0 }
+      }
+
+      return { data: data || [], error: null, success: true, total: data?.length || 0 }
+    } catch (error) {
+      return { 
+        data: [], 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false,
+        total: 0
+      }
+    }
+  }
+
+  /**
+   * Update a fund movement
+   */
+  static async updateFundMovement(
+    id: string,
+    updates: {
+      type?: 'conversion' | 'withdraw' | 'deposit' | 'transfer';
+      amount?: number;
+      currency?: string;
+      status?: 'pending' | 'completed' | 'failed' | 'cancelled';
+      movement_date?: string;
+      fees?: number;
+      notes?: string;
+      original_amount?: number;
+      original_currency?: string;
+      converted_amount?: number;
+      converted_currency?: string;
+      exchange_rate?: number;
+      exchange_fees?: number;
+      account?: string;
+      from_account?: string;
+      to_account?: string;
+    }
+  ): Promise<ServiceResponse<any>> {
+    // Use mock service in test mode
+    if (shouldUseMockServices()) {
+      return MockServices.FundMovementService.updateFundMovement(id, updates);
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('fund_movements')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single()
+
+      if (error) {
+        return { data: null, error: error.message, success: false }
+      }
+
+      return { data, error: null, success: true }
+    } catch (error) {
+      return { 
+        data: null, 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
+
+  /**
+   * Delete a fund movement
+   */
+  static async deleteFundMovement(id: string): Promise<ServiceResponse<boolean>> {
+    // Use mock service in test mode
+    if (shouldUseMockServices()) {
+      return MockServices.FundMovementService.deleteFundMovement(id);
+    }
+
+    try {
+      const { error } = await supabase
+        .from('fund_movements')
+        .delete()
+        .eq('id', id)
+
+      if (error) {
+        return { data: false, error: error.message, success: false }
+      }
+
+      return { data: true, error: null, success: true }
+    } catch (error) {
+      return { 
+        data: false, 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
+}
+
 // Create a unified service interface
 export class SupabaseService {
   static profile = ProfileService
@@ -1224,6 +1412,7 @@ export class SupabaseService {
   static position = PositionService
   static transaction = TransactionService
   static utility = UtilityService
+  static fundMovement = FundMovementService
 }
 
 export default SupabaseService

@@ -199,11 +199,109 @@ class MockPortfolioService {
   }
 }
 
+// Mock Fund Movement Service
+const MockFundMovementService = {
+  createFundMovement: async (
+    portfolioId: string,
+    type: 'conversion' | 'withdraw' | 'deposit' | 'transfer',
+    amount: number,
+    currency: string,
+    status: 'pending' | 'completed' | 'failed' | 'cancelled',
+    date: string,
+    options: any = {}
+  ) => {
+    console.log('🧪 Mock: Creating fund movement', { portfolioId, type, amount, currency, status, date, options });
+    
+    const mockFundMovement = {
+      id: `fund_${Date.now()}`,
+      portfolio_id: portfolioId,
+      type,
+      amount,
+      currency,
+      status,
+      movement_date: date,
+      fees: options.fees || 0,
+      notes: options.notes || '',
+      original_amount: options.originalAmount,
+      original_currency: options.originalCurrency,
+      converted_amount: options.convertedAmount,
+      converted_currency: options.convertedCurrency,
+      exchange_rate: options.exchangeRate,
+      exchange_fees: options.exchangeFees,
+      account: options.account,
+      from_account: options.fromAccount,
+      to_account: options.toAccount,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    
+    return { data: mockFundMovement, error: null, success: true };
+  },
+
+  getFundMovements: async (portfolioId: string) => {
+    console.log('🧪 Mock: Getting fund movements for portfolio', portfolioId);
+    
+    const mockFundMovements = [
+      {
+        id: 'fund_1',
+        portfolio_id: portfolioId,
+        type: 'conversion',
+        amount: 9234.51,
+        currency: 'USD',
+        status: 'completed',
+        movement_date: '2025-04-16',
+        original_amount: 13000.00,
+        original_currency: 'CAD',
+        converted_amount: 9234.51,
+        converted_currency: 'USD',
+        exchange_rate: 0.710347,
+        exchange_fees: 1,
+        account: 'TFSA',
+        created_at: '2025-04-16T10:00:00Z',
+        updated_at: '2025-04-16T10:00:00Z'
+      },
+      {
+        id: 'fund_2',
+        portfolio_id: portfolioId,
+        type: 'withdraw',
+        amount: 1000.00,
+        currency: 'CAD',
+        status: 'completed',
+        movement_date: '2025-01-28',
+        from_account: 'TFSA',
+        to_account: 'RBC Signature No Limit Banking - Chequing 511',
+        created_at: '2025-01-28T14:00:00Z',
+        updated_at: '2025-01-28T14:00:00Z'
+      }
+    ];
+    
+    return { data: mockFundMovements, error: null, success: true, total: mockFundMovements.length };
+  },
+
+  updateFundMovement: async (id: string, updates: any) => {
+    console.log('🧪 Mock: Updating fund movement', id, updates);
+    
+    const mockUpdatedFundMovement = {
+      id,
+      ...updates,
+      updated_at: new Date().toISOString()
+    };
+    
+    return { data: mockUpdatedFundMovement, error: null, success: true };
+  },
+
+  deleteFundMovement: async (id: string) => {
+    console.log('🧪 Mock: Deleting fund movement', id);
+    return { data: true, error: null, success: true };
+  }
+};
+
 // Export mock services that can be used when in test mode
 export const MockServices = {
   TransactionService: MockTransactionService,
   AssetService: MockAssetService,
   PortfolioService: MockPortfolioService,
+  FundMovementService: MockFundMovementService,
 };
 
 // Helper function to determine if we should use mock services

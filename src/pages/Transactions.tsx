@@ -1,14 +1,17 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { usePortfolios } from '../contexts/PortfolioContext';
 import { usePageTitle } from '../hooks/usePageTitle';
-import { TransactionService, AssetService } from '../services/supabaseService';
+import { TransactionService, AssetService, FundMovementService } from '../services/supabaseService';
 import { useNotify } from '../hooks/useNotify';
 import TransactionForm from '../components/TransactionForm.tsx';
 import TransactionList from '../components/TransactionList.tsx';
 import TransactionEditModal from '../components/TransactionEditModal.tsx';
-import { Plus, TrendingUp, DollarSign } from 'lucide-react';
-import type { Transaction, TransactionType, Currency } from '../types/portfolio';
+import FundMovementForm from '../components/FundMovementForm.tsx';
+import FundMovementList from '../components/FundMovementList.tsx';
+import { Plus, TrendingUp, DollarSign, ArrowUpDown } from 'lucide-react';
+import type { Transaction, TransactionType, Currency, FundMovement } from '../types/portfolio';
 import type { TransactionWithAsset } from '../components/TransactionList';
+import type { FundMovementWithMetadata } from '../components/FundMovementList';
 import '../styles/transactions-layout.css';
 
 // Enhanced Transactions page with improved styling and contrast
@@ -22,6 +25,7 @@ const TransactionsPage: React.FC = () => {
   
   const notify = useNotify();
   const [transactions, setTransactions] = useState<TransactionWithAsset[]>([]);
+  const [fundMovements, setFundMovements] = useState<FundMovementWithMetadata[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editingTransaction, setEditingTransaction] = useState<TransactionWithAsset | null>(null);
@@ -55,6 +59,49 @@ const TransactionsPage: React.FC = () => {
       setLoading(false);
     }
   }, [activePortfolio?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Fetch fund movements when portfolio changes
+  const fetchFundMovements = useCallback(async () => {
+    if (!activePortfolio?.id) {
+      return;
+    }
+    
+    try {
+      const response = await FundMovementService.getFundMovements(activePortfolio.id);
+      if (response.success) {
+        // Transform the data to match our types
+        const transformedMovements = response.data.map((movement: any) => ({
+          ...movement,
+          date: (() => {
+            // Parse date string properly to avoid timezone shifts
+            const dateStr = movement.movement_date;
+            if (typeof dateStr === 'string') {
+              const [year, month, day] = dateStr.split('-').map(Number);
+              return new Date(year, month - 1, day);
+            }
+            return new Date(dateStr);
+          })(),
+          portfolioId: movement.portfolio_id,
+          originalAmount: movement.original_amount,
+          originalCurrency: movement.original_currency,
+          convertedAmount: movement.converted_amount,
+          convertedCurrency: movement.converted_currency,
+          exchangeRate: movement.exchange_rate,
+          exchangeFees: movement.exchange_fees,
+          fromAccount: movement.from_account,
+          toAccount: movement.to_account,
+          createdAt: new Date(movement.created_at),
+          updatedAt: new Date(movement.updated_at)
+        }));
+        setFundMovements(transformedMovements);
+      } else {
+        notify.error('Failed to fetch fund movements: ' + response.error);
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+      notify.error('Failed to fetch fund movements: ' + errorMsg);
+    }
+  }, [activePortfolio?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   // notify is intentionally excluded as it should be stable
 
   useEffect(() => {
@@ -67,6 +114,7 @@ const TransactionsPage: React.FC = () => {
       // Set up a debounced fetch to prevent rate limiting
       fetchTimeoutRef.current = setTimeout(() => {
         fetchTransactions();
+        fetchFundMovements();
       }, 300); // 300ms debounce time
     }
     
@@ -207,6 +255,84 @@ const TransactionsPage: React.FC = () => {
     }
   };
 
+  const handleSaveFundMovement = async (fundMovementData: Omit<FundMovement, 'id' | 'createdAt' | 'updatedAt'>): Promise<boolean> => {
+    if (!activePortfolio?.id) {
+      notify.error('No portfolio selected');
+      return false;
+    }
+
+    try {
+      setLoading(true);
+      
+      const response = await FundMovementService.createFundMovement(
+        fundMovementData.portfolioId,
+        fundMovementData.type,
+        fundMovementData.amount,
+        fundMovementData.currency,
+        fundMovementData.status,
+        (() => {
+          if (!fundMovementData.date) return new Date().toISOString().split('T')[0];
+          
+          const date = fundMovementData.date;
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+        })(),
+        {
+          fees: fundMovementData.fees,
+          notes: fundMovementData.notes,
+          originalAmount: fundMovementData.originalAmount,
+          originalCurrency: fundMovementData.originalCurrency,
+          convertedAmount: fundMovementData.convertedAmount,
+          convertedCurrency: fundMovementData.convertedCurrency,
+          exchangeRate: fundMovementData.exchangeRate,
+          exchangeFees: fundMovementData.exchangeFees,
+          account: fundMovementData.account,
+          fromAccount: fundMovementData.fromAccount,
+          toAccount: fundMovementData.toAccount
+        }
+      );
+      
+      if (response.success) {
+        notify.success('Fund movement added successfully');
+        fetchFundMovements();
+        return true;
+      } else {
+        notify.error('Failed to save fund movement: ' + response.error);
+        return false;
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      notify.error('Failed to save fund movement: ' + errorMsg);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteFundMovement = async (id: string) => {
+    if (window.confirm('Are you sure you want to delete this fund movement?')) {
+      try {
+        setLoading(true);
+        
+        const response = await FundMovementService.deleteFundMovement(id);
+        
+        if (response.success) {
+          notify.success('Fund movement deleted successfully');
+          fetchFundMovements();
+        } else {
+          notify.error('Failed to delete fund movement: ' + response.error);
+        }
+      } catch (error) {
+        console.error('Failed to delete fund movement:', error);
+        notify.error('Failed to delete fund movement');
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
   if (portfoliosLoading) {
     return (
       <div className="enhanced-page-container">
@@ -275,7 +401,7 @@ const TransactionsPage: React.FC = () => {
             <div className="enhanced-section-header-content">
               <Plus className="enhanced-section-icon" />
               <div className="enhanced-section-text">
-                <h2 className="enhanced-section-title">Add New Transaction</h2>
+                <h2 className="enhanced-section-title">Add Transaction</h2>
                 <p className="enhanced-section-subtitle">
                   Enter transaction details to add to your portfolio
                 </p>
@@ -290,6 +416,12 @@ const TransactionsPage: React.FC = () => {
             />
           </div>
         </div>
+
+        {/* Add Fund Movement Section */}
+        <FundMovementForm
+          onSave={handleSaveFundMovement}
+          loading={loading}
+        />
 
         {/* Recent Transactions Section */}
         <div className="enhanced-transactions-section">
@@ -312,6 +444,30 @@ const TransactionsPage: React.FC = () => {
               error={error}
               onEdit={handleEditTransaction}
               onDelete={handleDeleteTransaction}
+            />
+          </div>
+        </div>
+
+        {/* Recent Fund Movements Section */}
+        <div className="enhanced-transactions-section">
+          <div className="enhanced-section-header">
+            <div className="enhanced-section-header-content">
+              <ArrowUpDown className="enhanced-section-icon" />
+              <div className="enhanced-section-text">
+                <h2 className="enhanced-section-title">Recent Fund Movements</h2>
+                <p className="enhanced-section-subtitle">
+                  View and manage your fund transfers, deposits, withdrawals, and conversions
+                </p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="enhanced-transactions-wrapper">
+            <FundMovementList
+              fundMovements={fundMovements}
+              loading={loading}
+              error={error}
+              onDelete={handleDeleteFundMovement}
             />
           </div>
         </div>

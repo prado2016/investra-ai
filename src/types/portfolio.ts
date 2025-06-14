@@ -4,6 +4,42 @@ export type TransactionType = 'buy' | 'sell' | 'dividend' | 'split' | 'merger';
 export type Currency = 'USD' | 'EUR' | 'GBP' | 'JPY' | 'CAD' | 'AUD' | 'CHF' | 'CNY' | 'BTC' | 'ETH';
 export type CostBasisMethod = 'FIFO' | 'LIFO' | 'AVERAGE_COST' | 'SPECIFIC_LOT';
 
+// Fund Movement Types
+export type FundMovementType = 'conversion' | 'withdraw' | 'deposit' | 'transfer';
+export type FundMovementStatus = 'pending' | 'completed' | 'failed' | 'cancelled';
+
+// Fund Movement Interface
+export interface FundMovement {
+  id: string;
+  portfolioId: string;
+  type: FundMovementType;
+  status: FundMovementStatus;
+  date: Date;
+  
+  // Common fields
+  amount: number;
+  currency: Currency;
+  fees?: number;
+  notes?: string;
+  
+  // For conversions
+  originalAmount?: number;
+  originalCurrency?: Currency;
+  convertedAmount?: number;
+  convertedCurrency?: Currency;
+  exchangeRate?: number;
+  exchangeFees?: number;
+  account?: string;
+  
+  // For transfers, withdrawals, deposits
+  fromAccount?: string;
+  toAccount?: string;
+  
+  // Metadata
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 // Transaction Interface
 export interface Transaction {
   id: string;

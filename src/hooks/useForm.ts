@@ -3,6 +3,7 @@ import { useNotify } from './useNotify';
 
 export interface ValidationRule<T = unknown> {
   required?: boolean | string;
+  requiredIf?: (values: Record<string, unknown>) => boolean | string;
   min?: number | string;
   max?: number | string;
   minLength?: number | string;
@@ -91,6 +92,21 @@ export const useForm = <T extends Record<string, unknown>>(options: UseFormOptio
           type: 'required',
           message: typeof rules.required === 'string' ? rules.required : defaultValidationMessages.required
         };
+      }
+    }
+
+    // Conditional required validation
+    if (rules.requiredIf) {
+      const shouldBeRequired = rules.requiredIf(allValues);
+      if (shouldBeRequired) {
+        const isEmpty = value === null || value === undefined || value === '' || 
+                       (Array.isArray(value) && value.length === 0);
+        if (isEmpty) {
+          return {
+            type: 'required',
+            message: typeof shouldBeRequired === 'string' ? shouldBeRequired : defaultValidationMessages.required
+          };
+        }
       }
     }
 
