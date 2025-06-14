@@ -42,7 +42,7 @@ interface FundMovementFormProps {
 const FundMovementForm: React.FC<FundMovementFormProps> = ({
   initialData,
   onSave,
-  onCancel: _onCancel, // Marked as unused - reserved for future functionality
+  onCancel: _, // Reserved for future functionality
   loading = false
 }) => {
   const { portfolios, activePortfolio, loading: portfoliosLoading } = useSupabasePortfolios();
@@ -238,7 +238,7 @@ const FundMovementForm: React.FC<FundMovementFormProps> = ({
       <div className="enhanced-section-header" style={{ cursor: 'pointer' }} onClick={() => setIsMinimized(!isMinimized)}>
         <div className="enhanced-section-header-content">
           <div className="enhanced-section-text">
-            <h2 className="enhanced-section-title">Add Funds Movement</h2>
+            <h2 className="enhanced-section-title">Add Funds</h2>
             <p className="enhanced-section-subtitle">
               Track deposits, withdrawals, transfers, and currency conversions
             </p>

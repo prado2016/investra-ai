@@ -8,7 +8,7 @@ import TransactionList from '../components/TransactionList.tsx';
 import TransactionEditModal from '../components/TransactionEditModal.tsx';
 import FundMovementForm from '../components/FundMovementForm.tsx';
 import FundMovementList from '../components/FundMovementList.tsx';
-import { Plus, TrendingUp, DollarSign, ArrowUpDown } from 'lucide-react';
+import { Plus, TrendingUp, DollarSign, ArrowUpDown, ChevronDown, ChevronUp } from 'lucide-react';
 import type { Transaction, TransactionType, FundMovement, FundMovementType, FundMovementStatus, Currency } from '../types/portfolio';
 import type { TransactionWithAsset } from '../components/TransactionList';
 import type { FundMovementWithMetadata } from '../components/FundMovementList';
@@ -30,6 +30,7 @@ const TransactionsPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [editingTransaction, setEditingTransaction] = useState<TransactionWithAsset | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [isTransactionFormMinimized, setIsTransactionFormMinimized] = useState(false);
   
   // Debounce fetch to prevent excessive API calls
   const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -423,7 +424,7 @@ const TransactionsPage: React.FC = () => {
       <div className="enhanced-content-layout">
         {/* Add Transaction Section */}
         <div className="enhanced-form-section">
-          <div className="enhanced-section-header">
+          <div className="enhanced-section-header" style={{ cursor: 'pointer' }} onClick={() => setIsTransactionFormMinimized(!isTransactionFormMinimized)}>
             <div className="enhanced-section-header-content">
               <Plus className="enhanced-section-icon" />
               <div className="enhanced-section-text">
@@ -432,15 +433,18 @@ const TransactionsPage: React.FC = () => {
                   Enter transaction details to add to your portfolio
                 </p>
               </div>
+              {isTransactionFormMinimized ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
             </div>
           </div>
           
-          <div className="enhanced-form-wrapper">
-            <TransactionForm
-              onSave={handleSaveTransaction}
-              onCancel={() => {}} // No cancel needed for add-only form
-            />
-          </div>
+          {!isTransactionFormMinimized && (
+            <div className="enhanced-form-wrapper">
+              <TransactionForm
+                onSave={handleSaveTransaction}
+                onCancel={() => {}} // No cancel needed for add-only form
+              />
+            </div>
+          )}
         </div>
 
         {/* Add Fund Movement Section */}
@@ -480,7 +484,7 @@ const TransactionsPage: React.FC = () => {
             <div className="enhanced-section-header-content">
               <ArrowUpDown className="enhanced-section-icon" />
               <div className="enhanced-section-text">
-                <h2 className="enhanced-section-title">Recent Fund Movements</h2>
+                <h2 className="enhanced-section-title">Recent Funds</h2>
                 <p className="enhanced-section-subtitle">
                   View and manage your fund transfers, deposits, withdrawals, and conversions
                 </p>

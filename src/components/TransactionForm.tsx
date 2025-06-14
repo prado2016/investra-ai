@@ -1,5 +1,5 @@
-import React from 'react';
-import { Loader } from 'lucide-react';
+import React, { useState } from 'react';
+import { Loader, ChevronDown, ChevronUp } from 'lucide-react';
 import { InputField, SelectField } from './FormFields';
 import { PriceInput } from './PriceInput';
 import { SymbolInput } from './SymbolInput';
