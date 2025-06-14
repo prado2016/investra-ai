@@ -132,6 +132,14 @@ const FundMovementForm: React.FC<FundMovementFormProps> = ({
         positive: 'Exchange rate must be greater than 0',
         number: true
       },
+      convertedAmount: {
+        requiredIf: (values) => values.type === 'conversion',
+        positive: 'Converted amount must be greater than 0',
+        number: true
+      },
+      account: {
+        requiredIf: (values) => values.type === 'conversion'
+      },
       fromAccount: {
         requiredIf: (values: Record<string, unknown>) => ['withdraw', 'transfer'].includes(values.type as string)
       },
@@ -195,10 +203,14 @@ const FundMovementForm: React.FC<FundMovementFormProps> = ({
         // Calculate fee: (originalAmount × realRate) - convertedAmount
         const feeAmount = (originalAmount * realRate) - convertedAmount;
         
-        // Set calculated values
-        form.setValue('convertedAmount', convertedAmount.toFixed(2));
-        form.setValue('amount', convertedAmount.toFixed(2));
-        form.setValue('exchangeFees', feeAmount.toFixed(2));
+        // Ensure values are valid and positive (prevent validation errors)
+        const validConvertedAmount = Math.max(0, convertedAmount);
+        const validFeeAmount = Math.max(0, feeAmount);
+        
+        // Set calculated values with proper validation
+        form.setValue('convertedAmount', validConvertedAmount.toFixed(2));
+        form.setValue('amount', validConvertedAmount.toFixed(2));
+        form.setValue('exchangeFees', validFeeAmount.toFixed(2));
       }
     }
   }, [form.values.originalAmount, form.values.exchangeRate, form.values.type, form]);

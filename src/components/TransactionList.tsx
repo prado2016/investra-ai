@@ -429,6 +429,11 @@ const TransactionList: React.FC<TransactionListProps> = ({
     );
   }, [filteredTransactions]);
 
+  // Show only the last 10 transactions for the "Recent Transactions" display
+  const recentTransactions = useMemo(() => {
+    return sortedTransactions.slice(0, 10);
+  }, [sortedTransactions]);
+
   if (loading) {
     return <LoadingState>Loading transactions...</LoadingState>;
   }
@@ -464,7 +469,21 @@ const TransactionList: React.FC<TransactionListProps> = ({
         </FilterSelect>
       </FilterBar>
 
-      {sortedTransactions.length === 0 ? (
+      {sortedTransactions.length > 10 && (
+        <div style={{ 
+          fontSize: 'var(--text-sm)', 
+          color: 'var(--text-secondary)', 
+          marginBottom: 'var(--space-3)',
+          padding: 'var(--space-2)',
+          background: 'var(--bg-secondary)',
+          borderRadius: 'var(--radius-md)',
+          textAlign: 'center'
+        }}>
+          Showing {recentTransactions.length} most recent transactions out of {sortedTransactions.length} total
+        </div>
+      )}
+
+      {recentTransactions.length === 0 ? (
         <EmptyState>
           {transactions.length === 0 
             ? "No transactions yet. Click 'Add Transaction' to get started."
@@ -483,9 +502,10 @@ const TransactionList: React.FC<TransactionListProps> = ({
             <div>Actions</div>
           </TableHeader>
           
-          {sortedTransactions
-            .filter(transaction => transaction && transaction.id) // Filter out invalid transactions
-            .map((transaction) => (
+          <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+            {recentTransactions
+              .filter(transaction => transaction && transaction.id) // Filter out invalid transactions
+              .map((transaction) => (
             <TableRow key={transaction.id}>
               <SymbolContainer>
                 <CompanyLogo
@@ -588,6 +608,7 @@ const TransactionList: React.FC<TransactionListProps> = ({
               </div>
             </TableRow>
           ))}
+          </div>
         </TransactionTable>
       )}
     </Container>

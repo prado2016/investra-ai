@@ -291,6 +291,26 @@ const TransactionsPage: React.FC = () => {
     try {
       setLoading(true);
       
+      // Additional validation for currency conversions
+      if (fundMovementData.type === 'conversion') {
+        if (!fundMovementData.originalAmount || fundMovementData.originalAmount <= 0) {
+          notify.error('Original amount is required for currency conversions');
+          return false;
+        }
+        if (!fundMovementData.exchangeRate || fundMovementData.exchangeRate <= 0) {
+          notify.error('Exchange rate is required for currency conversions');
+          return false;
+        }
+        if (!fundMovementData.convertedAmount || fundMovementData.convertedAmount <= 0) {
+          notify.error('Converted amount must be greater than 0');
+          return false;
+        }
+        if (!fundMovementData.account) {
+          notify.error('Account is required for currency conversions');
+          return false;
+        }
+      }
+      
       const response = await FundMovementService.createFundMovement(
         fundMovementData.portfolioId,
         fundMovementData.type,
@@ -326,11 +346,13 @@ const TransactionsPage: React.FC = () => {
         fetchFundMovements();
         return true;
       } else {
+        console.error('Fund movement creation failed:', response.error);
         notify.error('Failed to save fund movement: ' + response.error);
         return false;
       }
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Fund movement creation error:', error);
       notify.error('Failed to save fund movement: ' + errorMsg);
       return false;
     } finally {

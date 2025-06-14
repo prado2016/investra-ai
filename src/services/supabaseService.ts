@@ -18,7 +18,8 @@ import type {
   Asset, 
   Position, 
   Transaction,
-  TransactionType
+  TransactionType,
+  Database
 } from '../lib/database/types'
 
 // Service response types for consistent error handling
@@ -33,6 +34,7 @@ export interface ServiceListResponse<T> {
   error: string | null
   success: boolean
   count?: number
+  total?: number
 }
 
 /**
@@ -1254,6 +1256,22 @@ export class FundMovementService {
     }
 
     try {
+      // Validate required fields for conversions before sending to database
+      if (type === 'conversion') {
+        if (!options.originalAmount || options.originalAmount <= 0) {
+          return { data: null, error: 'Original amount is required for conversions', success: false };
+        }
+        if (!options.exchangeRate || options.exchangeRate <= 0) {
+          return { data: null, error: 'Exchange rate is required for conversions', success: false };
+        }
+        if (!options.convertedAmount || options.convertedAmount <= 0) {
+          return { data: null, error: 'Converted amount is required for conversions', success: false };
+        }
+        if (!options.account) {
+          return { data: null, error: 'Account is required for conversions', success: false };
+        }
+      }
+
       const { data, error } = await supabase
         .from('fund_movements')
         .insert({
@@ -1263,14 +1281,14 @@ export class FundMovementService {
           currency,
           status,
           movement_date: date,
-          fees: options.fees,
+          fees: options.fees || 0,
           notes: options.notes,
           original_amount: options.originalAmount,
           original_currency: options.originalCurrency,
           converted_amount: options.convertedAmount,
           converted_currency: options.convertedCurrency,
           exchange_rate: options.exchangeRate,
-          exchange_fees: options.exchangeFees,
+          exchange_fees: options.exchangeFees || 0,
           account: options.account,
           from_account: options.fromAccount,
           to_account: options.toAccount
@@ -1279,11 +1297,13 @@ export class FundMovementService {
         .single()
 
       if (error) {
-        return { data: null, error: error.message, success: false }
+        console.error('Supabase fund movement creation error:', error);
+        return { data: null, error: `Database error: ${error.message}`, success: false }
       }
 
       return { data, error: null, success: true }
     } catch (error) {
+      console.error('Fund movement service error:', error);
       return { 
         data: null, 
         error: error instanceof Error ? error.message : 'Unknown error', 
