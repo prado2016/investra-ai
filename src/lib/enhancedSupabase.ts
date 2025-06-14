@@ -1,11 +1,14 @@
 /**
  * Enhanced Supabase Client with Retry Logic and Connection Resilience
  * Addresses connection timeout issues and improves overall reliability
+ * Uses singleton pattern to prevent multiple GoTrueClient instances
  */
 
-import { createClient, SupabaseClient } from '@supabase/supabase-js'
+import { SupabaseClient } from '@supabase/supabase-js'
+import { supabase } from './supabase' // Import the singleton instance
 import type { Database } from './database/types'
 import { performanceMonitor } from '../utils/performanceMonitor'
+import { registerSupabaseInstance } from '../utils/supabaseInstanceTracker'
 
 interface RetryConfig {
   maxRetries: number;
@@ -26,7 +29,7 @@ class EnhancedSupabaseClient {
   private healthMetrics: ConnectionHealthMetrics;
   private retryConfig: RetryConfig;
 
-  constructor(url: string, key: string, retryConfig?: Partial<RetryConfig>) {
+  constructor(existingClient: SupabaseClient<Database>, retryConfig?: Partial<RetryConfig>) {
     this.retryConfig = {
       maxRetries: 3,
       baseDelayMs: 1000,
@@ -42,22 +45,12 @@ class EnhancedSupabaseClient {
       totalRequests: 0
     };
 
-    // Create client with optimized configuration
-    this.client = createClient<Database>(url, key, {
-      auth: {
-        persistSession: true,
-        detectSessionInUrl: true
-      },
-      global: {
-        headers: {
-          'Connection': 'keep-alive',
-          'Keep-Alive': 'timeout=30, max=100'
-        }
-      },
-      db: {
-        schema: 'public'
-      }
-    });
+    // Use the existing client instead of creating a new one
+    this.client = existingClient;
+    console.log('🔧 Enhanced Supabase client initialized using existing singleton');
+    
+    // Register instance for tracking in development
+    registerSupabaseInstance('enhanced-wrapper', 'investra-ai-supabase-auth', 'reused-singleton');
   }
 
   /**
@@ -232,15 +225,8 @@ class EnhancedSupabaseClient {
   }
 }
 
-// Create and export enhanced client instance
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseKey) {
-  throw new Error('Missing Supabase environment variables');
-}
-
-export const enhancedSupabase = new EnhancedSupabaseClient(supabaseUrl, supabaseKey);
+// Create and export enhanced client instance using the singleton
+export const enhancedSupabase = new EnhancedSupabaseClient(supabase);
 
 // Reset circuit breaker on startup to clear any stuck state
 enhancedSupabase.resetCircuitBreaker();
