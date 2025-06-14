@@ -54,15 +54,19 @@ const FundMovementForm: React.FC<FundMovementFormProps> = ({
     status: initialData?.status || 'completed',
     date: (() => {
       if (initialData?.date) {
-        if (typeof initialData.date === 'string') {
-          return initialData.date.split('T')[0];
-        } else {
-          const date = initialData.date;
-          const year = date.getFullYear();
-          const month = String(date.getMonth() + 1).padStart(2, '0');
-          const day = String(date.getDate()).padStart(2, '0');
+        const dateValue = initialData.date;
+        if (dateValue instanceof Date) {
+          const year = dateValue.getFullYear();
+          const month = String(dateValue.getMonth() + 1).padStart(2, '0');
+          const day = String(dateValue.getDate()).padStart(2, '0');
           return `${year}-${month}-${day}`;
         }
+        // Handle string dates (shouldn't happen with FundMovement type but added for safety)
+        const dateStr = String(dateValue);
+        if (dateStr.includes('T')) {
+          return dateStr.split('T')[0];
+        }
+        return dateStr;
       }
       
       const today = new Date();
@@ -129,10 +133,10 @@ const FundMovementForm: React.FC<FundMovementFormProps> = ({
         number: true
       },
       fromAccount: {
-        requiredIf: (values) => ['withdraw', 'transfer'].includes(values.type)
+        requiredIf: (values: Record<string, unknown>) => ['withdraw', 'transfer'].includes(values.type as string)
       },
       toAccount: {
-        requiredIf: (values) => ['deposit', 'transfer', 'withdraw'].includes(values.type)
+        requiredIf: (values: Record<string, unknown>) => ['deposit', 'transfer', 'withdraw'].includes(values.type as string)
       }
     },
     validateOnChange: true,
@@ -175,21 +179,29 @@ const FundMovementForm: React.FC<FundMovementFormProps> = ({
     }
   });
 
-  // Auto-calculate converted amount when original amount or exchange rate changes
+  // Auto-calculate converted amount and fees when original amount or exchange rate changes
   useEffect(() => {
     if (form.values.type === 'conversion') {
       const originalAmount = parseFloat(form.values.originalAmount);
       const exchangeRate = parseFloat(form.values.exchangeRate);
-      const exchangeFees = parseFloat(form.values.exchangeFees) || 0;
       
       if (!isNaN(originalAmount) && !isNaN(exchangeRate) && originalAmount > 0 && exchangeRate > 0) {
-        const feeAmount = exchangeFees > 0 ? (originalAmount * exchangeFees / 100) : 0;
-        const convertedAmount = (originalAmount - feeAmount) * exchangeRate;
+        // Calculate real rate (user rate ÷ 0.99)
+        const realRate = exchangeRate / 0.99;
+        
+        // Calculate converted amount using user-provided rate (which already includes 1% deduction)
+        const convertedAmount = originalAmount * exchangeRate;
+        
+        // Calculate fee: (originalAmount × realRate) - convertedAmount
+        const feeAmount = (originalAmount * realRate) - convertedAmount;
+        
+        // Set calculated values
         form.setValue('convertedAmount', convertedAmount.toFixed(2));
         form.setValue('amount', convertedAmount.toFixed(2));
+        form.setValue('exchangeFees', feeAmount.toFixed(2));
       }
     }
-  }, [form.values.originalAmount, form.values.exchangeRate, form.values.exchangeFees, form.values.type, form]);
+  }, [form.values.originalAmount, form.values.exchangeRate, form.values.type, form]);
 
   // Auto-select first portfolio when portfolios load and no portfolio is selected
   useEffect(() => {
@@ -371,14 +383,14 @@ const FundMovementForm: React.FC<FundMovementFormProps> = ({
                   <InputField
                     id="exchangeFees"
                     name="exchangeFees"
-                    label="Exchange Fees (%)"
+                    label="Exchange Fees (USD)"
                     type="number"
-                    placeholder="e.g., 1 for 1%"
+                    placeholder="Auto-calculated"
                     value={form.values.exchangeFees}
                     onChange={(value) => form.setValue('exchangeFees', value)}
                     onBlur={() => form.setFieldTouched('exchangeFees')}
                     error={form.touched.exchangeFees ? form.errors.exchangeFees?.message : ''}
-                    disabled={form.isSubmitting || loading}
+                    disabled={true} // Auto-calculated field
                     min={0}
                     step={0.01}
                   />

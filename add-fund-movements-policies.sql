@@ -6,7 +6,7 @@
 CREATE POLICY "Users can view their own fund movements" ON fund_movements
   FOR SELECT USING (
     portfolio_id IN (
-      SELECT id FROM portfolios WHERE owner_id = auth.uid()
+      SELECT id FROM portfolios WHERE user_id = auth.uid()
     )
   );
 
@@ -14,7 +14,7 @@ CREATE POLICY "Users can view their own fund movements" ON fund_movements
 CREATE POLICY "Users can create fund movements for their portfolios" ON fund_movements
   FOR INSERT WITH CHECK (
     portfolio_id IN (
-      SELECT id FROM portfolios WHERE owner_id = auth.uid()
+      SELECT id FROM portfolios WHERE user_id = auth.uid()
     )
   );
 
@@ -22,7 +22,7 @@ CREATE POLICY "Users can create fund movements for their portfolios" ON fund_mov
 CREATE POLICY "Users can update their own fund movements" ON fund_movements
   FOR UPDATE USING (
     portfolio_id IN (
-      SELECT id FROM portfolios WHERE owner_id = auth.uid()
+      SELECT id FROM portfolios WHERE user_id = auth.uid()
     )
   );
 
@@ -30,7 +30,7 @@ CREATE POLICY "Users can update their own fund movements" ON fund_movements
 CREATE POLICY "Users can delete their own fund movements" ON fund_movements
   FOR DELETE USING (
     portfolio_id IN (
-      SELECT id FROM portfolios WHERE owner_id = auth.uid()
+      SELECT id FROM portfolios WHERE user_id = auth.uid()
     )
   );
 
