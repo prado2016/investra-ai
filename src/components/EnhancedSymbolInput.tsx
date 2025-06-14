@@ -32,6 +32,10 @@ const InputWrapper = styled.div<{ $hasError?: boolean; $isValid?: boolean }>`
   background: var(--bg-primary);
   transition: all var(--transition-fast);
   min-height: var(--input-height);
+  overflow: visible;
+  position: relative;
+  width: 100%;
+  max-width: 100%;
   
   [data-theme="dark"] & {
     background: var(--form-bg, var(--bg-tertiary));

@@ -102,22 +102,43 @@ const CompanyLogo: React.FC<CompanyLogoProps> = ({
   const normalizedSymbol = SymbolValidator.normalizeSymbol(symbol);
   const companyDomain = SymbolValidator.getCompanyDomain(normalizedSymbol);
 
+  // Extract base symbol without exchange suffix for logo lookups
+  const extractBaseSymbol = (sym: string): string => {
+    // Remove common exchange suffixes
+    return sym.replace(/\.(TO|L|F|V|AX|HK|T|SI|PA|MI|MC|SW|ST|CO|MX|SA|BR|AR)$/i, '');
+  };
+
+  // Validate domain to prevent invalid requests
+  const isValidDomain = (domain: string): boolean => {
+    // Blacklist known invalid domains from exchange suffixes
+    const invalidDomains = ['to.com', 'l.com', 'f.com', 'v.com', 'ax.com', 'hk.com', 't.com', 'si.com'];
+    return !invalidDomains.includes(domain.toLowerCase()) && 
+           domain.length > 3 && 
+           !domain.match(/^[a-z]{1,2}\.com$/i); // Reject single/double letter .com domains
+  };
+
   // Generate multiple logo sources with validated domains
   const generateLogoSources = (sym: string) => {
     const sources: string[] = [];
+    const baseSymbol = extractBaseSymbol(sym);
     
     // Primary source: use company domain if available
-    if (companyDomain) {
+    if (companyDomain && isValidDomain(companyDomain)) {
       sources.push(`https://logo.clearbit.com/${companyDomain}`);
     }
     
-    // Fallback sources
-    sources.push(
-      `https://logo.clearbit.com/${sym.toLowerCase()}.com`,
-      `https://api.logo.dev/${sym.toLowerCase()}.com?format=png&size=128`,
-      `https://cdn.brandfetch.io/${sym.toLowerCase()}.com`,
-      `https://img.logo.dev/${sym.toLowerCase()}.com?format=png&size=64`
-    );
+    // Only add fallback sources for valid base symbols (minimum 2 chars, not exchange suffix)
+    if (baseSymbol.length >= 2 && baseSymbol !== sym.replace(/^.*\./, '')) {
+      const fallbackDomain = `${baseSymbol.toLowerCase()}.com`;
+      if (isValidDomain(fallbackDomain)) {
+        sources.push(
+          `https://logo.clearbit.com/${fallbackDomain}`,
+          `https://api.logo.dev/${fallbackDomain}?format=png&size=128`,
+          `https://cdn.brandfetch.io/${fallbackDomain}`,
+          `https://img.logo.dev/${fallbackDomain}?format=png&size=64`
+        );
+      }
+    }
     
     return sources;
   };

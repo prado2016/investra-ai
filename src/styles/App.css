@@ -319,39 +319,47 @@ html {
 
 .horizontal-fields-container {
   display: grid;
-  grid-template-columns: 2.5fr 1.3fr 1.3fr 1.2fr 1.5fr 1.2fr 1fr 1.3fr 1.8fr;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: var(--space-4);
-  align-items: start; /* Changed from 'end' to 'start' to fix alignment issues */
-  padding: var(--space-8);
+  align-items: start;
+  padding: var(--space-6);
   background: var(--bg-card);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   border: 1px solid var(--border-primary);
   box-shadow: var(--shadow-sm);
   overflow: visible;
   
-  /* Ensure consistent field heights and flexible alignment */
+  /* Individual field styling */
   & > * {
     display: flex;
     flex-direction: column;
-    justify-content: flex-start; /* Changed to flex-start for better error handling */
+    justify-content: flex-start;
     min-height: 70px;
     height: auto;
-    position: relative; /* Add position relative for error message positioning */
+    position: relative;
+    max-width: 100%;
   }
   
   /* Ensure labels are aligned consistently */
   & > * .field-label {
     margin-bottom: var(--space-2);
-    height: 20px; /* Fixed height for label consistency */
+    height: 20px;
     display: flex;
     align-items: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   
   /* Ensure input fields have consistent heights */
   & > * .form-input,
-  & > * .form-select {
+  & > * .form-select,
+  & > * .symbol-input,
+  & > * input {
     height: var(--input-height);
     min-height: var(--input-height);
+    width: 100%;
+    box-sizing: border-box;
   }
   
   /* Position error messages consistently */
@@ -362,67 +370,50 @@ html {
     right: 0;
     margin-top: var(--space-1);
     z-index: 10;
+    font-size: var(--text-xs);
   }
   
-  @media (max-width: 1600px) {
-    grid-template-columns: 2fr 1.2fr 1.2fr 1fr 1.3fr 1fr 0.8fr 1.2fr 1.5fr;
-    gap: var(--space-3);
-  }
-  
-  @media (max-width: 1400px) {
-    grid-template-columns: 2fr 1.2fr 1.2fr 1fr 1.3fr 0.8fr 1.2fr 1.5fr;
-    gap: var(--space-3);
-    
-    & > *:nth-child(7) { display: none; }
-  }
-  
-  @media (max-width: 1200px) {
-    grid-template-columns: 2fr 1.2fr 1.2fr 1fr 1.3fr 1.2fr 1.5fr;
-    gap: var(--space-2);
-    padding: var(--space-6);
-    
-    & > *:nth-child(8) { display: none; }
-  }
-  
+  /* Responsive breakpoints */
   @media (max-width: 992px) {
-    grid-template-columns: 2fr 1.2fr 1.2fr 1fr 1.3fr 1.5fr;
-    gap: var(--space-2);
-    
-    & > *:nth-child(6) { display: none; }
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: var(--space-3);
+    padding: var(--space-5);
   }
   
   @media (max-width: 768px) {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
     gap: var(--space-4);
     padding: var(--space-5);
-    
-    & > *:nth-child(1) { grid-column: 1 / -1; }
-    & > *:nth-child(2) { grid-column: 1; }
-    & > *:nth-child(3) { grid-column: 2; }
-    & > *:nth-child(4) { grid-column: 1; }
-    & > *:nth-child(5) { grid-column: 2; }
-    & > *:nth-child(6) { grid-column: 1; display: flex; }
-    & > *:nth-child(7) { grid-column: 2; display: flex; }
-    & > *:nth-child(8) { grid-column: 1; display: flex; }
-    & > *:last-child { 
-      grid-column: 1 / -1; 
-      margin-top: var(--space-4);
-    }
   }
   
   @media (max-width: 480px) {
-    grid-template-columns: 1fr;
-    gap: var(--space-4);
     padding: var(--space-4);
-    
-    & > * { 
-      grid-column: 1; 
-      display: flex !important;
-    }
-    & > *:last-child { 
-      margin-top: var(--space-4);
-    }
+    gap: var(--space-3);
   }
+}
+
+/* Symbol input specific fixes */
+.symbol-input-container {
+  width: 100%;
+  max-width: 100%;
+  position: relative;
+}
+
+.symbol-input-container .field-container {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Enhanced Symbol Input specific fixes */
+.symbol-input-container > div {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Fix AI button positioning within symbol input */
+.symbol-input-container button[data-testid*="ai"] {
+  flex-shrink: 0;
+  margin-left: var(--space-1);
 }
 
 /* Fixed form field styles addressing visibility issues */

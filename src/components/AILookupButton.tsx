@@ -37,6 +37,14 @@ const ButtonContainer = styled.button<{
   overflow: hidden;
   font-family: var(--font-family-base);
   flex-shrink: 0;
+  /* Fix tab navigation and positioning */
+  margin-left: var(--space-1);
+  outline: none;
+  
+  &:focus-visible {
+    box-shadow: 0 0 0 2px var(--color-teal-500);
+    outline: 2px solid transparent;
+  }
   
   ${({ $size = 'medium' }) => {
     switch ($size) {
