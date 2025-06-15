@@ -221,6 +221,288 @@ export class PortfolioService {
       }
     }
   }
+
+  /**
+   * Update portfolio details
+   */
+  static async updatePortfolio(
+    portfolioId: string,
+    updates: {
+      name?: string
+      description?: string
+      currency?: string
+      is_default?: boolean
+    }
+  ): Promise<ServiceResponse<Portfolio>> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (!user) {
+        return { data: null, error: 'User not authenticated', success: false }
+      }
+
+      // If setting as default, first unset all other defaults
+      if (updates.is_default === true) {
+        await supabase
+          .from('portfolios')
+          .update({ is_default: false })
+          .eq('user_id', user.id)
+      }
+
+      const { data, error } = await supabase
+        .from('portfolios')
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', portfolioId)
+        .eq('user_id', user.id) // Ensure user owns this portfolio
+        .select()
+        .single()
+
+      if (error) {
+        return { data: null, error: error.message, success: false }
+      }
+
+      return { data, error: null, success: true }
+    } catch (error) {
+      return { 
+        data: null, 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
+
+  /**
+   * Set portfolio as default
+   */
+  static async setDefaultPortfolio(portfolioId: string): Promise<ServiceResponse<Portfolio>> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (!user) {
+        return { data: null, error: 'User not authenticated', success: false }
+      }
+
+      // First unset all defaults
+      await supabase
+        .from('portfolios')
+        .update({ is_default: false })
+        .eq('user_id', user.id)
+
+      // Set the specified portfolio as default
+      const { data, error } = await supabase
+        .from('portfolios')
+        .update({ 
+          is_default: true,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', portfolioId)
+        .eq('user_id', user.id)
+        .select()
+        .single()
+
+      if (error) {
+        return { data: null, error: error.message, success: false }
+      }
+
+      return { data, error: null, success: true }
+    } catch (error) {
+      return { 
+        data: null, 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
+
+  /**
+   * Archive/deactivate portfolio (soft delete)
+   */
+  static async archivePortfolio(portfolioId: string): Promise<ServiceResponse<Portfolio>> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (!user) {
+        return { data: null, error: 'User not authenticated', success: false }
+      }
+
+      const { data, error } = await supabase
+        .from('portfolios')
+        .update({ 
+          is_active: false,
+          is_default: false, // Can't be default if archived
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', portfolioId)
+        .eq('user_id', user.id)
+        .select()
+        .single()
+
+      if (error) {
+        return { data: null, error: error.message, success: false }
+      }
+
+      return { data, error: null, success: true }
+    } catch (error) {
+      return { 
+        data: null, 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
+
+  /**
+   * Restore archived portfolio
+   */
+  static async restorePortfolio(portfolioId: string): Promise<ServiceResponse<Portfolio>> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (!user) {
+        return { data: null, error: 'User not authenticated', success: false }
+      }
+
+      const { data, error } = await supabase
+        .from('portfolios')
+        .update({ 
+          is_active: true,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', portfolioId)
+        .eq('user_id', user.id)
+        .select()
+        .single()
+
+      if (error) {
+        return { data: null, error: error.message, success: false }
+      }
+
+      return { data, error: null, success: true }
+    } catch (error) {
+      return { 
+        data: null, 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
+
+  /**
+   * Get portfolio by ID
+   */
+  static async getPortfolioById(portfolioId: string): Promise<ServiceResponse<Portfolio>> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (!user) {
+        return { data: null, error: 'User not authenticated', success: false }
+      }
+
+      const { data, error } = await supabase
+        .from('portfolios')
+        .select('*')
+        .eq('id', portfolioId)
+        .eq('user_id', user.id) // Ensure user owns this portfolio
+        .single()
+
+      if (error) {
+        return { data: null, error: error.message, success: false }
+      }
+
+      return { data, error: null, success: true }
+    } catch (error) {
+      return { 
+        data: null, 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
+
+  /**
+   * Get all portfolios including archived ones
+   */
+  static async getAllPortfolios(): Promise<ServiceListResponse<Portfolio>> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (!user) {
+        return { data: [], error: 'User not authenticated', success: false }
+      }
+
+      const { data, error, count } = await supabase
+        .from('portfolios')
+        .select('*', { count: 'exact' })
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true })
+
+      if (error) {
+        return { data: [], error: error.message, success: false }
+      }
+
+      return { data: data || [], error: null, success: true, count: count || 0 }
+    } catch (error) {
+      return { 
+        data: [], 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
+
+  /**
+   * Duplicate portfolio (copy settings and structure, not transactions)
+   */
+  static async duplicatePortfolio(
+    portfolioId: string, 
+    newName: string,
+    newDescription?: string
+  ): Promise<ServiceResponse<Portfolio>> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (!user) {
+        return { data: null, error: 'User not authenticated', success: false }
+      }
+
+      // Get the original portfolio
+      const originalResult = await this.getPortfolioById(portfolioId)
+      if (!originalResult.success || !originalResult.data) {
+        return { data: null, error: 'Original portfolio not found', success: false }
+      }
+
+      const original = originalResult.data
+      
+      // Create new portfolio with same settings
+      const { data, error } = await supabase
+        .from('portfolios')
+        .insert({
+          user_id: user.id,
+          name: newName,
+          description: newDescription || `Copy of ${original.description}`,
+          currency: original.currency,
+          is_active: true,
+          is_default: false // Copies are never default
+        })
+        .select()
+        .single()
+
+      if (error) {
+        return { data: null, error: error.message, success: false }
+      }
+
+      return { data, error: null, success: true }
+    } catch (error) {
+      return { 
+        data: null, 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
 }
 
 /**
