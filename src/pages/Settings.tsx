@@ -10,6 +10,7 @@ import { SupabaseService } from '../services/supabaseService';
 import ThemeToggle from '../components/ThemeToggle';
 import ApiKeySettings from '../components/SimpleApiKeySettings';
 import GeminiTestComponent from '../components/GeminiTestComponent';
+import AccountDestinationManager from '../components/AccountDestinationManager';
 // import AIServicesTest from '../components/AIServicesTest';
 // import AISymbolLookupAPITest from '../components/AISymbolLookupAPITest';
 // import AISymbolInputTest from '../components/AISymbolInputTest';
@@ -528,6 +529,11 @@ const Settings: React.FC = () => {
             {isLoading ? 'Clearing...' : 'Clear All Data'}
           </Button>
         </ButtonGroup>
+      </Section>
+
+      {/* Account Destination Management */}
+      <Section>
+        <AccountDestinationManager />
       </Section>
 
       <Section>

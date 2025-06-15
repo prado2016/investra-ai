@@ -4,6 +4,7 @@ import { InputField, SelectField } from './FormFields';
 import { PriceInput } from './PriceInput';
 import { useForm } from '../hooks/useForm';
 import { useSupabasePortfolios } from '../hooks/useSupabasePortfolios';
+import { accountDestinationService } from '../services/accountDestinationService';
 import type { FundMovement, FundMovementType, FundMovementStatus, Currency } from '../types/portfolio';
 
 interface FundMovementFormData {
@@ -46,6 +47,17 @@ const FundMovementForm: React.FC<FundMovementFormProps> = ({
 }) => {
   const { portfolios, activePortfolio, loading: portfoliosLoading } = useSupabasePortfolios();
   const [isMinimized, setIsMinimized] = useState(false);
+  const [accountOptions, setAccountOptions] = useState<{ value: string; label: string }[]>([]);
+
+  // Load account destinations on component mount
+  useEffect(() => {
+    const loadAccountOptions = async () => {
+      await accountDestinationService.initialize();
+      const options = accountDestinationService.getAccountOptions();
+      setAccountOptions(options);
+    };
+    loadAccountOptions();
+  }, []);
   
   const initialValues: FundMovementFormData = {
     portfolioId: initialData?.portfolioId || activePortfolio?.id || '',
@@ -242,14 +254,6 @@ const FundMovementForm: React.FC<FundMovementFormProps> = ({
     { value: 'pending', label: 'Pending' },
     { value: 'failed', label: 'Failed' },
     { value: 'cancelled', label: 'Cancelled' }
-  ];
-
-  const accountOptions = [
-    { value: 'TFSA', label: 'TFSA' },
-    { value: 'RRSP', label: 'RRSP' },
-    { value: 'RBC Signature No Limit Banking - Chequing 511', label: 'RBC Chequing 511' },
-    { value: 'RBC Signature No Limit Banking - Savings', label: 'RBC Savings' },
-    { value: 'Cash Account', label: 'Cash Account' }
   ];
 
   const currencyOptions = [
