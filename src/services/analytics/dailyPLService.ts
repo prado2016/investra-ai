@@ -85,17 +85,19 @@ export class DailyPLAnalyticsService {
       // Get all transactions for the portfolio
       const transactionsResult = await SupabaseService.transaction.getTransactions(portfolioId);
       if (!transactionsResult.success) {
-        return { data: null, error: transactionsResult.error };
+        console.error('❌ dailyPLService: Failed to fetch transactions for month data:', transactionsResult.error);
+        return { data: null, error: `Failed to fetch transactions: ${transactionsResult.error}` };
       }
 
       // Get all positions for the portfolio
       const positionsResult = await SupabaseService.position.getPositions(portfolioId);
       if (!positionsResult.success) {
-        return { data: null, error: positionsResult.error };
+        console.error('❌ dailyPLService: Failed to fetch positions for month data:', positionsResult.error);
+        return { data: null, error: `Failed to fetch positions: ${positionsResult.error}` };
       }
 
-      const transactions = transactionsResult.data;
-      const positions = positionsResult.data;
+      const transactions = transactionsResult.data || [];
+      const positions = positionsResult.data || [];
 
       // Log the fetched data with specific focus on target date
       debug.info('Fetched portfolio data for analysis', {
@@ -132,6 +134,36 @@ export class DailyPLAnalyticsService {
         })),
         timestamp: new Date().toISOString()
       });
+
+      console.log('🔍 dailyPLService: Processing monthly data:', {
+        totalTransactions: transactions.length,
+        totalPositions: positions.length,
+        year,
+        month: month + 1, // Display as 1-12 instead of 0-11
+        monthName: new Date(year, month).toLocaleString('default', { month: 'long' })
+      });
+
+      // Handle completely empty portfolio gracefully
+      if (transactions.length === 0 && positions.length === 0) {
+        console.log('ℹ️ dailyPLService: No transactions or positions, creating empty month summary');
+        const emptyMonthSummary: MonthlyPLSummary = {
+          year,
+          month,
+          monthName: new Date(year, month).toLocaleString('default', { month: 'long' }),
+          dailyData: [],
+          totalMonthlyPL: 0,
+          totalRealizedPL: 0,
+          totalUnrealizedPL: 0,
+          totalDividends: 0,
+          totalFees: 0,
+          totalVolume: 0,
+          totalTransactions: 0,
+          daysWithTransactions: 0,
+          profitableDays: 0,
+          lossDays: 0
+        };
+        return { data: emptyMonthSummary, error: null };
+      }
 
       // Calculate monthly P/L data
       const monthlyData = this.calculateMonthlyPL(
@@ -439,16 +471,53 @@ export class DailyPLAnalyticsService {
     options?: PLServiceOptions
   ): Promise<{ data: DailyPLData | null; error: string | null }> {
     try {
+      console.log('🔍 dailyPLService.getDayPLDetails called:', { 
+        portfolioId, 
+        date: date.toISOString(), 
+        dateString: date.toISOString().split('T')[0] 
+      });
+
       // Get transactions for the portfolio
       const transactionsResult = await SupabaseService.transaction.getTransactions(portfolioId);
       if (!transactionsResult.success) {
-        return { data: null, error: transactionsResult.error };
+        console.error('❌ dailyPLService: Failed to fetch transactions:', transactionsResult.error);
+        return { data: null, error: `Failed to fetch transactions: ${transactionsResult.error}` };
       }
 
       // Get positions for the portfolio
       const positionsResult = await SupabaseService.position.getPositions(portfolioId);
       if (!positionsResult.success) {
-        return { data: null, error: positionsResult.error };
+        console.error('❌ dailyPLService: Failed to fetch positions:', positionsResult.error);
+        return { data: null, error: `Failed to fetch positions: ${positionsResult.error}` };
+      }
+
+      const transactions = transactionsResult.data || [];
+      const positions = positionsResult.data || [];
+
+      console.log('🔍 dailyPLService: Data fetched successfully:', {
+        transactionCount: transactions.length,
+        positionCount: positions.length
+      });
+
+      // Handle empty data gracefully
+      if (transactions.length === 0 && positions.length === 0) {
+        console.log('ℹ️ dailyPLService: No transactions or positions found, returning empty day data');
+        const emptyDayData: DailyPLData = {
+          date: date.toISOString().split('T')[0],
+          dayOfMonth: date.getDate(),
+          totalPL: 0,
+          realizedPL: 0,
+          unrealizedPL: 0,
+          dividendIncome: 0,
+          totalFees: 0,
+          tradeVolume: 0,
+          transactionCount: 0,
+          netCashFlow: 0,
+          hasTransactions: false,
+          colorCategory: 'no-transactions',
+          transactions: []
+        };
+        return { data: emptyDayData, error: null };
       }
 
       const threshold = options?.threshold || this.DEFAULT_THRESHOLD;
