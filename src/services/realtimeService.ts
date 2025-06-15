@@ -83,6 +83,12 @@ export class RealtimeService {
    */
   public async initialize(): Promise<boolean> {
     try {
+      // Don't re-initialize if already connected
+      if (this.isConnected && this.channel) {
+        console.log('🔌 Realtime service already initialized and connected')
+        return true
+      }
+
       // Check if user is authenticated
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {

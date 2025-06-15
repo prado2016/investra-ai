@@ -8,6 +8,7 @@ import TransactionList from '../components/TransactionList.tsx';
 import TransactionEditModal from '../components/TransactionEditModal.tsx';
 import FundMovementForm from '../components/FundMovementForm.tsx';
 import FundMovementList from '../components/FundMovementList.tsx';
+import FundMovementEditModal from '../components/FundMovementEditModal.tsx';
 import { Plus, TrendingUp, DollarSign, ArrowUpDown, ChevronDown, ChevronUp } from 'lucide-react';
 import type { Transaction, TransactionType, FundMovement, FundMovementType, FundMovementStatus, Currency } from '../types/portfolio';
 import type { TransactionWithAsset } from '../components/TransactionList';
@@ -30,6 +31,8 @@ const TransactionsPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [editingTransaction, setEditingTransaction] = useState<TransactionWithAsset | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [editingFundMovement, setEditingFundMovement] = useState<FundMovementWithMetadata | null>(null);
+  const [showFundMovementEditModal, setShowFundMovementEditModal] = useState(false);
   const [isTransactionFormMinimized, setIsTransactionFormMinimized] = useState(false);
   
   // Debounce fetch to prevent excessive API calls
@@ -153,6 +156,66 @@ const TransactionsPage: React.FC = () => {
     };
   }, [activePortfolio?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   // fetchTransactions is intentionally excluded to prevent dependency cycles
+
+  const handleEditFundMovement = (fundMovement: FundMovementWithMetadata) => {
+    setEditingFundMovement(fundMovement);
+    setShowFundMovementEditModal(true);
+  };
+
+  const handleCloseFundMovementEditModal = () => {
+    setEditingFundMovement(null);
+    setShowFundMovementEditModal(false);
+  };
+
+  const handleSaveEditFundMovement = async (updatedData: Omit<FundMovement, 'id' | 'createdAt' | 'updatedAt'>): Promise<boolean> => {
+    if (!editingFundMovement) return false;
+
+    try {
+      setLoading(true);
+      
+      const response = await FundMovementService.updateFundMovement(
+        editingFundMovement.id,
+        {
+          type: updatedData.type,
+          amount: updatedData.amount,
+          currency: updatedData.currency,
+          status: updatedData.status,
+          movement_date: (() => {
+            const date = updatedData.date;
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+          })(),
+          fees: updatedData.fees,
+          notes: updatedData.notes,
+          original_amount: updatedData.originalAmount,
+          original_currency: updatedData.originalCurrency,
+          converted_amount: updatedData.convertedAmount,
+          converted_currency: updatedData.convertedCurrency,
+          exchange_rate: updatedData.exchangeRate,
+          exchange_fees: updatedData.exchangeFees,
+          account: updatedData.account,
+          from_account: updatedData.fromAccount,
+          to_account: updatedData.toAccount
+        }
+      );
+      
+      if (response.success) {
+        notify.success('Fund movement updated successfully');
+        fetchFundMovements(); // Refresh the list
+        return true;
+      } else {
+        throw new Error(response.error || 'Failed to update fund movement');
+      }
+    } catch (error) {
+      console.error('Failed to update fund movement:', error);
+      notify.error('Failed to update fund movement: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleEditTransaction = (transactionWithAsset: TransactionWithAsset) => {
     setEditingTransaction(transactionWithAsset);
@@ -524,6 +587,7 @@ const TransactionsPage: React.FC = () => {
                 fundMovements={fundMovements}
                 loading={loading}
                 error={error}
+                onEdit={handleEditFundMovement}
                 onDelete={handleDeleteFundMovement}
               />
             </div>
@@ -538,6 +602,17 @@ const TransactionsPage: React.FC = () => {
           isOpen={showEditModal}
           onClose={handleCloseEditModal}
           onSave={handleSaveEditTransaction}
+        />
+      )}
+
+      {/* Edit Fund Movement Modal */}
+      {editingFundMovement && (
+        <FundMovementEditModal
+          fundMovement={editingFundMovement}
+          isOpen={showFundMovementEditModal}
+          onClose={handleCloseFundMovementEditModal}
+          onSave={handleSaveEditFundMovement}
+          loading={loading}
         />
       )}
     </div>

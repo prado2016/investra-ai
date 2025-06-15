@@ -36,6 +36,12 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({
       return false
     }
 
+    // Don't reconnect if already connected
+    if (isConnected && realtimeService.isServiceConnected()) {
+      console.log('✅ Already connected to realtime service')
+      return true
+    }
+
     console.log('🚀 Connecting to realtime service...')
     const success = await realtimeService.initialize()
     
@@ -46,7 +52,7 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({
     }
     
     return success
-  }, [user])
+  }, [user, isConnected])
 
   const disconnect = useCallback(async (): Promise<void> => {
     console.log('📡 Disconnecting from realtime service...')
@@ -93,12 +99,14 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({
 
   // Effect to handle authentication changes
   useEffect(() => {
-    if (user && autoConnect) {
+    if (user && autoConnect && !isConnected) {
+      console.log('🔌 User authenticated, connecting to realtime...');
       connect()
-    } else if (!user) {
+    } else if (!user && isConnected) {
+      console.log('🔌 User logged out, disconnecting from realtime...');
       disconnect()
     }
-  }, [user, autoConnect, connect, disconnect])
+  }, [user, autoConnect, isConnected, connect, disconnect])
 
   // Effect to subscribe to status changes
   useEffect(() => {

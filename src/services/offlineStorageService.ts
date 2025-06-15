@@ -277,8 +277,9 @@ export class OfflineStorageService {
       await this.storeLocally(STORES.PORTFOLIOS, portfolioData)
       await this.addToSyncQueue(STORES.PORTFOLIOS, 'CREATE', portfolioData, tempId)
 
-      if (this.status.isOnline) {
-        this.syncWithServer()
+      // Trigger background sync after successful creation (don't block UI)
+      if (this.status.isOnline && !this.syncInProgress) {
+        setTimeout(() => this.syncWithServer(), 100)
       }
 
       return { success: true, data: portfolioData }
@@ -297,9 +298,10 @@ export class OfflineStorageService {
     try {
       const localPortfolios = await this.getAllFromLocal<Portfolio>(STORES.PORTFOLIOS)
       
-      if (this.status.isOnline && !this.syncInProgress) {
-        this.syncWithServer()
-      }
+      // Don't sync on every read - let periodic sync handle this
+      // if (this.status.isOnline && !this.syncInProgress) {
+      //   this.syncWithServer()
+      // }
 
       return localPortfolios
     } catch (error) {
@@ -309,10 +311,30 @@ export class OfflineStorageService {
   }
 
   /**
+   * Check if sync is needed (avoid unnecessary syncs)
+   */
+  private needsSync(): boolean {
+    if (!this.status.isOnline || this.syncInProgress) {
+      return false
+    }
+
+    // Don't sync if we just synced recently (within 2 minutes)
+    if (this.status.lastSyncTime) {
+      const timeSinceLastSync = Date.now() - this.status.lastSyncTime.getTime()
+      const twoMinutes = 2 * 60 * 1000
+      if (timeSinceLastSync < twoMinutes) {
+        return false
+      }
+    }
+
+    return true
+  }
+
+  /**
    * Sync with server
    */
   public async syncWithServer(): Promise<boolean> {
-    if (!this.status.isOnline || this.syncInProgress) {
+    if (!this.needsSync()) {
       return false
     }
 
@@ -461,7 +483,7 @@ export class OfflineStorageService {
       if (this.status.isOnline && !this.syncInProgress) {
         this.syncWithServer()
       }
-    }, 5 * 60 * 1000) // Every 5 minutes
+    }, 10 * 60 * 1000) // Every 10 minutes (reduced frequency)
   }
 
   /**
