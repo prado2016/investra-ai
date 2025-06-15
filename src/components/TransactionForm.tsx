@@ -135,8 +135,28 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       },
       totalAmount: {
         required: 'Total amount is required',
-        positive: 'Total amount must be greater than 0',
-        number: true
+        number: true,
+        custom: (value, formData) => {
+          // Check if value is provided when required
+          if (!value && value !== 0 && value !== '0') {
+            return 'Total amount is required';
+          }
+          
+          // For option_expired transactions, total amount can be 0
+          if (formData.type === 'option_expired') {
+            const numValue = Number(value);
+            if (isNaN(numValue) || numValue !== 0) {
+              return 'Total amount must be 0 for expired options';
+            }
+          } else {
+            // For all other transactions, total amount must be positive
+            const numValue = Number(value);
+            if (isNaN(numValue) || numValue <= 0) {
+              return 'Total amount must be greater than 0';
+            }
+          }
+          return true;
+        }
       },
       fees: {
         number: 'Fees must be a valid number',
