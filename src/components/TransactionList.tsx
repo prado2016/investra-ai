@@ -107,6 +107,47 @@ const FilterSelect = styled.select`
   }
 `;
 
+const FilterInput = styled.input`
+  padding: var(--space-3, 0.75rem); /* Use CSS var */
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm); /* Use CSS var */
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  min-width: 180px; /* Slightly wider than selects for text input */
+  flex-grow: 1; /* Allow input to grow */
+  transition: all var(--transition-fast);
+  
+  &::placeholder {
+    color: var(--text-muted);
+  }
+  
+  @media (max-width: 480px) {
+    min-width: 100%; /* Full width on small screens */
+  }
+
+  &:focus {
+    outline: none;
+    border-color: var(--border-focus); /* Use new focus color */
+    box-shadow: 0 0 0 3px hsla(var(--color-primary-700)/0.15); /* Use new focus shadow */
+  }
+  
+  [data-theme="dark"] & {
+    background-color: var(--form-bg, var(--bg-tertiary)); /* Align with other form inputs in dark mode */
+    color: var(--form-text, var(--text-primary));
+    border-color: var(--form-border, var(--border-primary));
+    
+    &::placeholder {
+      color: var(--text-muted);
+    }
+    
+    &:focus {
+      border-color: var(--color-primary-400); /* Lighter teal for dark focus */
+      box-shadow: 0 0 0 3px hsla(var(--color-primary-400)/0.25); /* Lighter teal shadow */
+    }
+  }
+`;
+
 const TransactionTable = styled.div`
   background: var(--bg-card);
   border-radius: var(--radius-lg); /* Use CSS var */
@@ -429,17 +470,18 @@ const TransactionList: React.FC<TransactionListProps> = ({
 }) => {
   const [filterType, setFilterType] = useState<string>('all');
   const [filterAsset, setFilterAsset] = useState<string>('all');
+  const [filterSymbol, setFilterSymbol] = useState<string>('');
 
   const filteredTransactions = useMemo(() => {
     return transactions.filter(transaction => {
       const typeMatch = filterType === 'all' || transaction.transaction_type === filterType;
       const assetMatch = filterAsset === 'all' || transaction.asset?.asset_type === filterAsset;
+      const symbolMatch = !filterSymbol || 
+        transaction.asset?.symbol?.toLowerCase().includes(filterSymbol.toLowerCase());
       
-
-      
-      return typeMatch && assetMatch;
+      return typeMatch && assetMatch && symbolMatch;
     });
-  }, [transactions, filterType, filterAsset]);
+  }, [transactions, filterType, filterAsset, filterSymbol]);
 
   const sortedTransactions = useMemo(() => {
     return [...filteredTransactions].sort((a, b) => 
@@ -486,6 +528,13 @@ const TransactionList: React.FC<TransactionListProps> = ({
           <option value="crypto">Crypto</option>
           <option value="reit">REITs</option>
         </FilterSelect>
+        
+        <FilterInput
+          type="text"
+          placeholder="Filter by Symbol..."
+          value={filterSymbol}
+          onChange={(e) => setFilterSymbol(e.target.value)}
+        />
       </FilterBar>
 
       {recentTransactions.length === 0 ? (
