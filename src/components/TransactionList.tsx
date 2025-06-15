@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import styled from 'styled-components';
-import { ArrowDownCircle, ArrowUpCircle, Gift, Edit3, Trash2, Info } from 'lucide-react'; // Removed AlertTriangle, CheckCircle2
+import { ArrowDownCircle, ArrowUpCircle, Gift, Edit3, Trash2, Info, Clock } from 'lucide-react'; // Removed AlertTriangle, CheckCircle2
 import type { Transaction, Asset } from '../lib/database/types';
 import { formatCurrency, formatDate } from '../utils/formatting';
 import { parseOptionSymbol } from '../utils/assetCategorization';
@@ -265,6 +265,18 @@ const TransactionBadge = styled.span<{ type: string }>`
             border-color: hsla(var(--color-accent-500)/0.3);
           }
         `;
+      case 'option_expired':
+        return `
+          background-color: var(--color-warning-100); /* Using warning for expired */
+          color: var(--color-warning-700);
+          border-color: var(--color-warning-300);
+          
+          [data-theme="dark"] & {
+            background-color: hsla(var(--color-warning-500)/0.2);
+            color: var(--color-warning-300); /* Lighter warning for dark */
+            border-color: hsla(var(--color-warning-500)/0.3);
+          }
+        `;
       default: // Other types like 'split'
         return `
           background-color: var(--color-gray-100);
@@ -459,6 +471,7 @@ const TransactionList: React.FC<TransactionListProps> = ({
           <option value="buy">Buy</option>
           <option value="sell">Sell</option>
           <option value="dividend">Dividend</option>
+          <option value="option_expired">Option Expired</option>
         </FilterSelect>
         
         <FilterSelect
@@ -562,9 +575,10 @@ const TransactionList: React.FC<TransactionListProps> = ({
                   {transaction.transaction_type === 'sell' && <ArrowUpCircle size="0.9em" />}
                   {transaction.transaction_type === 'dividend' && <Gift size="0.9em" />}
                   {transaction.transaction_type === 'split' && <Info size="0.9em" />}
+                  {transaction.transaction_type === 'option_expired' && <Clock size="0.9em" />}
                   {/* Add other icons as needed */}
-                  {!['buy', 'sell', 'dividend', 'split'].includes(transaction.transaction_type) && <Info size="0.9em" />}
-                  <span style={{ marginLeft: '0.25em' }}>{transaction.transaction_type || 'buy'}</span>
+                  {!['buy', 'sell', 'dividend', 'split', 'option_expired'].includes(transaction.transaction_type) && <Info size="0.9em" />}
+                  <span style={{ marginLeft: '0.25em' }}>{transaction.transaction_type === 'option_expired' ? 'Option Expired' : transaction.transaction_type || 'buy'}</span>
                 </TransactionBadge>
               </div>
               

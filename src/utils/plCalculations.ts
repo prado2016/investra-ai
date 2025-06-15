@@ -87,7 +87,7 @@ export function calculateTotalFees(transactions: Transaction[]): number {
  */
 export function calculateTradingVolume(transactions: Transaction[]): number {
   return transactions
-    .filter(t => t.type === 'buy' || t.type === 'sell')
+    .filter(t => t.type === 'buy' || t.type === 'sell' || t.type === 'option_expired')
     .reduce((total, t) => total + t.totalAmount, 0);
 }
 
@@ -329,6 +329,27 @@ function calculateFIFORealizedPL(transactions: Transaction[]): number {
       }
 
       realizedPL += sellProceeds - costBasis;
+    } else if (transaction.type === 'option_expired') {
+      // For expired options, the entire premium paid is lost
+      let remainingToExpire = transaction.quantity;
+      let costBasis = 0;
+
+      while (remainingToExpire > 0 && buyQueue.length > 0) {
+        const oldestBuy = buyQueue[0];
+        const quantityToUse = Math.min(remainingToExpire, oldestBuy.quantity);
+        
+        costBasis += quantityToUse * oldestBuy.price + (oldestBuy.fees * quantityToUse / oldestBuy.quantity);
+        
+        oldestBuy.quantity -= quantityToUse;
+        remainingToExpire -= quantityToUse;
+        
+        if (oldestBuy.quantity === 0) {
+          buyQueue.shift();
+        }
+      }
+
+      // Realized loss equals the cost basis (since option expires worthless)
+      realizedPL -= costBasis;
     }
   });
 
@@ -370,6 +391,27 @@ function calculateLIFORealizedPL(transactions: Transaction[]): number {
       }
 
       realizedPL += sellProceeds - costBasis;
+    } else if (transaction.type === 'option_expired') {
+      // For expired options, the entire premium paid is lost
+      let remainingToExpire = transaction.quantity;
+      let costBasis = 0;
+
+      while (remainingToExpire > 0 && buyStack.length > 0) {
+        const newestBuy = buyStack[buyStack.length - 1];
+        const quantityToUse = Math.min(remainingToExpire, newestBuy.quantity);
+        
+        costBasis += quantityToUse * newestBuy.price + (newestBuy.fees * quantityToUse / newestBuy.quantity);
+        
+        newestBuy.quantity -= quantityToUse;
+        remainingToExpire -= quantityToUse;
+        
+        if (newestBuy.quantity === 0) {
+          buyStack.pop();
+        }
+      }
+
+      // Realized loss equals the cost basis (since option expires worthless)
+      realizedPL -= costBasis;
     }
   });
 
@@ -396,6 +438,17 @@ function calculateAverageRealizedPL(transactions: Transaction[]): number {
       realizedPL += sellProceeds - costBasis;
       
       // Update totals after sale
+      totalQuantity -= transaction.quantity;
+      totalCost -= costBasis;
+    } else if (transaction.type === 'option_expired') {
+      // For expired options, the entire premium paid is lost
+      const averageCost = totalQuantity > 0 ? totalCost / totalQuantity : 0;
+      const costBasis = transaction.quantity * averageCost;
+      
+      // Realized loss equals the cost basis (since option expires worthless)
+      realizedPL -= costBasis;
+      
+      // Update totals after expiration
       totalQuantity -= transaction.quantity;
       totalCost -= costBasis;
     }

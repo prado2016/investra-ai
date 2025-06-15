@@ -7,7 +7,7 @@
 
 // Inline types to avoid import issues
 type AssetType = 'stock' | 'option' | 'forex' | 'crypto' | 'reit' | 'etf';
-type TransactionType = 'buy' | 'sell' | 'dividend' | 'split' | 'merger';
+type TransactionType = 'buy' | 'sell' | 'dividend' | 'split' | 'merger' | 'option_expired';
 type Currency = 'USD' | 'EUR' | 'GBP' | 'JPY' | 'CAD' | 'AUD' | 'CHF' | 'CNY' | 'BTC' | 'ETH';
 type CostBasisMethod = 'FIFO' | 'LIFO' | 'AVERAGE_COST' | 'SPECIFIC_LOT';
 

@@ -126,7 +126,7 @@ interface REIT extends BaseAsset {
 type Asset = Stock | Option | Forex | Cryptocurrency | REIT;
 
 // Portfolio types inline to avoid import issues
-type TransactionType = 'buy' | 'sell' | 'dividend' | 'split' | 'merger';
+type TransactionType = 'buy' | 'sell' | 'dividend' | 'split' | 'merger' | 'option_expired';
 type CostBasisMethod = 'FIFO' | 'LIFO' | 'AVERAGE_COST' | 'SPECIFIC_LOT';
 
 interface Transaction {

@@ -100,7 +100,7 @@ CREATE TABLE IF NOT EXISTS public.transactions (
   asset_id UUID REFERENCES public.assets(id) NOT NULL,
   
   -- Transaction details
-  transaction_type VARCHAR(20) NOT NULL CHECK (transaction_type IN ('buy', 'sell', 'dividend', 'split', 'merger', 'transfer')),
+  transaction_type VARCHAR(20) NOT NULL CHECK (transaction_type IN ('buy', 'sell', 'dividend', 'split', 'merger', 'transfer', 'option_expired')),
   quantity DECIMAL(20, 8) NOT NULL,
   price DECIMAL(15, 4) NOT NULL,
   total_amount DECIMAL(15, 2) NOT NULL,

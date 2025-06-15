@@ -224,6 +224,13 @@ export const TransactionEditModal: React.FC<TransactionEditModalProps> = ({
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  // Auto-set price to 0 when option_expired is selected
+  React.useEffect(() => {
+    if (formData.transaction_type === 'option_expired' && formData.price !== '0') {
+      setFormData(prev => ({ ...prev, price: '0' }));
+    }
+  }, [formData.transaction_type, formData.price]);
+
   // Calculate total amount
   const totalAmount = parseFloat(formData.quantity || '0') * parseFloat(formData.price || '0');
 
@@ -254,6 +261,9 @@ export const TransactionEditModal: React.FC<TransactionEditModalProps> = ({
               <option value="buy">Buy</option>
               <option value="sell">Sell</option>
               <option value="dividend">Dividend</option>
+              {transaction.asset?.asset_type === 'option' && (
+                <option value="option_expired">Option Expired</option>
+              )}
             </Select>
           </FieldGroup>
 
@@ -271,15 +281,16 @@ export const TransactionEditModal: React.FC<TransactionEditModalProps> = ({
           </FieldGroup>
 
           <FieldGroup>
-            <Label>Price per Share *</Label>
+            <Label>Price per Share {formData.transaction_type !== 'option_expired' ? '*' : ''}</Label>
             <Input
               type="number"
               step="0.0001"
               min="0"
               value={formData.price}
               onChange={(e) => handleChange('price', e.target.value)}
-              placeholder="Enter price (e.g., 108.6099)"
-              required
+              placeholder={formData.transaction_type === 'option_expired' ? '0.00 (auto-set)' : 'Enter price (e.g., 108.6099)'}
+              required={formData.transaction_type !== 'option_expired'}
+              disabled={formData.transaction_type === 'option_expired'}
             />
           </FieldGroup>
 

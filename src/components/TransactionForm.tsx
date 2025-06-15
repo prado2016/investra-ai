@@ -110,9 +110,28 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         number: true
       },
       price: {
-        required: 'Price is required',
-        positive: 'Price must be greater than 0',
-        number: true
+        number: true,
+        custom: (value, formData) => {
+          // Check if value is provided when required
+          if (!value && value !== 0 && value !== '0') {
+            return 'Price is required';
+          }
+          
+          // For option_expired transactions, price must be 0
+          if (formData.type === 'option_expired') {
+            const numValue = Number(value);
+            if (numValue !== 0) {
+              return 'Price must be 0 for expired options';
+            }
+          } else {
+            // For all other transactions, price must be positive
+            const numValue = Number(value);
+            if (isNaN(numValue) || numValue <= 0) {
+              return 'Price must be greater than 0';
+            }
+          }
+          return true;
+        }
       },
       totalAmount: {
         required: 'Total amount is required',
@@ -205,19 +224,33 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     }
   };
 
-  // Auto-calculate total amount when quantity, price, or asset type changes
+  // Auto-calculate total amount when quantity, price, asset type, or transaction type changes
   React.useEffect(() => {
     const quantity = parseFloat(form.values.quantity);
     const price = parseFloat(form.values.price);
     const assetType = form.values.assetType;
+    const transactionType = form.values.type;
     
-    if (!isNaN(quantity) && !isNaN(price) && quantity > 0 && price > 0) {
+    // For option expired transactions, force price to zero
+    if (assetType === 'option' && transactionType === 'option_expired') {
+      if (form.values.price !== '0') {
+        form.setValue('price', '0');
+      }
+      // Calculate total amount with zero price
+      if (!isNaN(quantity) && quantity > 0) {
+        form.setValue('totalAmount', '0.00');
+        form.setValue('fees', '0.00'); // No fees for expired options
+      }
+      return;
+    }
+    
+    if (!isNaN(quantity) && !isNaN(price) && quantity > 0 && price >= 0) {
       let total: number;
       let fees = 0;
       
       if (assetType === 'option') {
         // For options: quantity is in contracts, each contract = 100 shares
-        // Fees are $0.75 per contract
+        // Fees are $0.75 per contract (except for expired options)
         const actualShares = quantity * 100;
         fees = quantity * 0.75;
         total = (actualShares * price) - fees; // Subtract fees from total
@@ -235,7 +268,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       
       form.setValue('totalAmount', total.toFixed(2));
     }
-  }, [form.values.quantity, form.values.price, form.values.assetType, form]);
+  }, [form.values.quantity, form.values.price, form.values.assetType, form.values.type, form]);
 
   // Handle asset type changes to reset fees and recalculate
   React.useEffect(() => {
@@ -257,6 +290,13 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     }
   }, [form.values.assetType, form.values.quantity, initialData, form]);
 
+  // Auto-set price to 0 when option_expired is selected
+  React.useEffect(() => {
+    if (form.values.type === 'option_expired' && form.values.price !== '0') {
+      form.setValue('price', '0');
+    }
+  }, [form.values.type, form.values.price, form]);
+
   // Auto-select first portfolio when portfolios load and no portfolio is selected
   React.useEffect(() => {
     if (!form.values.portfolioId && portfolios.length > 0 && !initialData?.portfolioId) {
@@ -265,11 +305,23 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     }
   }, [portfolios, activePortfolio, form.values.portfolioId, initialData?.portfolioId, form]);
 
-  const transactionTypeOptions = [
-    { value: 'buy', label: 'Buy' },
-    { value: 'sell', label: 'Sell' },
-    { value: 'dividend', label: 'Dividend' }
-  ];
+  // Generate transaction type options based on asset type
+  const getTransactionTypeOptions = () => {
+    const baseOptions = [
+      { value: 'buy', label: 'Buy' },
+      { value: 'sell', label: 'Sell' },
+      { value: 'dividend', label: 'Dividend' }
+    ];
+
+    // Add option-specific transaction types
+    if (form.values.assetType === 'option') {
+      baseOptions.push({ value: 'option_expired', label: 'Option Expired' });
+    }
+
+    return baseOptions;
+  };
+
+  const transactionTypeOptions = getTransactionTypeOptions();
 
   const assetTypeOptions = [
     { value: 'stock', label: 'Stock' },
@@ -412,9 +464,10 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           onChange={(value) => form.setValue('price', value)}
           onBlur={() => form.setFieldTouched('price')}
           error={form.touched.price ? form.errors.price?.message : ''}
-          required
-          disabled={form.isSubmitting || loading}
+          required={form.values.type !== 'option_expired'}
+          disabled={form.isSubmitting || loading || (form.values.assetType === 'option' && form.values.type === 'option_expired')}
           assetType={form.values.assetType}
+          placeholder={form.values.type === 'option_expired' ? '0.00 (auto-set)' : undefined}
         />
       </div>
       <div className="horizontal-fields-container">

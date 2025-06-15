@@ -1,7 +1,7 @@
 // Database types for Supabase integration
 
 export type AssetType = 'stock' | 'option' | 'forex' | 'crypto' | 'reit' | 'etf'
-export type TransactionType = 'buy' | 'sell' | 'dividend' | 'split' | 'merger' | 'transfer'
+export type TransactionType = 'buy' | 'sell' | 'dividend' | 'split' | 'merger' | 'transfer' | 'option_expired'
 export type CostBasisMethod = 'FIFO' | 'LIFO' | 'AVERAGE_COST' | 'SPECIFIC_LOT'
 
 export interface Profile {

@@ -609,6 +609,20 @@ export class PositionService {
         } else {
           return { data: null, error: 'Cannot sell more shares than owned', success: false };
         }
+      } else if (transactionType === 'option_expired') {
+        // For option expiration, the entire premium paid is lost
+        if (newQuantity >= quantity) {
+          const costOfExpiredOptions = quantity * newAverageCostBasis;
+          // Realized loss equals the cost basis (since option expires worthless)
+          newRealizedPL -= costOfExpiredOptions;
+          
+          newQuantity -= quantity;
+          newTotalCostBasis -= costOfExpiredOptions;
+          
+          // Average cost basis remains the same for partial expirations
+        } else {
+          return { data: null, error: 'Cannot expire more options than owned', success: false };
+        }
       }
 
       // Update the position
@@ -753,6 +767,16 @@ export class PositionService {
               
               quantity -= transactionQuantity;
               totalCostBasis -= costOfSoldShares;
+            }
+          } else if (transaction.transaction_type === 'option_expired') {
+            // For option expiration, the entire premium paid is lost
+            if (quantity >= transactionQuantity) {
+              const costOfExpiredOptions = transactionQuantity * weightedAverageCost;
+              // Realized loss equals the cost basis (since option expires worthless)
+              realizedPL -= costOfExpiredOptions;
+              
+              quantity -= transactionQuantity;
+              totalCostBasis -= costOfExpiredOptions;
             }
           }
         }
