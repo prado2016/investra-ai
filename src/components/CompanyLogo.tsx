@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Building2 } from 'lucide-react';
 import styled from 'styled-components';
 import { SymbolValidator } from '../utils/symbolValidator';
+import { isETF } from '../utils/assetCategorization';
 
 interface CompanyLogoProps {
   symbol: string;
@@ -127,6 +128,23 @@ const CompanyLogo: React.FC<CompanyLogoProps> = ({
       sources.push(`https://logo.clearbit.com/${companyDomain}`);
     }
     
+    // For Canadian stocks (.TO), try both with and without suffix
+    if (sym.includes('.TO')) {
+      const canadianBase = sym.replace('.TO', '');
+      sources.push(
+        `https://logo.clearbit.com/${canadianBase.toLowerCase()}.ca`,
+        `https://logo.clearbit.com/${canadianBase.toLowerCase()}.com`
+      );
+    }
+    
+    // For ETFs, add specific ETF providers
+    if (isETF(baseSymbol) || sym.match(/^(SPY|QQQ|VTI|VEA|IWM|GLD|SLV|XL[A-Z]|ARK[A-Z])/)) {
+      const etfProviders = ['vanguard.com', 'ishares.com', 'ssga.com', 'invesco.com'];
+      etfProviders.forEach(provider => {
+        sources.push(`https://logo.clearbit.com/${provider}`);
+      });
+    }
+    
     // Only add fallback sources for valid base symbols (minimum 2 chars, not exchange suffix)
     if (baseSymbol.length >= 2 && baseSymbol !== sym.replace(/^.*\./, '')) {
       const fallbackDomain = `${baseSymbol.toLowerCase()}.com`;
@@ -169,6 +187,7 @@ const CompanyLogo: React.FC<CompanyLogoProps> = ({
 
     // For well-known companies, we can provide custom fallbacks
     const knownCompanies: { [key: string]: string } = {
+      // Major US stocks
       'AAPL': '🍎',
       'MSFT': '🪟',
       'GOOGL': '🔍',
@@ -200,7 +219,87 @@ const CompanyLogo: React.FC<CompanyLogoProps> = ({
       'GM': '🚗',
       'F': '🚗',
       'XOM': '⛽',
-      'CVX': '⛽'
+      'CVX': '⛽',
+      
+      // Major ETFs
+      'SPY': '📈',
+      'QQQ': '💻',
+      'VTI': '🏢',
+      'VEA': '🌍',
+      'VWO': '🌏',
+      'IWM': '🏪',
+      'GLD': '🥇',
+      'SLV': '🥈',
+      'TLT': '📋',
+      'XLK': '💻',
+      'XLF': '🏦',
+      'XLE': '⛽',
+      'XLV': '🏥',
+      'XLI': '🏭',
+      'XLP': '🛒',
+      'XLY': '🛍️',
+      'XLU': '⚡',
+      'XLB': '🏗️',
+      'XLRE': '🏠',
+      'AGG': '📊',
+      'BND': '📋',
+      'IEFA': '🌍',
+      'IEMG': '🌏',
+      'HYG': '💰',
+      'LQD': '💼',
+      'EFA': '🌍',
+      'EEM': '🌏',
+      'RSP': '⚖️',
+      'ARKK': '🚀',
+      'ARKQ': '🤖',
+      'ARKG': '🧬',
+      'ARKW': '🌐',
+      'ARKF': '💳',
+      
+      // Canadian stocks (with .TO suffix handling)
+      'SHOP': '🛒',
+      'CNR': '🚂',
+      'TD': '🏦',
+      'RY': '🏦',
+      'BMO': '🏦',
+      'BNS': '🏦',
+      'CM': '🏦',
+      'ENB': '🛢️',
+      'TRP': '🛢️',
+      'SU': '⛽',
+      'CNQ': '⛽',
+      'CVE': '⛽',
+      'WCN': '♻️',
+      'CSU': '💻',
+      'ATD': '⛽',
+      'MFC': '🏢',
+      'SLF': '🏢',
+      'PWF': '💼',
+      'GIB': '🏗️',
+      'CP': '🚂',
+      'BAM': '🏢',
+      'FFH': '🏢',
+      'L': '🏪',
+      'DOL': '🛒',
+      'EMA': '⚡',
+      'FTS': '⚡',
+      'H': '🏪',
+      'QSR': '🍔',
+      'TIH': '🏥',
+      'CCL': '🏗️',
+      'WPM': '🥇',
+      'K': '🥇',
+      'ABX': '🥇',
+      'NTR': '🌾',
+      'CCO': '☢️',
+      
+      // Popular Canadian ETFs
+      'VTI.TO': '🏢',
+      'VCN.TO': '🍁',
+      'XIC.TO': '🍁',
+      'TDB902.TO': '📈',
+      'VXUS.TO': '🌍',
+      'VEA.TO': '🌍'
     };
 
     return knownCompanies[symbol.toUpperCase()] || null;

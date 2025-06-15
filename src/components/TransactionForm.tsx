@@ -356,6 +356,26 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           required
           disabled={form.isSubmitting || loading}
         />
+        <InputField
+          id="date"
+          name="date"
+          label="Date"
+          type="date"
+          value={form.values.date}
+          onChange={(value) => form.setValue('date', value)}
+          onBlur={() => form.setFieldTouched('date')}
+          error={form.touched.date ? form.errors.date?.message : ''}
+          required
+          disabled={form.isSubmitting || loading}
+          max={(() => {
+            // Use local date to avoid timezone issues
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const day = String(today.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+          })()}
+        />
       </div>
       <div className="horizontal-fields-container">
         <InputField
@@ -428,26 +448,6 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         />
       </div>
       <div className="horizontal-fields-container">
-        <InputField
-          id="date"
-          name="date"
-          label="Date"
-          type="date"
-          value={form.values.date}
-          onChange={(value) => form.setValue('date', value)}
-          onBlur={() => form.setFieldTouched('date')}
-          error={form.touched.date ? form.errors.date?.message : ''}
-          required
-          disabled={form.isSubmitting || loading}
-          max={(() => {
-            // Use local date to avoid timezone issues
-            const today = new Date();
-            const year = today.getFullYear();
-            const month = String(today.getMonth() + 1).padStart(2, '0');
-            const day = String(today.getDate()).padStart(2, '0');
-            return `${year}-${month}-${day}`;
-          })()}
-        />
         <InputField
           id="notes"
           name="notes"

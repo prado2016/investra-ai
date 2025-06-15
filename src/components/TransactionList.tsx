@@ -314,6 +314,9 @@ const AssetTypeBadge = styled.span<{ type: string }>`
 `;
 
 const ActionButton = styled.button<{ variant?: 'edit' | 'delete' }>`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: var(--space-2, 0.5rem) var(--space-3, 0.75rem); /* Use CSS vars */
   border: 1px solid;
   border-radius: var(--radius-md);
@@ -322,6 +325,9 @@ const ActionButton = styled.button<{ variant?: 'edit' | 'delete' }>`
   cursor: pointer;
   margin-right: var(--space-2, 0.5rem); /* Use CSS var */
   transition: all var(--transition-fast);
+  min-width: 70px; /* Standardized minimum width */
+  height: 32px; /* Standardized height */
+  gap: var(--space-1, 0.25rem); /* Consistent spacing between icon and text */
   
   ${props => props.variant === 'edit' ? `
     background-color: var(--color-secondary-100); /* Lighter secondary for edit */
@@ -593,13 +599,13 @@ const TransactionList: React.FC<TransactionListProps> = ({
                   variant="edit" 
                   onClick={() => onEdit(transaction)}
                 >
-                  <Edit3 size="0.875em" style={{ marginRight: '0.25em' }}/> Edit
+                  <Edit3 size="0.875em" /> Edit
                 </ActionButton>
                 <ActionButton 
                   variant="delete" 
                   onClick={() => onDelete(transaction.id)}
                 >
-                  <Trash2 size="0.875em" style={{ marginRight: '0.25em' }}/> Delete
+                  <Trash2 size="0.875em" /> Delete
                 </ActionButton>
               </div>
             </TableRow>

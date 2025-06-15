@@ -145,6 +145,9 @@
 .enhanced-form-wrapper,
 .enhanced-transactions-wrapper {
   padding: var(--space-6, 24px); /* Increased padding */
+  display: flex;
+  flex-direction: column;
+  flex: 1;
 }
 
 .enhanced-error-state {
@@ -210,4 +213,26 @@
 
 .enhanced-transactions-wrapper > * {
   width: 100%;
+}
+
+/* Standardize container heights for consistent layout */
+.enhanced-form-section,
+.enhanced-transactions-section {
+  min-height: 500px; /* Minimum height for consistency */
+  display: flex;
+  flex-direction: column;
+}
+
+.enhanced-form-wrapper,
+.enhanced-transactions-wrapper {
+  flex: 1; /* Take remaining space in the container */
+  display: flex;
+  flex-direction: column;
+}
+
+/* Ensure form and transaction list take available space */
+.enhanced-form-wrapper .form-container,
+.enhanced-transactions-wrapper > div {
+  flex: 1;
+  min-height: 0; /* Allow flexbox to work properly */
 }
