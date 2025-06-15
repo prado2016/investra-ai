@@ -263,4 +263,21 @@ export const NetCashFlowBox: React.FC<{
   />
 );
 
+export const TotalReturnBox: React.FC<{ 
+  value: number; 
+  isPrivacyMode?: boolean;
+  subtitle?: string;
+  percentValue?: number;
+}> = ({ value, isPrivacyMode, subtitle, percentValue }) => (
+  <SummaryBox
+    title="Total Return"
+    value={value}
+    subtitle={subtitle || "All-time portfolio performance"}
+    trend={percentValue}
+    icon={<TrendingUp size={20} />}
+    iconColor={value >= 0 ? '#16a34a' : '#dc2626'}
+    isPrivacyMode={isPrivacyMode}
+  />
+);
+
 export default SummaryBox;

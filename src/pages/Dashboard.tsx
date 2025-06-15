@@ -12,7 +12,8 @@ import {
   DividendIncomeBox,
   TradingFeesBox,
   TradeVolumeBox,
-  NetCashFlowBox
+  NetCashFlowBox,
+  TotalReturnBox
 } from '../components/SummaryBoxes';
 
 const PageContainer = styled.div`
@@ -293,6 +294,13 @@ const Dashboard: React.FC = () => {
             <TotalDailyPLBox 
               value={metrics.totalDailyPL} 
               isPrivacyMode={isPrivacyMode}
+            />
+            
+            <TotalReturnBox 
+              value={metrics.totalReturn} 
+              isPrivacyMode={isPrivacyMode}
+              subtitle="All-time performance"
+              percentValue={metrics.totalReturnPercent}
             />
             
             <RealizedPLBox 

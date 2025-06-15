@@ -6,6 +6,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { usePortfolios } from '../contexts/PortfolioContext';
 import { dailyPLAnalyticsService } from '../services/analytics/dailyPLService';
+import { totalReturnAnalyticsService } from '../services/analytics/totalReturnService';
 import { SupabaseService } from '../services/supabaseService';
 import { getMockDashboardMetrics, USE_MOCK_DATA } from '../utils/mockDashboardData';
 
@@ -17,6 +18,9 @@ export interface DashboardMetrics {
   tradingFees: number;
   tradeVolume: number;
   netCashFlow: number;
+  // All-time total return metrics
+  totalReturn: number;
+  totalReturnPercent: number;
   // Additional contextual data
   transactionCount: number;
   lastUpdated: Date;
@@ -142,6 +146,34 @@ export function useDashboardMetrics(): UseDashboardMetricsReturn {
         console.log('🔍 DashboardMetrics: Calculated unrealized P/L:', currentUnrealizedPL);
       }
 
+      // Calculate all-time total return
+      console.log('🔍 DashboardMetrics: Fetching total return data...');
+      const totalReturnResult = await totalReturnAnalyticsService.calculateTotalReturn(
+        activePortfolio.id,
+        { includeDividends: true, includeFees: true }
+      );
+
+      console.log('🔍 DashboardMetrics: Total return result:', { 
+        error: totalReturnResult.error, 
+        hasData: !!totalReturnResult.data,
+        totalReturn: totalReturnResult.data?.totalReturn,
+        totalReturnPercent: totalReturnResult.data?.totalReturnPercent
+      });
+
+      let allTimeTotalReturn = 0;
+      let allTimeTotalReturnPercent = 0;
+
+      if (totalReturnResult.data) {
+        allTimeTotalReturn = totalReturnResult.data.totalReturn;
+        allTimeTotalReturnPercent = totalReturnResult.data.totalReturnPercent;
+        console.log('🔍 DashboardMetrics: Total return extracted:', {
+          allTimeTotalReturn,
+          allTimeTotalReturnPercent
+        });
+      } else if (totalReturnResult.error) {
+        console.warn('⚠️ DashboardMetrics: Total return fetch failed:', totalReturnResult.error);
+      }
+
       const dashboardMetrics: DashboardMetrics = {
         totalDailyPL: todayData?.totalPL || 0,
         realizedPL: monthlyRealizedPL, // Monthly total
@@ -150,6 +182,8 @@ export function useDashboardMetrics(): UseDashboardMetricsReturn {
         tradingFees: monthlyFees, // Monthly total
         tradeVolume: todayData?.tradeVolume || 0, // Today's volume
         netCashFlow: todayData?.netCashFlow || 0, // Today's net cash flow
+        totalReturn: allTimeTotalReturn, // All-time total return
+        totalReturnPercent: allTimeTotalReturnPercent, // All-time return percentage
         transactionCount: todayData?.transactionCount || 0,
         lastUpdated: new Date()
       };

@@ -16,6 +16,8 @@ export const mockDashboardMetrics = {
   tradingFees: 89.94,         // Monthly fees
   tradeVolume: 45670.25,      // Today's trading volume
   netCashFlow: 15000.00,      // Net cash flow
+  totalReturn: 12580.50,      // All-time total return
+  totalReturnPercent: 15.75,  // All-time return percentage
   transactionCount: 12,       // Number of transactions today
   lastUpdated: new Date()     // Current timestamp
 }
@@ -31,6 +33,8 @@ export const mockDashboardMetricsVariations = {
     tradingFees: 124.85,
     tradeVolume: 67890.50,
     netCashFlow: 25000.00,
+    totalReturn: 18540.25,
+    totalReturnPercent: 22.80,
     transactionCount: 18,
     lastUpdated: new Date()
   },
@@ -44,6 +48,8 @@ export const mockDashboardMetricsVariations = {
     tradingFees: 156.70,
     tradeVolume: 34567.25,
     netCashFlow: -5000.00,
+    totalReturn: -1240.50,
+    totalReturnPercent: -3.75,
     transactionCount: 8,
     lastUpdated: new Date()
   },
@@ -57,6 +63,8 @@ export const mockDashboardMetricsVariations = {
     tradingFees: 19.98,
     tradeVolume: 2500.00,
     netCashFlow: 0.00,
+    totalReturn: 1817.30,
+    totalReturnPercent: 4.25,
     transactionCount: 2,
     lastUpdated: new Date()
   }

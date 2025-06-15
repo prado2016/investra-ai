@@ -1,0 +1,204 @@
+# Email-Based Transaction Import Feature - Product Requirements Document
+
+## Overview
+Implement an automated transaction import system that processes Wealthsimple email confirmations to automatically register transactions in the Investra AI portfolio management application.
+
+## Background
+Users receive email confirmations from Wealthsimple for every transaction (see reference email example). Currently, users must manually enter each transaction into the app. This feature will automate the process by:
+1. Receiving forwarded emails from Wealthsimple
+2. Parsing transaction details from email content
+3. Automatically creating transactions in the appropriate portfolio
+4. Providing alerts for failed imports
+
+## Business Objectives
+- Reduce manual data entry for users
+- Improve accuracy of transaction records
+- Enhance user experience through automation
+- Support multiple portfolio types (TFSA, RRSP, etc.)
+
+## Core Requirements
+
+### 1. Multi-Portfolio Support
+**Current State**: App supports single portfolio (TFSA)
+**Required State**: Support multiple portfolios per user
+
+#### 1.1 Portfolio Management
+- Create, edit, and delete multiple portfolios
+- Portfolio types: TFSA, RRSP, RESP, Margin, Cash, etc.
+- Map Wealthsimple account types to app portfolios
+- Portfolio switching and selection interface
+- Portfolio-specific transaction lists and summaries
+
+#### 1.2 Data Model Updates
+- Extend database schema to support multiple portfolios
+- Migrate existing single-portfolio data
+- Portfolio-user relationship management
+- Portfolio-specific settings and preferences
+
+### 2. Email Processing System
+**Capability**: Process incoming Wealthsimple transaction confirmation emails
+
+#### 2.1 Email Reception
+- Set up dedicated email inbox for forwarded emails
+- Email server configuration and monitoring
+- Email filtering and validation (Wealthsimple source only)
+- Spam and security protection
+
+#### 2.2 Email Parsing Engine
+- Parse email content to extract transaction details:
+  - Account type (RRSP, TFSA, etc.) → Portfolio mapping
+  - Transaction type (Limit Buy to Close, Market Buy, etc.)
+  - Symbol/Option details (TSLL 13.00 call)
+  - Quantity (contracts/shares)
+  - Price information (average price, total cost)
+  - Expiry date (for options)
+  - Timestamp
+- Handle multiple email formats from Wealthsimple
+- Error handling for malformed or incomplete emails
+
+#### 2.3 Transaction Validation
+- Validate parsed data against business rules
+- Symbol validation and normalization
+- Price and quantity validation
+- Date/time validation
+- Duplicate transaction detection
+
+### 3. API Development
+**Capability**: RESTful API for email processing and transaction import
+
+#### 3.1 Email Processing API
+- POST /api/email/process - Process incoming email
+- GET /api/email/status - Check processing status
+- GET /api/email/logs - Retrieve processing logs
+- Authentication and authorization
+
+#### 3.2 Portfolio API Extensions
+- GET /api/portfolios - List user portfolios
+- POST /api/portfolios - Create new portfolio
+- PUT /api/portfolios/:id - Update portfolio
+- DELETE /api/portfolios/:id - Delete portfolio
+- GET /api/portfolios/:id/transactions - Portfolio-specific transactions
+
+#### 3.3 Import API
+- POST /api/import/transaction - Manual transaction import
+- GET /api/import/status - Import status and history
+- POST /api/import/retry - Retry failed imports
+
+### 4. Alert and Notification System
+**Capability**: Alert users to import failures and processing status
+
+#### 4.1 Alert Types
+- Failed email parsing
+- Duplicate transaction detection
+- Unknown symbols or instruments
+- Portfolio mapping failures
+- System errors and exceptions
+
+#### 4.2 Alert Interface
+- In-app notification center
+- Alert list with status and actions
+- Manual resolution workflows
+- Alert history and tracking
+
+#### 4.3 Notification Delivery
+- Real-time in-app notifications
+- Email notifications for critical failures
+- Optional SMS/push notifications
+
+### 5. User Interface Updates
+**Capability**: Updated UI to support multi-portfolio and import features
+
+#### 5.1 Portfolio Selection
+- Portfolio dropdown/selector in header
+- Portfolio dashboard with overview
+- Portfolio-specific navigation
+- Portfolio creation/management interface
+
+#### 5.2 Import Management
+- Import status dashboard
+- Failed import resolution interface
+- Manual import correction tools
+- Import history and logs
+
+#### 5.3 Transaction Management Updates
+- Portfolio-aware transaction lists
+- Cross-portfolio transaction views
+- Enhanced transaction forms with portfolio selection
+- Bulk transaction operations
+
+### 6. Configuration and Settings
+**Capability**: Configure email processing and import behavior
+
+#### 6.1 Email Configuration
+- Email server settings
+- Forwarding rule instructions
+- Email parsing rules and patterns
+- Whitelist/blacklist management
+
+#### 6.2 Import Settings
+- Auto-import enable/disable
+- Duplicate handling preferences
+- Default portfolio mappings
+- Notification preferences
+
+### 7. Security and Privacy
+**Capability**: Secure handling of financial email data
+
+#### 7.1 Data Security
+- Encrypted email storage
+- Secure API endpoints
+- Access logging and monitoring
+- Data retention policies
+
+#### 7.2 Privacy Protection
+- Email content encryption
+- PII data handling
+- User consent management
+- Data deletion capabilities
+
+## Technical Specifications
+
+### Email Processing Architecture
+- Node.js/Express backend for email processing
+- IMAP/POP3 client for email retrieval
+- Email parsing library (mailparser/emailjs)
+- Queue system for async processing (Bull/Redis)
+
+### Database Changes
+- Portfolio table with user relationships
+- Enhanced transaction table with portfolio_id
+- Import log table for tracking
+- Alert/notification tables
+
+### Integration Points
+- Existing transaction service
+- Portfolio context system
+- Notification system
+- User authentication
+
+## Success Criteria
+- 95%+ accuracy in email parsing
+- < 5 minute processing time for new emails
+- Support for all major Wealthsimple transaction types
+- Zero data loss during portfolio migration
+- User adoption > 80% within 3 months
+
+## Assumptions and Constraints
+- Users will set up email forwarding rules
+- Wealthsimple email format remains consistent
+- Sufficient server resources for email processing
+- User email providers support forwarding
+
+## Out of Scope (Phase 1)
+- Direct API integration with Wealthsimple
+- Support for other brokers beyond Wealthsimple
+- Advanced trading analytics
+- Mobile app notifications
+- Real-time email processing (near real-time is acceptable)
+
+## Risk Mitigation
+- Backup manual import capability
+- Comprehensive error handling and logging
+- Gradual rollout with feature flags
+- Data backup and recovery procedures
+- Fallback to existing single-portfolio mode
