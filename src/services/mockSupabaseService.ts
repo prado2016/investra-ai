@@ -208,7 +208,19 @@ const MockFundMovementService = {
     currency: string,
     status: 'pending' | 'completed' | 'failed' | 'cancelled',
     date: string,
-    options: any = {}
+    options: {
+      fees?: number;
+      notes?: string;
+      originalAmount?: number;
+      originalCurrency?: string;
+      convertedAmount?: number;
+      convertedCurrency?: string;
+      exchangeRate?: number;
+      exchangeFees?: number;
+      account?: string;
+      fromAccount?: string;
+      toAccount?: string;
+    } = {}
   ) => {
     console.log('🧪 Mock: Creating fund movement', { portfolioId, type, amount, currency, status, date, options });
     
@@ -278,7 +290,24 @@ const MockFundMovementService = {
     return { data: mockFundMovements, error: null, success: true, total: mockFundMovements.length };
   },
 
-  updateFundMovement: async (id: string, updates: any) => {
+  updateFundMovement: async (id: string, updates: {
+    type?: 'conversion' | 'withdraw' | 'deposit' | 'transfer';
+    amount?: number;
+    currency?: string;
+    status?: 'pending' | 'completed' | 'failed' | 'cancelled';
+    movement_date?: string;
+    fees?: number;
+    notes?: string;
+    original_amount?: number;
+    original_currency?: string;
+    converted_amount?: number;
+    converted_currency?: string;
+    exchange_rate?: number;
+    exchange_fees?: number;
+    account?: string;
+    from_account?: string;
+    to_account?: string;
+  }): Promise<{ data: Record<string, unknown> | null; error: string | null; success: boolean }> => {
     console.log('🧪 Mock: Updating fund movement', id, updates);
     
     const mockUpdatedFundMovement = {

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Loader, ChevronDown, ChevronUp } from 'lucide-react';
+import React from 'react';
+import { Loader } from 'lucide-react';
 import { InputField, SelectField } from './FormFields';
 import { PriceInput } from './PriceInput';
 import { SymbolInput } from './SymbolInput';
@@ -39,33 +39,54 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 }) => {
   const { portfolios, activePortfolio, loading: portfoliosLoading } = useSupabasePortfolios();
   
+  // Helper function to get display quantity (contracts for options, shares for others)
+  const getDisplayQuantity = (): string => {
+    if (!initialData?.quantity) return '';
+    // Convert shares back to contracts for display if it's an option
+    if (initialData.assetType === 'option') {
+      return (initialData.quantity / 100).toString();
+    }
+    return initialData.quantity.toString();
+  };
+
+  // Helper function to format initial date
+  const getInitialDate = (): string => {
+    // If editing an existing transaction, use its date
+    if (initialData?.date) {
+      try {
+        const date = initialData.date;
+        
+        if (date instanceof Date) {
+          return date.toISOString().split('T')[0];
+        }
+        
+        // Handle string format
+        const dateStr = date as string;
+        return dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
+      } catch (error) {
+        console.warn('Error parsing date:', error);
+      }
+    }
+    
+    // For new transactions, always use today's date
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   const initialValues: TransactionFormData = {
     portfolioId: initialData?.portfolioId || '',
     assetSymbol: initialData?.assetSymbol || '',
     assetType: initialData?.assetType || 'stock',
     type: initialData?.type || 'buy',
-    quantity: initialData?.quantity?.toString() || '',
+    quantity: getDisplayQuantity(),
     price: initialData?.price?.toString() || '',
     totalAmount: initialData?.totalAmount?.toString() || '',
     fees: initialData?.fees?.toString() || '',
     currency: initialData?.currency || 'USD',
-    date: (() => {
-      // If editing an existing transaction, use its date
-      if (initialData?.date) {
-        if (typeof initialData.date === 'string') {
-          return initialData.date.split('T')[0];
-        } else {
-          return initialData.date.toISOString().split('T')[0];
-        }
-      }
-      
-      // For new transactions, always use today's date
-      const today = new Date();
-      const year = today.getFullYear();
-      const month = String(today.getMonth() + 1).padStart(2, '0');
-      const day = String(today.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    })(),
+    date: getInitialDate(),
     notes: initialData?.notes || ''
   };
 
@@ -114,12 +135,16 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     validateOnChange: true,
     validateOnBlur: true,
     onSubmit: async (values) => {
+      // Convert option contracts to shares for storage
+      const inputQuantity = parseFloat(values.quantity);
+      const actualQuantity = values.assetType === 'option' ? inputQuantity * 100 : inputQuantity;
+      
       const transaction: Omit<Transaction, 'id' | 'assetId' | 'createdAt' | 'updatedAt'> = {
         portfolioId: values.portfolioId,
         assetSymbol: values.assetSymbol.toUpperCase().trim(),
         assetType: values.assetType,
         type: values.type,
-        quantity: parseFloat(values.quantity),
+        quantity: actualQuantity, // Store as shares (contracts * 100 for options)
         price: parseFloat(values.price),
         totalAmount: parseFloat(values.totalAmount),
         fees: values.fees ? parseFloat(values.fees) : 0,
@@ -170,16 +195,57 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     }
   };
 
-  // Auto-calculate total amount when quantity or price changes
+  // Auto-calculate total amount when quantity, price, or asset type changes
   React.useEffect(() => {
     const quantity = parseFloat(form.values.quantity);
     const price = parseFloat(form.values.price);
+    const assetType = form.values.assetType;
     
     if (!isNaN(quantity) && !isNaN(price) && quantity > 0 && price > 0) {
-      const total = quantity * price;
+      let total: number;
+      let fees = 0;
+      
+      if (assetType === 'option') {
+        // For options: quantity is in contracts, each contract = 100 shares
+        // Fees are $0.75 per contract
+        const actualShares = quantity * 100;
+        fees = quantity * 0.75;
+        total = (actualShares * price) - fees; // Subtract fees from total
+        
+        // Auto-set fees for options
+        form.setValue('fees', fees.toFixed(2));
+      } else {
+        // For stocks and other assets: standard calculation
+        total = quantity * price;
+        // Keep existing fees value or default to 0
+        if (!form.values.fees) {
+          form.setValue('fees', '0');
+        }
+      }
+      
       form.setValue('totalAmount', total.toFixed(2));
     }
-  }, [form.values.quantity, form.values.price, form]);
+  }, [form.values.quantity, form.values.price, form.values.assetType, form]);
+
+  // Handle asset type changes to reset fees and recalculate
+  React.useEffect(() => {
+    const assetType = form.values.assetType;
+    
+    if (assetType === 'option') {
+      // For options, fees will be auto-calculated in the quantity/price effect
+      // Force recalculation by triggering the other effect
+      const quantity = parseFloat(form.values.quantity);
+      if (!isNaN(quantity) && quantity > 0) {
+        const fees = quantity * 0.75;
+        form.setValue('fees', fees.toFixed(2));
+      }
+    } else {
+      // For non-options, reset fees to 0 if they were auto-calculated
+      if (!initialData && form.values.fees && parseFloat(form.values.fees) > 0) {
+        form.setValue('fees', '0');
+      }
+    }
+  }, [form.values.assetType, form.values.quantity, initialData, form]);
 
   // Auto-select first portfolio when portfolios load and no portfolio is selected
   React.useEffect(() => {
@@ -295,9 +361,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         <InputField
           id="quantity"
           name="quantity"
-          label="Quantity"
+          label={form.values.assetType === 'option' ? 'Contracts' : 'Quantity'}
           type="number"
-          placeholder="e.g., 100.1234"
+          placeholder={form.values.assetType === 'option' ? 'e.g., 10 contracts' : 'e.g., 100.1234'}
           value={form.values.quantity}
           onChange={(value) => form.setValue('quantity', value)}
           onBlur={() => form.setFieldTouched('quantity')}
@@ -305,12 +371,12 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           required
           disabled={form.isSubmitting || loading}
           min={0}
-          step={0.0001}
+          step={form.values.assetType === 'option' ? 1 : 0.0001}
         />
         <PriceInput
           id="price"
           name="price"
-          label="Price per Share"
+          label={form.values.assetType === 'option' ? 'Price per Share' : 'Price per Share'}
           value={form.values.price}
           onChange={(value) => form.setValue('price', value)}
           onBlur={() => form.setFieldTouched('price')}
@@ -340,7 +406,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           onChange={(value) => form.setValue('fees', value)}
           onBlur={() => form.setFieldTouched('fees')}
           error={form.touched.fees ? form.errors.fees?.message : ''}
-          disabled={form.isSubmitting || loading}
+          disabled={form.isSubmitting || loading || form.values.assetType === 'option'}
         />
         <SelectField
           id="currency"

@@ -1247,7 +1247,7 @@ export class FundMovementService {
       fromAccount?: string;
       toAccount?: string;
     } = {}
-  ): Promise<ServiceResponse<any>> {
+  ): Promise<ServiceResponse<Record<string, unknown>>> {
     // Use mock service in test mode
     if (shouldUseMockServices()) {
       return MockServices.FundMovementService.createFundMovement(
@@ -1354,7 +1354,7 @@ export class FundMovementService {
   /**
    * Get fund movements for a portfolio
    */
-  static async getFundMovements(portfolioId: string): Promise<ServiceListResponse<any>> {
+  static async getFundMovements(portfolioId: string): Promise<ServiceListResponse<Record<string, unknown>>> {
     // Use mock service in test mode
     if (shouldUseMockServices()) {
       return MockServices.FundMovementService.getFundMovements(portfolioId);
@@ -1405,7 +1405,7 @@ export class FundMovementService {
       from_account?: string;
       to_account?: string;
     }
-  ): Promise<ServiceResponse<any>> {
+  ): Promise<ServiceResponse<Record<string, unknown>>> {
     // Use mock service in test mode
     if (shouldUseMockServices()) {
       return MockServices.FundMovementService.updateFundMovement(id, updates);

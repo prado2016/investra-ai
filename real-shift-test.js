@@ -71,8 +71,7 @@ const morningTime = new Date('2024-06-14T02:30:00'); // Early morning
 console.log('Early morning local time:', morningTime);
 console.log('Would UTC conversion shift this?', morningTime.toISOString().split('T')[0]);
 console.log('  - Consistency and avoiding timezone-dependent behavior');
-  console.log('  - Avoiding confusion when debugging date-related issues');
-}
+console.log('  - Avoiding confusion when debugging date-related issues');
 
 // Test what happens in other timezones (simulation)
 console.log('\n=== Simulating Other Timezones ===');

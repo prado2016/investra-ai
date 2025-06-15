@@ -94,7 +94,7 @@ const TransactionsPage: React.FC = () => {
           updated_at: string;
         }
         
-        const transformedMovements = response.data.map((movement: RawMovementData) => ({
+        const transformedMovements = (response.data as unknown as RawMovementData[]).map((movement) => ({
           ...movement,
           type: movement.type as FundMovementType,
           status: movement.status as FundMovementStatus,

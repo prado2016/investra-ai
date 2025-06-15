@@ -77,7 +77,7 @@ export const getSupabaseInstanceCount = (): number => {
 
 // Global debug function
 if (import.meta.env.DEV) {
-  (window as any).__supabaseDebug = {
+  (window as unknown as { __supabaseDebug: unknown }).__supabaseDebug = {
     getInstances: () => supabaseInstanceTracker.getInstances(),
     getCount: () => supabaseInstanceTracker.getInstanceCount(),
     clear: () => supabaseInstanceTracker.clearInstances()
