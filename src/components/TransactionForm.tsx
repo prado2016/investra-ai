@@ -468,6 +468,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           disabled={form.isSubmitting || loading || (form.values.assetType === 'option' && form.values.type === 'option_expired')}
           assetType={form.values.assetType}
           placeholder={form.values.type === 'option_expired' ? '0.00 (auto-set)' : undefined}
+          allowZero={form.values.type === 'option_expired'}
         />
       </div>
       <div className="horizontal-fields-container">

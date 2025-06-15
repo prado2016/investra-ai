@@ -67,6 +67,7 @@ interface PriceInputProps {
   assetType?: AssetType;
   placeholder?: string;
   className?: string;
+  allowZero?: boolean; // New prop to allow zero prices
 }
 
 export const PriceInput: React.FC<PriceInputProps> = ({
@@ -81,7 +82,8 @@ export const PriceInput: React.FC<PriceInputProps> = ({
   disabled = false,
   assetType = 'stock',
   placeholder,
-  className
+  className,
+  allowZero = false // Default to false for backwards compatibility
 }) => {
   const precision = getDecimalPrecision(assetType);
   const step = getStepValue(assetType);
@@ -116,7 +118,7 @@ export const PriceInput: React.FC<PriceInputProps> = ({
     return samples[assetType];
   };
   
-  const validationError = validatePriceInput(value.toString(), assetType);
+  const validationError = allowZero ? null : validatePriceInput(value.toString(), assetType);
   const finalError = error || validationError;
   
   return (

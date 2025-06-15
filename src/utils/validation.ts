@@ -455,9 +455,20 @@ export function validateTransaction(transaction: Partial<Transaction>): Validati
   if (typeof transaction.quantity !== 'number' || transaction.quantity <= 0) {
     errors.push('Quantity must be a positive number');
   }
-  if (typeof transaction.price !== 'number' || transaction.price <= 0) {
-    errors.push('Price must be a positive number');
+  
+  // Price validation - special case for option_expired transactions
+  if (transaction.type === 'option_expired') {
+    // For option_expired transactions, price must be exactly 0
+    if (typeof transaction.price !== 'number' || transaction.price !== 0) {
+      errors.push('Price must be 0 for expired options');
+    }
+  } else {
+    // For all other transactions, price must be positive
+    if (typeof transaction.price !== 'number' || transaction.price <= 0) {
+      errors.push('Price must be a positive number');
+    }
   }
+  
   if (!transaction.date) errors.push('Transaction date is required');
   
   // Fee validation
