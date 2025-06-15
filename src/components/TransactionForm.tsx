@@ -79,6 +79,28 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     return `${year}-${month}-${day}`;
   };
 
+  // Helper function to get fresh initial values for form reset
+  const getFreshInitialValues = (): TransactionFormData => ({
+    portfolioId: activePortfolio?.id || '',
+    assetSymbol: '',
+    assetType: 'stock',
+    type: 'buy',
+    quantity: '',
+    price: '',
+    totalAmount: '',
+    fees: '',
+    currency: 'USD',
+    date: (() => {
+      // Always use today's date for fresh form
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    })(),
+    notes: ''
+  });
+
   const initialValues: TransactionFormData = {
     portfolioId: initialData?.portfolioId || '',
     assetSymbol: initialData?.assetSymbol || '',
@@ -201,9 +223,17 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 
       const result = await onSave(transaction);
       
-      // Reset symbol input AI state on successful submission
-      if (result && symbolInputResetRef.current) {
-        symbolInputResetRef.current();
+      // Reset symbol input AI state and form on successful submission
+      if (result) {
+        // Reset the symbol input AI state first
+        if (symbolInputResetRef.current) {
+          symbolInputResetRef.current();
+        }
+        
+        // For add transactions (no initial data), reset form to fresh state
+        if (!initialData) {
+          form.reset(getFreshInitialValues());
+        }
       }
       
       return result;

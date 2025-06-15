@@ -255,10 +255,18 @@ export const EnhancedSymbolInput: React.FC<EnhancedSymbolInputProps> = ({
   const [isAIProcessing, setIsAIProcessing] = useState(false);
   const [processedResult, setProcessedResult] = useState<string>('');
   const [lastProcessedQuery, setLastProcessedQuery] = useState('');
+  
+  // Add cleanup flag to prevent updates after reset
+  const isCleanedUpRef = useRef(false);
 
   // Implement reset function to clear AI processing state
   const resetInternalState = useCallback(() => {
     debug.info('Resetting EnhancedSymbolInput state', undefined, 'EnhancedSymbolInput');
+    
+    // Set cleanup flag to prevent any pending async operations from updating state
+    isCleanedUpRef.current = true;
+    
+    // Clear all state variables in the correct order
     setIsAIProcessing(false);
     setProcessedResult('');
     setLastProcessedQuery('');
@@ -267,6 +275,20 @@ export const EnhancedSymbolInput: React.FC<EnhancedSymbolInputProps> = ({
     setSuggestion('');
     setShowSuggestionsList(false);
     setHighlightedIndex(-1);
+    setIsFocused(false);
+    
+    // Clear any pending timeouts that might cause state updates after reset
+    // Note: We can't access timeoutId here, but React will clean up effects
+    
+    // Force focus out to ensure clean state
+    if (inputRef.current) {
+      inputRef.current.blur();
+    }
+    
+    // Reset cleanup flag after a brief delay to allow for new operations
+    setTimeout(() => {
+      isCleanedUpRef.current = false;
+    }, 200); // Increased to 200ms for better reliability
   }, []);
   
   // Call parent reset callback when triggered
@@ -329,17 +351,20 @@ export const EnhancedSymbolInput: React.FC<EnhancedSymbolInputProps> = ({
 
   // AI Processing for natural language queries
   useEffect(() => {
-    if (!value.trim() || !needsAIProcessing(value)) {
+    if (!value.trim() || !needsAIProcessing(value) || isCleanedUpRef.current) {
       setIsAIProcessing(false);
       setProcessedResult('');
       return;
     }
 
     const timeoutId = setTimeout(async () => {
-      if (value.trim() === lastProcessedQuery) return;
+      if (value.trim() === lastProcessedQuery || isCleanedUpRef.current) return;
       
       debug.info('Starting AI processing', { query: value }, 'EnhancedSymbolInput');
       PerformanceTracker.mark('ai-processing-start');
+      
+      // Check cleanup flag before setting processing state
+      if (isCleanedUpRef.current) return;
       
       setIsAIProcessing(true);
       setProcessedResult('');
@@ -347,6 +372,9 @@ export const EnhancedSymbolInput: React.FC<EnhancedSymbolInputProps> = ({
       try {
         debug.debug('Processing AI query', { query: value }, 'EnhancedSymbolInput');
         const result = await EnhancedAISymbolParser.parseQuery(value);
+        
+        // Check cleanup flag before processing results
+        if (isCleanedUpRef.current) return;
         
         debug.info('AI processing result', { 
           query: value, 
@@ -358,6 +386,9 @@ export const EnhancedSymbolInput: React.FC<EnhancedSymbolInputProps> = ({
           // Validate with Yahoo Finance (with fallback)
           debug.debug('Validating AI result with Yahoo Finance (with fallback)', { symbol: result.parsedSymbol }, 'EnhancedSymbolInput');
           const validation = await YahooFinanceValidator.validateSymbolWithFallback(result.parsedSymbol);
+          
+          // Check cleanup flag before updating state
+          if (isCleanedUpRef.current) return;
           
           if (validation.isValid) {
             debug.info('AI symbol validation successful', { 
@@ -414,10 +445,16 @@ export const EnhancedSymbolInput: React.FC<EnhancedSymbolInputProps> = ({
           setProcessedResult(`🤔 Couldn't parse "${value}" - try: "AAPL Jun 21 $200 Call"`);
         }
       } catch (error) {
+        // Check cleanup flag before updating error state
+        if (isCleanedUpRef.current) return;
+        
         debug.error('AI processing failed', error, 'EnhancedSymbolInput');
         setProcessedResult(`⚠️ Processing failed - you can still enter symbols manually`);
       } finally {
-        setIsAIProcessing(false);
+        // Check cleanup flag before finalizing
+        if (!isCleanedUpRef.current) {
+          setIsAIProcessing(false);
+        }
         PerformanceTracker.measure('ai-processing', 'ai-processing-start');
       }
     }, 1500); // Wait 1.5 seconds for user to finish typing
@@ -427,7 +464,7 @@ export const EnhancedSymbolInput: React.FC<EnhancedSymbolInputProps> = ({
 
   // Debounced validation
   useEffect(() => {
-    if (!showValidation || !value.trim() || value.length < 1) {
+    if (!showValidation || !value.trim() || value.length < 1 || isCleanedUpRef.current) {
       setValidationStatus('idle');
       setErrorMessage('');
       setSuggestion('');
@@ -444,20 +481,28 @@ export const EnhancedSymbolInput: React.FC<EnhancedSymbolInputProps> = ({
     setValidationStatus('validating');
     
     const timeoutId = setTimeout(async () => {
+      // Check cleanup flag before proceeding
+      if (isCleanedUpRef.current) return;
+      
       try {
         const trimmedValue = value.trim().toUpperCase();
         
         // For simple stock symbols (1-5 letters), be more lenient
         if (/^[A-Z]{1,5}$/.test(trimmedValue)) {
-          setValidationStatus('valid');
-          setErrorMessage('');
-          setSuggestion('');
-          onValidation?.(true);
+          if (!isCleanedUpRef.current) {
+            setValidationStatus('valid');
+            setErrorMessage('');
+            setSuggestion('');
+            onValidation?.(true);
+          }
           return;
         }
         
         // For more complex symbols, try validation
         const response = await validateSymbol(trimmedValue);
+        
+        // Check cleanup flag before updating state
+        if (isCleanedUpRef.current) return;
         
         if (response.success && response.data) {
           const isValid = response.data.isValid;
@@ -476,17 +521,21 @@ export const EnhancedSymbolInput: React.FC<EnhancedSymbolInputProps> = ({
           onValidation?.(isValid, response.data.suggestion);
         } else {
           // If validation service fails, don't show as invalid
+          if (!isCleanedUpRef.current) {
+            setValidationStatus('idle');
+            setErrorMessage('');
+            setSuggestion('');
+            onValidation?.(true); // Allow to continue
+          }
+        }
+      } catch {
+        // On validation errors, don't block the user
+        if (!isCleanedUpRef.current) {
           setValidationStatus('idle');
           setErrorMessage('');
           setSuggestion('');
           onValidation?.(true); // Allow to continue
         }
-      } catch {
-        // On validation errors, don't block the user
-        setValidationStatus('idle');
-        setErrorMessage('');
-        setSuggestion('');
-        onValidation?.(true); // Allow to continue
       }
     }, 800); // Increased delay to reduce API calls
 
