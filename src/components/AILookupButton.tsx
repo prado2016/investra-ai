@@ -307,6 +307,7 @@ export const AILookupButton: React.FC<AILookupButtonProps> = ({
 
   return (
     <ButtonContainer
+      type="button"
       $variant={variant}
       $size={size}
       $isLoading={isLoading}

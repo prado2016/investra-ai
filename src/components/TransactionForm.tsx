@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Loader } from 'lucide-react';
 import { InputField, SelectField } from './FormFields';
 import { PriceInput } from './PriceInput';
@@ -38,6 +38,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   loading = false
 }) => {
   const { portfolios, activePortfolio, loading: portfoliosLoading } = useSupabasePortfolios();
+  
+  // Create ref for symbol input reset functionality
+  const symbolInputResetRef = useRef<(() => void) | null>(null);
   
   // Helper function to get display quantity (contracts for options, shares for others)
   const getDisplayQuantity = (): string => {
@@ -157,7 +160,14 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         notes: values.notes.trim() || undefined
       };
 
-      return await onSave(transaction);
+      const result = await onSave(transaction);
+      
+      // Reset symbol input AI state on successful submission
+      if (result && symbolInputResetRef.current) {
+        symbolInputResetRef.current();
+      }
+      
+      return result;
     }
   });
 
@@ -329,6 +339,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           showSuggestions={true}
           showValidation={true}
           assetType={form.values.assetType}
+          onReset={symbolInputResetRef}
         />
       </div>
       <div className="horizontal-fields-container">

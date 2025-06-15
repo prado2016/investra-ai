@@ -34,6 +34,7 @@ interface SymbolInputProps {
   showAIButton?: boolean;
   showSuggestions?: boolean;
   showValidation?: boolean;
+  onReset?: React.MutableRefObject<(() => void) | null>; // Add reset ref
 }
 
 export const SymbolInput: React.FC<SymbolInputProps> = ({
@@ -55,7 +56,8 @@ export const SymbolInput: React.FC<SymbolInputProps> = ({
   enableAI = false,
   showAIButton = true,
   showSuggestions = true,
-  showValidation = true
+  showValidation = true,
+  onReset
 }) => {
   const validation = getSymbolValidation(assetType, enableAI);
   
@@ -86,6 +88,7 @@ export const SymbolInput: React.FC<SymbolInputProps> = ({
           maxLength={validation.maxLength}
           data-testid={id}
           inputId={id}
+          onReset={onReset}
         />
         
         {error && (

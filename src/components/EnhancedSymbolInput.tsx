@@ -228,6 +228,7 @@ interface EnhancedSymbolInputProps {
   className?: string;
   'data-testid'?: string;
   inputId?: string;
+  onReset?: React.MutableRefObject<(() => void) | null>; // Changed to ref for direct access
 }
 
 export const EnhancedSymbolInput: React.FC<EnhancedSymbolInputProps> = ({
@@ -242,7 +243,8 @@ export const EnhancedSymbolInput: React.FC<EnhancedSymbolInputProps> = ({
   maxLength = 200, // Increased to allow natural language queries
   className,
   'data-testid': testId,
-  inputId
+  inputId,
+  onReset
 }) => {
   const [showSuggestionsList, setShowSuggestionsList] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
@@ -253,6 +255,26 @@ export const EnhancedSymbolInput: React.FC<EnhancedSymbolInputProps> = ({
   const [isAIProcessing, setIsAIProcessing] = useState(false);
   const [processedResult, setProcessedResult] = useState<string>('');
   const [lastProcessedQuery, setLastProcessedQuery] = useState('');
+
+  // Implement reset function to clear AI processing state
+  const resetInternalState = useCallback(() => {
+    debug.info('Resetting EnhancedSymbolInput state', undefined, 'EnhancedSymbolInput');
+    setIsAIProcessing(false);
+    setProcessedResult('');
+    setLastProcessedQuery('');
+    setValidationStatus('idle');
+    setErrorMessage('');
+    setSuggestion('');
+    setShowSuggestionsList(false);
+    setHighlightedIndex(-1);
+  }, []);
+  
+  // Call parent reset callback when triggered
+  useEffect(() => {
+    if (onReset) {
+      onReset.current = resetInternalState;
+    }
+  }, [onReset, resetInternalState]);
 
   // Debug component lifecycle
   useEffect(() => {
@@ -405,7 +427,7 @@ export const EnhancedSymbolInput: React.FC<EnhancedSymbolInputProps> = ({
 
   // Debounced validation
   useEffect(() => {
-    if (!showValidation || !value.trim() || value.length < 2) {
+    if (!showValidation || !value.trim() || value.length < 1) {
       setValidationStatus('idle');
       setErrorMessage('');
       setSuggestion('');
@@ -413,11 +435,29 @@ export const EnhancedSymbolInput: React.FC<EnhancedSymbolInputProps> = ({
       return;
     }
 
+    // For basic symbols, don't show invalid status so aggressively
+    if (value.length < 3) {
+      setValidationStatus('idle');
+      return;
+    }
+
     setValidationStatus('validating');
     
     const timeoutId = setTimeout(async () => {
       try {
-        const response = await validateSymbol(value.trim().toUpperCase());
+        const trimmedValue = value.trim().toUpperCase();
+        
+        // For simple stock symbols (1-5 letters), be more lenient
+        if (/^[A-Z]{1,5}$/.test(trimmedValue)) {
+          setValidationStatus('valid');
+          setErrorMessage('');
+          setSuggestion('');
+          onValidation?.(true);
+          return;
+        }
+        
+        // For more complex symbols, try validation
+        const response = await validateSymbol(trimmedValue);
         
         if (response.success && response.data) {
           const isValid = response.data.isValid;
@@ -426,6 +466,8 @@ export const EnhancedSymbolInput: React.FC<EnhancedSymbolInputProps> = ({
           if (!isValid && response.data.suggestion) {
             setSuggestion(response.data.suggestion);
             setErrorMessage(`Did you mean "${response.data.suggestion}"?`);
+          } else if (!isValid) {
+            setErrorMessage('Symbol not recognized - but you can still continue');
           } else {
             setErrorMessage('');
             setSuggestion('');
@@ -433,18 +475,20 @@ export const EnhancedSymbolInput: React.FC<EnhancedSymbolInputProps> = ({
           
           onValidation?.(isValid, response.data.suggestion);
         } else {
-          setValidationStatus('invalid');
-          setErrorMessage('Validation failed');
+          // If validation service fails, don't show as invalid
+          setValidationStatus('idle');
+          setErrorMessage('');
           setSuggestion('');
-          onValidation?.(false);
+          onValidation?.(true); // Allow to continue
         }
       } catch {
+        // On validation errors, don't block the user
         setValidationStatus('idle');
         setErrorMessage('');
         setSuggestion('');
-        onValidation?.(false);
+        onValidation?.(true); // Allow to continue
       }
-    }, 500);
+    }, 800); // Increased delay to reduce API calls
 
     return () => clearTimeout(timeoutId);
   }, [value, showValidation, validateSymbol, onValidation]);
@@ -568,8 +612,8 @@ export const EnhancedSymbolInput: React.FC<EnhancedSymbolInputProps> = ({
         )}
       </InputWrapper>
 
-      {/* Suggestions dropdown */}
-      {showSuggestions && (
+      {/* Suggestions dropdown - only show if not processing and no error messages */}
+      {showSuggestions && !isAIProcessing && !errorMessage && (
         <SymbolSuggestions
           query={value}
           isVisible={showSuggestionsList && isFocused}
@@ -581,26 +625,26 @@ export const EnhancedSymbolInput: React.FC<EnhancedSymbolInputProps> = ({
         />
       )}
 
-      {/* AI Processing Indicator */}
-      <AIProcessingIndicator $visible={isAIProcessing && !showSuggestionsList}>
+      {/* AI Processing Indicator - highest priority */}
+      <AIProcessingIndicator $visible={isAIProcessing}>
         <Wand2 size={16} />
         Processing "{value}" with AI...
       </AIProcessingIndicator>
 
-      {/* AI Processed Result */}
-      <ProcessedResult $visible={!!processedResult && !isAIProcessing && !showSuggestionsList}>
+      {/* AI Processed Result - show only if not processing and no suggestions/errors */}
+      <ProcessedResult $visible={!!processedResult && !isAIProcessing && !showSuggestionsList && !errorMessage}>
         {processedResult}
       </ProcessedResult>
 
-      {/* Error message */}
-      {errorMessage && validationStatus === 'invalid' && (
+      {/* Error message - only show if not processing and no suggestions dropdown */}
+      {errorMessage && validationStatus === 'invalid' && !isAIProcessing && !showSuggestionsList && (
         <ErrorMessage onClick={suggestion ? handleSuggestionClick : undefined}>
           {errorMessage}
         </ErrorMessage>
       )}
 
-      {/* Suggestion text */}
-      {suggestion && validationStatus === 'invalid' && (
+      {/* Suggestion text - only show if error message is showing and there's a suggestion */}
+      {suggestion && validationStatus === 'invalid' && !isAIProcessing && !showSuggestionsList && errorMessage && (
         <SuggestionText onClick={handleSuggestionClick}>
           Click to use "{suggestion}" instead
         </SuggestionText>
