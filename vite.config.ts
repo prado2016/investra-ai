@@ -16,6 +16,11 @@ export default defineConfig({
     __DEV__: JSON.stringify(process.env.NODE_ENV === 'development'),
     __DEBUG__: JSON.stringify(true)
   },
+  test: {
+    environment: 'happy-dom',
+    globals: true,
+    setupFiles: './src/test/setup.ts',
+  },
   // Enable source maps for better debugging
   optimizeDeps: {
     include: ['yahoo-finance2'],
