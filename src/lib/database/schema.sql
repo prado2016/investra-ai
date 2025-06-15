@@ -125,7 +125,8 @@ CREATE TABLE IF NOT EXISTS public.transactions (
   CONSTRAINT transactions_quantity_check CHECK (
     (transaction_type IN ('buy', 'dividend') AND quantity > 0) OR
     (transaction_type IN ('sell') AND quantity > 0) OR
-    (transaction_type IN ('split', 'merger', 'transfer'))
+    (transaction_type IN ('split', 'merger', 'transfer')) OR
+    (transaction_type = 'option_expired' AND quantity > 0)
   )
 );
 
