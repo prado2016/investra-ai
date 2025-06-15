@@ -28,6 +28,20 @@ export interface UpdateAccountDestinationData {
 
 const STORAGE_KEY = 'account_destinations';
 
+// UUID generation fallback for environments without crypto.randomUUID
+function generateUUID(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  
+  // Fallback UUID v4 implementation
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
 // Default account destinations
 const DEFAULT_DESTINATIONS: Omit<AccountDestination, 'id' | 'createdAt' | 'updatedAt'>[] = [
   { name: 'TFSA', displayName: 'TFSA', type: 'TFSA', isActive: true },
@@ -109,7 +123,7 @@ class AccountDestinationService {
     }
 
     const newDestination: AccountDestination = {
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       name: data.name.trim(),
       displayName: data.displayName.trim(),
       type: data.type,
