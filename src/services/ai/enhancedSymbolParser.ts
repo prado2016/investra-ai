@@ -14,7 +14,7 @@ interface OptionsParsedData {
   isOption: boolean;
 }
 
-interface SymbolParseResult {
+export interface SymbolParseResult {
   originalQuery: string;
   parsedSymbol: string;
   confidence: number;

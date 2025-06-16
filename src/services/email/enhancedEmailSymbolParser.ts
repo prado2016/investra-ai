@@ -3,7 +3,7 @@
  * Integrates Wealthsimple email parsing with existing AI symbol processing
  */
 
-import { EnhancedAISymbolParser } from '../ai/enhancedSymbolParser';
+import { EnhancedAISymbolParser, type SymbolParseResult } from '../ai/enhancedSymbolParser';
 import type { WealthsimpleEmailData } from './wealthsimpleEmailParser';
 
 export interface EmailSymbolParseResult {
@@ -151,12 +151,7 @@ export class EnhancedEmailSymbolParser {
   private static async enhanceWithAI(
     symbol: string,
     assetName: string | undefined
-  ): Promise<{
-    symbol: string;
-    confidence: number;
-    reasoning: string;
-    asset_type?: string;
-  }> {
+  ): Promise<SymbolParseResult> {
     // Create enhanced query for AI parser
     const query = this.createAIQuery(symbol, assetName);
     

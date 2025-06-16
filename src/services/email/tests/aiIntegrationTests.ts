@@ -5,7 +5,7 @@
 
 import { EnhancedEmailSymbolParser } from '../enhancedEmailSymbolParser';
 import { MOCK_WEALTHSIMPLE_EMAILS } from './mockWealthsimpleEmails';
-import { WealthsimpleEmailParser } from '../wealthsimpleEmailParser';
+import { WealthsimpleEmailParser, type WealthsimpleEmailData } from '../wealthsimpleEmailParser';
 
 export interface AIIntegrationTestResult {
   name: string;
@@ -254,7 +254,7 @@ export class AISymbolIntegrationTests {
       }).filter(Boolean);
 
       const startTime = Date.now();
-      const batchResults = await EnhancedEmailSymbolParser.processBatchSymbols(emailDataArray as unknown[]);
+      const batchResults = await EnhancedEmailSymbolParser.processBatchSymbols(emailDataArray as WealthsimpleEmailData[]);
       const endTime = Date.now();
 
       const stats = EnhancedEmailSymbolParser.getProcessingStats(batchResults);
