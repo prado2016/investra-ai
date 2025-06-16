@@ -163,7 +163,7 @@ export class TotalReturnAnalyticsService {
           }
           break;
 
-        case 'option_expired':
+        case 'option_expired': {
           // Option expired - total loss of premium paid
           // The total_amount should be 0, but we track it as a realized loss
           const position = positions.find(p => p.asset_id === transaction.asset_id);
@@ -172,6 +172,7 @@ export class TotalReturnAnalyticsService {
             totalRealizedPL -= premiumLoss;
           }
           break;
+        }
 
         default:
           // Handle other transaction types as needed

@@ -50,7 +50,7 @@ export class EnhancedEmailSymbolParser {
       }
       
       // Use AI enhancement for complex symbols
-      const aiResult = await this.enhanceWithAI(emailSymbol, assetName, emailData);
+      const aiResult = await this.enhanceWithAI(emailSymbol, assetName);
       
       // Combine email confidence with AI confidence
       const combinedConfidence = this.calculateCombinedConfidence(
@@ -150,9 +150,13 @@ export class EnhancedEmailSymbolParser {
    */
   private static async enhanceWithAI(
     symbol: string,
-    assetName: string | undefined,
-    _emailData: WealthsimpleEmailData
-  ): Promise<any> {
+    assetName: string | undefined
+  ): Promise<{
+    symbol: string;
+    confidence: number;
+    reasoning: string;
+    asset_type?: string;
+  }> {
     // Create enhanced query for AI parser
     const query = this.createAIQuery(symbol, assetName);
     
@@ -224,7 +228,12 @@ export class EnhancedEmailSymbolParser {
   /**
    * Extract metadata from email data
    */
-  private static extractEmailMetadata(emailData: WealthsimpleEmailData): any {
+  private static extractEmailMetadata(emailData: WealthsimpleEmailData): {
+    exchange?: string;
+    currency?: string;
+    originalSymbol?: string;
+    assetName?: string;
+  } {
     return {
       exchange: emailData.exchange,
       currency: emailData.currency,

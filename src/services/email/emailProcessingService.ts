@@ -277,7 +277,7 @@ export class EmailProcessingService {
       console.log(`📊 Asset resolved: ${symbolToUse} -> ${assetResult.data.id} (${assetResult.data.asset_type})`);
 
       // Map transaction types
-      const transactionTypeMap: Record<string, any> = {
+      const transactionTypeMap: Record<string, 'buy' | 'sell' | 'dividend' | 'option_expired'> = {
         'buy': 'buy',
         'sell': 'sell',
         'dividend': 'dividend',
@@ -471,7 +471,7 @@ export class EmailProcessingService {
         if (testSymbolResult.confidence < 0.5) {
           warnings.push('AI symbol processing confidence is low');
         }
-      } catch (error) {
+      } catch {
         warnings.push('AI symbol processing test failed');
       }
 

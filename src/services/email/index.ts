@@ -65,6 +65,21 @@ export {
   type QueueConfiguration 
 } from './manualReviewQueue';
 
+// IMAP email processor service (Task 7)
+export { 
+  IMAPEmailProcessor,
+  type IMAPConfig,
+  type EmailMessage,
+  type ProcessingResult,
+  type IMAPProcessorStats 
+} from './imapEmailProcessor';
+
+export { 
+  IMAPProcessorService,
+  type IMAPServiceConfig,
+  type ServiceStatus 
+} from './imapProcessorService';
+
 // Test utilities (for development)
 export { 
   EmailParserTestSuite,
@@ -86,4 +101,6 @@ export { default as EmailIdentificationServiceDefault } from './emailIdentificat
 export { default as MultiLevelDuplicateDetectionDefault } from './multiLevelDuplicateDetection';
 export { default as TimeWindowProcessingDefault } from './timeWindowProcessing';
 export { default as ManualReviewQueueDefault } from './manualReviewQueue';
+export { default as IMAPEmailProcessorDefault } from './imapEmailProcessor';
+export { default as IMAPProcessorServiceDefault } from './imapProcessorService';
 export { default as EmailParserTestSuiteDefault } from './tests/emailParserTests';

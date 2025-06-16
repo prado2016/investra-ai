@@ -37,6 +37,15 @@ export {
   EmailAPIMiddleware
 } from './emailAPI';
 
+// IMAP Service API (Task 7)
+export { 
+  IMAPServiceAPI,
+  type IMAPServiceStatusResponse,
+  type IMAPServiceConfigResponse,
+  type IMAPConnectionTestResponse,
+  type IMAPProcessEmailsResponse
+} from './imapServiceAPI';
+
 export type {
   APIResponse,
   EmailProcessRequest,
@@ -66,3 +75,4 @@ export { EmailAPISchemas, RateLimitConfigs } from './emailAPI';
 export { default as PortfolioAPIDefault } from './portfolioAPI';
 export { default as AISymbolLookupAPIDefault } from './aiSymbolLookupAPI';
 export { default as EmailAPIDefault } from './emailAPI';
+export { default as IMAPServiceAPIDefault } from './imapServiceAPI';

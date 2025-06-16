@@ -349,7 +349,7 @@ export const PositionDetailsModal: React.FC<PositionDetailsModalProps> = ({
     if (isOpen && position) {
       fetchTransactions();
     }
-  }, [isOpen, position]);
+  }, [isOpen, position, fetchTransactions]);
 
   const handleEditTransaction = (transaction: TransactionWithAsset) => {
     setEditingTransaction(transaction);
@@ -375,7 +375,7 @@ export const PositionDetailsModal: React.FC<PositionDetailsModalProps> = ({
       const response = await TransactionService.updateTransaction(
         editingTransaction.id,
         {
-          transaction_type: updatedData.transaction_type as any,
+          transaction_type: updatedData.transaction_type as 'buy' | 'sell' | 'dividend',
           quantity: updatedData.quantity,
           price: updatedData.price,
           total_amount: totalAmount,

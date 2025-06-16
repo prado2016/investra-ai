@@ -211,8 +211,8 @@ export class MultiLevelDuplicateDetectionTestSuite {
     
     try {
       // Mock the getStoredEmailRecords method by temporarily replacing it
-      const originalMethod = (MultiLevelDuplicateDetection as any).getStoredEmailRecords;
-      (MultiLevelDuplicateDetection as any).getStoredEmailRecords = async () => storedRecords;
+      const originalMethod = (MultiLevelDuplicateDetection as unknown as { getStoredEmailRecords: () => Promise<unknown> }).getStoredEmailRecords;
+      (MultiLevelDuplicateDetection as unknown as { getStoredEmailRecords: () => Promise<unknown> }).getStoredEmailRecords = async () => storedRecords;
 
       const result = await MultiLevelDuplicateDetection.detectDuplicates(
         emailData,
@@ -220,7 +220,7 @@ export class MultiLevelDuplicateDetectionTestSuite {
       );
 
       // Restore original method
-      (MultiLevelDuplicateDetection as any).getStoredEmailRecords = originalMethod;
+      (MultiLevelDuplicateDetection as unknown as { getStoredEmailRecords: () => Promise<unknown> }).getStoredEmailRecords = originalMethod;
 
       const detectionTime = Date.now() - startTime;
       const validation = MultiLevelDuplicateDetection.validateDetectionResult(result);

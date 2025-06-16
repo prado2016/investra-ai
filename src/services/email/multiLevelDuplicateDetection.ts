@@ -507,9 +507,10 @@ export class MultiLevelDuplicateDetection {
    * Get stored email records for comparison
    * Note: This is a placeholder - in real implementation, this would query a database
    */
-  private static async getStoredEmailRecords(_portfolioId: string): Promise<StoredEmailRecord[]> {
+  private static async getStoredEmailRecords(portfolioId: string): Promise<StoredEmailRecord[]> {
     // TODO: Implement database storage for email records
     // For now, return empty array - this will be implemented in future tasks
+    console.log('Portfolio ID for future implementation:', portfolioId);
     return [];
   }
 

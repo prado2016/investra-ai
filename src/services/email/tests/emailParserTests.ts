@@ -11,7 +11,7 @@ export interface TestResult {
   name: string;
   passed: boolean;
   error?: string;
-  data?: any;
+  data?: unknown;
 }
 
 export class EmailParserTestSuite {
@@ -123,7 +123,7 @@ export class EmailParserTestSuite {
         } else {
           console.log(`  ❌ ${name}: Should have been rejected but was accepted`);
         }
-      } catch (error) {
+      } catch {
         results.push({
           name: `Invalid Email - ${name}`,
           passed: true, // Exceptions are expected for invalid emails

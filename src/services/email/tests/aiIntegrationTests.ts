@@ -45,15 +45,17 @@ export class AISymbolIntegrationTests {
    */
   private static async testEmailSymbolIntegration(
     testName: string,
-    emailData: any
+    emailData: unknown
   ): Promise<AIIntegrationTestResult> {
     try {
+      const email = emailData as { subject: string; from: string; html: string; text: string };
+      
       // First parse the email
       const parseResult = WealthsimpleEmailParser.parseEmail(
-        emailData.subject,
-        emailData.from,
-        emailData.html,
-        emailData.text
+        email.subject,
+        email.from,
+        email.html,
+        email.text
       );
 
       if (!parseResult.success || !parseResult.data) {
@@ -252,7 +254,7 @@ export class AISymbolIntegrationTests {
       }).filter(Boolean);
 
       const startTime = Date.now();
-      const batchResults = await EnhancedEmailSymbolParser.processBatchSymbols(emailDataArray as any[]);
+      const batchResults = await EnhancedEmailSymbolParser.processBatchSymbols(emailDataArray as unknown[]);
       const endTime = Date.now();
 
       const stats = EnhancedEmailSymbolParser.getProcessingStats(batchResults);

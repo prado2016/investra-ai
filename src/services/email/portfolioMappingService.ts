@@ -80,11 +80,12 @@ export class PortfolioMappingService {
    */
   static async getOrCreatePortfolio(
     accountType: string,
-    _userId?: string
+    userId?: string
   ): Promise<ServiceResponse<MappingResult>> {
     try {
       // Normalize account type
       const normalizedType = this.normalizeAccountType(accountType);
+      console.log('User ID for future implementation:', userId);
       
       if (!normalizedType) {
         return {

@@ -40,7 +40,7 @@ const debugFundMovement = (function() {
         if (options) {
             console.log('=== OPTIONS ANALYSIS ===');
             Object.entries(options).forEach(([key, value]) => {
-                console.log(`${key}: ${value}, type: ${typeof value}, isNaN: ${typeof value === 'number' ? isNaN(value) : 'N/A'}`);
+                console.log(key + ': ' + value + ', type: ' + typeof value + ', isNaN: ' + (typeof value === 'number' ? isNaN(value) : 'N/A'));
             });
         }
         
