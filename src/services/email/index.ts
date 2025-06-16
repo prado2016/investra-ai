@@ -45,6 +45,26 @@ export {
   type StoredEmailRecord 
 } from './multiLevelDuplicateDetection';
 
+// Time window processing service (Task 5.3)
+export { 
+  TimeWindowProcessing,
+  type TimeWindowAnalysis,
+  type TimeWindowConfig,
+  type RapidTradingPattern,
+  type PartialFillAnalysis,
+  type SplitOrderAnalysis 
+} from './timeWindowProcessing';
+
+// Manual review queue service (Task 5.4)
+export { 
+  ManualReviewQueue,
+  type ReviewQueueItem,
+  type ReviewQueueFilter,
+  type ReviewQueueStats,
+  type ReviewAction,
+  type QueueConfiguration 
+} from './manualReviewQueue';
+
 // Test utilities (for development)
 export { 
   EmailParserTestSuite,
@@ -64,4 +84,6 @@ export { default as PortfolioMappingService } from './portfolioMappingService';
 export { default as EmailProcessingService } from './emailProcessingService';
 export { default as EmailIdentificationService } from './emailIdentificationService';
 export { default as MultiLevelDuplicateDetection } from './multiLevelDuplicateDetection';
+export { default as TimeWindowProcessing } from './timeWindowProcessing';
+export { default as ManualReviewQueue } from './manualReviewQueue';
 export { default as EmailParserTestSuite } from './tests/emailParserTests';
