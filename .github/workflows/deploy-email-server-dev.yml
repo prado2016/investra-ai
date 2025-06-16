@@ -69,12 +69,25 @@ jobs:
         # Test SSH key format
         ssh-keygen -l -f ~/.ssh/id_rsa || echo "SSH key format check completed"
 
+    - name: Debug SSH setup
+      run: |
+        echo "=== SSH Debug Information ==="
+        echo "SSH key file exists: $(test -f ~/.ssh/id_rsa && echo 'YES' || echo 'NO')"
+        echo "SSH key file permissions: $(ls -la ~/.ssh/id_rsa 2>/dev/null || echo 'File not found')"
+        echo "SSH key fingerprint:"
+        ssh-keygen -l -f ~/.ssh/id_rsa 2>/dev/null || echo "Could not read SSH key fingerprint"
+        echo "Testing ssh-keyscan to target host..."
+        ssh-keyscan -H ${{ secrets.RHEL_HOST }} | head -3
+        echo "=== End SSH Debug ==="
+
     - name: Install Podman on Dev VM (if needed)
       run: |
         # Add host to known_hosts first
+        echo "Adding ${{ secrets.RHEL_HOST }} to known_hosts..."
         ssh-keyscan -H ${{ secrets.RHEL_HOST }} >> ~/.ssh/known_hosts
         
-        ssh -i ~/.ssh/id_rsa ${{ secrets.RHEL_USER }}@${{ secrets.RHEL_HOST }} << 'EOF'
+        echo "Attempting SSH connection to ${{ secrets.RHEL_USER }}@${{ secrets.RHEL_HOST }}..."
+        ssh -i ~/.ssh/id_rsa -o ConnectTimeout=30 -o StrictHostKeyChecking=no -v ${{ secrets.RHEL_USER }}@${{ secrets.RHEL_HOST }} << 'EOF'
           # Check if Podman is installed
           if ! command -v podman &> /dev/null; then
             echo "Installing Podman on development VM..."
