@@ -1,0 +1,447 @@
+name: Deploy Email Server (Development)
+
+on:
+  push:
+    branches: [ develop, development/*, feature/*, bugfix/*, hotfix/* ]
+    paths:
+      - 'email-server/**'
+      - '.github/workflows/deploy-email-server-dev.yml'
+  pull_request:
+    branches: [ main, master, develop ]
+    paths:
+      - 'email-server/**'
+      - '.github/workflows/deploy-email-server-dev.yml'
+  workflow_dispatch:
+    inputs:
+      target_branch:
+        description: 'Branch to deploy'
+        required: false
+        default: 'develop'
+        type: string
+      vm_environment:
+        description: 'VM Environment'
+        required: true
+        default: 'development'
+        type: choice
+        options:
+          - development
+          - staging
+          - testing
+
+env:
+  EMAIL_DOMAIN: dev.investra.com
+  EMAIL_HOSTNAME: mail-dev.investra.com
+  EMAIL_USER: transactions-dev@investra.com
+
+jobs:
+  deploy-dev-email-server:
+    name: Deploy Development Email Server
+    runs-on: ubuntu-latest
+    environment: development
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.inputs.target_branch || github.ref }}
+
+    - name: Display deployment info
+      run: |
+        echo "🚀 Development Email Server Deployment"
+        echo "======================================"
+        echo "Branch: ${{ github.ref_name }}"
+        echo "Environment: development"
+        echo "Email Domain: ${{ env.EMAIL_DOMAIN }}"
+        echo "Email User: ${{ env.EMAIL_USER }}"
+        echo "Target VM: Development VM"
+        echo ""
+
+    - name: Setup SSH key
+      uses: webfactory/ssh-agent@v0.9.0
+      with:
+        ssh-private-key: ${{ secrets.DEV_VM_SSH_KEY }}
+
+    - name: Add Dev VM to known hosts
+      run: |
+        mkdir -p ~/.ssh
+        ssh-keyscan -H ${{ secrets.DEV_VM_HOST }} >> ~/.ssh/known_hosts
+
+    - name: Test SSH connection to dev VM
+      run: |
+        ssh -o ConnectTimeout=10 ${{ secrets.DEV_VM_USER }}@${{ secrets.DEV_VM_HOST }} "echo 'SSH connection to dev VM successful'"
+
+    - name: Install Docker on Dev VM (if needed)
+      run: |
+        ssh ${{ secrets.DEV_VM_USER }}@${{ secrets.DEV_VM_HOST }} << 'EOF'
+          # Check if Docker is installed
+          if ! command -v docker &> /dev/null; then
+            echo "Installing Docker on development VM..."
+            
+            # Update system
+            sudo dnf update -y
+            
+            # Install Docker
+            sudo dnf config-manager --add-repo https://download.docker.com/linux/rhel/docker-ce.repo
+            sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+            
+            # Start and enable Docker
+            sudo systemctl start docker
+            sudo systemctl enable docker
+            
+            # Add user to docker group
+            sudo usermod -aG docker $USER
+            
+            echo "Docker installed successfully"
+          else
+            echo "Docker is already installed"
+            docker --version
+          fi
+        EOF
+
+    - name: Configure development firewall
+      run: |
+        ssh ${{ secrets.DEV_VM_USER }}@${{ secrets.DEV_VM_HOST }} << 'EOF'
+          echo "Configuring development firewall..."
+          
+          # Configure firewall for email services (development ports)
+          if sudo systemctl is-active --quiet firewalld; then
+            echo "Configuring firewalld for development..."
+            sudo firewall-cmd --permanent --add-port=25/tcp
+            sudo firewall-cmd --permanent --add-port=587/tcp
+            sudo firewall-cmd --permanent --add-port=993/tcp
+            sudo firewall-cmd --permanent --add-port=8080/tcp  # Roundcube
+            sudo firewall-cmd --permanent --add-port=8025/tcp  # Dev SMTP (optional)
+            sudo firewall-cmd --reload
+            echo "Development firewall configured"
+          else
+            echo "Firewalld not active, skipping firewall configuration"
+          fi
+          
+          # Stop conflicting services
+          for service in postfix sendmail; do
+            if sudo systemctl is-active --quiet $service; then
+              echo "Stopping $service..."
+              sudo systemctl stop $service
+              sudo systemctl disable $service
+            fi
+          done
+        EOF
+
+    - name: Create development email server directory
+      run: |
+        # Create directory on dev VM
+        ssh ${{ secrets.DEV_VM_USER }}@${{ secrets.DEV_VM_HOST }} "mkdir -p ~/investra-email-server-dev"
+        
+        # Copy email server files
+        scp -r email-server/* ${{ secrets.DEV_VM_USER }}@${{ secrets.DEV_VM_HOST }}:~/investra-email-server-dev/
+
+    - name: Configure development environment
+      run: |
+        ssh ${{ secrets.DEV_VM_USER }}@${{ secrets.DEV_VM_HOST }} << 'EOF'
+          cd ~/investra-email-server-dev
+          
+          # Create development environment file
+          cat > .env << 'ENVEOF'
+        # Development Email Server Configuration
+        HOSTNAME=${{ env.EMAIL_HOSTNAME }}
+        DOMAINNAME=${{ env.EMAIL_DOMAIN }}
+        
+        # Development Email Credentials
+        MAILSERVER_USER=${{ env.EMAIL_USER }}
+        MAILSERVER_PASS=${{ secrets.DEV_EMAIL_PASSWORD }}
+        
+        # Development IMAP Connection Details
+        IMAP_HOST=${{ secrets.DEV_VM_HOST }}
+        IMAP_PORT=993
+        IMAP_TLS=true
+        
+        # Development SMTP Configuration  
+        SMTP_HOST=${{ secrets.DEV_VM_HOST }}
+        SMTP_PORT=587
+        SMTP_TLS=true
+        
+        # Development settings (more verbose logging)
+        DMS_DEBUG=1
+        LOG_LEVEL=debug
+        ENVEOF
+          
+          echo "Development environment file created"
+        EOF
+
+    - name: Update docker-compose for development
+      run: |
+        ssh ${{ secrets.DEV_VM_USER }}@${{ secrets.DEV_VM_HOST }} << 'EOF'
+          cd ~/investra-email-server-dev
+          
+          # Create development docker-compose.yml with simplified SSL
+          cat > docker-compose.yml << 'COMPOSEEOF'
+        version: '3.8'
+        
+        services:
+          mailserver:
+            image: ghcr.io/docker-mailserver/docker-mailserver:latest
+            hostname: ${{ env.EMAIL_HOSTNAME }}
+            domainname: ${{ env.EMAIL_DOMAIN }}
+            ports:
+              - "25:25"    # SMTP
+              - "587:587"  # SMTP Submission
+              - "993:993"  # IMAPS
+              - "143:143"  # IMAP
+            volumes:
+              - ./docker-data/dms/mail-data/:/var/mail/
+              - ./docker-data/dms/mail-state/:/var/mail-state/
+              - ./docker-data/dms/mail-logs/:/var/log/mail/
+              - ./docker-data/dms/config/:/tmp/docker-mailserver/
+              - /etc/localtime:/etc/localtime:ro
+            environment:
+              # Basic Configuration
+              - ENABLE_SPAMASSASSIN=1
+              - ENABLE_CLAMAV=0
+              - ENABLE_FAIL2BAN=1
+              - ENABLE_POSTGREY=0
+              - ENABLE_MANAGESIEVE=1
+              
+              # Development SSL (self-signed)
+              - SSL_TYPE=self-signed
+              - TLS_LEVEL=intermediate
+              - ENABLE_SRS=0
+              
+              # Authentication
+              - PERMIT_DOCKER=none
+              - SPOOF_PROTECTION=1
+              - ENABLE_SASLAUTHD=0
+              
+              # Postfix Configuration
+              - POSTFIX_MAILBOX_SIZE_LIMIT=0
+              - POSTFIX_MESSAGE_SIZE_LIMIT=100000000
+              
+              # Dovecot Configuration
+              - DOVECOT_MAILBOX_FORMAT=maildir
+              - DOVECOT_TLS=yes
+              
+              # Development settings (verbose logging)
+              - LOG_LEVEL=debug
+              - DMS_DEBUG=1
+              
+              # Custom Environment
+              - OVERRIDE_HOSTNAME=${{ env.EMAIL_HOSTNAME }}
+              
+            restart: unless-stopped
+            cap_add:
+              - NET_ADMIN
+              - SYS_PTRACE
+            
+            # Health check
+            healthcheck:
+              test: ["CMD", "ss", "-lnpt", "state", "listening"]
+              interval: 30s
+              timeout: 5s
+              retries: 3
+              start_period: 60s
+        
+          # Development email administration interface
+          mailserver-admin:
+            image: roundcube/roundcubemail:latest
+            ports:
+              - "8080:80"
+            environment:
+              - ROUNDCUBEMAIL_DEFAULT_HOST=tls://mailserver
+              - ROUNDCUBEMAIL_DEFAULT_PORT=993
+              - ROUNDCUBEMAIL_SMTP_SERVER=tls://mailserver
+              - ROUNDCUBEMAIL_SMTP_PORT=587
+              - ROUNDCUBEMAIL_DB_TYPE=sqlite
+            depends_on:
+              - mailserver
+            restart: unless-stopped
+            volumes:
+              - ./docker-data/roundcube:/var/www/html
+        
+        networks:
+          default:
+            driver: bridge
+        COMPOSEEOF
+          
+          echo "Development Docker Compose file created"
+        EOF
+
+    - name: Setup development email server
+      run: |
+        ssh ${{ secrets.DEV_VM_USER }}@${{ secrets.DEV_VM_HOST }} << 'EOF'
+          cd ~/investra-email-server-dev
+          
+          # Make scripts executable
+          chmod +x *.sh
+          
+          # Run setup script
+          ./setup.sh
+          
+          # Update email account with development password
+          echo "${{ env.EMAIL_USER }}|{PLAIN}${{ secrets.DEV_EMAIL_PASSWORD }}" > docker-data/dms/config/postfix-accounts.cf
+          
+          # Add development aliases
+          cat > docker-data/dms/config/postfix-virtual.cf << 'VIRTUALEOF'
+        # Development email aliases
+        transactions-dev@investra.com transactions-dev@investra.com
+        wealthsimple-dev@investra.com transactions-dev@investra.com
+        test@investra.com transactions-dev@investra.com
+        dev@investra.com transactions-dev@investra.com
+        VIRTUALEOF
+          
+          echo "Development email server setup completed"
+        EOF
+
+    - name: Start development email server
+      run: |
+        ssh ${{ secrets.DEV_VM_USER }}@${{ secrets.DEV_VM_HOST }} << 'EOF'
+          cd ~/investra-email-server-dev
+          
+          # Stop any existing instance
+          docker compose down || true
+          
+          # Start development email server
+          docker compose pull
+          docker compose up -d
+          
+          echo "Development email server started"
+          
+          # Wait for services to be ready
+          echo "Waiting for services to start..."
+          sleep 30
+          
+          # Check status
+          docker compose ps
+        EOF
+
+    - name: Test development email server
+      run: |
+        ssh ${{ secrets.DEV_VM_USER }}@${{ secrets.DEV_VM_HOST }} << 'EOF'
+          cd ~/investra-email-server-dev
+          
+          echo "Testing development email server..."
+          
+          # Test ports
+          for port in 25 587 993 8080; do
+            if timeout 5 bash -c "</dev/tcp/localhost/$port" 2>/dev/null; then
+              echo "✅ Port $port is open"
+            else
+              echo "❌ Port $port is not accessible"
+            fi
+          done
+          
+          # Check container health
+          echo "Container status:"
+          docker compose ps
+          
+          # Check logs for errors
+          echo "Checking for errors in logs..."
+          docker compose logs --tail=20 mailserver | grep -i error || echo "No errors found"
+          
+          echo "Development email server testing completed"
+        EOF
+
+    - name: Create development monitoring script
+      run: |
+        ssh ${{ secrets.DEV_VM_USER }}@${{ secrets.DEV_VM_HOST }} << 'EOF'
+          cd ~/investra-email-server-dev
+          
+          # Create development monitoring script
+          cat > monitor-dev-email.sh << 'MONITOREOF'
+        #!/bin/bash
+        # Development Email Server Monitoring
+        
+        echo "=== Development Email Server Status $(date) ==="
+        
+        # Container status
+        echo "Docker Containers:"
+        docker compose ps
+        
+        # Port status
+        echo -e "\nPort Status:"
+        for port in 25 587 993 8080; do
+          if timeout 2 bash -c "</dev/tcp/localhost/$port" 2>/dev/null; then
+            echo "Port $port: ✅ Open"
+          else
+            echo "Port $port: ❌ Closed"
+          fi
+        done
+        
+        # Recent logs
+        echo -e "\nRecent Logs:"
+        docker compose logs --tail=10 mailserver
+        
+        # Mail queue
+        echo -e "\nMail Queue:"
+        docker compose exec -T mailserver postqueue -p 2>/dev/null || echo "Could not check mail queue"
+        MONITOREOF
+          
+          chmod +x monitor-dev-email.sh
+          
+          echo "Development monitoring script created"
+        EOF
+
+    - name: Display development deployment summary
+      run: |
+        ssh ${{ secrets.DEV_VM_USER }}@${{ secrets.DEV_VM_HOST }} << 'EOF'
+          cd ~/investra-email-server-dev
+          
+          echo "============================================"
+          echo "📧 DEVELOPMENT EMAIL SERVER DEPLOYED"
+          echo "============================================"
+          echo ""
+          echo "🌐 Development Server Details:"
+          echo "   Email Server: ${{ env.EMAIL_HOSTNAME }}"
+          echo "   IP Address: ${{ secrets.DEV_VM_HOST }}"
+          echo "   Email Account: ${{ env.EMAIL_USER }}"
+          echo "   Environment: Development"
+          echo ""
+          echo "📧 Development Connection Settings:"
+          echo "   IMAP: ${{ secrets.DEV_VM_HOST }}:993 (SSL)"
+          echo "   SMTP: ${{ secrets.DEV_VM_HOST }}:587 (STARTTLS)"
+          echo "   Web Interface: http://${{ secrets.DEV_VM_HOST }}:8080"
+          echo ""
+          echo "🔧 Development Management:"
+          echo "   Monitor: ./monitor-dev-email.sh"
+          echo "   Logs: docker compose logs -f mailserver"
+          echo "   Restart: docker compose restart"
+          echo ""
+          echo "📋 Development Features:"
+          echo "   ✅ Self-signed SSL certificates"
+          echo "   ✅ Verbose logging enabled"
+          echo "   ✅ Development aliases configured"
+          echo "   ✅ Simplified security for testing"
+          echo ""
+          echo "⚠️  Development Notes:"
+          echo "   - Uses self-signed certificates"
+          echo "   - More verbose logging for debugging"
+          echo "   - Simplified security settings"
+          echo "   - Not intended for production use"
+          echo ""
+          echo "============================================"
+        EOF
+
+    - name: Send development deployment notification
+      if: success()
+      run: |
+        echo "✅ Development email server deployed successfully"
+        echo "Server: ${{ secrets.DEV_VM_HOST }}"
+        echo "Email: ${{ env.EMAIL_USER }}"
+        echo "Web Interface: http://${{ secrets.DEV_VM_HOST }}:8080"
+        echo "Branch: ${{ github.ref_name }}"
+        echo "Environment: Development"
+
+    - name: Handle development deployment failure
+      if: failure()
+      run: |
+        echo "❌ Development email server deployment failed"
+        echo "Check the logs above for error details"
+        echo "Common development issues:"
+        echo "- SSH connection to dev VM"
+        echo "- Docker installation or permissions"
+        echo "- Port conflicts on dev VM"
+        echo "- Missing development secrets"
+        echo ""
+        echo "Required secrets for development:"
+        echo "- DEV_VM_HOST"
+        echo "- DEV_VM_USER"
+        echo "- DEV_VM_SSH_KEY"
+        echo "- DEV_EMAIL_PASSWORD"
