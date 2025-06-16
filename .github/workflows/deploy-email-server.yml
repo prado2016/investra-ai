@@ -130,13 +130,9 @@ jobs:
         mkdir -p ~/.ssh
         ssh-keyscan -H ${{ secrets[needs.determine-environment.outputs.vm-host-secret] }} >> ~/.ssh/known_hosts
 
-    - name: Test SSH connection
-      run: |
-        ssh -o ConnectTimeout=10 ${{ secrets[needs.determine-environment.outputs.vm-user-secret] }}@${{ secrets[needs.determine-environment.outputs.vm-host-secret] }} "echo 'SSH connection successful'"
-
     - name: Install Podman on RHEL VM
       run: |
-        ssh ${{ secrets[needs.determine-environment.outputs.vm-user-secret] }}@${{ secrets[needs.determine-environment.outputs.vm-host-secret] }} << 'EOF'
+        ssh -i ~/.ssh/id_rsa ${{ secrets[needs.determine-environment.outputs.vm-user-secret] }}@${{ secrets[needs.determine-environment.outputs.vm-host-secret] }} << 'EOF'
           # Update system
           sudo dnf update -y
           
