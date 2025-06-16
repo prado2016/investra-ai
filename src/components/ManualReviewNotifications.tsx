@@ -4,7 +4,7 @@
  * Notification system for manual review queue events, assignments, and escalations
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 import {
   Users,
@@ -16,30 +16,19 @@ import {
   X,
   UserCheck,
   UserX,
-  MessageSquare,
   TrendingUp,
-  Calendar,
   Timer,
   Flag,
-  Mail,
-  Smartphone,
   Settings,
-  Volume2,
-  VolumeX,
-  Play,
-  Pause,
-  RotateCcw,
   Archive,
-  ExternalLink,
-  Zap,
   AlertCircle,
   FileText,
-  Target
+  Target,
+  ExternalLink
 } from 'lucide-react';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { Modal } from './ui/Modal';
-import { Input } from './ui/Input';
 import { useNotifications } from '../hooks/useNotifications';
 import { formatDate } from '../utils/formatting';
 
@@ -112,29 +101,6 @@ interface ReviewerStatus {
     avgCompletionTime: number;
     accuracyRate: number;
     escalationRate: number;
-  };
-}
-
-interface NotificationRule {
-  id: string;
-  name: string;
-  enabled: boolean;
-  conditions: {
-    reviewTypes: string[];
-    priorities: string[];
-    slaThreshold: number; // percentage of SLA remaining
-    workingHoursOnly: boolean;
-  };
-  actions: {
-    channels: string[];
-    frequency: 'immediate' | 'every_15min' | 'every_30min' | 'hourly';
-    escalation: boolean;
-    autoAssign: boolean;
-  };
-  recipients: {
-    reviewers: string[];
-    managers: string[];
-    escalationContacts: string[];
   };
 }
 
@@ -695,10 +661,8 @@ const EmptyState = styled.div`
 interface ManualReviewNotificationsProps {
   notifications?: ReviewNotification[];
   reviewers?: ReviewerStatus[];
-  rules?: NotificationRule[];
   loading?: boolean;
   onNotificationAction?: (notificationId: string, action: string) => Promise<void>;
-  onAssignReviewer?: (reviewId: string, reviewerId: string) => Promise<void>;
   onConfigureRules?: () => void;
   className?: string;
 }
@@ -706,10 +670,8 @@ interface ManualReviewNotificationsProps {
 const ManualReviewNotifications: React.FC<ManualReviewNotificationsProps> = ({
   notifications = [],
   reviewers = [],
-  rules = [],
   loading = false,
   onNotificationAction = async () => {},
-  onAssignReviewer = async () => {},
   onConfigureRules = () => {},
   className
 }) => {

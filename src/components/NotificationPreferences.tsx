@@ -4,41 +4,28 @@
  * Comprehensive preferences interface for managing email import notification settings
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 import {
   Bell,
   Mail,
   Smartphone,
   Settings,
-  Volume2,
-  VolumeX,
   Clock,
-  Users,
   AlertTriangle,
   CheckCircle,
-  X,
   Save,
   RotateCcw,
-  Eye,
-  EyeOff,
-  Calendar,
-  MessageSquare,
   Slack,
   Webhook,
-  Globe,
   Zap,
   Filter,
-  Target,
-  Shield,
-  Layers,
   BarChart3,
   FileText,
   Plus,
   Trash2,
   Edit3,
-  Copy,
-  ExternalLink
+  Copy
 } from 'lucide-react';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
@@ -139,21 +126,6 @@ interface NotificationRule {
     lastTriggered?: string;
     avgResponseTime: number;
   };
-}
-
-interface NotificationTemplate {
-  id: string;
-  name: string;
-  type: 'email' | 'sms' | 'slack' | 'webhook';
-  subject?: string;
-  content: string;
-  variables: string[];
-  formatting: {
-    html: boolean;
-    markdown: boolean;
-    plainText: boolean;
-  };
-  preview: string;
 }
 
 const PreferencesContainer = styled.div`
@@ -637,20 +609,16 @@ const EmptyState = styled.div`
 interface NotificationPreferencesProps {
   channels?: NotificationChannel[];
   rules?: NotificationRule[];
-  templates?: NotificationTemplate[];
   onSavePreferences?: (preferences: any) => Promise<void>;
   onTestChannel?: (channelId: string) => Promise<void>;
-  onCreateRule?: (rule: Partial<NotificationRule>) => Promise<void>;
   className?: string;
 }
 
 const NotificationPreferences: React.FC<NotificationPreferencesProps> = ({
   channels = [],
   rules = [],
-  templates = [],
   onSavePreferences = async () => {},
   onTestChannel = async () => {},
-  onCreateRule = async () => {},
   className
 }) => {
   const { success, error } = useNotifications();
@@ -848,7 +816,7 @@ const NotificationPreferences: React.FC<NotificationPreferencesProps> = ({
     }
   };
 
-  const handleToggleChannel = async (channelId: string, enabled: boolean) => {
+  const handleToggleChannel = async (_channelId: string, enabled: boolean) => {
     try {
       // In real implementation, this would call the API
       success('Channel Updated', `Channel ${enabled ? 'enabled' : 'disabled'} successfully`);
