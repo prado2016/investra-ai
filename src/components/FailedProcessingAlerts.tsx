@@ -4,7 +4,7 @@
  * Comprehensive alert system for failed email import processing with escalation and resolution tracking
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 import {
   AlertTriangle,
@@ -12,28 +12,17 @@ import {
   Zap,
   Clock,
   TrendingUp,
-  X,
   Bell,
   BellOff,
-  Play,
-  Pause,
-  RotateCcw,
   Settings,
   Eye,
-  ExternalLink,
-  Mail,
   Server,
   Wifi,
   Database,
-  Bug,
-  Network,
   FileX,
   Shield,
   Users,
-  MessageSquare,
   CheckCircle,
-  Archive,
-  Filter,
   RefreshCw
 } from 'lucide-react';
 import { Card } from './ui/Card';
@@ -638,7 +627,6 @@ interface FailedProcessingAlertsProps {
 
 const FailedProcessingAlerts: React.FC<FailedProcessingAlertsProps> = ({
   alerts = [],
-  alertRules = [],
   loading = false,
   onAlertAction = async () => {},
   onViewDetails = () => {},

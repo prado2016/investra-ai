@@ -11,11 +11,7 @@ import {
   CheckCircle,
   AlertTriangle,
   Clock,
-  X,
-  Mail,
-  TrendingUp,
   Zap,
-  Eye,
   Settings,
   Volume2,
   VolumeX,
@@ -23,11 +19,9 @@ import {
   Maximize2,
   Filter,
   Archive,
-  RefreshCw,
   Users,
   AlertCircle,
-  Info,
-  ExternalLink
+  Info
 } from 'lucide-react';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
