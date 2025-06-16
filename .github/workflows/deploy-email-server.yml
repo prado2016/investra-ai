@@ -2,6 +2,11 @@ name: Deploy Email Server to RHEL VM
 
 on:
   push:
+    branches: [ main, master, develop, staging ]
+    paths:
+      - 'email-server/**'
+      - '.github/workflows/deploy-email-server.yml'
+  pull_request:
     branches: [ main, master ]
     paths:
       - 'email-server/**'
@@ -11,11 +16,16 @@ on:
       environment:
         description: 'Environment to deploy to'
         required: true
-        default: 'production'
+        default: 'development'
         type: choice
         options:
-          - production
+          - development
           - staging
+          - production
+      branch:
+        description: 'Branch to deploy (leave empty for current branch)'
+        required: false
+        type: string
 
 env:
   EMAIL_DOMAIN: investra.com
@@ -23,10 +33,85 @@ env:
   EMAIL_USER: transactions@investra.com
 
 jobs:
+  determine-environment:
+    name: Determine Environment
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.env.outputs.environment }}
+      hostname: ${{ steps.env.outputs.hostname }}
+      email-user: ${{ steps.env.outputs.email-user }}
+      vm-host-secret: ${{ steps.env.outputs.vm-host-secret }}
+      vm-user-secret: ${{ steps.env.outputs.vm-user-secret }}
+      vm-key-secret: ${{ steps.env.outputs.vm-key-secret }}
+      email-password-secret: ${{ steps.env.outputs.email-password-secret }}
+      admin-email-secret: ${{ steps.env.outputs.admin-email-secret }}
+    
+    steps:
+    - name: Determine environment and configuration
+      id: env
+      run: |
+        # Determine environment based on trigger and inputs
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          ENVIRONMENT="${{ github.event.inputs.environment }}"
+        elif [ "${{ github.event_name }}" = "pull_request" ]; then
+          ENVIRONMENT="staging"
+        else
+          # Push event - determine by branch
+          case "${{ github.ref_name }}" in
+            main|master)
+              ENVIRONMENT="production"
+              ;;
+            staging)
+              ENVIRONMENT="staging"
+              ;;
+            develop|development)
+              ENVIRONMENT="development"
+              ;;
+            *)
+              ENVIRONMENT="development"
+              ;;
+          esac
+        fi
+        
+        echo "Determined environment: $ENVIRONMENT"
+        echo "environment=$ENVIRONMENT" >> $GITHUB_OUTPUT
+        
+        # Set environment-specific configuration
+        case "$ENVIRONMENT" in
+          production)
+            echo "hostname=mail.investra.com" >> $GITHUB_OUTPUT
+            echo "email-user=transactions@investra.com" >> $GITHUB_OUTPUT
+            echo "vm-host-secret=RHEL_VM_HOST" >> $GITHUB_OUTPUT
+            echo "vm-user-secret=RHEL_VM_USER" >> $GITHUB_OUTPUT
+            echo "vm-key-secret=RHEL_VM_SSH_KEY" >> $GITHUB_OUTPUT
+            echo "email-password-secret=EMAIL_PASSWORD" >> $GITHUB_OUTPUT
+            echo "admin-email-secret=ADMIN_EMAIL" >> $GITHUB_OUTPUT
+            ;;
+          staging)
+            echo "hostname=mail-staging.investra.com" >> $GITHUB_OUTPUT
+            echo "email-user=transactions-staging@investra.com" >> $GITHUB_OUTPUT
+            echo "vm-host-secret=STAGING_VM_HOST" >> $GITHUB_OUTPUT
+            echo "vm-user-secret=STAGING_VM_USER" >> $GITHUB_OUTPUT
+            echo "vm-key-secret=STAGING_VM_SSH_KEY" >> $GITHUB_OUTPUT
+            echo "email-password-secret=STAGING_EMAIL_PASSWORD" >> $GITHUB_OUTPUT
+            echo "admin-email-secret=STAGING_ADMIN_EMAIL" >> $GITHUB_OUTPUT
+            ;;
+          development)
+            echo "hostname=mail-dev.investra.com" >> $GITHUB_OUTPUT
+            echo "email-user=transactions-dev@investra.com" >> $GITHUB_OUTPUT
+            echo "vm-host-secret=DEV_VM_HOST" >> $GITHUB_OUTPUT
+            echo "vm-user-secret=DEV_VM_USER" >> $GITHUB_OUTPUT
+            echo "vm-key-secret=DEV_VM_SSH_KEY" >> $GITHUB_OUTPUT
+            echo "email-password-secret=DEV_EMAIL_PASSWORD" >> $GITHUB_OUTPUT
+            echo "admin-email-secret=DEV_ADMIN_EMAIL" >> $GITHUB_OUTPUT
+            ;;
+        esac
+
   deploy-email-server:
     name: Deploy Email Server
     runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.environment || 'production' }}
+    needs: determine-environment
+    environment: ${{ needs.determine-environment.outputs.environment }}
     
     steps:
     - name: Checkout code
@@ -35,20 +120,20 @@ jobs:
     - name: Setup SSH key
       uses: webfactory/ssh-agent@v0.9.0
       with:
-        ssh-private-key: ${{ secrets.RHEL_VM_SSH_KEY }}
+        ssh-private-key: ${{ secrets[needs.determine-environment.outputs.vm-key-secret] }}
 
     - name: Add RHEL VM to known hosts
       run: |
         mkdir -p ~/.ssh
-        ssh-keyscan -H ${{ secrets.RHEL_VM_HOST }} >> ~/.ssh/known_hosts
+        ssh-keyscan -H ${{ secrets[needs.determine-environment.outputs.vm-host-secret] }} >> ~/.ssh/known_hosts
 
     - name: Test SSH connection
       run: |
-        ssh -o ConnectTimeout=10 ${{ secrets.RHEL_VM_USER }}@${{ secrets.RHEL_VM_HOST }} "echo 'SSH connection successful'"
+        ssh -o ConnectTimeout=10 ${{ secrets[needs.determine-environment.outputs.vm-user-secret] }}@${{ secrets[needs.determine-environment.outputs.vm-host-secret] }} "echo 'SSH connection successful'"
 
     - name: Install Docker on RHEL VM
       run: |
-        ssh ${{ secrets.RHEL_VM_USER }}@${{ secrets.RHEL_VM_HOST }} << 'EOF'
+        ssh ${{ secrets[needs.determine-environment.outputs.vm-user-secret] }}@${{ secrets[needs.determine-environment.outputs.vm-host-secret] }} << 'EOF'
           # Update system
           sudo dnf update -y
           
