@@ -38,6 +38,8 @@ jobs:
             echo "⚠️  No staging environment file found, using production"
             cp .env.production .env
           fi
+          # Increase Node.js memory limit for large builds
+          export NODE_OPTIONS="--max-old-space-size=4096"
           npm run build
 
       - name: Pre-deployment system check
