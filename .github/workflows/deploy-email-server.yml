@@ -81,27 +81,27 @@ jobs:
           production)
             echo "hostname=mail.investra.com" >> $GITHUB_OUTPUT
             echo "email-user=transactions@investra.com" >> $GITHUB_OUTPUT
-            echo "vm-host-secret=RHEL_VM_HOST" >> $GITHUB_OUTPUT
-            echo "vm-user-secret=RHEL_VM_USER" >> $GITHUB_OUTPUT
-            echo "vm-key-secret=RHEL_VM_SSH_KEY" >> $GITHUB_OUTPUT
+            echo "vm-host-secret=RHEL_HOST" >> $GITHUB_OUTPUT
+            echo "vm-user-secret=RHEL_USER" >> $GITHUB_OUTPUT
+            echo "vm-key-secret=RHEL_SSH_KEY" >> $GITHUB_OUTPUT
             echo "email-password-secret=EMAIL_PASSWORD" >> $GITHUB_OUTPUT
             echo "admin-email-secret=ADMIN_EMAIL" >> $GITHUB_OUTPUT
             ;;
           staging)
             echo "hostname=mail-staging.investra.com" >> $GITHUB_OUTPUT
             echo "email-user=transactions-staging@investra.com" >> $GITHUB_OUTPUT
-            echo "vm-host-secret=RHEL_VM_HOST" >> $GITHUB_OUTPUT
-            echo "vm-user-secret=RHEL_VM_USER" >> $GITHUB_OUTPUT
-            echo "vm-key-secret=RHEL_VM_SSH_KEY" >> $GITHUB_OUTPUT
+            echo "vm-host-secret=RHEL_HOST" >> $GITHUB_OUTPUT
+            echo "vm-user-secret=RHEL_USER" >> $GITHUB_OUTPUT
+            echo "vm-key-secret=RHEL_SSH_KEY" >> $GITHUB_OUTPUT
             echo "email-password-secret=STAGING_EMAIL_PASSWORD" >> $GITHUB_OUTPUT
             echo "admin-email-secret=ADMIN_EMAIL" >> $GITHUB_OUTPUT
             ;;
           development)
             echo "hostname=mail-dev.investra.com" >> $GITHUB_OUTPUT
             echo "email-user=transactions-dev@investra.com" >> $GITHUB_OUTPUT
-            echo "vm-host-secret=RHEL_VM_HOST" >> $GITHUB_OUTPUT
-            echo "vm-user-secret=RHEL_VM_USER" >> $GITHUB_OUTPUT
-            echo "vm-key-secret=RHEL_VM_SSH_KEY" >> $GITHUB_OUTPUT
+            echo "vm-host-secret=RHEL_HOST" >> $GITHUB_OUTPUT
+            echo "vm-user-secret=RHEL_USER" >> $GITHUB_OUTPUT
+            echo "vm-key-secret=RHEL_SSH_KEY" >> $GITHUB_OUTPUT
             echo "email-password-secret=DEV_EMAIL_PASSWORD" >> $GITHUB_OUTPUT
             echo "admin-email-secret=ADMIN_EMAIL" >> $GITHUB_OUTPUT
             ;;
@@ -170,7 +170,7 @@ jobs:
 
     - name: Configure firewall for email server
       run: |
-        ssh ${{ secrets.RHEL_VM_USER }}@${{ secrets.RHEL_VM_HOST }} << 'EOF'
+        ssh ${{ secrets.RHEL_USER }}@${{ secrets.RHEL_HOST }} << 'EOF'
           # Configure firewall for email services
           echo "Configuring firewall..."
           
@@ -205,14 +205,14 @@ jobs:
     - name: Create email server directory and copy files
       run: |
         # Create directory on remote server
-        ssh ${{ secrets.RHEL_VM_USER }}@${{ secrets.RHEL_VM_HOST }} "mkdir -p ~/investra-email-server"
+        ssh ${{ secrets.RHEL_USER }}@${{ secrets.RHEL_HOST }} "mkdir -p ~/investra-email-server"
         
         # Copy email server files
-        scp -r email-server/* ${{ secrets.RHEL_VM_USER }}@${{ secrets.RHEL_VM_HOST }}:~/investra-email-server/
+        scp -r email-server/* ${{ secrets.RHEL_USER }}@${{ secrets.RHEL_HOST }}:~/investra-email-server/
 
     - name: Configure email server environment
       run: |
-        ssh ${{ secrets.RHEL_VM_USER }}@${{ secrets.RHEL_VM_HOST }} << 'EOF'
+        ssh ${{ secrets.RHEL_USER }}@${{ secrets.RHEL_HOST }} << 'EOF'
           cd ~/investra-email-server
           
           # Create environment file with production settings
@@ -226,12 +226,12 @@ jobs:
         MAILSERVER_PASS=${{ secrets.EMAIL_PASSWORD }}
         
         # IMAP Connection Details
-        IMAP_HOST=${{ secrets.RHEL_VM_HOST }}
+        IMAP_HOST=${{ secrets.RHEL_HOST }}
         IMAP_PORT=993
         IMAP_TLS=true
         
         # SMTP Configuration  
-        SMTP_HOST=${{ secrets.RHEL_VM_HOST }}
+        SMTP_HOST=${{ secrets.RHEL_HOST }}
         SMTP_PORT=587
         SMTP_TLS=true
         
@@ -245,7 +245,7 @@ jobs:
 
     - name: Update docker-compose for production
       run: |
-        ssh ${{ secrets.RHEL_VM_USER }}@${{ secrets.RHEL_VM_HOST }} << 'EOF'
+        ssh ${{ secrets.RHEL_USER }}@${{ secrets.RHEL_HOST }} << 'EOF'
           cd ~/investra-email-server
           
           # Update docker-compose.yml for production
@@ -345,7 +345,7 @@ jobs:
 
     - name: Setup SSL certificates with Let's Encrypt
       run: |
-        ssh ${{ secrets.RHEL_VM_USER }}@${{ secrets.RHEL_VM_HOST }} << 'EOF'
+        ssh ${{ secrets.RHEL_USER }}@${{ secrets.RHEL_HOST }} << 'EOF'
           cd ~/investra-email-server
           
           # Install certbot if not present
@@ -391,7 +391,7 @@ jobs:
 
     - name: Run email server setup
       run: |
-        ssh ${{ secrets.RHEL_VM_USER }}@${{ secrets.RHEL_VM_HOST }} << 'EOF'
+        ssh ${{ secrets.RHEL_USER }}@${{ secrets.RHEL_HOST }} << 'EOF'
           cd ~/investra-email-server
           
           # Make scripts executable
@@ -408,7 +408,7 @@ jobs:
 
     - name: Start email server
       run: |
-        ssh ${{ secrets.RHEL_VM_USER }}@${{ secrets.RHEL_VM_HOST }} << 'EOF'
+        ssh ${{ secrets.RHEL_USER }}@${{ secrets.RHEL_HOST }} << 'EOF'
           cd ~/investra-email-server
           
           # Start email server
@@ -432,7 +432,7 @@ jobs:
 
     - name: Test email server connectivity
       run: |
-        ssh ${{ secrets.RHEL_VM_USER }}@${{ secrets.RHEL_VM_HOST }} << 'EOF'
+        ssh ${{ secrets.RHEL_USER }}@${{ secrets.RHEL_HOST }} << 'EOF'
           cd ~/investra-email-server
           
           echo "Testing email server connectivity..."
@@ -458,7 +458,7 @@ jobs:
 
     - name: Setup monitoring and logging
       run: |
-        ssh ${{ secrets.RHEL_VM_USER }}@${{ secrets.RHEL_VM_HOST }} << 'EOF'
+        ssh ${{ secrets.RHEL_USER }}@${{ secrets.RHEL_HOST }} << 'EOF'
           cd ~/investra-email-server
           
           # Create monitoring script
@@ -514,7 +514,7 @@ jobs:
         [Service]
         Type=oneshot
         RemainAfterExit=yes
-        WorkingDirectory=/home/${{ secrets.RHEL_VM_USER }}/investra-email-server
+        WorkingDirectory=/home/${{ secrets.RHEL_USER }}/investra-email-server
         ExecStart=/usr/bin/docker compose up -d
         ExecStop=/usr/bin/docker compose down
         TimeoutStartSec=0
@@ -532,7 +532,7 @@ jobs:
 
     - name: Create backup script
       run: |
-        ssh ${{ secrets.RHEL_VM_USER }}@${{ secrets.RHEL_VM_HOST }} << 'EOF'
+        ssh ${{ secrets.RHEL_USER }}@${{ secrets.RHEL_HOST }} << 'EOF'
           cd ~/investra-email-server
           
           # Create backup script
@@ -568,14 +568,14 @@ jobs:
           chmod +x backup-email.sh
           
           # Add to crontab for daily backups
-          (crontab -l 2>/dev/null; echo "0 1 * * * /home/${{ secrets.RHEL_VM_USER }}/investra-email-server/backup-email.sh") | crontab -
+          (crontab -l 2>/dev/null; echo "0 1 * * * /home/${{ secrets.RHEL_USER }}/investra-email-server/backup-email.sh") | crontab -
           
           echo "Backup script created and scheduled"
         EOF
 
     - name: Display deployment summary
       run: |
-        ssh ${{ secrets.RHEL_VM_USER }}@${{ secrets.RHEL_VM_HOST }} << 'EOF'
+        ssh ${{ secrets.RHEL_USER }}@${{ secrets.RHEL_HOST }} << 'EOF'
           cd ~/investra-email-server
           
           echo "============================================"
@@ -584,13 +584,13 @@ jobs:
           echo ""
           echo "🌐 Server Details:"
           echo "   Email Server: ${{ env.EMAIL_HOSTNAME }}"
-          echo "   IP Address: ${{ secrets.RHEL_VM_HOST }}"
+          echo "   IP Address: ${{ secrets.RHEL_HOST }}"
           echo "   Email Account: ${{ env.EMAIL_USER }}"
           echo ""
           echo "📧 Connection Settings:"
-          echo "   IMAP: ${{ secrets.RHEL_VM_HOST }}:993 (SSL)"
-          echo "   SMTP: ${{ secrets.RHEL_VM_HOST }}:587 (STARTTLS)"
-          echo "   Web Interface: http://${{ secrets.RHEL_VM_HOST }}:8080"
+          echo "   IMAP: ${{ secrets.RHEL_HOST }}:993 (SSL)"
+          echo "   SMTP: ${{ secrets.RHEL_HOST }}:587 (STARTTLS)"
+          echo "   Web Interface: http://${{ secrets.RHEL_HOST }}:8080"
           echo ""
           echo "🔧 Management Commands:"
           echo "   Status: cd ~/investra-email-server && docker compose ps"
@@ -600,7 +600,7 @@ jobs:
           echo "   Backup: cd ~/investra-email-server && ./backup-email.sh"
           echo ""
           echo "📋 Next Steps:"
-          echo "   1. Update DNS MX record to point to ${{ secrets.RHEL_VM_HOST }}"
+          echo "   1. Update DNS MX record to point to ${{ secrets.RHEL_HOST }}"
           echo "   2. Configure Wealthsimple to send emails to ${{ env.EMAIL_USER }}"
           echo "   3. Test email reception"
           echo "   4. Monitor logs and performance"
@@ -612,9 +612,9 @@ jobs:
       if: success()
       run: |
         echo "Email server deployed successfully to RHEL VM"
-        echo "Server: ${{ secrets.RHEL_VM_HOST }}"
+        echo "Server: ${{ secrets.RHEL_HOST }}"
         echo "Email: ${{ env.EMAIL_USER }}"
-        echo "Web Interface: http://${{ secrets.RHEL_VM_HOST }}:8080"
+        echo "Web Interface: http://${{ secrets.RHEL_HOST }}:8080"
 
     - name: Handle deployment failure
       if: failure()
