@@ -66,16 +66,12 @@ jobs:
         fi
         chmod 600 ~/.ssh/id_rsa
 
-    - name: Test SSH connection
+    - name: Verify Podman on VM
       run: |
         # Add host to known_hosts
         ssh-keyscan -H ${{ secrets.RHEL_HOST }} >> ~/.ssh/known_hosts
         
-        # Simple SSH test
-        ssh -i ~/.ssh/id_rsa ${{ secrets.RHEL_USER }}@${{ secrets.RHEL_HOST }} "echo 'SSH connection successful' && whoami && hostname"
-
-    - name: Verify Podman on VM
-      run: |
+        # Verify Podman (first real SSH command - will test connectivity naturally)
         ssh -i ~/.ssh/id_rsa ${{ secrets.RHEL_USER }}@${{ secrets.RHEL_HOST }} "podman --version"
 
     - name: Prepare email server directory
