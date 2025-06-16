@@ -36,7 +36,7 @@ env:
 jobs:
   deploy-dev-email-server:
     name: Deploy Development Email Server
-    runs-on: ubuntu-latest
+    runs-on: self-hosted  # Use self-hosted runner to reach private VM
     environment: development
     
     steps:
