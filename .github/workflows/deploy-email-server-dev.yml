@@ -66,33 +66,43 @@ jobs:
         fi
         chmod 600 ~/.ssh/id_rsa
 
-    - name: Deploy email server to VM
+    - name: Test SSH connection
       run: |
         # Add host to known_hosts
         ssh-keyscan -H ${{ secrets.RHEL_HOST }} >> ~/.ssh/known_hosts
         
-        # Deploy email server using simple approach
+        # Simple SSH test
+        ssh -i ~/.ssh/id_rsa ${{ secrets.RHEL_USER }}@${{ secrets.RHEL_HOST }} "echo 'SSH connection successful' && whoami && hostname"
+
+    - name: Verify Podman on VM
+      run: |
+        ssh -i ~/.ssh/id_rsa ${{ secrets.RHEL_USER }}@${{ secrets.RHEL_HOST }} "podman --version"
+
+    - name: Prepare email server directory
+      run: |
         ssh -i ~/.ssh/id_rsa ${{ secrets.RHEL_USER }}@${{ secrets.RHEL_HOST }} << 'EOF'
-          echo "Connected to VM successfully"
-          
-          # Verify Podman is available
-          podman --version
-          
-          # Create email server directory
           mkdir -p ~/investra-email-server-dev
           cd ~/investra-email-server-dev
-          
-          # Stop any existing containers
-          podman stop investra-mailserver-dev 2>/dev/null || true
-          podman rm investra-mailserver-dev 2>/dev/null || true
-          
-          # Create necessary directories
           mkdir -p data/{mail-data,mail-state,mail-logs,config}
+          echo "Directory structure created"
+        EOF
+
+    - name: Stop existing containers
+      run: |
+        ssh -i ~/.ssh/id_rsa ${{ secrets.RHEL_USER }}@${{ secrets.RHEL_HOST }} << 'EOF'
+          podman stop investra-mailserver-dev 2>/dev/null || echo "No existing container to stop"
+          podman rm investra-mailserver-dev 2>/dev/null || echo "No existing container to remove"
+        EOF
+
+    - name: Pull email server image
+      run: |
+        ssh -i ~/.ssh/id_rsa ${{ secrets.RHEL_USER }}@${{ secrets.RHEL_HOST }} "podman pull ghcr.io/docker-mailserver/docker-mailserver:latest"
+
+    - name: Start email server container
+      run: |
+        ssh -i ~/.ssh/id_rsa ${{ secrets.RHEL_USER }}@${{ secrets.RHEL_HOST }} << 'EOF'
+          cd ~/investra-email-server-dev
           
-          # Pull the latest email server image
-          podman pull ghcr.io/docker-mailserver/docker-mailserver:latest
-          
-          # Start a basic email server container
           podman run -d \
             --name investra-mailserver-dev \
             -p 25:25 \
@@ -108,15 +118,26 @@ jobs:
             -e DMS_DEBUG=1 \
             ghcr.io/docker-mailserver/docker-mailserver:latest
           
-          echo "Email server container started"
-          
-          # Wait for container to initialize
+          echo "Container start command executed"
+        EOF
+
+    - name: Wait and check container status
+      run: |
+        ssh -i ~/.ssh/id_rsa ${{ secrets.RHEL_USER }}@${{ secrets.RHEL_HOST }} << 'EOF'
+          echo "Waiting 20 seconds for container to initialize..."
           sleep 20
           
-          # Check container status
+          echo "Checking container status:"
           podman ps --filter "name=investra-mailserver-dev"
           
-          # Check if email ports are responding
+          echo "Checking container logs:"
+          podman logs investra-mailserver-dev --tail=10 || echo "Could not get logs"
+        EOF
+
+    - name: Check email ports
+      run: |
+        ssh -i ~/.ssh/id_rsa ${{ secrets.RHEL_USER }}@${{ secrets.RHEL_HOST }} << 'EOF'
+          echo "Checking if email ports are listening:"
           for port in 25 587 993; do
             if ss -tlnp | grep ":$port "; then
               echo "✅ Port $port is listening"
@@ -124,8 +145,6 @@ jobs:
               echo "❌ Port $port is not listening"
             fi
           done
-          
-          echo "Development email server deployment completed"
         EOF
 
     - name: Display deployment summary
