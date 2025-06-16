@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import styled from 'styled-components';
 import { 
   TrendingUp, 
@@ -412,11 +412,11 @@ export const PositionsTable: React.FC<PositionsTableProps> = ({
     setSelectedPosition(null);
   };
 
-  const handleRefreshPositions = async () => {
+  const handleRefreshPositions = useCallback(async () => {
     if (onRefresh) {
       await onRefresh();
     }
-  };
+  }, [onRefresh]);
 
   if (loading) {
     return (

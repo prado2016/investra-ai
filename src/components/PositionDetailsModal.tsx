@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import styled from 'styled-components';
 import { 
   X, 
@@ -317,7 +317,7 @@ export const PositionDetailsModal: React.FC<PositionDetailsModalProps> = ({
   const { activePortfolio } = usePortfolios();
 
   // Fetch transactions for this position
-  const fetchTransactions = async () => {
+  const fetchTransactions = useCallback(async () => {
     if (!activePortfolio?.id) {
       notify.error('No active portfolio found');
       return;
@@ -343,13 +343,13 @@ export const PositionDetailsModal: React.FC<PositionDetailsModalProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [activePortfolio?.id, position.assetSymbol, notify]);
 
   useEffect(() => {
     if (isOpen && position) {
       fetchTransactions();
     }
-  }, [isOpen, position, fetchTransactions]);
+  }, [isOpen, position.assetSymbol, fetchTransactions]);
 
   const handleEditTransaction = (transaction: TransactionWithAsset) => {
     setEditingTransaction(transaction);
