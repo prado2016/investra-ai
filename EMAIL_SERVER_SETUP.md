@@ -1,562 +1,364 @@
-# Email Server Installation and Configuration Guide
+# 📧 Email Server Setup Guide
 
-## Overview
-This document details the email server infrastructure needed to receive and process Wealthsimple transaction confirmation emails for automated import into Investra AI.
+## Quick Start (5 minutes)
 
-## Architecture Options
-
-### Option 1: Cloud Email Service (Recommended)
-**Best for**: Production deployment, reliability, scalability
-
-#### AWS SES + Lambda + S3
-```
-Wealthsimple Email → AWS SES → Lambda Function → S3 Storage → API Processing
-```
-
-**Advantages**:
-- Highly reliable and scalable
-- Built-in spam protection
-- Automatic email parsing triggers
-- Cost-effective for volume
-- No server maintenance
-
-**Configuration**:
-```yaml
-# AWS SES Configuration
-Domain: investra-imports.yourdomain.com
-Email: transactions@investra-imports.yourdomain.com
-Region: us-east-1 (or your preferred region)
-Storage: S3 bucket for email content
-Processing: Lambda function triggered by SES
-```
-
-#### Google Workspace + Cloud Functions
-```
-Wealthsimple Email → Gmail API → Cloud Function → Cloud Storage → API Processing
-```
-
-**Advantages**:
-- Familiar Gmail interface for monitoring
-- Easy integration with existing Google services
-- Built-in filtering and organization
-
-### Option 2: Self-Hosted Email Server
-**Best for**: Complete control, privacy requirements, cost optimization
-
-#### Postfix + Dovecot Setup
-```
-Wealthsimple Email → Postfix (SMTP) → Dovecot (IMAP) → Node.js IMAP Client → API Processing
-```
-
-**Server Requirements**:
-- Linux server (Ubuntu 22.04 LTS recommended)
-- 2+ GB RAM, 2+ CPU cores
-- 50+ GB storage for email retention
-- Static IP address
-- Domain name with MX record
-
-### Option 3: Third-Party Email Service
-**Best for**: Quick setup, managed infrastructure
-
-#### Mailgun/SendGrid/Postmark
-```
-Wealthsimple Email → Email Service → Webhook → Your API → Processing
-```
-
-## Recommended Solution: AWS SES + Lambda
-
-### Step 1: Domain Setup
+### Step 1: Navigate to Email Server Directory
 ```bash
-# 1. Configure DNS records for your domain
-# MX Record: 10 inbound-smtp.us-east-1.amazonaws.com
-# TXT Record for verification: "amazonses:YOUR_VERIFICATION_TOKEN"
-
-# 2. Verify domain in AWS SES
-aws ses verify-domain-identity --domain investra-imports.yourdomain.com
+cd /Users/eduardo/investra-ai/email-server
 ```
 
-### Step 2: SES Configuration
-```typescript
-// ses-config.ts
-export const SESConfig = {
-  region: 'us-east-1',
-  domain: 'investra-imports.yourdomain.com',
-  emailAddress: 'transactions@investra-imports.yourdomain.com',
-  s3Bucket: 'investra-email-storage',
-  lambdaFunction: 'process-wealthsimple-email'
-};
-
-// SES Rule Set Configuration
-const ruleSet = {
-  Name: 'InvestraEmailProcessing',
-  Rules: [
-    {
-      Name: 'WealthsimpleImports',
-      Recipients: ['transactions@investra-imports.yourdomain.com'],
-      Actions: [
-        {
-          S3Action: {
-            BucketName: 'investra-email-storage',
-            ObjectKeyPrefix: 'emails/',
-            TopicArn: 'arn:aws:sns:us-east-1:ACCOUNT:email-received'
-          }
-        },
-        {
-          LambdaAction: {
-            FunctionArn: 'arn:aws:lambda:us-east-1:ACCOUNT:function:process-wealthsimple-email'
-          }
-        }
-      ]
-    }
-  ]
-};
-```
-
-### Step 3: Lambda Function for Email Processing
-```typescript
-// lambda/email-processor.ts
-import { SESEvent, Context } from 'aws-lambda';
-import { S3 } from 'aws-sdk';
-import axios from 'axios';
-
-const s3 = new S3();
-
-export const handler = async (event: SESEvent, context: Context) => {
-  console.log('Processing SES event:', JSON.stringify(event, null, 2));
-
-  for (const record of event.Records) {
-    if (record.eventSource === 'aws:ses') {
-      try {
-        // Get email content from S3
-        const s3Object = await s3.getObject({
-          Bucket: process.env.S3_BUCKET!,
-          Key: `emails/${record.ses.mail.messageId}`
-        }).promise();
-
-        const emailContent = s3Object.Body?.toString('utf-8');
-        
-        if (emailContent) {
-          // Send to your API for processing
-          await axios.post(`${process.env.API_BASE_URL}/api/email/process`, {
-            emailContent,
-            messageId: record.ses.mail.messageId,
-            timestamp: record.ses.mail.timestamp,
-            source: record.ses.mail.source
-          }, {
-            headers: {
-              'Authorization': `Bearer ${process.env.API_TOKEN}`,
-              'Content-Type': 'application/json'
-            }
-          });
-        }
-      } catch (error) {
-        console.error('Failed to process email:', error);
-        // Send to DLQ or retry queue
-      }
-    }
-  }
-};
-```
-
-### Step 4: Infrastructure as Code (Terraform)
-```hcl
-# infrastructure/email-processing.tf
-resource "aws_ses_domain_identity" "investra_domain" {
-  domain = var.domain_name
-}
-
-resource "aws_ses_domain_dkim" "investra_dkim" {
-  domain = aws_ses_domain_identity.investra_domain.domain
-}
-
-resource "aws_s3_bucket" "email_storage" {
-  bucket = "investra-email-storage"
-  
-  lifecycle_configuration {
-    rule {
-      id     = "email_retention"
-      status = "Enabled"
-      
-      expiration {
-        days = 90  # Retain emails for 90 days
-      }
-    }
-  }
-}
-
-resource "aws_lambda_function" "email_processor" {
-  filename         = "email-processor.zip"
-  function_name    = "process-wealthsimple-email"
-  role            = aws_iam_role.lambda_role.arn
-  handler         = "index.handler"
-  runtime         = "nodejs18.x"
-  timeout         = 30
-  memory_size     = 256
-
-  environment {
-    variables = {
-      S3_BUCKET = aws_s3_bucket.email_storage.bucket
-      API_BASE_URL = var.api_base_url
-      API_TOKEN = var.api_token
-    }
-  }
-}
-
-resource "aws_ses_receipt_rule_set" "email_rules" {
-  rule_set_name = "InvestraEmailProcessing"
-}
-
-resource "aws_ses_receipt_rule" "wealthsimple_rule" {
-  name          = "WealthsimpleImports"
-  rule_set_name = aws_ses_receipt_rule_set.email_rules.rule_set_name
-  recipients    = ["transactions@${var.domain_name}"]
-  enabled       = true
-  scan_enabled  = true
-
-  s3_action {
-    bucket_name       = aws_s3_bucket.email_storage.bucket
-    object_key_prefix = "emails/"
-    position          = 1
-  }
-
-  lambda_action {
-    function_arn = aws_lambda_function.email_processor.arn
-    position     = 2
-  }
-}
-```
-
-## Self-Hosted Option: Detailed Setup
-
-### Server Requirements
-```yaml
-# Server Specifications
-OS: Ubuntu 22.04 LTS
-RAM: 4GB minimum, 8GB recommended
-CPU: 2 cores minimum, 4 cores recommended
-Storage: 100GB SSD minimum
-Network: Static IP address required
-Domain: Subdomain for email processing (e.g., mail.investra.com)
-```
-
-### Installation Script
+### Step 2: Run Setup Script
 ```bash
-#!/bin/bash
-# install-email-server.sh
+chmod +x setup.sh
+./setup.sh
+```
 
-set -e
+### Step 3: Start Email Server
+```bash
+./start-mailserver.sh
+```
 
-# Update system
-sudo apt update && sudo apt upgrade -y
+### Step 4: Verify Setup
+```bash
+./test-email.sh
+```
 
-# Install required packages
-sudo apt install -y postfix dovecot-imapd dovecot-pop3d \
-  dovecot-lmtpd dovecot-mysql mysql-server \
-  certbot python3-certbot-nginx nginx \
-  fail2ban ufw
+## 📋 What Gets Created
 
-# Configure firewall
+### Email Account
+- **Email**: `transactions@investra.com`
+- **Password**: `InvestraSecure2025!`
+- **IMAP**: `localhost:993` (SSL)
+- **SMTP**: `localhost:587` (STARTTLS)
+
+### Docker Services
+- **mailserver**: Main email server (docker-mailserver)
+- **mailserver-admin**: Web interface at http://localhost:8080
+
+### Directory Structure
+```
+email-server/
+├── docker-compose.yml          # Main container config
+├── setup.sh                   # Setup script
+├── start-mailserver.sh        # Start server
+├── stop-mailserver.sh         # Stop server
+├── test-email.sh              # Test connectivity
+├── .env                       # Environment variables
+└── docker-data/               # Email data storage
+    └── dms/
+        ├── mail-data/         # Email storage
+        ├── mail-state/        # Server state
+        ├── mail-logs/         # Log files
+        ├── config/            # Configuration
+        └── certs/             # SSL certificates
+```
+
+## 🌐 DNS Configuration (Required for Production)
+
+### For Domain: investra.com
+
+Add these DNS records to your domain:
+
+```dns
+# MX Record (highest priority)
+@     MX  10  mail.investra.com
+
+# A Record for mail server
+mail  A       YOUR_SERVER_IP
+
+# SPF Record (prevents spoofing)
+@     TXT     "v=spf1 mx ~all"
+
+# DMARC Record (email authentication)
+_dmarc TXT    "v=DMARC1; p=quarantine; rua=mailto:dmarc@investra.com"
+
+# DKIM Record (will be generated by mailserver)
+# Check logs for the DKIM record after starting
+```
+
+## 🔧 Configuration Files
+
+### Environment Variables (.env)
+```bash
+# Server Details
+HOSTNAME=mail.investra.com
+DOMAINNAME=investra.com
+
+# Email Credentials
+MAILSERVER_USER=transactions@investra.com
+MAILSERVER_PASS=InvestraSecure2025!
+
+# Connection Settings
+IMAP_HOST=localhost
+IMAP_PORT=993
+IMAP_TLS=true
+SMTP_HOST=localhost
+SMTP_PORT=587
+SMTP_TLS=true
+```
+
+### Email Accounts (postfix-accounts.cf)
+```
+transactions@investra.com|{PLAIN}InvestraSecure2025!
+```
+
+### Email Aliases (postfix-virtual.cf)
+```
+wealthsimple@investra.com transactions@investra.com
+imports@investra.com transactions@investra.com
+noreply@investra.com transactions@investra.com
+```
+
+## 🚀 Testing Your Setup
+
+### 1. Check Docker Containers
+```bash
+docker-compose ps
+```
+
+Expected output:
+```
+NAME                    IMAGE                           STATUS
+mailserver              docker-mailserver:latest        Up
+mailserver-admin        roundcube/roundcubemail        Up
+```
+
+### 2. Test IMAP Connection
+```bash
+# Using telnet
+telnet localhost 993
+
+# Using openssl
+openssl s_client -connect localhost:993 -servername mail.investra.com
+```
+
+### 3. Test SMTP Connection
+```bash
+telnet localhost 587
+```
+
+### 4. Check Logs
+```bash
+# All logs
+docker-compose logs
+
+# Specific service
+docker-compose logs mailserver
+
+# Follow live logs
+docker-compose logs -f mailserver
+```
+
+### 5. Send Test Email
+You can use the web interface at http://localhost:8080 or any email client:
+
+**Settings for Email Client:**
+- **IMAP Server**: localhost
+- **IMAP Port**: 993
+- **IMAP Security**: SSL/TLS
+- **SMTP Server**: localhost
+- **SMTP Port**: 587
+- **SMTP Security**: STARTTLS
+- **Username**: transactions@investra.com
+- **Password**: InvestraSecure2025!
+
+## 🔗 Integration with Investra AI
+
+### IMAP Service Configuration
+
+The app will automatically connect to your email server using these settings:
+
+```typescript
+const imapConfig = {
+  host: 'localhost',
+  port: 993,
+  secure: true,
+  auth: {
+    user: 'transactions@investra.com',
+    pass: 'InvestraSecure2025!'
+  }
+};
+```
+
+### Starting Email Processing
+
+1. **Start Email Server** (if not running):
+   ```bash
+   cd email-server
+   ./start-mailserver.sh
+   ```
+
+2. **Access Email Management** in the app:
+   - Navigate to **Email Import** in the sidebar
+   - Go to **Overview** tab
+   - Click **"Start Email Service"**
+
+3. **Configure Wealthsimple** to send emails to:
+   ```
+   transactions@investra.com
+   ```
+
+## 🛠 Troubleshooting
+
+### Common Issues
+
+**1. Port Already in Use**
+```bash
+# Check what's using port 25
+sudo lsof -i :25
+
+# Stop conflicting service (usually postfix)
+sudo systemctl stop postfix
+sudo systemctl disable postfix
+```
+
+**2. Permission Denied**
+```bash
+# Fix script permissions
+chmod +x *.sh
+
+# Fix directory permissions
+sudo chown -R $(whoami):$(whoami) docker-data/
+```
+
+**3. Docker Not Running**
+```bash
+# Start Docker
+sudo systemctl start docker
+
+# Enable Docker on boot
+sudo systemctl enable docker
+```
+
+**4. Container Won't Start**
+```bash
+# Check detailed logs
+docker-compose logs mailserver
+
+# Restart specific service
+docker-compose restart mailserver
+
+# Rebuild containers
+docker-compose down
+docker-compose up -d --build
+```
+
+**5. Emails Not Being Received**
+```bash
+# Check firewall
+sudo ufw status
+sudo ufw allow 25
+sudo ufw allow 587
+sudo ufw allow 993
+
+# Check if ports are listening
+netstat -tulpn | grep -E ':(25|587|993) '
+```
+
+**6. SSL Certificate Issues**
+```bash
+# Generate self-signed certificates for testing
+docker-compose exec mailserver bash
+mkdir -p /etc/ssl/certs /etc/ssl/private
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+  -keyout /etc/ssl/private/ssl-cert-snakeoil.key \
+  -out /etc/ssl/certs/ssl-cert-snakeoil.pem \
+  -subj "/C=US/ST=State/L=City/O=Organization/CN=mail.investra.com"
+```
+
+## 📊 Monitoring & Maintenance
+
+### Check Email Queue
+```bash
+docker-compose exec mailserver postqueue -p
+```
+
+### View Mail Logs
+```bash
+docker-compose exec mailserver tail -f /var/log/mail/mail.log
+```
+
+### Backup Email Data
+```bash
+# Create backup
+tar -czf email-backup-$(date +%Y%m%d).tar.gz docker-data/
+
+# Restore backup
+tar -xzf email-backup-YYYYMMDD.tar.gz
+```
+
+### Update Containers
+```bash
+docker-compose pull
+docker-compose down
+docker-compose up -d
+```
+
+## 🔐 Security Best Practices
+
+### 1. Use Strong Passwords
+- Change default password in `postfix-accounts.cf`
+- Use password manager to generate secure passwords
+
+### 2. Enable Fail2Ban
+Already configured in docker-compose.yml:
+```yaml
+- ENABLE_FAIL2BAN=1
+```
+
+### 3. Configure Firewall
+```bash
+# Allow only necessary ports
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+sudo ufw allow ssh
 sudo ufw allow 25    # SMTP
 sudo ufw allow 587   # SMTP Submission
 sudo ufw allow 993   # IMAPS
-sudo ufw allow 995   # POP3S
-sudo ufw allow 80    # HTTP (for certbot)
-sudo ufw allow 443   # HTTPS
-sudo ufw allow 22    # SSH
-sudo ufw --force enable
-
-# Configure Postfix
-sudo debconf-set-selections <<< "postfix postfix/mailname string $DOMAIN"
-sudo debconf-set-selections <<< "postfix postfix/main_mailer_type string 'Internet Site'"
-sudo dpkg-reconfigure -f noninteractive postfix
-
-# Setup database for email accounts
-sudo mysql -e "CREATE DATABASE mailserver;"
-sudo mysql -e "CREATE USER 'mailuser'@'localhost' IDENTIFIED BY '$DB_PASSWORD';"
-sudo mysql -e "GRANT SELECT ON mailserver.* TO 'mailuser'@'localhost';"
-
-# Create email tables
-sudo mysql mailserver << 'EOF'
-CREATE TABLE virtual_domains (
-  id INT NOT NULL AUTO_INCREMENT,
-  name VARCHAR(50) NOT NULL,
-  PRIMARY KEY (id)
-);
-
-CREATE TABLE virtual_users (
-  id INT NOT NULL AUTO_INCREMENT,
-  domain_id INT NOT NULL,
-  password VARCHAR(106) NOT NULL,
-  email VARCHAR(120) NOT NULL,
-  PRIMARY KEY (id),
-  FOREIGN KEY (domain_id) REFERENCES virtual_domains(id) ON DELETE CASCADE
-);
-
-CREATE TABLE virtual_aliases (
-  id INT NOT NULL AUTO_INCREMENT,
-  domain_id INT NOT NULL,
-  source VARCHAR(100) NOT NULL,
-  destination VARCHAR(100) NOT NULL,
-  PRIMARY KEY (id),
-  FOREIGN KEY (domain_id) REFERENCES virtual_domains(id) ON DELETE CASCADE
-);
-EOF
-
-# Insert domain and user
-sudo mysql mailserver -e "INSERT INTO virtual_domains (name) VALUES ('$DOMAIN');"
-sudo mysql mailserver -e "INSERT INTO virtual_users (domain_id, password, email) VALUES (1, ENCRYPT('$EMAIL_PASSWORD', CONCAT('\$6\$', SUBSTRING(SHA(RAND()), -16))), 'transactions@$DOMAIN');"
-
-echo "Email server installation completed!"
-echo "Domain: $DOMAIN"
-echo "Email: transactions@$DOMAIN"
-echo "Next steps:"
-echo "1. Configure DNS MX record"
-echo "2. Setup SSL certificates"
-echo "3. Configure Postfix and Dovecot"
-echo "4. Test email delivery"
+sudo ufw enable
 ```
 
-### Postfix Configuration
+### 4. Regular Updates
 ```bash
-# /etc/postfix/main.cf
-myhostname = mail.investra.com
-mydomain = investra.com
-myorigin = $mydomain
-inet_interfaces = all
-mydestination = localhost
-relayhost = 
-mynetworks = 127.0.0.0/8
-home_mailbox = Maildir/
-mailbox_command = 
-
-# Virtual domain configuration
-virtual_transport = lmtp:unix:private/dovecot-lmtp
-virtual_mailbox_domains = mysql:/etc/postfix/mysql-virtual-mailbox-domains.cf
-virtual_mailbox_maps = mysql:/etc/postfix/mysql-virtual-mailbox-maps.cf
-virtual_alias_maps = mysql:/etc/postfix/mysql-virtual-alias-maps.cf
-
-# TLS configuration
-smtpd_tls_cert_file = /etc/letsencrypt/live/mail.investra.com/fullchain.pem
-smtpd_tls_key_file = /etc/letsencrypt/live/mail.investra.com/privkey.pem
-smtpd_use_tls = yes
-smtpd_tls_auth_only = yes
+# Weekly update routine
+docker-compose pull
+docker-compose down
+docker-compose up -d
 ```
 
-### Dovecot Configuration
+### 5. SSL Certificates
+For production, use Let's Encrypt:
 ```bash
-# /etc/dovecot/dovecot.conf
-protocols = imap pop3 lmtp
-mail_location = maildir:/var/mail/vhosts/%d/%n
-mail_privileged_group = mail
+# Install certbot
+sudo apt install certbot
 
-# Authentication
-auth_mechanisms = plain login
-passdb {
-  driver = sql
-  args = /etc/dovecot/dovecot-sql.conf.ext
-}
-userdb {
-  driver = static
-  args = uid=vmail gid=vmail home=/var/mail/vhosts/%d/%n
-}
+# Get certificate
+sudo certbot certonly --standalone -d mail.investra.com
 
-# SSL configuration
-ssl = required
-ssl_cert = </etc/letsencrypt/live/mail.investra.com/fullchain.pem
-ssl_key = </etc/letsencrypt/live/mail.investra.com/privkey.pem
+# Update docker-compose.yml to use real certificates
 ```
 
-## Email Processing Application
+## 📞 Support & Next Steps
 
-### Node.js IMAP Client
-```typescript
-// email-client.ts
-import { ImapFlow } from 'imapflow';
-import { EmailTransactionParser } from './email-parser';
+### If Everything Works ✅
+1. Configure DNS records for your domain
+2. Get SSL certificates for production
+3. Test with real Wealthsimple emails
+4. Monitor the Email Import dashboard in the app
 
-export class EmailProcessor {
-  private client: ImapFlow;
+### If You Need Help ❌
+1. Check the logs: `docker-compose logs mailserver`
+2. Verify Docker is running: `docker info`
+3. Test network connectivity: `telnet localhost 993`
+4. Check firewall settings: `sudo ufw status`
 
-  constructor(private config: {
-    host: string;
-    port: number;
-    secure: boolean;
-    auth: { user: string; pass: string };
-  }) {
-    this.client = new ImapFlow(config);
-  }
+### Integration Complete 🎉
+Once your email server is running:
+1. Go to **Email Import** page in the app
+2. Click **"Start Email Service"** 
+3. Configure Wealthsimple to send emails to `transactions@investra.com`
+4. Watch automated transaction imports in real-time!
 
-  async processEmails() {
-    await this.client.connect();
-    
-    // Lock to INBOX
-    await this.client.mailboxOpen('INBOX');
-    
-    // Search for unread emails from Wealthsimple
-    const messages = await this.client.search({
-      unseen: true,
-      from: 'noreply@wealthsimple.com'
-    });
+---
 
-    for await (const message of this.client.fetch(messages, {
-      envelope: true,
-      bodyStructure: true,
-      source: true
-    })) {
-      try {
-        // Process the email
-        await this.processEmail(message);
-        
-        // Mark as read
-        await this.client.messageFlagsSet(message.seq, ['\\Seen']);
-      } catch (error) {
-        console.error('Failed to process email:', error);
-        // Mark with custom flag for failed processing
-        await this.client.messageFlagsSet(message.seq, ['\\Flagged']);
-      }
-    }
-
-    await this.client.logout();
-  }
-
-  private async processEmail(message: any) {
-    const emailContent = message.source.toString();
-    
-    // Send to your API for processing
-    const result = await EmailTransactionParser.parseAndCreateTransaction(
-      emailContent,
-      this.determinePortfolioId(emailContent)
-    );
-    
-    if (!result.success) {
-      throw new Error(result.error || 'Processing failed');
-    }
-  }
-}
-```
-
-### Monitoring and Health Checks
-```typescript
-// monitoring.ts
-export class EmailServerMonitoring {
-  static async healthCheck() {
-    const checks = await Promise.allSettled([
-      this.checkEmailConnectivity(),
-      this.checkDiskSpace(),
-      this.checkEmailQueue(),
-      this.checkProcessingBacklog()
-    ]);
-
-    return {
-      status: checks.every(check => check.status === 'fulfilled') ? 'healthy' : 'unhealthy',
-      checks: checks.map((check, index) => ({
-        name: ['connectivity', 'disk', 'queue', 'backlog'][index],
-        status: check.status,
-        details: check.status === 'fulfilled' ? check.value : check.reason
-      }))
-    };
-  }
-
-  private static async checkEmailConnectivity() {
-    // Test IMAP connection
-    const client = new ImapFlow(CONFIG.email);
-    try {
-      await client.connect();
-      await client.logout();
-      return { status: 'ok' };
-    } catch (error) {
-      throw new Error(`Email connectivity failed: ${error.message}`);
-    }
-  }
-}
-```
-
-## User Setup Instructions
-
-### Email Forwarding Setup (For Users)
-```markdown
-# Setting Up Email Forwarding for Investra AI
-
-## Gmail Users
-1. Go to Gmail Settings → Forwarding and POP/IMAP
-2. Add forwarding address: transactions@investra-imports.yourdomain.com
-3. Create filter for emails from: noreply@wealthsimple.com
-4. Set action: Forward to transactions@investra-imports.yourdomain.com
-
-## Outlook Users
-1. Go to Settings → Mail → Forwarding
-2. Enable forwarding to: transactions@investra-imports.yourdomain.com
-3. Create rule for Wealthsimple emails
-4. Set action: Forward to specified address
-
-## iPhone Mail
-1. Settings → Mail → Rules
-2. Create rule for sender: noreply@wealthsimple.com
-3. Action: Forward to transactions@investra-imports.yourdomain.com
-```
-
-## Security Considerations
-
-### Email Security
-```yaml
-Security Measures:
-  - TLS encryption for all email transmission
-  - SPF, DKIM, DMARC records configured
-  - Fail2ban for brute force protection
-  - Regular security updates
-  - Email content encryption at rest
-  - Access logging and monitoring
-  - Rate limiting on processing
-  - Email source validation (Wealthsimple only)
-```
-
-### Data Privacy
-```yaml
-Privacy Protections:
-  - Email retention policy (90 days max)
-  - Automatic PII redaction in logs
-  - Encrypted storage of email content
-  - User consent for email processing
-  - Data deletion on user request
-  - GDPR/CCPA compliance measures
-```
-
-## Cost Analysis
-
-### AWS SES Option
-```yaml
-Monthly Costs (estimated):
-  - SES: $0.10 per 1,000 emails received
-  - Lambda: $0.20 per 1M requests
-  - S3 Storage: $0.023 per GB
-  - Data Transfer: $0.09 per GB
-  
-Estimated monthly cost for 1,000 users: $15-30
-```
-
-### Self-Hosted Option
-```yaml
-Monthly Costs:
-  - VPS Server: $20-50/month
-  - Domain: $10-15/year
-  - SSL Certificate: Free (Let's Encrypt)
-  - Maintenance: 4-8 hours/month
-  
-Total monthly cost: $25-60 + maintenance time
-```
-
-## Recommendation
-
-**For Production**: Use AWS SES + Lambda approach
-- More reliable and scalable
-- Better security and monitoring
-- Lower maintenance overhead
-- Built-in redundancy and backup
-
-**For Development/Testing**: Self-hosted option
-- Complete control over configuration
-- Easier debugging and testing
-- No external dependencies
-- Cost-effective for low volume
-
-This infrastructure will provide a robust foundation for your email-based transaction import feature!
+**Status**: Your email server is now ready for automated Wealthsimple transaction processing! 🚀
