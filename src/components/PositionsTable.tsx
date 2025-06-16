@@ -10,45 +10,7 @@ import {
   AlertCircle,
   RefreshCw
 } from 'lucide-react';
-
-// Inline types to avoid import issues
-type AssetType = 'stock' | 'option' | 'forex' | 'crypto' | 'reit' | 'etf';
-type Currency = 'USD' | 'EUR' | 'GBP' | 'JPY' | 'CAD' | 'AUD' | 'CHF' | 'CNY' | 'BTC' | 'ETH';
-type CostBasisMethod = 'FIFO' | 'LIFO' | 'AVERAGE_COST' | 'SPECIFIC_LOT';
-
-interface PositionLot {
-  id: string;
-  transactionId: string;
-  quantity: number;
-  costBasis: number;
-  purchaseDate: Date;
-  remainingQuantity: number;
-}
-
-interface Position {
-  id: string;
-  assetId: string;
-  assetSymbol: string;
-  assetName?: string;
-  assetType: AssetType;
-  quantity: number;
-  averageCostBasis: number;
-  totalCostBasis: number;
-  currentMarketValue: number;
-  currentPrice?: number;
-  unrealizedPL: number;
-  unrealizedPLPercent: number;
-  realizedPL: number;
-  totalReturn: number;
-  totalReturnPercent: number;
-  currency: Currency;
-  openDate: Date;
-  lastTransactionDate: Date;
-  costBasisMethod: CostBasisMethod;
-  lots: PositionLot[];
-  createdAt: Date;
-  updatedAt: Date;
-}
+import { PositionDetailsModal } from './PositionDetailsModal';
 
 import { formatCurrency, formatPercentage } from '../utils';
 import { useQuotes } from '../hooks/useYahooFinance';
@@ -56,6 +18,7 @@ import { useNotify } from '../hooks/useNotify';
 import { useNetwork } from '../hooks/useNetwork';
 import { NetworkError } from './NetworkError';
 import { getAssetInfo } from '../utils/sampleData';
+import type { Position } from '../types/portfolio';
 
 // Styled components for the table
 const TableContainer = styled.div`
@@ -135,12 +98,34 @@ const TableHead = styled.thead`
 `;
 
 const TableRow = styled.tr`
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+
   &:hover {
-    background: #f8fafc;
+    background: #f1f5f9 !important;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   }
 
   &:nth-child(even) {
     background: #f9fafb;
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+
+  /* Add a subtle border indicator on hover */
+  &:hover::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: #3b82f6;
+    border-radius: 0 2px 2px 0;
   }
 `;
 
@@ -277,6 +262,8 @@ export const PositionsTable: React.FC<PositionsTableProps> = ({
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
   const [filterText, setFilterText] = useState('');
   const [recalculating, setRecalculating] = useState(false);
+  const [selectedPosition, setSelectedPosition] = useState<Position | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const notify = useNotify();
   const network = useNetwork();
 
@@ -415,6 +402,22 @@ export const PositionsTable: React.FC<PositionsTableProps> = ({
     }
   };
 
+  const handlePositionClick = (position: Position) => {
+    setSelectedPosition(position);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedPosition(null);
+  };
+
+  const handleRefreshPositions = async () => {
+    if (onRefresh) {
+      await onRefresh();
+    }
+  };
+
   if (loading) {
     return (
       <TableContainer>
@@ -473,7 +476,17 @@ export const PositionsTable: React.FC<PositionsTableProps> = ({
   return (
     <TableContainer>
       <TableHeader>
-        <TableTitle>Open Positions</TableTitle>
+        <div>
+          <TableTitle>Open Positions</TableTitle>
+          <div style={{ 
+            fontSize: '0.875rem', 
+            color: '#6b7280', 
+            marginTop: '0.25rem',
+            fontStyle: 'italic'
+          }}>
+            Click on any position to view transactions and details
+          </div>
+        </div>
         <FilterContainer>
           <FilterInput
             type="text"
@@ -578,7 +591,11 @@ export const PositionsTable: React.FC<PositionsTableProps> = ({
             </TableHead>
             <tbody>
               {sortedPositions.map((position) => (
-                <TableRow key={`${position.assetSymbol}-${position.id}`}>
+                <TableRow 
+                  key={`${position.assetSymbol}-${position.id}`}
+                  onClick={() => handlePositionClick(position)}
+                  title="Click to view position details and transactions"
+                >
                   <TableCell>
                     <AssetTypeTag $assetType={position.assetType}>
                       {position.assetType}
@@ -613,6 +630,16 @@ export const PositionsTable: React.FC<PositionsTableProps> = ({
             </tbody>
           </StyledTable>
         </ResponsiveTableWrapper>
+      )}
+      
+      {/* Position Details Modal */}
+      {selectedPosition && (
+        <PositionDetailsModal
+          position={selectedPosition}
+          isOpen={isModalOpen}
+          onClose={handleCloseModal}
+          onRefresh={handleRefreshPositions}
+        />
       )}
     </TableContainer>
   );
