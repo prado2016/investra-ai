@@ -90,20 +90,20 @@ jobs:
           staging)
             echo "hostname=mail-staging.investra.com" >> $GITHUB_OUTPUT
             echo "email-user=transactions-staging@investra.com" >> $GITHUB_OUTPUT
-            echo "vm-host-secret=STAGING_VM_HOST" >> $GITHUB_OUTPUT
-            echo "vm-user-secret=STAGING_VM_USER" >> $GITHUB_OUTPUT
-            echo "vm-key-secret=STAGING_VM_SSH_KEY" >> $GITHUB_OUTPUT
+            echo "vm-host-secret=RHEL_VM_HOST" >> $GITHUB_OUTPUT
+            echo "vm-user-secret=RHEL_VM_USER" >> $GITHUB_OUTPUT
+            echo "vm-key-secret=RHEL_VM_SSH_KEY" >> $GITHUB_OUTPUT
             echo "email-password-secret=STAGING_EMAIL_PASSWORD" >> $GITHUB_OUTPUT
-            echo "admin-email-secret=STAGING_ADMIN_EMAIL" >> $GITHUB_OUTPUT
+            echo "admin-email-secret=ADMIN_EMAIL" >> $GITHUB_OUTPUT
             ;;
           development)
             echo "hostname=mail-dev.investra.com" >> $GITHUB_OUTPUT
             echo "email-user=transactions-dev@investra.com" >> $GITHUB_OUTPUT
-            echo "vm-host-secret=DEV_VM_HOST" >> $GITHUB_OUTPUT
-            echo "vm-user-secret=DEV_VM_USER" >> $GITHUB_OUTPUT
-            echo "vm-key-secret=DEV_VM_SSH_KEY" >> $GITHUB_OUTPUT
+            echo "vm-host-secret=RHEL_VM_HOST" >> $GITHUB_OUTPUT
+            echo "vm-user-secret=RHEL_VM_USER" >> $GITHUB_OUTPUT
+            echo "vm-key-secret=RHEL_VM_SSH_KEY" >> $GITHUB_OUTPUT
             echo "email-password-secret=DEV_EMAIL_PASSWORD" >> $GITHUB_OUTPUT
-            echo "admin-email-secret=DEV_ADMIN_EMAIL" >> $GITHUB_OUTPUT
+            echo "admin-email-secret=ADMIN_EMAIL" >> $GITHUB_OUTPUT
             ;;
         esac
 

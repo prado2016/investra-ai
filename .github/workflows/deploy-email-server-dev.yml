@@ -59,20 +59,20 @@ jobs:
     - name: Setup SSH key
       uses: webfactory/ssh-agent@v0.9.0
       with:
-        ssh-private-key: ${{ secrets.DEV_VM_SSH_KEY }}
+        ssh-private-key: ${{ secrets.RHEL_VM_SSH_KEY }}
 
     - name: Add Dev VM to known hosts
       run: |
         mkdir -p ~/.ssh
-        ssh-keyscan -H ${{ secrets.DEV_VM_HOST }} >> ~/.ssh/known_hosts
+        ssh-keyscan -H ${{ secrets.RHEL_VM_HOST }} >> ~/.ssh/known_hosts
 
     - name: Test SSH connection to dev VM
       run: |
-        ssh -o ConnectTimeout=10 ${{ secrets.DEV_VM_USER }}@${{ secrets.DEV_VM_HOST }} "echo 'SSH connection to dev VM successful'"
+        ssh -o ConnectTimeout=10 ${{ secrets.RHEL_VM_USER }}@${{ secrets.RHEL_VM_HOST }} "echo 'SSH connection to dev VM successful'"
 
     - name: Install Docker on Dev VM (if needed)
       run: |
-        ssh ${{ secrets.DEV_VM_USER }}@${{ secrets.DEV_VM_HOST }} << 'EOF'
+        ssh ${{ secrets.RHEL_VM_USER }}@${{ secrets.RHEL_VM_HOST }} << 'EOF'
           # Check if Docker is installed
           if ! command -v docker &> /dev/null; then
             echo "Installing Docker on development VM..."
@@ -100,7 +100,7 @@ jobs:
 
     - name: Configure development firewall
       run: |
-        ssh ${{ secrets.DEV_VM_USER }}@${{ secrets.DEV_VM_HOST }} << 'EOF'
+        ssh ${{ secrets.RHEL_VM_USER }}@${{ secrets.RHEL_VM_HOST }} << 'EOF'
           echo "Configuring development firewall..."
           
           # Configure firewall for email services (development ports)
@@ -130,14 +130,14 @@ jobs:
     - name: Create development email server directory
       run: |
         # Create directory on dev VM
-        ssh ${{ secrets.DEV_VM_USER }}@${{ secrets.DEV_VM_HOST }} "mkdir -p ~/investra-email-server-dev"
+        ssh ${{ secrets.RHEL_VM_USER }}@${{ secrets.RHEL_VM_HOST }} "mkdir -p ~/investra-email-server-dev"
         
         # Copy email server files
-        scp -r email-server/* ${{ secrets.DEV_VM_USER }}@${{ secrets.DEV_VM_HOST }}:~/investra-email-server-dev/
+        scp -r email-server/* ${{ secrets.RHEL_VM_USER }}@${{ secrets.RHEL_VM_HOST }}:~/investra-email-server-dev/
 
     - name: Configure development environment
       run: |
-        ssh ${{ secrets.DEV_VM_USER }}@${{ secrets.DEV_VM_HOST }} << 'EOF'
+        ssh ${{ secrets.RHEL_VM_USER }}@${{ secrets.RHEL_VM_HOST }} << 'EOF'
           cd ~/investra-email-server-dev
           
           # Create development environment file
@@ -150,13 +150,13 @@ jobs:
         MAILSERVER_USER=${{ env.EMAIL_USER }}
         MAILSERVER_PASS=${{ secrets.DEV_EMAIL_PASSWORD }}
         
-        # Development IMAP Connection Details
-        IMAP_HOST=${{ secrets.DEV_VM_HOST }}
+        # IMAP Connection Details
+        IMAP_HOST=${{ secrets.RHEL_VM_HOST }}
         IMAP_PORT=993
         IMAP_TLS=true
         
         # Development SMTP Configuration  
-        SMTP_HOST=${{ secrets.DEV_VM_HOST }}
+        SMTP_HOST=${{ secrets.RHEL_VM_HOST }}
         SMTP_PORT=587
         SMTP_TLS=true
         
@@ -170,7 +170,7 @@ jobs:
 
     - name: Update docker-compose for development
       run: |
-        ssh ${{ secrets.DEV_VM_USER }}@${{ secrets.DEV_VM_HOST }} << 'EOF'
+        ssh ${{ secrets.RHEL_VM_USER }}@${{ secrets.RHEL_VM_HOST }} << 'EOF'
           cd ~/investra-email-server-dev
           
           # Create development docker-compose.yml with simplified SSL
@@ -266,7 +266,7 @@ jobs:
 
     - name: Setup development email server
       run: |
-        ssh ${{ secrets.DEV_VM_USER }}@${{ secrets.DEV_VM_HOST }} << 'EOF'
+        ssh ${{ secrets.RHEL_VM_USER }}@${{ secrets.RHEL_VM_HOST }} << 'EOF'
           cd ~/investra-email-server-dev
           
           # Make scripts executable
@@ -292,7 +292,7 @@ jobs:
 
     - name: Start development email server
       run: |
-        ssh ${{ secrets.DEV_VM_USER }}@${{ secrets.DEV_VM_HOST }} << 'EOF'
+        ssh ${{ secrets.RHEL_VM_USER }}@${{ secrets.RHEL_VM_HOST }} << 'EOF'
           cd ~/investra-email-server-dev
           
           # Stop any existing instance
@@ -314,7 +314,7 @@ jobs:
 
     - name: Test development email server
       run: |
-        ssh ${{ secrets.DEV_VM_USER }}@${{ secrets.DEV_VM_HOST }} << 'EOF'
+        ssh ${{ secrets.RHEL_VM_USER }}@${{ secrets.RHEL_VM_HOST }} << 'EOF'
           cd ~/investra-email-server-dev
           
           echo "Testing development email server..."
@@ -341,7 +341,7 @@ jobs:
 
     - name: Create development monitoring script
       run: |
-        ssh ${{ secrets.DEV_VM_USER }}@${{ secrets.DEV_VM_HOST }} << 'EOF'
+        ssh ${{ secrets.RHEL_VM_USER }}@${{ secrets.RHEL_VM_HOST }} << 'EOF'
           cd ~/investra-email-server-dev
           
           # Create development monitoring script
@@ -381,7 +381,7 @@ jobs:
 
     - name: Display development deployment summary
       run: |
-        ssh ${{ secrets.DEV_VM_USER }}@${{ secrets.DEV_VM_HOST }} << 'EOF'
+        ssh ${{ secrets.RHEL_VM_USER }}@${{ secrets.RHEL_VM_HOST }} << 'EOF'
           cd ~/investra-email-server-dev
           
           echo "============================================"
@@ -390,14 +390,14 @@ jobs:
           echo ""
           echo "🌐 Development Server Details:"
           echo "   Email Server: ${{ env.EMAIL_HOSTNAME }}"
-          echo "   IP Address: ${{ secrets.DEV_VM_HOST }}"
+          echo "   IP Address: ${{ secrets.RHEL_VM_HOST }}"
           echo "   Email Account: ${{ env.EMAIL_USER }}"
           echo "   Environment: Development"
           echo ""
           echo "📧 Development Connection Settings:"
-          echo "   IMAP: ${{ secrets.DEV_VM_HOST }}:993 (SSL)"
-          echo "   SMTP: ${{ secrets.DEV_VM_HOST }}:587 (STARTTLS)"
-          echo "   Web Interface: http://${{ secrets.DEV_VM_HOST }}:8080"
+          echo "   IMAP: ${{ secrets.RHEL_VM_HOST }}:993 (SSL)"
+          echo "   SMTP: ${{ secrets.RHEL_VM_HOST }}:587 (STARTTLS)"
+          echo "   Web Interface: http://${{ secrets.RHEL_VM_HOST }}:8080"
           echo ""
           echo "🔧 Development Management:"
           echo "   Monitor: ./monitor-dev-email.sh"
@@ -423,9 +423,9 @@ jobs:
       if: success()
       run: |
         echo "✅ Development email server deployed successfully"
-        echo "Server: ${{ secrets.DEV_VM_HOST }}"
+        echo "Server: ${{ secrets.RHEL_VM_HOST }}"
         echo "Email: ${{ env.EMAIL_USER }}"
-        echo "Web Interface: http://${{ secrets.DEV_VM_HOST }}:8080"
+        echo "Web Interface: http://${{ secrets.RHEL_VM_HOST }}:8080"
         echo "Branch: ${{ github.ref_name }}"
         echo "Environment: Development"
 
@@ -441,7 +441,7 @@ jobs:
         echo "- Missing development secrets"
         echo ""
         echo "Required secrets for development:"
-        echo "- DEV_VM_HOST"
-        echo "- DEV_VM_USER"
+        echo "- RHEL_VM_HOST"
+        echo "- RHEL_VM_USER"
         echo "- DEV_VM_SSH_KEY"
         echo "- DEV_EMAIL_PASSWORD"
