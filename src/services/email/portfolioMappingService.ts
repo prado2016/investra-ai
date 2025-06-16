@@ -80,7 +80,7 @@ export class PortfolioMappingService {
    */
   static async getOrCreatePortfolio(
     accountType: string,
-    userId?: string
+    _userId?: string
   ): Promise<ServiceResponse<MappingResult>> {
     try {
       // Normalize account type

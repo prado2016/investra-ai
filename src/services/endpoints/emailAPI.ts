@@ -10,6 +10,11 @@ export { EmailStatusAPI } from './emailStatusAPI';
 export { EmailManagementAPI } from './emailManagementAPI';
 export { EmailAPIMiddleware } from './emailAPIMiddleware';
 
+// Import for internal use
+import { EmailProcessingAPI, type EmailProcessRequest, type BatchEmailProcessRequest } from './emailProcessingAPI';
+import { EmailStatusAPI } from './emailStatusAPI';
+import { EmailManagementAPI, type ImportJobCreateRequest, type ReviewManagementRequest, type RetryRequest } from './emailManagementAPI';
+
 // Types and interfaces
 export type {
   APIResponse,

@@ -4,7 +4,6 @@
  */
 
 import { EnhancedAISymbolParser } from '../ai/enhancedSymbolParser';
-import { WealthsimpleEmailParser } from './wealthsimpleEmailParser';
 import type { WealthsimpleEmailData } from './wealthsimpleEmailParser';
 
 export interface EmailSymbolParseResult {
@@ -152,10 +151,10 @@ export class EnhancedEmailSymbolParser {
   private static async enhanceWithAI(
     symbol: string,
     assetName: string | undefined,
-    emailData: WealthsimpleEmailData
+    _emailData: WealthsimpleEmailData
   ): Promise<any> {
     // Create enhanced query for AI parser
-    const query = this.createAIQuery(symbol, assetName, emailData);
+    const query = this.createAIQuery(symbol, assetName);
     
     // Use existing AI parser
     const aiResult = await EnhancedAISymbolParser.parseQuery(query);
@@ -168,8 +167,7 @@ export class EnhancedEmailSymbolParser {
    */
   private static createAIQuery(
     symbol: string,
-    assetName: string | undefined,
-    emailData: WealthsimpleEmailData
+    assetName: string | undefined
   ): string {
     // For options, include all available details
     if (this.isOptionSymbol(symbol)) {

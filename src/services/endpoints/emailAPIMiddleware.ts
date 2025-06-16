@@ -344,7 +344,8 @@ export class EmailAPIMiddleware {
     }
 
     if (filter?.endpoint) {
-      logs = logs.filter(log => log.endpoint.includes(filter.endpoint));
+      const endpoint = filter.endpoint;
+      logs = logs.filter(log => log.endpoint.includes(endpoint));
     }
 
     if (filter?.success !== undefined) {

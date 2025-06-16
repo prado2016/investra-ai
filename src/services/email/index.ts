@@ -77,13 +77,13 @@ export {
   EDGE_CASES 
 } from './tests/mockWealthsimpleEmails';
 
-// Re-export default for convenience
-export { default as WealthsimpleEmailParser } from './wealthsimpleEmailParser';
-export { default as EnhancedEmailSymbolParser } from './enhancedEmailSymbolParser';
-export { default as PortfolioMappingService } from './portfolioMappingService';
-export { default as EmailProcessingService } from './emailProcessingService';
-export { default as EmailIdentificationService } from './emailIdentificationService';
-export { default as MultiLevelDuplicateDetection } from './multiLevelDuplicateDetection';
-export { default as TimeWindowProcessing } from './timeWindowProcessing';
-export { default as ManualReviewQueue } from './manualReviewQueue';
-export { default as EmailParserTestSuite } from './tests/emailParserTests';
+// Re-export defaults with different names to avoid conflicts
+export { default as WealthsimpleEmailParserDefault } from './wealthsimpleEmailParser';
+export { default as EnhancedEmailSymbolParserDefault } from './enhancedEmailSymbolParser';
+export { default as PortfolioMappingServiceDefault } from './portfolioMappingService';
+export { default as EmailProcessingServiceDefault } from './emailProcessingService';
+export { default as EmailIdentificationServiceDefault } from './emailIdentificationService';
+export { default as MultiLevelDuplicateDetectionDefault } from './multiLevelDuplicateDetection';
+export { default as TimeWindowProcessingDefault } from './timeWindowProcessing';
+export { default as ManualReviewQueueDefault } from './manualReviewQueue';
+export { default as EmailParserTestSuiteDefault } from './tests/emailParserTests';

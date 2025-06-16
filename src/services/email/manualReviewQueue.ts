@@ -467,19 +467,17 @@ export class ManualReviewQueue {
     return {
       total: items.length,
       byStatus: {
-        pending: 0,
-        'in-review': 0,
-        approved: 0,
-        rejected: 0,
-        deferred: 0,
-        ...byStatus
+        pending: byStatus.pending || 0,
+        'in-review': byStatus['in-review'] || 0,
+        approved: byStatus.approved || 0,
+        rejected: byStatus.rejected || 0,
+        deferred: byStatus.deferred || 0
       },
       byPriority: {
-        low: 0,
-        medium: 0,
-        high: 0,
-        urgent: 0,
-        ...byPriority
+        low: byPriority.low || 0,
+        medium: byPriority.medium || 0,
+        high: byPriority.high || 0,
+        urgent: byPriority.urgent || 0
       },
       byEscalationLevel,
       averageReviewTime,

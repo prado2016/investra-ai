@@ -7,23 +7,25 @@
 export { 
   PortfolioAPI,
   type PortfolioCreateRequest,
-  type PortfolioUpdateRequest,
-  type PortfolioDeleteRequest 
+  type PortfolioUpdateRequest
 } from './portfolioAPI';
 
 // AI Symbol Lookup API
 export { 
   AISymbolLookupAPI,
-  type SymbolLookupRequest,
-  type SymbolLookupResponse,
-  type CompanyInfo 
+  type APIResponse as AIAPIResponse,
+  type SymbolSuggestionResponse,
+  type SymbolValidationResponse,
+  type BatchLookupResponse,
+  type MarketInsightsResponse
 } from './aiSymbolLookupAPI';
 
 // Symbol Lookup Endpoint
 export { 
-  SymbolLookupEndpoint,
-  type LookupResult,
-  type LookupError 
+  symbolLookupEndpoint,
+  type SymbolLookupEndpointRequest,
+  type SymbolLookupEndpointResponse,
+  type EndpointConfig
 } from './symbolLookupEndpoint';
 
 // Email Processing API (Task 6)
@@ -61,6 +63,6 @@ export type {
 export { EmailAPISchemas, RateLimitConfigs } from './emailAPI';
 
 // Re-export defaults for convenience
-export { default as PortfolioAPI } from './portfolioAPI';
-export { default as AISymbolLookupAPI } from './aiSymbolLookupAPI';
-export { default as EmailAPI } from './emailAPI';
+export { default as PortfolioAPIDefault } from './portfolioAPI';
+export { default as AISymbolLookupAPIDefault } from './aiSymbolLookupAPI';
+export { default as EmailAPIDefault } from './emailAPI';

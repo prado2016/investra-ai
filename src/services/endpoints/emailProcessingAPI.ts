@@ -9,7 +9,6 @@ import { MultiLevelDuplicateDetection } from '../email/multiLevelDuplicateDetect
 import { ManualReviewQueue } from '../email/manualReviewQueue';
 import { supabase } from '../../lib/supabase';
 import type { EmailProcessingResult, ProcessingOptions } from '../email/emailProcessingService';
-import type { User } from '@supabase/supabase-js';
 
 /**
  * API Response interface following existing patterns
@@ -138,7 +137,8 @@ export class EmailProcessingAPI {
         duplicateCheckResult = {
           isDuplicate: duplicateResult.recommendation === 'reject',
           confidence: duplicateResult.overallConfidence,
-          action: duplicateResult.recommendation
+          action: duplicateResult.recommendation,
+          reviewQueueId: undefined as string | undefined
         };
 
         // Add to review queue if needed
@@ -146,7 +146,15 @@ export class EmailProcessingAPI {
           const identification = {
             messageId: `generated-${Date.now()}`,
             emailHash: `hash-${Date.now()}`,
+            contentHash: `content-${Date.now()}`,
             orderIds: [],
+            confirmationNumbers: [],
+            transactionHash: `tx-${Date.now()}`,
+            fromEmail: request.fromEmail,
+            subject: request.subject,
+            timestamp: new Date().toISOString(),
+            extractedAt: new Date().toISOString(),
+            extractionMethod: 'API',
             confidence: 0.9
           };
 

@@ -7,7 +7,7 @@
 import { ManualReviewQueue } from '../email/manualReviewQueue';
 import { supabase } from '../../lib/supabase';
 import type { APIResponse } from './emailProcessingAPI';
-import type { ReviewQueueItem, ReviewQueueStats, ReviewQueueFilter } from '../email/manualReviewQueue';
+import type { ReviewQueueStats } from '../email/manualReviewQueue';
 
 /**
  * Email processing status interfaces
@@ -365,9 +365,9 @@ export class EmailStatusAPI {
 
       // Generate trend data (simplified for now)
       const trends = {
-        processingVolume: this.generateTrendData('volume', 7),
-        successRate: this.generateTrendData('success', 7),
-        duplicateRate: this.generateTrendData('duplicate', 7)
+        processingVolume: this.generateVolumeTrendData(7),
+        successRate: this.generateRateTrendData('success', 7),
+        duplicateRate: this.generateRateTrendData('duplicate', 7)
       };
 
       const response: ProcessingStatsResponse = {
@@ -537,10 +537,10 @@ export class EmailStatusAPI {
   }
 
   /**
-   * Generate trend data for charts
+   * Generate volume trend data for charts
    */
-  private static generateTrendData(type: 'volume' | 'success' | 'duplicate', days: number) {
-    const trends = [];
+  private static generateVolumeTrendData(days: number): Array<{ date: string; count: number; }> {
+    const trends: Array<{ date: string; count: number; }> = [];
     const now = new Date();
 
     for (let i = days - 1; i >= 0; i--) {
@@ -551,20 +551,35 @@ export class EmailStatusAPI {
         item.processedAt.startsWith(dateStr)
       );
 
-      let value = 0;
-      switch (type) {
-        case 'volume':
-          value = dayItems.length;
-          break;
-        case 'success':
-          value = dayItems.length > 0 ? (dayItems.filter(item => item.success).length / dayItems.length) * 100 : 0;
-          break;
-        case 'duplicate':
-          value = dayItems.length > 0 ? (dayItems.filter(item => item.duplicateAction === 'reject').length / dayItems.length) * 100 : 0;
-          break;
+      trends.push({ date: dateStr, count: dayItems.length });
+    }
+
+    return trends;
+  }
+
+  /**
+   * Generate rate trend data for charts
+   */
+  private static generateRateTrendData(type: 'success' | 'duplicate', days: number): Array<{ date: string; rate: number; }> {
+    const trends: Array<{ date: string; rate: number; }> = [];
+    const now = new Date();
+
+    for (let i = days - 1; i >= 0; i--) {
+      const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+      const dateStr = date.toISOString().split('T')[0];
+      
+      const dayItems = this.processingHistory.filter(item => 
+        item.processedAt.startsWith(dateStr)
+      );
+
+      let rate = 0;
+      if (type === 'success') {
+        rate = dayItems.length > 0 ? (dayItems.filter(item => item.success).length / dayItems.length) * 100 : 0;
+      } else {
+        rate = dayItems.length > 0 ? (dayItems.filter(item => item.duplicateAction === 'reject').length / dayItems.length) * 100 : 0;
       }
 
-      trends.push({ date: dateStr, [type === 'volume' ? 'count' : 'rate']: value });
+      trends.push({ date: dateStr, rate });
     }
 
     return trends;

@@ -3,13 +3,12 @@
  * Task 6: Comprehensive testing for email processing API endpoints
  */
 
-import { EmailAPI, EmailProcessingAPI, EmailStatusAPI, EmailManagementAPI, EmailAPIMiddleware } from '../emailAPI';
-import { EmailAPISchemas, RateLimitConfigs } from '../emailAPIMiddleware';
+import { EmailProcessingAPI, EmailStatusAPI, EmailManagementAPI, EmailAPIMiddleware } from '../emailAPI';
+import { EmailAPISchemas } from '../emailAPIMiddleware';
 import type { 
   EmailProcessRequest, 
   BatchEmailProcessRequest,
-  ImportJobCreateRequest,
-  ReviewManagementRequest 
+  ImportJobCreateRequest
 } from '../emailAPI';
 
 export interface APITestResult {
@@ -346,7 +345,7 @@ export class EmailAPITestSuite {
         const request: ImportJobCreateRequest = {
           name: 'Test Import Job',
           description: 'Test job for API testing',
-          type: 'manual',
+          type: 'single',
           source: {
             type: 'manual',
             details: { test: true }

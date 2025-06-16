@@ -3,7 +3,7 @@
  * Coordinates email parsing with portfolio mapping and transaction creation
  */
 
-import { WealthsimpleEmailParser, type WealthsimpleEmailData, type EmailParseResult } from './wealthsimpleEmailParser';
+import { WealthsimpleEmailParser, type WealthsimpleEmailData } from './wealthsimpleEmailParser';
 import { PortfolioMappingService, type MappingResult } from './portfolioMappingService';
 import { EnhancedEmailSymbolParser, type EmailSymbolParseResult } from './enhancedEmailSymbolParser';
 import { SupabaseService } from '../supabaseService';

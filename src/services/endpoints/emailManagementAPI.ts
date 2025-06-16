@@ -5,7 +5,6 @@
  */
 
 import { ManualReviewQueue } from '../email/manualReviewQueue';
-import { EmailProcessingService } from '../email/emailProcessingService';
 import { supabase } from '../../lib/supabase';
 import type { APIResponse } from './emailProcessingAPI';
 import type { ReviewQueueItem, ReviewQueueFilter, ReviewAction } from '../email/manualReviewQueue';

@@ -65,7 +65,7 @@ export class MultiLevelDuplicateDetectionTestSuite {
     // Test Case 1: Identical emails (should be rejected)
     const identicalEmailTest = await this.runDetectionTest(
       'Level 1 - Identical Emails',
-      MOCK_WEALTHSIMPLE_EMAILS.stockBuy,
+      this.convertMockToEmailData(MOCK_WEALTHSIMPLE_EMAILS.stockBuy),
       'reject',
       [this.createMockStoredRecord(MOCK_WEALTHSIMPLE_EMAILS.stockBuy, 'portfolio-1')]
     );
@@ -74,7 +74,7 @@ export class MultiLevelDuplicateDetectionTestSuite {
     // Test Case 2: Different emails (should be accepted)
     const differentEmailTest = await this.runDetectionTest(
       'Level 1 - Different Emails',
-      MOCK_WEALTHSIMPLE_EMAILS.stockBuy,
+      this.convertMockToEmailData(MOCK_WEALTHSIMPLE_EMAILS.stockBuy),
       'accept',
       [this.createMockStoredRecord(MOCK_WEALTHSIMPLE_EMAILS.stockSell, 'portfolio-1')]
     );
@@ -100,7 +100,7 @@ export class MultiLevelDuplicateDetectionTestSuite {
 
     const sameOrderIdTest = await this.runDetectionTest(
       'Level 2 - Same Order ID',
-      emailWithSameOrderId,
+      this.convertMockToEmailData(emailWithSameOrderId),
       'review', // Should be flagged for review
       [this.createMockStoredRecord(MOCK_WEALTHSIMPLE_EMAILS.stockBuy, 'portfolio-1')]
     );
@@ -127,7 +127,7 @@ export class MultiLevelDuplicateDetectionTestSuite {
 
     const similarTransactionTest = await this.runDetectionTest(
       'Level 3 - Similar Transaction',
-      similarTransactionEmail,
+      this.convertMockToEmailData(similarTransactionEmail),
       'review', // Should be flagged for review due to similarity
       [this.createMockStoredRecord(MOCK_WEALTHSIMPLE_EMAILS.stockBuy, 'portfolio-1')]
     );

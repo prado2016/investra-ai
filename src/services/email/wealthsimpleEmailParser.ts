@@ -107,6 +107,7 @@ export class WealthsimpleEmailParser {
       if (!this.isWealthsimpleEmail(fromEmail)) {
         return {
           success: false,
+          data: null,
           error: 'Email is not from a recognized Wealthsimple domain'
         };
       }
@@ -115,6 +116,7 @@ export class WealthsimpleEmailParser {
       if (!this.isTransactionEmail(subject, htmlContent, textContent)) {
         return {
           success: false,
+          data: null,
           error: 'Email does not appear to be a transaction confirmation'
         };
       }
@@ -137,6 +139,7 @@ export class WealthsimpleEmailParser {
 
       return {
         success: false,
+        data: null,
         error: 'Unable to parse transaction details from email',
         warnings: parseResults.map(r => r.error).filter(Boolean) as string[]
       };
@@ -144,6 +147,7 @@ export class WealthsimpleEmailParser {
     } catch (error) {
       return {
         success: false,
+        data: null,
         error: error instanceof Error ? error.message : 'Unknown parsing error'
       };
     }
@@ -197,6 +201,7 @@ export class WealthsimpleEmailParser {
     } catch (error) {
       return {
         success: false,
+        data: null,
         error: `HTML parsing failed: ${error instanceof Error ? error.message : 'Unknown error'}`
       };
     }
@@ -243,6 +248,7 @@ export class WealthsimpleEmailParser {
       if (!transactionResult.success) {
         return {
           success: false,
+          data: null,
           error: `Failed to extract transaction details: ${transactionResult.error}`
         };
       }
@@ -317,6 +323,7 @@ export class WealthsimpleEmailParser {
     } catch (error) {
       return {
         success: false,
+        data: null,
         error: `Text parsing failed: ${error instanceof Error ? error.message : 'Unknown error'}`
       };
     }

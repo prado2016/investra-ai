@@ -3,10 +3,9 @@
  * Task 5.4: Test queue system for ambiguous duplicate cases
  */
 
-import { ManualReviewQueue, type ReviewQueueItem, type ReviewAction, type ReviewQueueFilter } from '../manualReviewQueue';
+import { ManualReviewQueue, type ReviewQueueItem, type ReviewAction } from '../manualReviewQueue';
 import { EmailIdentificationService } from '../emailIdentificationService';
 import { MultiLevelDuplicateDetection } from '../multiLevelDuplicateDetection';
-import { TimeWindowProcessing } from '../timeWindowProcessing';
 import { MOCK_WEALTHSIMPLE_EMAILS } from './mockWealthsimpleEmails';
 import type { WealthsimpleEmailData } from '../wealthsimpleEmailParser';
 

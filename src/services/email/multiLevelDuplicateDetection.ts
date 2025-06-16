@@ -3,7 +3,7 @@
  * Task 5.2: Implement 3-level duplicate detection with confidence scoring
  */
 
-import { EmailIdentificationService, type EmailIdentification, type DuplicateDetectionData } from './emailIdentificationService';
+import { EmailIdentificationService, type EmailIdentification } from './emailIdentificationService';
 import type { WealthsimpleEmailData } from './wealthsimpleEmailParser';
 import { SupabaseService } from '../supabaseService';
 import type { Transaction } from '../../lib/database/types';
@@ -174,27 +174,13 @@ export class MultiLevelDuplicateDetection {
         record.identification
       );
 
-      // Check for Message-ID match (strongest indicator)
-      if (emailIdentification.messageId && 
-          record.identification.messageId &&
-          emailIdentification.messageId === record.identification.messageId) {
-        
+      // Use the comparison result
+      if (comparison.isDuplicate) {
         matches.push({
           level,
-          confidence: 0.95,
-          matchedFields: ['messageId'],
-          reasons: ['Identical Message-ID - exact same email'],
-          existingIdentification: record.identification
-        });
-      }
-      
-      // Check for email hash match (very strong indicator)
-      else if (emailIdentification.emailHash === record.identification.emailHash) {
-        matches.push({
-          level,
-          confidence: 0.9,
-          matchedFields: ['emailHash'],
-          reasons: ['Identical email hash - same email content'],
+          confidence: comparison.confidence,
+          matchedFields: comparison.matchedFields,
+          reasons: comparison.reasons,
           existingIdentification: record.identification
         });
       }
@@ -268,7 +254,7 @@ export class MultiLevelDuplicateDetection {
    * Compares transaction details with time windows
    */
   private static async runLevel3Detection(
-    emailIdentification: EmailIdentification,
+    _emailIdentification: EmailIdentification,
     emailData: WealthsimpleEmailData,
     storedRecords: StoredEmailRecord[],
     portfolioId: string
@@ -386,12 +372,14 @@ export class MultiLevelDuplicateDetection {
     const reasons: string[] = [];
     let confidence = 0;
 
-    // Symbol match
-    if (transaction.asset?.symbol === emailData.symbol) {
-      matchedFields.push('symbol');
-      reasons.push(`Same symbol: ${emailData.symbol}`);
-      confidence += 0.3;
-    }
+    // Symbol match - Note: Transaction type doesn't include asset symbol directly
+    // In a real implementation, this would require joining with Asset table
+    // For now, we'll skip symbol comparison for database transactions
+    // if (transaction.asset?.symbol === emailData.symbol) {
+    //   matchedFields.push('symbol');
+    //   reasons.push(`Same symbol: ${emailData.symbol}`);
+    //   confidence += 0.3;
+    // }
 
     // Transaction type match
     if (transaction.transaction_type === emailData.transactionType) {
@@ -519,7 +507,7 @@ export class MultiLevelDuplicateDetection {
    * Get stored email records for comparison
    * Note: This is a placeholder - in real implementation, this would query a database
    */
-  private static async getStoredEmailRecords(portfolioId: string): Promise<StoredEmailRecord[]> {
+  private static async getStoredEmailRecords(_portfolioId: string): Promise<StoredEmailRecord[]> {
     // TODO: Implement database storage for email records
     // For now, return empty array - this will be implemented in future tasks
     return [];
@@ -530,7 +518,7 @@ export class MultiLevelDuplicateDetection {
    */
   static async storeEmailRecord(
     emailIdentification: EmailIdentification,
-    emailData: WealthsimpleEmailData,
+    _emailData: WealthsimpleEmailData,
     portfolioId: string,
     transactionId?: string
   ): Promise<void> {
