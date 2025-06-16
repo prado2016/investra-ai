@@ -37,6 +37,14 @@ export {
   type DuplicateDetectionData 
 } from './emailIdentificationService';
 
+// Multi-level duplicate detection service (Task 5.2)
+export { 
+  MultiLevelDuplicateDetection,
+  type DuplicateDetectionResult,
+  type DuplicateMatch,
+  type StoredEmailRecord 
+} from './multiLevelDuplicateDetection';
+
 // Test utilities (for development)
 export { 
   EmailParserTestSuite,
@@ -55,4 +63,5 @@ export { default as EnhancedEmailSymbolParser } from './enhancedEmailSymbolParse
 export { default as PortfolioMappingService } from './portfolioMappingService';
 export { default as EmailProcessingService } from './emailProcessingService';
 export { default as EmailIdentificationService } from './emailIdentificationService';
+export { default as MultiLevelDuplicateDetection } from './multiLevelDuplicateDetection';
 export { default as EmailParserTestSuite } from './tests/emailParserTests';
