@@ -86,7 +86,7 @@ jobs:
             sudo dnf update -y
             
             # Install Podman and related tools
-            sudo dnf install -y podman podman-compose podman-docker
+            sudo dnf install -y podman podman compose podman-docker
             
             # Enable and start podman socket for docker compatibility
             systemctl --user enable podman.socket
@@ -104,12 +104,12 @@ jobs:
           # Create podman alias for docker compatibility if needed
           if ! command -v docker &> /dev/null; then
             echo 'alias docker=podman' >> ~/.bashrc
-            echo 'alias docker-compose="podman-compose"' >> ~/.bashrc
+            echo 'alias docker-compose="podman compose"' >> ~/.bashrc
           fi
           
           # Verify installation
           podman --version
-          podman-compose --version 2>/dev/null || echo "podman-compose available"
+          podman compose --version 2>/dev/null || echo "podman compose available"
         EOF
 
     - name: Configure development firewall
@@ -310,11 +310,11 @@ jobs:
           cd ~/investra-email-server-dev
           
           # Stop any existing instance
-          podman-compose down || true
+          podman compose down || true
           
           # Start development email server
-          podman-compose pull
-          podman-compose up -d
+          podman compose pull
+          podman compose up -d
           
           echo "Development email server started"
           
@@ -323,7 +323,7 @@ jobs:
           sleep 30
           
           # Check status
-          podman-compose ps
+          podman ps --filter "name=investra"
         EOF
 
     - name: Test development email server
@@ -344,11 +344,11 @@ jobs:
           
           # Check container health
           echo "Container status:"
-          podman-compose ps
+          podman ps --filter "name=investra"
           
           # Check logs for errors
           echo "Checking for errors in logs..."
-          podman-compose logs --tail=20 mailserver | grep -i error || echo "No errors found"
+          podman logs investra-mailserver-dev --tail=20 | grep -i error || echo "No errors found"
           
           echo "Development email server testing completed"
         EOF
@@ -366,8 +366,8 @@ jobs:
         echo "=== Development Email Server Status $(date) ==="
         
         # Container status
-        echo "Docker Containers:"
-        podman-compose ps
+        echo "Podman Containers:"
+        podman ps --filter "name=investra"
         
         # Port status
         echo -e "\nPort Status:"
@@ -381,11 +381,11 @@ jobs:
         
         # Recent logs
         echo -e "\nRecent Logs:"
-        podman-compose logs --tail=10 mailserver
+        podman logs investra-mailserver-dev --tail=10 2>/dev/null || echo "No logs available"
         
         # Mail queue
         echo -e "\nMail Queue:"
-        podman-compose exec -T mailserver postqueue -p 2>/dev/null || echo "Could not check mail queue"
+        podman exec investra-mailserver-dev postqueue -p 2>/dev/null || echo "Could not check mail queue"
         MONITOREOF
           
           chmod +x monitor-dev-email.sh
@@ -415,8 +415,10 @@ jobs:
           echo ""
           echo "🔧 Development Management:"
           echo "   Monitor: ./monitor-dev-email.sh"
-          echo "   Logs: podman-compose logs -f mailserver"
-          echo "   Restart: podman-compose restart"
+          echo "   Logs: podman logs investra-mailserver-dev -f"
+          echo "   Restart: podman restart investra-mailserver-dev investra-roundcube-dev"
+          echo "   Stop: podman stop investra-mailserver-dev investra-roundcube-dev"
+          echo "   Start: podman start investra-mailserver-dev investra-roundcube-dev"
           echo ""
           echo "📋 Development Features:"
           echo "   ✅ Self-signed SSL certificates"
