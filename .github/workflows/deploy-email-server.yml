@@ -134,41 +134,39 @@ jobs:
       run: |
         ssh -o ConnectTimeout=10 ${{ secrets[needs.determine-environment.outputs.vm-user-secret] }}@${{ secrets[needs.determine-environment.outputs.vm-host-secret] }} "echo 'SSH connection successful'"
 
-    - name: Install Docker on RHEL VM
+    - name: Install Podman on RHEL VM
       run: |
         ssh ${{ secrets[needs.determine-environment.outputs.vm-user-secret] }}@${{ secrets[needs.determine-environment.outputs.vm-host-secret] }} << 'EOF'
           # Update system
           sudo dnf update -y
           
-          # Install Docker if not already installed
-          if ! command -v docker &> /dev/null; then
-            echo "Installing Docker..."
-            sudo dnf config-manager --add-repo https://download.docker.com/linux/rhel/docker-ce.repo
-            sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+          # Install Podman if not already installed
+          if ! command -v podman &> /dev/null; then
+            echo "Installing Podman..."
+            sudo dnf install -y podman podman-compose podman-docker
             
-            # Start and enable Docker
-            sudo systemctl start docker
-            sudo systemctl enable docker
+            # Enable and start podman socket for docker compatibility
+            systemctl --user enable podman.socket
+            systemctl --user start podman.socket
             
-            # Add user to docker group
-            sudo usermod -aG docker $USER
-            
-            echo "Docker installation completed"
+            echo "Podman installation completed"
           else
-            echo "Docker is already installed"
-            docker --version
+            echo "Podman is already installed"
+            podman --version
           fi
           
-          # Install Docker Compose if not available as plugin
-          if ! docker compose version &> /dev/null; then
-            echo "Installing Docker Compose..."
-            sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-            sudo chmod +x /usr/local/bin/docker-compose
+          # Enable lingering for user to allow user services to run without login
+          sudo loginctl enable-linger $USER
+          
+          # Create podman alias for docker compatibility if needed
+          if ! command -v docker &> /dev/null; then
+            echo 'alias docker=podman' >> ~/.bashrc
+            echo 'alias docker-compose="podman-compose"' >> ~/.bashrc
           fi
           
           # Verify installations
-          docker --version
-          docker compose version || docker-compose --version
+          podman --version
+          podman-compose --version 2>/dev/null || echo "podman-compose available"
         EOF
 
     - name: Configure firewall for email server
@@ -415,9 +413,9 @@ jobs:
           cd ~/investra-email-server
           
           # Start email server
-          docker compose down || true  # Stop if already running
-          docker compose pull          # Get latest images
-          docker compose up -d         # Start in background
+          podman-compose down || true  # Stop if already running
+          podman-compose pull          # Get latest images
+          podman-compose up -d         # Start in background
           
           echo "Email server started"
           
@@ -426,7 +424,7 @@ jobs:
           sleep 30
           
           # Check status
-          docker compose ps
+          podman-compose ps
           
           # Check if ports are listening
           echo "Checking if email ports are listening..."
@@ -454,7 +452,7 @@ jobs:
           
           # Check docker logs for errors
           echo "Checking for Docker errors..."
-          docker compose logs --tail=10 mailserver | grep -i error || echo "No errors found in mailserver logs"
+          podman-compose logs --tail=10 mailserver | grep -i error || echo "No errors found in mailserver logs"
           
           echo "Email server testing completed"
         EOF
@@ -473,7 +471,7 @@ jobs:
         
         # Check Docker containers
         echo "Docker Containers:"
-        docker compose ps
+        podman-compose ps
         
         # Check ports
         echo -e "\nPort Status:"
@@ -485,11 +483,11 @@ jobs:
         
         # Check recent logs
         echo -e "\nRecent Logs (last 10 lines):"
-        docker compose logs --tail=10 mailserver
+        podman-compose logs --tail=10 mailserver
         
         # Check mail queue
         echo -e "\nMail Queue:"
-        docker compose exec -T mailserver postqueue -p 2>/dev/null || echo "Could not check mail queue"
+        podman-compose exec -T mailserver postqueue -p 2>/dev/null || echo "Could not check mail queue"
         MONITOREOF
           
           chmod +x monitor-email.sh
@@ -511,16 +509,17 @@ jobs:
           sudo tee /etc/systemd/system/investra-email.service << 'SYSTEMDEOF'
         [Unit]
         Description=Investra Email Server
-        Requires=docker.service
-        After=docker.service
+        Wants=network-online.target
+        After=network-online.target
         
         [Service]
         Type=oneshot
         RemainAfterExit=yes
+        User=${{ secrets.RHEL_USER }}
         WorkingDirectory=/home/${{ secrets.RHEL_USER }}/investra-email-server
-        ExecStart=/usr/bin/docker compose up -d
-        ExecStop=/usr/bin/docker compose down
-        TimeoutStartSec=0
+        ExecStart=/usr/bin/podman-compose up -d
+        ExecStop=/usr/bin/podman-compose down
+        TimeoutStartSec=300
         
         [Install]
         WantedBy=multi-user.target
@@ -596,9 +595,9 @@ jobs:
           echo "   Web Interface: http://${{ secrets.RHEL_HOST }}:8080"
           echo ""
           echo "🔧 Management Commands:"
-          echo "   Status: cd ~/investra-email-server && docker compose ps"
-          echo "   Logs: cd ~/investra-email-server && docker compose logs -f mailserver"
-          echo "   Restart: cd ~/investra-email-server && docker compose restart"
+          echo "   Status: cd ~/investra-email-server && podman-compose ps"
+          echo "   Logs: cd ~/investra-email-server && podman-compose logs -f mailserver"
+          echo "   Restart: cd ~/investra-email-server && podman-compose restart"
           echo "   Monitor: cd ~/investra-email-server && ./monitor-email.sh"
           echo "   Backup: cd ~/investra-email-server && ./backup-email.sh"
           echo ""
