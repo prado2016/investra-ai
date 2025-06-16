@@ -147,7 +147,7 @@ export class MultiLevelDuplicateDetectionTestSuite {
     // Test Case 1: No existing records (should accept)
     const noRecordsTest = await this.runDetectionTest(
       'Overall - No Existing Records',
-      MOCK_WEALTHSIMPLE_EMAILS.stockBuy,
+      this.convertMockToEmailData(MOCK_WEALTHSIMPLE_EMAILS.stockBuy),
       'accept',
       []
     );
@@ -156,7 +156,7 @@ export class MultiLevelDuplicateDetectionTestSuite {
     // Test Case 2: Multiple different records (should accept)
     const multipleDifferentTest = await this.runDetectionTest(
       'Overall - Multiple Different Records',
-      MOCK_WEALTHSIMPLE_EMAILS.stockBuy,
+      this.convertMockToEmailData(MOCK_WEALTHSIMPLE_EMAILS.stockBuy),
       'accept',
       [
         this.createMockStoredRecord(MOCK_WEALTHSIMPLE_EMAILS.stockSell, 'portfolio-1'),
