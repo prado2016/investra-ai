@@ -71,20 +71,20 @@ jobs:
     - name: Stop existing containers
       run: |
         echo "Stopping any existing email server containers..."
-        podman stop investra-mailserver-dev 2>/dev/null || echo "No existing container to stop"
-        podman rm investra-mailserver-dev 2>/dev/null || echo "No existing container to remove"
+        sudo podman stop investra-mailserver-dev 2>/dev/null || echo "No existing container to stop"
+        sudo podman rm investra-mailserver-dev 2>/dev/null || echo "No existing container to remove"
 
     - name: Pull email server image
       run: |
         echo "Pulling latest email server image..."
-        podman pull ghcr.io/docker-mailserver/docker-mailserver:latest
+        sudo podman pull ghcr.io/docker-mailserver/docker-mailserver:latest
 
     - name: Start email server container
       run: |
         echo "Starting email server container..."
         cd ~/investra-email-server-dev
         
-        podman run -d \
+        sudo podman run -d \
           --name investra-mailserver-dev \
           -p 25:25 \
           -p 587:587 \
@@ -107,10 +107,10 @@ jobs:
         sleep 20
         
         echo "Checking container status:"
-        podman ps --filter "name=investra-mailserver-dev"
+        sudo podman ps --filter "name=investra-mailserver-dev"
         
         echo "Checking container logs:"
-        podman logs investra-mailserver-dev --tail=10 || echo "Could not get logs"
+        sudo podman logs investra-mailserver-dev --tail=10 || echo "Could not get logs"
 
     - name: Check email ports
       run: |
