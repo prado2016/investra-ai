@@ -118,9 +118,12 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Setup SSH key
-      uses: webfactory/ssh-agent@v0.8.0
-      with:
-        ssh-private-key: ${{ secrets[needs.determine-environment.outputs.vm-key-secret] }}
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets[needs.determine-environment.outputs.vm-key-secret] }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        eval "$(ssh-agent -s)"
+        ssh-add ~/.ssh/id_rsa
 
     - name: Add RHEL VM to known hosts
       run: |
