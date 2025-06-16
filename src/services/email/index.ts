@@ -30,6 +30,13 @@ export {
   type ProcessingOptions 
 } from './emailProcessingService';
 
+// Email identification service (Task 5.1)
+export { 
+  EmailIdentificationService,
+  type EmailIdentification,
+  type DuplicateDetectionData 
+} from './emailIdentificationService';
+
 // Test utilities (for development)
 export { 
   EmailParserTestSuite,
@@ -47,4 +54,5 @@ export { default as WealthsimpleEmailParser } from './wealthsimpleEmailParser';
 export { default as EnhancedEmailSymbolParser } from './enhancedEmailSymbolParser';
 export { default as PortfolioMappingService } from './portfolioMappingService';
 export { default as EmailProcessingService } from './emailProcessingService';
+export { default as EmailIdentificationService } from './emailIdentificationService';
 export { default as EmailParserTestSuite } from './tests/emailParserTests';
