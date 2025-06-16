@@ -10,6 +10,12 @@ export {
   type EmailParseResult 
 } from './wealthsimpleEmailParser';
 
+// Enhanced AI symbol processing
+export { 
+  EnhancedEmailSymbolParser,
+  type EmailSymbolParseResult 
+} from './enhancedEmailSymbolParser';
+
 // Portfolio mapping service
 export { 
   PortfolioMappingService,
@@ -38,6 +44,7 @@ export {
 
 // Re-export default for convenience
 export { default as WealthsimpleEmailParser } from './wealthsimpleEmailParser';
+export { default as EnhancedEmailSymbolParser } from './enhancedEmailSymbolParser';
 export { default as PortfolioMappingService } from './portfolioMappingService';
 export { default as EmailProcessingService } from './emailProcessingService';
 export { default as EmailParserTestSuite } from './tests/emailParserTests';

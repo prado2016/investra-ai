@@ -5,6 +5,7 @@
 
 import { WealthsimpleEmailParser, type WealthsimpleEmailData, type EmailParseResult } from './wealthsimpleEmailParser';
 import { PortfolioMappingService, type MappingResult } from './portfolioMappingService';
+import { EnhancedEmailSymbolParser, type EmailSymbolParseResult } from './enhancedEmailSymbolParser';
 import { SupabaseService } from '../supabaseService';
 import type { Transaction } from '../../lib/database/types';
 import type { ServiceResponse } from '../supabaseService';
@@ -12,10 +13,12 @@ import type { ServiceResponse } from '../supabaseService';
 export interface EmailProcessingResult {
   success: boolean;
   emailParsed: boolean;
+  symbolProcessed: boolean;
   portfolioMapped: boolean;
   transactionCreated: boolean;
   transaction?: Transaction;
   emailData?: WealthsimpleEmailData;
+  symbolResult?: EmailSymbolParseResult;
   portfolioMapping?: MappingResult;
   errors: string[];
   warnings: string[];
@@ -24,6 +27,7 @@ export interface EmailProcessingResult {
 export interface ProcessingOptions {
   createMissingPortfolios: boolean;
   skipDuplicateCheck: boolean;
+  enhanceSymbols: boolean;
   dryRun: boolean;
   validateOnly: boolean;
 }
@@ -45,6 +49,7 @@ export class EmailProcessingService {
     const defaultOptions: ProcessingOptions = {
       createMissingPortfolios: true,
       skipDuplicateCheck: false,
+      enhanceSymbols: true,
       dryRun: false,
       validateOnly: false
     };
@@ -53,6 +58,7 @@ export class EmailProcessingService {
     const result: EmailProcessingResult = {
       success: false,
       emailParsed: false,
+      symbolProcessed: false,
       portfolioMapped: false,
       transactionCreated: false,
       errors: [],
@@ -99,7 +105,33 @@ export class EmailProcessingService {
         return result;
       }
 
-      // Step 2: Map to portfolio
+      // Step 2: Process symbol with AI enhancement (if enabled)
+      let symbolResult: EmailSymbolParseResult | undefined;
+      
+      if (opts.enhanceSymbols) {
+        console.log('🤖 Processing symbol with AI enhancement...');
+        try {
+          symbolResult = await EnhancedEmailSymbolParser.processEmailSymbol(parseResult.data);
+          result.symbolProcessed = true;
+          result.symbolResult = symbolResult;
+          
+          const symbolValidation = EnhancedEmailSymbolParser.validateSymbolResult(symbolResult);
+          if (!symbolValidation.isValid) {
+            result.warnings.push(`Symbol processing warnings: ${symbolValidation.errors.join(', ')}`);
+          }
+          
+          console.log(`✅ Symbol processed: ${symbolResult.symbol} -> ${symbolResult.normalizedSymbol} (${symbolResult.source}, confidence: ${symbolResult.confidence.toFixed(2)})`);
+          
+          if (symbolResult.warnings && symbolResult.warnings.length > 0) {
+            result.warnings.push(...symbolResult.warnings);
+          }
+        } catch (error) {
+          result.warnings.push(`Symbol enhancement failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          console.log('⚠️ Symbol enhancement failed, continuing with original symbol');
+        }
+      }
+
+      // Step 3: Map to portfolio
       console.log('🏦 Mapping to portfolio...');
       let portfolioResult: ServiceResponse<MappingResult>;
       
@@ -135,7 +167,7 @@ export class EmailProcessingService {
         return result;
       }
 
-      // Step 3: Check for duplicates (unless skipped)
+      // Step 4: Check for duplicates (unless skipped)
       if (!opts.skipDuplicateCheck) {
         console.log('🔍 Checking for duplicate transactions...');
         const isDuplicate = await this.checkForDuplicate(
@@ -149,11 +181,12 @@ export class EmailProcessingService {
         }
       }
 
-      // Step 4: Create transaction
+      // Step 5: Create transaction
       console.log('💰 Creating transaction...');
       const transactionResult = await this.createTransaction(
         portfolioResult.data.portfolioId,
-        parseResult.data
+        parseResult.data,
+        symbolResult
       );
 
       if (!transactionResult.success || !transactionResult.data) {
@@ -223,11 +256,15 @@ export class EmailProcessingService {
    */
   private static async createTransaction(
     portfolioId: string,
-    emailData: WealthsimpleEmailData
+    emailData: WealthsimpleEmailData,
+    symbolResult?: EmailSymbolParseResult
   ): Promise<ServiceResponse<Transaction>> {
     try {
+      // Use enhanced symbol if available, otherwise fall back to email symbol
+      const symbolToUse = symbolResult?.normalizedSymbol || emailData.symbol;
+      
       // First, get or create the asset
-      const assetResult = await SupabaseService.asset.getOrCreateAsset(emailData.symbol);
+      const assetResult = await SupabaseService.asset.getOrCreateAsset(symbolToUse);
       
       if (!assetResult.success || !assetResult.data) {
         return {
@@ -236,6 +273,8 @@ export class EmailProcessingService {
           success: false
         };
       }
+
+      console.log(`📊 Asset resolved: ${symbolToUse} -> ${assetResult.data.id} (${assetResult.data.asset_type})`);
 
       // Map transaction types
       const transactionTypeMap: Record<string, any> = {
@@ -263,6 +302,10 @@ export class EmailProcessingService {
         emailData.price,
         emailData.transactionDate
       );
+
+      if (transactionResult.success && symbolResult) {
+        console.log(`🤖 Used enhanced symbol processing: ${emailData.symbol} -> ${symbolResult.normalizedSymbol} (${symbolResult.source})`);
+      }
 
       return transactionResult;
 
@@ -337,22 +380,42 @@ export class EmailProcessingService {
     successful: number;
     failed: number;
     emailsParsed: number;
+    symbolsProcessed: number;
     portfoliosMapped: number;
     transactionsCreated: number;
     newPortfoliosCreated: number;
     duplicatesDetected: number;
+    symbolEnhancementStats: {
+      direct: number;
+      aiEnhanced: number;
+      aiFallback: number;
+      averageConfidence: number;
+    };
   } {
+    const symbolProcessedResults = results.filter(r => r.symbolProcessed && r.symbolResult);
+    
+    const symbolStats = {
+      direct: symbolProcessedResults.filter(r => r.symbolResult?.source === 'email-direct').length,
+      aiEnhanced: symbolProcessedResults.filter(r => r.symbolResult?.source === 'email-ai-enhanced').length,
+      aiFallback: symbolProcessedResults.filter(r => r.symbolResult?.source === 'ai-fallback').length,
+      averageConfidence: symbolProcessedResults.length > 0 
+        ? symbolProcessedResults.reduce((sum, r) => sum + (r.symbolResult?.confidence || 0), 0) / symbolProcessedResults.length
+        : 0
+    };
+
     return {
       total: results.length,
       successful: results.filter(r => r.success).length,
       failed: results.filter(r => !r.success).length,
       emailsParsed: results.filter(r => r.emailParsed).length,
+      symbolsProcessed: results.filter(r => r.symbolProcessed).length,
       portfoliosMapped: results.filter(r => r.portfolioMapped).length,
       transactionsCreated: results.filter(r => r.transactionCreated).length,
       newPortfoliosCreated: results.filter(r => r.portfolioMapping?.created).length,
       duplicatesDetected: results.filter(r => 
         r.warnings.some(w => w.includes('duplicate'))
-      ).length
+      ).length,
+      symbolEnhancementStats: symbolStats
     };
   }
 
@@ -384,6 +447,32 @@ export class EmailProcessingService {
       const testAssetResult = await SupabaseService.asset.getOrCreateAsset('TEST');
       if (!testAssetResult.success) {
         errors.push('Cannot connect to asset service');
+      }
+
+      // Test AI symbol processing
+      try {
+        const testSymbolResult = await EnhancedEmailSymbolParser.processEmailSymbol({
+          symbol: 'AAPL',
+          transactionType: 'buy',
+          quantity: 100,
+          price: 150,
+          totalAmount: 15000,
+          accountType: 'TFSA',
+          transactionDate: '2025-01-15',
+          timezone: 'EST',
+          currency: 'USD',
+          subject: 'Test',
+          fromEmail: 'test@wealthsimple.com',
+          rawContent: 'Test content',
+          confidence: 0.9,
+          parseMethod: 'TEST'
+        });
+        
+        if (testSymbolResult.confidence < 0.5) {
+          warnings.push('AI symbol processing confidence is low');
+        }
+      } catch (error) {
+        warnings.push('AI symbol processing test failed');
       }
 
     } catch (error) {

@@ -4,6 +4,7 @@
 
 import { WealthsimpleEmailParser } from '../wealthsimpleEmailParser';
 import { PortfolioMappingService } from '../portfolioMappingService';
+import { AISymbolIntegrationTests } from './aiIntegrationTests';
 import { MOCK_WEALTHSIMPLE_EMAILS, INVALID_EMAILS, EDGE_CASES } from './mockWealthsimpleEmails';
 
 export interface TestResult {
@@ -30,6 +31,9 @@ export class EmailParserTestSuite {
     
     // Test portfolio mapping
     results.push(...this.testPortfolioMapping());
+
+    // Test AI integration
+    results.push(...await this.testAIIntegration());
 
     // Print summary
     this.printTestSummary(results);
@@ -348,6 +352,36 @@ export class EmailParserTestSuite {
     console.log(`  Average Time per Parse: ${avgTime.toFixed(2)}ms`);
     console.log(`  Emails per Second: ${(1000 / avgTime).toFixed(0)}`);
     console.log('');
+  }
+}
+
+// Add AI integration test method
+export class ExtendedEmailParserTestSuite extends EmailParserTestSuite {
+  static async testAIIntegration(): Promise<TestResult[]> {
+    console.log('🤖 Testing AI Symbol Integration:');
+    
+    try {
+      const aiResults = await AISymbolIntegrationTests.runAllTests();
+      
+      return aiResults.map(result => ({
+        name: `AI Integration - ${result.name}`,
+        passed: result.passed,
+        error: result.error,
+        data: {
+          emailSymbol: result.emailSymbol,
+          aiEnhancedSymbol: result.aiEnhancedSymbol,
+          confidence: result.confidence,
+          source: result.source,
+          assetType: result.assetType
+        }
+      }));
+    } catch (error) {
+      return [{
+        name: 'AI Integration - Suite',
+        passed: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }];
+    }
   }
 }
 
