@@ -69,10 +69,13 @@ jobs:
     - name: Verify Podman on VM
       run: |
         # Add host to known_hosts
+        echo "Adding ${{ secrets.RHEL_HOST }} to known_hosts..."
         ssh-keyscan -H ${{ secrets.RHEL_HOST }} >> ~/.ssh/known_hosts
         
         # Verify Podman (first real SSH command - will test connectivity naturally)
-        ssh -i ~/.ssh/id_rsa ${{ secrets.RHEL_USER }}@${{ secrets.RHEL_HOST }} "podman --version"
+        echo "Connecting to ${{ secrets.RHEL_USER }}@${{ secrets.RHEL_HOST }} to check Podman..."
+        ssh -i ~/.ssh/id_rsa -o ConnectTimeout=30 ${{ secrets.RHEL_USER }}@${{ secrets.RHEL_HOST }} "echo 'Connected successfully' && podman --version"
+        echo "Podman verification completed"
 
     - name: Prepare email server directory
       run: |
