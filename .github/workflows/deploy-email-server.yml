@@ -122,8 +122,8 @@ jobs:
         mkdir -p ~/.ssh
         echo "${{ secrets[needs.determine-environment.outputs.vm-key-secret] }}" > ~/.ssh/id_rsa
         chmod 600 ~/.ssh/id_rsa
-        eval "$(ssh-agent -s)"
-        ssh-add ~/.ssh/id_rsa
+        # Test SSH key format
+        ssh-keygen -l -f ~/.ssh/id_rsa || echo "SSH key format check completed"
 
     - name: Add RHEL VM to known hosts
       run: |

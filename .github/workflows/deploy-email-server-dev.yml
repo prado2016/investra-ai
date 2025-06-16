@@ -59,21 +59,24 @@ jobs:
     - name: Setup SSH key
       run: |
         mkdir -p ~/.ssh
-        echo "${{ secrets.EMAIL_SERVER_SSH_KEY }}" > ~/.ssh/id_rsa
+        # Try EMAIL_SERVER_SSH_KEY first, fallback to RHEL_SSH_KEY
+        if [ -n "${{ secrets.EMAIL_SERVER_SSH_KEY }}" ]; then
+          echo "${{ secrets.EMAIL_SERVER_SSH_KEY }}" > ~/.ssh/id_rsa
+        else
+          echo "${{ secrets.RHEL_SSH_KEY }}" > ~/.ssh/id_rsa
+        fi
         chmod 600 ~/.ssh/id_rsa
-        eval "$(ssh-agent -s)"
-        ssh-add ~/.ssh/id_rsa
-
-    - name: Add Dev VM to known hosts
-      run: |
-        mkdir -p ~/.ssh
-        echo "${{ secrets.RHEL_SSH_KEY }}" > ~/.ssh/id_rsa
-        chmod 600 ~/.ssh/id_rsa
-        ssh-keyscan -H ${{ secrets.RHEL_HOST }} >> ~/.ssh/known_hosts
+        # Test SSH key format
+        ssh-keygen -l -f ~/.ssh/id_rsa || echo "SSH key format check completed"
 
     - name: Test SSH connection to dev VM
       run: |
-        ssh -i ~/.ssh/id_rsa -o ConnectTimeout=10 ${{ secrets.RHEL_USER }}@${{ secrets.RHEL_HOST }} "echo 'SSH connection to dev VM successful'"
+        # Add host to known_hosts first
+        ssh-keyscan -H ${{ secrets.RHEL_HOST }} >> ~/.ssh/known_hosts
+        
+        # Test SSH connection with detailed output
+        echo "Testing SSH connection to ${{ secrets.RHEL_USER }}@${{ secrets.RHEL_HOST }}"
+        ssh -i ~/.ssh/id_rsa -o ConnectTimeout=10 -o StrictHostKeyChecking=yes ${{ secrets.RHEL_USER }}@${{ secrets.RHEL_HOST }} "echo 'SSH connection to dev VM successful' && whoami && hostname"
 
     - name: Install Podman on Dev VM (if needed)
       run: |
