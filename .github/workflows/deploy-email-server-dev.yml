@@ -79,6 +79,20 @@ jobs:
         echo "Pulling latest email server image..."
         sudo podman pull ghcr.io/docker-mailserver/docker-mailserver:latest
 
+    - name: Configure email accounts
+      run: |
+        echo "Configuring email accounts..."
+        cd ~/investra-email-server-dev
+        
+        # Create email account configuration
+        echo "${{ env.EMAIL_USER }}|{PLAIN}${{ secrets.DEV_EMAIL_PASSWORD }}" > data/config/postfix-accounts.cf
+        
+        # Create basic aliases
+        echo "postmaster@${{ env.EMAIL_DOMAIN }} ${{ env.EMAIL_USER }}" > data/config/postfix-virtual.cf
+        echo "abuse@${{ env.EMAIL_DOMAIN }} ${{ env.EMAIL_USER }}" >> data/config/postfix-virtual.cf
+        
+        echo "Email accounts configured"
+
     - name: Start email server container
       run: |
         echo "Starting email server container..."
@@ -86,6 +100,7 @@ jobs:
         
         sudo podman run -d \
           --name investra-mailserver-dev \
+          --hostname ${{ env.EMAIL_HOSTNAME }} \
           -p 25:25 \
           -p 587:587 \
           -p 993:993 \
@@ -94,6 +109,8 @@ jobs:
           -v ./data/mail-state:/var/mail-state:Z \
           -v ./data/mail-logs:/var/log/mail:Z \
           -v ./data/config:/tmp/docker-mailserver:Z \
+          -e OVERRIDE_HOSTNAME=${{ env.EMAIL_HOSTNAME }} \
+          -e DOMAINNAME=${{ env.EMAIL_DOMAIN }} \
           -e SSL_TYPE=self-signed \
           -e LOG_LEVEL=debug \
           -e DMS_DEBUG=1 \
