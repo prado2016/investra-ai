@@ -1,0 +1,543 @@
+name: Deploy Email Server to RHEL VM
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'email-server/**'
+      - '.github/workflows/deploy-email-server.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+
+env:
+  EMAIL_DOMAIN: investra.com
+  EMAIL_HOSTNAME: mail.investra.com
+  EMAIL_USER: transactions@investra.com
+
+jobs:
+  deploy-email-server:
+    name: Deploy Email Server
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'production' }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup SSH key
+      uses: webfactory/ssh-agent@v0.9.0
+      with:
+        ssh-private-key: ${{ secrets.RHEL_VM_SSH_KEY }}
+
+    - name: Add RHEL VM to known hosts
+      run: |
+        mkdir -p ~/.ssh
+        ssh-keyscan -H ${{ secrets.RHEL_VM_HOST }} >> ~/.ssh/known_hosts
+
+    - name: Test SSH connection
+      run: |
+        ssh -o ConnectTimeout=10 ${{ secrets.RHEL_VM_USER }}@${{ secrets.RHEL_VM_HOST }} "echo 'SSH connection successful'"
+
+    - name: Install Docker on RHEL VM
+      run: |
+        ssh ${{ secrets.RHEL_VM_USER }}@${{ secrets.RHEL_VM_HOST }} << 'EOF'
+          # Update system
+          sudo dnf update -y
+          
+          # Install Docker if not already installed
+          if ! command -v docker &> /dev/null; then
+            echo "Installing Docker..."
+            sudo dnf config-manager --add-repo https://download.docker.com/linux/rhel/docker-ce.repo
+            sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+            
+            # Start and enable Docker
+            sudo systemctl start docker
+            sudo systemctl enable docker
+            
+            # Add user to docker group
+            sudo usermod -aG docker $USER
+            
+            echo "Docker installation completed"
+          else
+            echo "Docker is already installed"
+            docker --version
+          fi
+          
+          # Install Docker Compose if not available as plugin
+          if ! docker compose version &> /dev/null; then
+            echo "Installing Docker Compose..."
+            sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+            sudo chmod +x /usr/local/bin/docker-compose
+          fi
+          
+          # Verify installations
+          docker --version
+          docker compose version || docker-compose --version
+        EOF
+
+    - name: Configure firewall for email server
+      run: |
+        ssh ${{ secrets.RHEL_VM_USER }}@${{ secrets.RHEL_VM_HOST }} << 'EOF'
+          # Configure firewall for email services
+          echo "Configuring firewall..."
+          
+          # Check if firewalld is running
+          if sudo systemctl is-active --quiet firewalld; then
+            echo "Configuring firewalld..."
+            sudo firewall-cmd --permanent --add-service=smtp
+            sudo firewall-cmd --permanent --add-service=smtp-submission
+            sudo firewall-cmd --permanent --add-service=imaps
+            sudo firewall-cmd --permanent --add-port=8080/tcp  # Roundcube web interface
+            sudo firewall-cmd --reload
+            echo "Firewall configured with firewalld"
+          elif command -v ufw &> /dev/null; then
+            echo "Configuring ufw..."
+            sudo ufw allow 25/tcp    # SMTP
+            sudo ufw allow 587/tcp   # SMTP Submission
+            sudo ufw allow 993/tcp   # IMAPS
+            sudo ufw allow 8080/tcp  # Roundcube
+            echo "Firewall configured with ufw"
+          else
+            echo "No supported firewall found, manual configuration may be needed"
+          fi
+          
+          # Stop and disable system postfix if running (to avoid port conflicts)
+          if sudo systemctl is-active --quiet postfix; then
+            echo "Stopping system postfix to avoid port conflicts..."
+            sudo systemctl stop postfix
+            sudo systemctl disable postfix
+          fi
+        EOF
+
+    - name: Create email server directory and copy files
+      run: |
+        # Create directory on remote server
+        ssh ${{ secrets.RHEL_VM_USER }}@${{ secrets.RHEL_VM_HOST }} "mkdir -p ~/investra-email-server"
+        
+        # Copy email server files
+        scp -r email-server/* ${{ secrets.RHEL_VM_USER }}@${{ secrets.RHEL_VM_HOST }}:~/investra-email-server/
+
+    - name: Configure email server environment
+      run: |
+        ssh ${{ secrets.RHEL_VM_USER }}@${{ secrets.RHEL_VM_HOST }} << 'EOF'
+          cd ~/investra-email-server
+          
+          # Create environment file with production settings
+          cat > .env << 'ENVEOF'
+        # Production Email Server Configuration
+        HOSTNAME=${{ env.EMAIL_HOSTNAME }}
+        DOMAINNAME=${{ env.EMAIL_DOMAIN }}
+        
+        # Email Credentials
+        MAILSERVER_USER=${{ env.EMAIL_USER }}
+        MAILSERVER_PASS=${{ secrets.EMAIL_PASSWORD }}
+        
+        # IMAP Connection Details
+        IMAP_HOST=${{ secrets.RHEL_VM_HOST }}
+        IMAP_PORT=993
+        IMAP_TLS=true
+        
+        # SMTP Configuration  
+        SMTP_HOST=${{ secrets.RHEL_VM_HOST }}
+        SMTP_PORT=587
+        SMTP_TLS=true
+        
+        # Production settings
+        DMS_DEBUG=0
+        LOG_LEVEL=warn
+        ENVEOF
+          
+          echo "Environment file created"
+        EOF
+
+    - name: Update docker-compose for production
+      run: |
+        ssh ${{ secrets.RHEL_VM_USER }}@${{ secrets.RHEL_VM_HOST }} << 'EOF'
+          cd ~/investra-email-server
+          
+          # Update docker-compose.yml for production
+          cat > docker-compose.yml << 'COMPOSEEOF'
+        version: '3.8'
+        
+        services:
+          mailserver:
+            image: ghcr.io/docker-mailserver/docker-mailserver:latest
+            hostname: ${{ env.EMAIL_HOSTNAME }}
+            domainname: ${{ env.EMAIL_DOMAIN }}
+            ports:
+              - "25:25"    # SMTP
+              - "587:587"  # SMTP Submission
+              - "993:993"  # IMAPS
+              - "143:143"  # IMAP
+            volumes:
+              - ./docker-data/dms/mail-data/:/var/mail/
+              - ./docker-data/dms/mail-state/:/var/mail-state/
+              - ./docker-data/dms/mail-logs/:/var/log/mail/
+              - ./docker-data/dms/config/:/tmp/docker-mailserver/
+              - /etc/localtime:/etc/localtime:ro
+              # SSL Certificates
+              - ./docker-data/dms/certs/:/etc/letsencrypt/live/
+            environment:
+              # Basic Configuration
+              - ENABLE_SPAMASSASSIN=1
+              - ENABLE_CLAMAV=0
+              - ENABLE_FAIL2BAN=1
+              - ENABLE_POSTGREY=1
+              - ENABLE_MANAGESIEVE=1
+              
+              # Security Settings
+              - SSL_TYPE=manual
+              - SSL_CERT_PATH=/etc/letsencrypt/live/${{ env.EMAIL_HOSTNAME }}/fullchain.pem
+              - SSL_KEY_PATH=/etc/letsencrypt/live/${{ env.EMAIL_HOSTNAME }}/privkey.pem
+              - TLS_LEVEL=modern
+              - ENABLE_SRS=1
+              
+              # Authentication
+              - PERMIT_DOCKER=none
+              - SPOOF_PROTECTION=1
+              - ENABLE_SASLAUTHD=0
+              
+              # Postfix Configuration
+              - POSTFIX_MAILBOX_SIZE_LIMIT=0
+              - POSTFIX_MESSAGE_SIZE_LIMIT=100000000
+              
+              # Dovecot Configuration
+              - DOVECOT_MAILBOX_FORMAT=maildir
+              - DOVECOT_TLS=yes
+              
+              # Production settings
+              - LOG_LEVEL=warn
+              - DMS_DEBUG=0
+              
+              # Custom Environment
+              - OVERRIDE_HOSTNAME=${{ env.EMAIL_HOSTNAME }}
+              
+            restart: unless-stopped
+            cap_add:
+              - NET_ADMIN
+              - SYS_PTRACE
+            
+            # Health check
+            healthcheck:
+              test: ["CMD", "ss", "-lnpt", "state", "listening"]
+              interval: 30s
+              timeout: 5s
+              retries: 3
+              start_period: 60s
+        
+          # Email administration interface
+          mailserver-admin:
+            image: roundcube/roundcubemail:latest
+            ports:
+              - "8080:80"
+            environment:
+              - ROUNDCUBEMAIL_DEFAULT_HOST=ssl://mailserver
+              - ROUNDCUBEMAIL_DEFAULT_PORT=993
+              - ROUNDCUBEMAIL_SMTP_SERVER=tls://mailserver
+              - ROUNDCUBEMAIL_SMTP_PORT=587
+              - ROUNDCUBEMAIL_DB_TYPE=sqlite
+            depends_on:
+              - mailserver
+            restart: unless-stopped
+            volumes:
+              - ./docker-data/roundcube:/var/www/html
+        
+        networks:
+          default:
+            driver: bridge
+        COMPOSEEOF
+          
+          echo "Docker Compose file updated for production"
+        EOF
+
+    - name: Setup SSL certificates with Let's Encrypt
+      run: |
+        ssh ${{ secrets.RHEL_VM_USER }}@${{ secrets.RHEL_VM_HOST }} << 'EOF'
+          cd ~/investra-email-server
+          
+          # Install certbot if not present
+          if ! command -v certbot &> /dev/null; then
+            echo "Installing certbot..."
+            sudo dnf install -y epel-release
+            sudo dnf install -y certbot
+          fi
+          
+          # Create SSL certificate directory
+          mkdir -p docker-data/dms/certs/${{ env.EMAIL_HOSTNAME }}
+          
+          # Check if certificates already exist
+          if [ ! -f "docker-data/dms/certs/${{ env.EMAIL_HOSTNAME }}/fullchain.pem" ]; then
+            echo "Obtaining SSL certificate..."
+            
+            # Stop any services using port 80
+            sudo systemctl stop httpd nginx apache2 2>/dev/null || true
+            
+            # Get certificate using standalone mode
+            sudo certbot certonly --standalone \
+              --non-interactive \
+              --agree-tos \
+              --email ${{ secrets.ADMIN_EMAIL }} \
+              -d ${{ env.EMAIL_HOSTNAME }} \
+              --cert-path docker-data/dms/certs/${{ env.EMAIL_HOSTNAME }}/cert.pem \
+              --key-path docker-data/dms/certs/${{ env.EMAIL_HOSTNAME }}/privkey.pem \
+              --fullchain-path docker-data/dms/certs/${{ env.EMAIL_HOSTNAME }}/fullchain.pem \
+              --chain-path docker-data/dms/certs/${{ env.EMAIL_HOSTNAME }}/chain.pem
+              
+            # Copy certificates to docker directory
+            sudo cp /etc/letsencrypt/live/${{ env.EMAIL_HOSTNAME }}/* docker-data/dms/certs/${{ env.EMAIL_HOSTNAME }}/
+            sudo chown -R $(whoami):$(whoami) docker-data/dms/certs/
+            
+            echo "SSL certificates obtained"
+          else
+            echo "SSL certificates already exist"
+          fi
+          
+          # Setup certificate renewal
+          echo "0 2 * * * certbot renew --quiet && docker-compose restart mailserver" | sudo crontab -
+        EOF
+
+    - name: Run email server setup
+      run: |
+        ssh ${{ secrets.RHEL_VM_USER }}@${{ secrets.RHEL_VM_HOST }} << 'EOF'
+          cd ~/investra-email-server
+          
+          # Make scripts executable
+          chmod +x *.sh
+          
+          # Run setup script
+          ./setup.sh
+          
+          # Update email account with production password
+          echo "${{ env.EMAIL_USER }}|{PLAIN}${{ secrets.EMAIL_PASSWORD }}" > docker-data/dms/config/postfix-accounts.cf
+          
+          echo "Email server setup completed"
+        EOF
+
+    - name: Start email server
+      run: |
+        ssh ${{ secrets.RHEL_VM_USER }}@${{ secrets.RHEL_VM_HOST }} << 'EOF'
+          cd ~/investra-email-server
+          
+          # Start email server
+          docker compose down || true  # Stop if already running
+          docker compose pull          # Get latest images
+          docker compose up -d         # Start in background
+          
+          echo "Email server started"
+          
+          # Wait for services to be ready
+          echo "Waiting for services to start..."
+          sleep 30
+          
+          # Check status
+          docker compose ps
+          
+          # Check if ports are listening
+          echo "Checking if email ports are listening..."
+          ss -tlnp | grep -E ':(25|587|993|8080)'
+        EOF
+
+    - name: Test email server connectivity
+      run: |
+        ssh ${{ secrets.RHEL_VM_USER }}@${{ secrets.RHEL_VM_HOST }} << 'EOF'
+          cd ~/investra-email-server
+          
+          echo "Testing email server connectivity..."
+          
+          # Test SMTP port
+          timeout 5 bash -c "</dev/tcp/localhost/25" && echo "✅ SMTP port 25 is open" || echo "❌ SMTP port 25 failed"
+          
+          # Test SMTP submission port
+          timeout 5 bash -c "</dev/tcp/localhost/587" && echo "✅ SMTP submission port 587 is open" || echo "❌ SMTP submission port 587 failed"
+          
+          # Test IMAPS port
+          timeout 5 bash -c "</dev/tcp/localhost/993" && echo "✅ IMAPS port 993 is open" || echo "❌ IMAPS port 993 failed"
+          
+          # Test web interface
+          timeout 5 bash -c "</dev/tcp/localhost/8080" && echo "✅ Roundcube port 8080 is open" || echo "❌ Roundcube port 8080 failed"
+          
+          # Check docker logs for errors
+          echo "Checking for Docker errors..."
+          docker compose logs --tail=10 mailserver | grep -i error || echo "No errors found in mailserver logs"
+          
+          echo "Email server testing completed"
+        EOF
+
+    - name: Setup monitoring and logging
+      run: |
+        ssh ${{ secrets.RHEL_VM_USER }}@${{ secrets.RHEL_VM_HOST }} << 'EOF'
+          cd ~/investra-email-server
+          
+          # Create monitoring script
+          cat > monitor-email.sh << 'MONITOREOF'
+        #!/bin/bash
+        # Email Server Monitoring Script
+        
+        echo "=== Email Server Status $(date) ==="
+        
+        # Check Docker containers
+        echo "Docker Containers:"
+        docker compose ps
+        
+        # Check ports
+        echo -e "\nPort Status:"
+        ss -tlnp | grep -E ':(25|587|993|8080)' || echo "No email ports found"
+        
+        # Check disk space
+        echo -e "\nDisk Usage:"
+        df -h | grep -E '(Filesystem|/)'
+        
+        # Check recent logs
+        echo -e "\nRecent Logs (last 10 lines):"
+        docker compose logs --tail=10 mailserver
+        
+        # Check mail queue
+        echo -e "\nMail Queue:"
+        docker compose exec -T mailserver postqueue -p 2>/dev/null || echo "Could not check mail queue"
+        MONITOREOF
+          
+          chmod +x monitor-email.sh
+          
+          # Create log rotation for email logs
+          sudo tee /etc/logrotate.d/investra-email << 'LOGROTATEEOF'
+        ~/investra-email-server/docker-data/dms/mail-logs/*.log {
+            daily
+            missingok
+            rotate 30
+            compress
+            delaycompress
+            copytruncate
+            create 644
+        }
+        LOGROTATEEOF
+          
+          # Create systemd service for email server
+          sudo tee /etc/systemd/system/investra-email.service << 'SYSTEMDEOF'
+        [Unit]
+        Description=Investra Email Server
+        Requires=docker.service
+        After=docker.service
+        
+        [Service]
+        Type=oneshot
+        RemainAfterExit=yes
+        WorkingDirectory=/home/${{ secrets.RHEL_VM_USER }}/investra-email-server
+        ExecStart=/usr/bin/docker compose up -d
+        ExecStop=/usr/bin/docker compose down
+        TimeoutStartSec=0
+        
+        [Install]
+        WantedBy=multi-user.target
+        SYSTEMDEOF
+          
+          # Enable and start service
+          sudo systemctl daemon-reload
+          sudo systemctl enable investra-email.service
+          
+          echo "Monitoring and logging setup completed"
+        EOF
+
+    - name: Create backup script
+      run: |
+        ssh ${{ secrets.RHEL_VM_USER }}@${{ secrets.RHEL_VM_HOST }} << 'EOF'
+          cd ~/investra-email-server
+          
+          # Create backup script
+          cat > backup-email.sh << 'BACKUPEOF'
+        #!/bin/bash
+        # Email Server Backup Script
+        
+        BACKUP_DIR="/backup/investra-email"
+        DATE=$(date +%Y%m%d_%H%M%S)
+        
+        # Create backup directory
+        mkdir -p $BACKUP_DIR
+        
+        echo "Starting email backup at $(date)"
+        
+        # Backup email data
+        tar -czf "$BACKUP_DIR/email-data-$DATE.tar.gz" \
+          docker-data/dms/mail-data/ \
+          docker-data/dms/config/ \
+          .env \
+          docker-compose.yml
+        
+        # Backup SSL certificates
+        tar -czf "$BACKUP_DIR/ssl-certs-$DATE.tar.gz" \
+          docker-data/dms/certs/
+        
+        # Keep only last 7 days of backups
+        find $BACKUP_DIR -name "*.tar.gz" -mtime +7 -delete
+        
+        echo "Email backup completed: $BACKUP_DIR/email-data-$DATE.tar.gz"
+        BACKUPEOF
+          
+          chmod +x backup-email.sh
+          
+          # Add to crontab for daily backups
+          (crontab -l 2>/dev/null; echo "0 1 * * * /home/${{ secrets.RHEL_VM_USER }}/investra-email-server/backup-email.sh") | crontab -
+          
+          echo "Backup script created and scheduled"
+        EOF
+
+    - name: Display deployment summary
+      run: |
+        ssh ${{ secrets.RHEL_VM_USER }}@${{ secrets.RHEL_VM_HOST }} << 'EOF'
+          cd ~/investra-email-server
+          
+          echo "============================================"
+          echo "📧 EMAIL SERVER DEPLOYMENT COMPLETE"
+          echo "============================================"
+          echo ""
+          echo "🌐 Server Details:"
+          echo "   Email Server: ${{ env.EMAIL_HOSTNAME }}"
+          echo "   IP Address: ${{ secrets.RHEL_VM_HOST }}"
+          echo "   Email Account: ${{ env.EMAIL_USER }}"
+          echo ""
+          echo "📧 Connection Settings:"
+          echo "   IMAP: ${{ secrets.RHEL_VM_HOST }}:993 (SSL)"
+          echo "   SMTP: ${{ secrets.RHEL_VM_HOST }}:587 (STARTTLS)"
+          echo "   Web Interface: http://${{ secrets.RHEL_VM_HOST }}:8080"
+          echo ""
+          echo "🔧 Management Commands:"
+          echo "   Status: cd ~/investra-email-server && docker compose ps"
+          echo "   Logs: cd ~/investra-email-server && docker compose logs -f mailserver"
+          echo "   Restart: cd ~/investra-email-server && docker compose restart"
+          echo "   Monitor: cd ~/investra-email-server && ./monitor-email.sh"
+          echo "   Backup: cd ~/investra-email-server && ./backup-email.sh"
+          echo ""
+          echo "📋 Next Steps:"
+          echo "   1. Update DNS MX record to point to ${{ secrets.RHEL_VM_HOST }}"
+          echo "   2. Configure Wealthsimple to send emails to ${{ env.EMAIL_USER }}"
+          echo "   3. Test email reception"
+          echo "   4. Monitor logs and performance"
+          echo ""
+          echo "============================================"
+        EOF
+
+    - name: Send deployment notification
+      if: success()
+      run: |
+        echo "Email server deployed successfully to RHEL VM"
+        echo "Server: ${{ secrets.RHEL_VM_HOST }}"
+        echo "Email: ${{ env.EMAIL_USER }}"
+        echo "Web Interface: http://${{ secrets.RHEL_VM_HOST }}:8080"
+
+    - name: Handle deployment failure
+      if: failure()
+      run: |
+        echo "Email server deployment failed"
+        echo "Check the logs above for error details"
+        echo "Common issues:"
+        echo "- SSH connection problems"
+        echo "- Docker installation issues"
+        echo "- Port conflicts"
+        echo "- SSL certificate problems"
