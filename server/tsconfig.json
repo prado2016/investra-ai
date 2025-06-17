@@ -24,7 +24,8 @@
   },
   "include": [
     "server-ts.ts",
-    "src/**/*.ts"
+    "simple-production-server.ts",
+    "src/types/*.ts"
   ],
   "exclude": [
     "node_modules",
