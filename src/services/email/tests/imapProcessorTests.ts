@@ -79,7 +79,7 @@ export class IMAPProcessorTestSuite {
         return {
           testName: 'IMAP Connection Test',
           success: true,
-          details: result.serverInfo,
+          details: result.serverInfo as Record<string, unknown>,
           duration
         };
       } else {

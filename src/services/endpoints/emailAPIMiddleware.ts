@@ -487,7 +487,7 @@ export class EmailAPIMiddleware {
 
       // 4. Validate input schema
       if (schema) {
-        const validationResult = this.validateRequest(sanitizedData, schema);
+        const validationResult = this.validateRequest(sanitizedData as Record<string, unknown>, schema);
         if (!validationResult.isValid) {
           return {
             success: false,

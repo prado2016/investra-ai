@@ -449,8 +449,8 @@ export class ManualReviewQueueTestSuite {
       return {
         testName,
         success: true,
-        queueItem: result.queueItem,
-        queueStats: result.queueStats,
+        queueItem: result.queueItem as ReviewQueueItem,
+        queueStats: result.queueStats as Record<string, unknown>,
         errors: [],
         warnings: [],
         performance: { executionTime }

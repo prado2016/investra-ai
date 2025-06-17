@@ -24,5 +24,5 @@ export class PositionDebugger {
 
 // Make debugger available in browser console for manual debugging
 if (typeof window !== 'undefined') {
-  (window as Record<string, unknown>).PositionDebugger = PositionDebugger;
+  (window as unknown as Record<string, unknown>).PositionDebugger = PositionDebugger;
 }

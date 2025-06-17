@@ -427,7 +427,7 @@ export class IMAPServiceAPI {
       const response: IMAPConnectionTestResponse = {
         success: result.success,
         error: result.error,
-        serverInfo: result.serverInfo,
+        serverInfo: result.serverInfo as Record<string, unknown>,
         responseTime
       };
 
