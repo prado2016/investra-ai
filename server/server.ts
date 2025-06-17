@@ -6,6 +6,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
 
 // Import the existing TypeScript APIs
 import { EmailAPI } from '../src/services/endpoints/emailAPI';
@@ -17,6 +18,9 @@ import type {
   RetryRequest
 } from '../src/services/endpoints/emailAPI';
 
+// Import monitoring API
+import { monitoringApp, startMonitoringAPI } from './monitoring-api';
+
 // Load environment variables
 dotenv.config();
 
@@ -27,6 +31,12 @@ const port = process.env.API_PORT || 3001;
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true }));
+
+// Serve static files for monitoring dashboard
+app.use('/monitoring', express.static(path.join(__dirname, '..', 'public')));
+
+// Mount monitoring API
+app.use('/api/monitoring', monitoringApp);
 
 // Request logging middleware
 app.use((req, res, next) => {
@@ -351,12 +361,20 @@ app.use((req, res) => {
 });
 
 // Start server
-app.listen(port, () => {
+app.listen(port, async () => {
   console.log('🚀 Email Processing API Server Started');
   console.log(`📍 Server running on http://localhost:${port}`);
   console.log(`📊 Health check: http://localhost:${port}/health`);
   console.log(`📖 API docs: http://localhost:${port}/api`);
+  console.log(`📊 Monitoring dashboard: http://localhost:${port}/monitoring/monitoring-dashboard.html`);
   console.log('🎯 Ready to process emails!');
+  
+  // Start monitoring API on port 3002 to avoid conflicts
+  try {
+    await startMonitoringAPI(3002);
+  } catch (error) {
+    console.error('⚠️ Failed to start monitoring API:', error);
+  }
 });
 
 export default app;

@@ -7,6 +7,7 @@ import { WealthsimpleEmailParser, type WealthsimpleEmailData } from './wealthsim
 import { PortfolioMappingService, type MappingResult } from './portfolioMappingService';
 import { EnhancedEmailSymbolParser, type EmailSymbolParseResult } from './enhancedEmailSymbolParser';
 import { SupabaseService } from '../supabaseService';
+import { emailProcessingMonitor } from '../monitoring/emailProcessingMonitor';
 import type { Transaction } from '../../lib/database/types';
 import type { ServiceResponse } from '../supabaseService';
 
@@ -46,6 +47,19 @@ export class EmailProcessingService {
     textContent?: string,
     options: Partial<ProcessingOptions> = {}
   ): Promise<EmailProcessingResult> {
+    const processingStartTime = Date.now();
+    const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Record email received event
+    emailProcessingMonitor.recordEvent({
+      type: 'email_received',
+      email: {
+        subject,
+        fromEmail,
+        messageId
+      }
+    });
+    
     const defaultOptions: ProcessingOptions = {
       createMissingPortfolios: true,
       skipDuplicateCheck: false,
@@ -67,7 +81,19 @@ export class EmailProcessingService {
 
     try {
       // Step 1: Parse the email
+      const parseStartTime = Date.now();
       console.log('📧 Parsing Wealthsimple email...');
+      
+      // Record parsing started event
+      emailProcessingMonitor.recordEvent({
+        type: 'parsing_started',
+        email: {
+          subject,
+          fromEmail,
+          messageId
+        }
+      });
+      
       const parseResult = WealthsimpleEmailParser.parseEmail(
         subject,
         fromEmail,
@@ -75,11 +101,32 @@ export class EmailProcessingService {
         textContent
       );
 
+      const parseTime = Date.now() - parseStartTime;
+
       if (!parseResult.success || !parseResult.data) {
         result.errors.push(`Email parsing failed: ${parseResult.error}`);
         if (parseResult.warnings) {
           result.warnings.push(...parseResult.warnings);
         }
+        
+        // Record parsing failure
+        emailProcessingMonitor.recordEvent({
+          type: 'processing_failed',
+          email: {
+            subject,
+            fromEmail,
+            messageId
+          },
+          metrics: {
+            processingTime: parseTime,
+            stage: 'parsing'
+          },
+          error: {
+            message: parseResult.error || 'Unknown parsing error',
+            code: 'PARSING_FAILED'
+          }
+        });
+        
         return result;
       }
 
@@ -91,6 +138,24 @@ export class EmailProcessingService {
       }
 
       console.log(`✅ Email parsed: ${parseResult.data.symbol} ${parseResult.data.transactionType} ${parseResult.data.quantity}`);
+
+      // Record successful parsing
+      emailProcessingMonitor.recordEvent({
+        type: 'parsing_completed',
+        email: {
+          subject,
+          fromEmail,
+          messageId
+        },
+        metrics: {
+          processingTime: parseTime,
+          confidence: parseResult.data.confidence,
+          stage: 'parsing'
+        },
+        result: {
+          success: true
+        }
+      });
 
       // Validate parsed data
       const validation = WealthsimpleEmailParser.validateParsedData(parseResult.data);
@@ -201,11 +266,48 @@ export class EmailProcessingService {
       console.log(`✅ Transaction created: ${transactionResult.data.id}`);
       console.log('🎉 Email processing completed successfully!');
 
+      // Record successful transaction creation
+      emailProcessingMonitor.recordEvent({
+        type: 'transaction_created',
+        email: {
+          subject,
+          fromEmail,
+          messageId
+        },
+        metrics: {
+          processingTime: Date.now() - processingStartTime,
+          stage: 'transaction_creation'
+        },
+        result: {
+          success: true,
+          transactionId: transactionResult.data.id
+        }
+      });
+
       return result;
 
     } catch (error) {
       result.errors.push(`Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}`);
       console.error('❌ Email processing failed:', error);
+
+      // Record unexpected error
+      emailProcessingMonitor.recordEvent({
+        type: 'processing_failed',
+        email: {
+          subject,
+          fromEmail,
+          messageId
+        },
+        metrics: {
+          processingTime: Date.now() - processingStartTime,
+          stage: 'unknown'
+        },
+        error: {
+          message: error instanceof Error ? error.message : 'Unknown error',
+          code: 'UNKNOWN_ERROR'
+        }
+      });
+
       return result;
     }
   }
