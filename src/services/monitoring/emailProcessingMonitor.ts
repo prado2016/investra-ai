@@ -437,14 +437,14 @@ export class EmailProcessingMonitor extends EventEmitter {
       message,
       category,
       metrics: { ...this.metrics },
-      actions: this.getRecommendedActions(category, severity)
+      actions: this.getRecommendedActions(category)
     };
   }
 
   /**
    * Get recommended actions for alert category
    */
-  private getRecommendedActions(category: string, severity: string): string[] {
+  private getRecommendedActions(category: string): string[] {
     const actions: Record<string, string[]> = {
       errors: [
         'Check email parsing logs for specific error details',

@@ -83,7 +83,6 @@ export class EmailProcessingAlertManager extends EventEmitter {
   private config: AlertConfig;
   private history: AlertHistory[] = [];
   private activeCooldowns: Map<string, number> = new Map();
-  private lastAlertCounts: Map<string, number> = new Map();
 
   constructor(config: Partial<AlertConfig> = {}) {
     super();
@@ -786,7 +785,7 @@ export class EmailProcessingAlertManager extends EventEmitter {
         setTimeout(async () => {
           // Check if alert is still active and not acknowledged
           const alertHistory = this.history.find(h => h.alertId === alert.id);
-          if (alertHistory && !alertHistory.response?.acknowledged) {
+          if (alertHistory && !alertHistory.response?.acknowledged && rule.escalation) {
             // Send escalation
             for (const channelId of rule.escalation.channels) {
               const channel = this.config.channels[channelId];
@@ -803,9 +802,11 @@ export class EmailProcessingAlertManager extends EventEmitter {
               }
             }
             
-            this.recordAlertHistory(alert, 'escalated', rule.escalation.channels);
+            if (rule.escalation) {
+              this.recordAlertHistory(alert, 'escalated', rule.escalation.channels);
+            }
           }
-        }, rule.escalation.delay);
+        }, rule.escalation?.delay || 300000);
       }
     });
   }

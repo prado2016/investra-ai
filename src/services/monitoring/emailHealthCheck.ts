@@ -5,7 +5,16 @@
  * Provides comprehensive health checks for all email processing components:
  * - Email parsing functionality
  * - IMAP connectivity
- * - Database connections
+ *      // Create a test IMAP processor instance
+      const imapProcessor = new IMAPEmailProcessor({
+        host: process.env.IMAP_HOST || 'localhost',
+        port: parseInt(process.env.IMAP_PORT || '993'),
+        secure: true,
+        auth: {
+          user: process.env.IMAP_USER || 'transactions@investra.com',
+          pass: process.env.IMAP_PASSWORD || 'password'
+        }
+      });e connections
  * - External API dependencies
  * - System resources
  */
@@ -236,8 +245,10 @@ export class EmailProcessingHealthCheck {
         host: process.env.IMAP_HOST || 'localhost',
         port: parseInt(process.env.IMAP_PORT || '993'),
         secure: true,
-        username: process.env.IMAP_USER || 'transactions@investra.com',
-        password: process.env.IMAP_PASSWORD || 'password'
+        auth: {
+          user: process.env.IMAP_USER || 'transactions@investra.com',
+          pass: process.env.IMAP_PASSWORD || 'password'
+        }
       });
 
       // Test connection
@@ -338,7 +349,7 @@ export class EmailProcessingHealthCheck {
     try {
       // Test multiple Supabase services
       const checks = await Promise.allSettled([
-        SupabaseService.asset.searchAssets('AAPL', 1),
+        SupabaseService.asset.getOrCreateAsset('AAPL'),
         SupabaseService.transaction.getTransactions('health-check'),
         SupabaseService.position.getPositions('health-check')
       ]);

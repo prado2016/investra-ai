@@ -300,7 +300,7 @@ export class EmailProcessingService {
         },
         metrics: {
           processingTime: Date.now() - processingStartTime,
-          stage: 'unknown'
+          stage: 'parsing' as const
         },
         error: {
           message: error instanceof Error ? error.message : 'Unknown error',
