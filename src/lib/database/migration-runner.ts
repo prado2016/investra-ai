@@ -45,6 +45,11 @@ export const MIGRATIONS: Omit<Migration, 'sql'>[] = [
     name: 'enhance_decimal_price_support',
     file: '003_enhance_decimal_price_support.sql',
     version: '1.3.0'
+  },
+  {
+    name: 'create_email_configuration_tables',
+    file: '007_create_email_configuration_tables.sql',
+    version: '1.7.0'
   }
 ]
 

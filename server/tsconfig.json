@@ -26,6 +26,9 @@
   "include": [
     "server-ts.ts",
     "simple-production-server.ts",
+    "simple-email-server.ts",
+    "routes/**/*.ts",
+    "types/**/*.ts",
     "src/types/*.ts"
   ],
   "exclude": [

@@ -4,7 +4,7 @@
  */
 
 import express from 'express';
-// import { ImapFlow } from 'imapflow'; // Temporarily disabled until types are fixed
+import { ImapFlow } from 'imapflow';
 
 const router = express.Router();
 
@@ -67,53 +67,7 @@ router.post('/test-connection', async (req: express.Request, res: express.Respon
       logger: false
     };
 
-    // Test connection - Mock implementation for now
-    // TODO: Re-enable real IMAP test when imapflow types are fixed
-    
-    try {
-      // Simulate connection time
-      await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 1000));
-      
-      // Mock validation - basic checks for common providers
-      const isKnownProvider = host.includes('gmail') || host.includes('outlook') || host.includes('yahoo') || host.includes('imap');
-      const hasValidPort = (secure && port === 993) || (!secure && port === 143);
-      
-      if (!isKnownProvider) {
-        throw new Error('Unknown email provider. Please verify the host address.');
-      }
-      
-      if (!hasValidPort && !host.includes('localhost')) {
-        throw new Error(`Invalid port for ${secure ? 'SSL' : 'non-SSL'} connection. Expected ${secure ? '993' : '143'}.`);
-      }
-
-      const responseTime = Date.now() - startTime;
-
-      res.json({
-        success: true,
-        message: `Successfully tested connection to ${host}`,
-        details: {
-          serverInfo: { host, port, secure },
-          responseTime,
-          capabilities: ['IMAP4REV1', 'STARTTLS', 'AUTH=PLAIN']
-        }
-      } as EmailConnectionTestResponse);
-
-    } catch (connectionError) {
-      const responseTime = Date.now() - startTime;
-      const errorMessage = connectionError instanceof Error ? connectionError.message : 'Unknown connection error';
-
-      res.status(422).json({
-        success: false,
-        message: 'Failed to connect to email server',
-        error: errorMessage,
-        details: {
-          responseTime
-        }
-      } as EmailConnectionTestResponse);
-    }
-
-    /*
-    // Real IMAP implementation - uncomment when types are working
+    // Real IMAP connection testing
     let client: ImapFlow | null = null;
     
     try {
@@ -123,30 +77,56 @@ router.post('/test-connection', async (req: express.Request, res: express.Respon
       await Promise.race([
         client.connect(),
         new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Connection timeout')), 10000)
+          setTimeout(() => reject(new Error('Connection timeout (10 seconds)')), 10000)
         )
       ]);
 
-      // Get server info
+      // Get server info and capabilities
       const serverInfo = client.serverInfo;
+      const capabilities = Array.from(client.capabilities || []);
       const responseTime = Date.now() - startTime;
 
-      // Close connection
+      // Close connection gracefully
       await client.logout();
 
       res.json({
         success: true,
-        message: 'Connection successful',
+        message: `Successfully connected to ${host}`,
         details: {
-          serverInfo,
+          serverInfo: {
+            host,
+            port,
+            secure,
+            vendor: serverInfo?.vendor,
+            name: serverInfo?.name,
+            version: serverInfo?.version,
+            greeting: serverInfo?.greeting
+          },
           responseTime,
-          capabilities: serverInfo?.capability || []
+          capabilities: capabilities.length > 0 ? capabilities : ['IMAP4REV1']
         }
       } as EmailConnectionTestResponse);
 
     } catch (connectionError) {
       const responseTime = Date.now() - startTime;
-      const errorMessage = connectionError instanceof Error ? connectionError.message : 'Unknown connection error';
+      let errorMessage = 'Unknown connection error';
+      
+      if (connectionError instanceof Error) {
+        errorMessage = connectionError.message;
+        
+        // Provide more helpful error messages
+        if (errorMessage.includes('ENOTFOUND')) {
+          errorMessage = `Cannot resolve hostname "${host}". Please check the server address.`;
+        } else if (errorMessage.includes('ECONNREFUSED')) {
+          errorMessage = `Connection refused by server. Please check the port (${port}) and ensure the server is running.`;
+        } else if (errorMessage.includes('timeout')) {
+          errorMessage = `Connection timeout. The server at ${host}:${port} is not responding.`;
+        } else if (errorMessage.includes('authentication') || errorMessage.includes('Invalid credentials')) {
+          errorMessage = 'Authentication failed. Please check your username and password.';
+        } else if (errorMessage.includes('TLS') || errorMessage.includes('SSL')) {
+          errorMessage = `SSL/TLS error. Try ${secure ? 'disabling' : 'enabling'} SSL encryption.`;
+        }
+      }
 
       // Try to close connection if it was opened
       if (client) {
@@ -166,7 +146,7 @@ router.post('/test-connection', async (req: express.Request, res: express.Respon
         }
       } as EmailConnectionTestResponse);
     }
-    */
+
 
   } catch (error) {
     const responseTime = Date.now() - startTime;
