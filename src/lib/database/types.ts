@@ -4,6 +4,11 @@ export type AssetType = 'stock' | 'option' | 'forex' | 'crypto' | 'reit' | 'etf'
 export type TransactionType = 'buy' | 'sell' | 'dividend' | 'split' | 'merger' | 'transfer' | 'option_expired'
 export type CostBasisMethod = 'FIFO' | 'LIFO' | 'AVERAGE_COST' | 'SPECIFIC_LOT'
 
+// Email configuration related types
+export type EmailProvider = 'gmail' | 'outlook' | 'yahoo' | 'custom'
+export type EmailProcessingStatus = 'pending' | 'processing' | 'success' | 'failed' | 'skipped' | 'duplicate'
+export type EmailImportAction = 'import' | 'skip' | 'manual_review'
+
 export interface Profile {
   id: string
   email: string
@@ -78,6 +83,59 @@ export interface Transaction {
   updated_at: string
 }
 
+// Email Configuration Tables
+export interface EmailConfiguration {
+  id: string
+  user_id: string
+  name: string
+  provider: EmailProvider
+  imap_host: string
+  imap_port: number
+  imap_secure: boolean
+  email_address: string
+  encrypted_password: string
+  is_active: boolean
+  last_tested_at: string | null
+  last_test_success: boolean | null
+  last_test_error: string | null
+  auto_import_enabled: boolean
+  default_portfolio_id: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface EmailProcessingLog {
+  id: string
+  email_config_id: string
+  email_message_id: string | null
+  email_subject: string | null
+  email_from: string | null
+  email_received_at: string | null
+  processing_status: EmailProcessingStatus
+  transaction_created: boolean
+  portfolio_id: string | null
+  asset_symbol: string | null
+  transaction_amount: number | null
+  error_message: string | null
+  retry_count: number
+  processed_at: string
+  created_at: string
+}
+
+export interface EmailImportRule {
+  id: string
+  email_config_id: string
+  rule_name: string
+  sender_pattern: string | null
+  subject_pattern: string | null
+  action: EmailImportAction
+  target_portfolio_id: string | null
+  priority: number
+  is_enabled: boolean
+  created_at: string
+  updated_at: string
+}
+
 // Database schema type for Supabase client
 export interface Database {
   public: {
@@ -106,6 +164,21 @@ export interface Database {
         Row: Transaction
         Insert: Omit<Transaction, 'id' | 'created_at' | 'updated_at'>
         Update: Partial<Omit<Transaction, 'id' | 'created_at' | 'updated_at'>>
+      }
+      email_configurations: {
+        Row: EmailConfiguration
+        Insert: Omit<EmailConfiguration, 'id' | 'created_at' | 'updated_at'>
+        Update: Partial<Omit<EmailConfiguration, 'id' | 'created_at' | 'updated_at'>>
+      }
+      email_processing_logs: {
+        Row: EmailProcessingLog
+        Insert: Omit<EmailProcessingLog, 'id' | 'created_at'>
+        Update: Partial<Omit<EmailProcessingLog, 'id' | 'created_at'>>
+      }
+      email_import_rules: {
+        Row: EmailImportRule
+        Insert: Omit<EmailImportRule, 'id' | 'created_at' | 'updated_at'>
+        Update: Partial<Omit<EmailImportRule, 'id' | 'created_at' | 'updated_at'>>
       }
     }
     Views: {

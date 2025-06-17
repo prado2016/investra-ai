@@ -1,0 +1,571 @@
+/**
+ * Task 14.4: Performance & Load Testing
+ * Tests system performance under email processing load
+ */
+
+import { test, expect } from '@playwright/test';
+import { EmailProcessingService } from '../../services/email/emailProcessingService';
+import { WealthsimpleEmailParser } from '../../services/email/wealthsimpleEmailParser';
+import { IMAPEmailProcessor } from '../../services/email/imapEmailProcessor';
+import { MultiLevelDuplicateDetection } from '../../services/email/multiLevelDuplicateDetection';
+import { SupabaseService } from '../../services/supabaseService';
+import type { WealthsimpleEmailData } from '../../services/email/wealthsimpleEmailParser';
+
+// Performance test configuration
+const PERFORMANCE_CONFIG = {
+  SMALL_BATCH: 10,
+  MEDIUM_BATCH: 50,
+  LARGE_BATCH: 100,
+  STRESS_BATCH: 500,
+  MAX_PROCESSING_TIME_MS: 1000, // 1 second per email
+  MAX_PARSING_TIME_MS: 100, // 100ms per email parse
+  MAX_DUPLICATE_CHECK_MS: 200, // 200ms per duplicate check
+  CONCURRENT_PROCESSORS: 5
+};
+
+// Generate test email data
+function generateTestEmail(index: number): {
+  subject: string;
+  from: string;
+  html: string;
+  text: string;
+} {
+  const symbols = ['AAPL', 'TSLA', 'NVDA', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NFLX'];
+  const accounts = ['TFSA', 'RRSP', 'Margin', 'Cash'];
+  const types = ['buy', 'sell'];
+  
+  const symbol = symbols[index % symbols.length];
+  const account = accounts[index % accounts.length];
+  const type = types[index % types.length];
+  const quantity = Math.floor(Math.random() * 100) + 1;
+  const price = parseFloat((Math.random() * 500 + 50).toFixed(2));
+  const total = parseFloat((quantity * price).toFixed(2));
+  
+  return {
+    subject: `Your ${type} order has been filled`,
+    from: 'noreply@wealthsimple.com',
+    html: `
+      <html>
+        <body>
+          <h1>${type.charAt(0).toUpperCase() + type.slice(1)} Order Confirmation</h1>
+          <p>Account: ${account}</p>
+          <p>Transaction: ${type.charAt(0).toUpperCase() + type.slice(1)}</p>
+          <p>Symbol: ${symbol}</p>
+          <p>Quantity: ${quantity} shares</p>
+          <p>Price: $${price} per share</p>
+          <p>Total: $${total}</p>
+          <p>Date: June 17, 2025 ${String(Math.floor(Math.random() * 12) + 1).padStart(2, '0')}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')} EDT</p>
+          <p>Order ID: WS-PERF-${index}</p>
+        </body>
+      </html>
+    `,
+    text: `
+      ${type.charAt(0).toUpperCase() + type.slice(1)} Order Confirmation
+      Account: ${account}
+      Transaction: ${type.charAt(0).toUpperCase() + type.slice(1)}
+      Symbol: ${symbol}
+      Quantity: ${quantity} shares
+      Price: $${price} per share
+      Total: $${total}
+      Date: June 17, 2025 ${String(Math.floor(Math.random() * 12) + 1).padStart(2, '0')}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')} EDT
+      Order ID: WS-PERF-${index}
+    `
+  };
+}
+
+test.describe('Performance & Load Testing', () => {
+  let testPortfolioId: string;
+
+  test.beforeAll(async () => {
+    console.log('🚀 Setting up performance test environment...');
+    
+    const portfolioResult = await SupabaseService.createPortfolio({
+      name: 'Performance Test Portfolio',
+      description: 'Test portfolio for performance testing',
+      type: 'TFSA',
+      currency: 'CAD'
+    });
+    
+    if (portfolioResult.success && portfolioResult.data) {
+      testPortfolioId = portfolioResult.data.id;
+      console.log(`✅ Created test portfolio: ${testPortfolioId}`);
+    } else {
+      throw new Error('Failed to create test portfolio');
+    }
+  });
+
+  test.afterAll(async () => {
+    if (testPortfolioId) {
+      console.log('🧹 Cleaning up performance test data...');
+      
+      const transactionsResult = await SupabaseService.getTransactions(testPortfolioId);
+      if (transactionsResult.success && transactionsResult.data) {
+        console.log(`Cleaning up ${transactionsResult.data.length} test transactions...`);
+        
+        // Delete in batches to avoid overwhelming the database
+        const batchSize = 50;
+        for (let i = 0; i < transactionsResult.data.length; i += batchSize) {
+          const batch = transactionsResult.data.slice(i, i + batchSize);
+          await Promise.all(
+            batch.map(transaction => SupabaseService.deleteTransaction(transaction.id))
+          );
+        }
+      }
+      
+      await SupabaseService.deletePortfolio(testPortfolioId);
+      console.log('✅ Performance test cleanup completed');
+    }
+  });
+
+  test('should test email parsing performance', async () => {
+    console.log('⚡ Testing email parsing performance...');
+    
+    const testEmails = Array.from({ length: PERFORMANCE_CONFIG.SMALL_BATCH }, (_, i) => 
+      generateTestEmail(i)
+    );
+    
+    const startTime = Date.now();
+    const results = [];
+    
+    for (const email of testEmails) {
+      const parseStart = Date.now();
+      
+      const result = WealthsimpleEmailParser.parseEmail(
+        email.subject,
+        email.from,
+        email.html,
+        email.text
+      );
+      
+      const parseTime = Date.now() - parseStart;
+      results.push({ result, parseTime });
+      
+      expect(parseTime).toBeLessThan(PERFORMANCE_CONFIG.MAX_PARSING_TIME_MS);
+    }
+    
+    const totalTime = Date.now() - startTime;
+    const avgTime = totalTime / testEmails.length;
+    
+    console.log(`📊 Email parsing performance:`);
+    console.log(`- Total emails: ${testEmails.length}`);
+    console.log(`- Total time: ${totalTime}ms`);
+    console.log(`- Average time: ${avgTime.toFixed(2)}ms per email`);
+    console.log(`- Successful parses: ${results.filter(r => r.result.success).length}`);
+    
+    expect(avgTime).toBeLessThan(PERFORMANCE_CONFIG.MAX_PARSING_TIME_MS);
+    expect(results.filter(r => r.result.success).length).toBe(testEmails.length);
+    
+    console.log('✅ Email parsing performance acceptable');
+  });
+
+  test('should test duplicate detection performance', async () => {
+    console.log('⚡ Testing duplicate detection performance...');
+    
+    const testEmailData: WealthsimpleEmailData = {
+      symbol: 'PERF',
+      transactionType: 'buy',
+      quantity: 10,
+      price: 100.00,
+      totalAmount: 1000.00,
+      accountType: 'TFSA',
+      transactionDate: '2025-06-17',
+      timezone: 'EDT',
+      currency: 'USD',
+      subject: 'Performance test email',
+      fromEmail: 'noreply@wealthsimple.com',
+      rawContent: 'Performance test content',
+      confidence: 0.95,
+      parseMethod: 'HTML'
+    };
+    
+    const startTime = Date.now();
+    const results = [];
+    
+    for (let i = 0; i < PERFORMANCE_CONFIG.SMALL_BATCH; i++) {
+      const emailData = {
+        ...testEmailData,
+        orderId: `WS-PERF-DUP-${i}`,
+        rawContent: `Performance test content ${i}`
+      };
+      
+      const dupStart = Date.now();
+      
+      const result = await MultiLevelDuplicateDetection.detectDuplicates(
+        emailData,
+        testPortfolioId
+      );
+      
+      const dupTime = Date.now() - dupStart;
+      results.push({ result, dupTime });
+      
+      expect(dupTime).toBeLessThan(PERFORMANCE_CONFIG.MAX_DUPLICATE_CHECK_MS);
+    }
+    
+    const totalTime = Date.now() - startTime;
+    const avgTime = totalTime / PERFORMANCE_CONFIG.SMALL_BATCH;
+    
+    console.log(`📊 Duplicate detection performance:`);
+    console.log(`- Total checks: ${PERFORMANCE_CONFIG.SMALL_BATCH}`);
+    console.log(`- Total time: ${totalTime}ms`);
+    console.log(`- Average time: ${avgTime.toFixed(2)}ms per check`);
+    
+    expect(avgTime).toBeLessThan(PERFORMANCE_CONFIG.MAX_DUPLICATE_CHECK_MS);
+    
+    console.log('✅ Duplicate detection performance acceptable');
+  });
+
+  test('should test end-to-end processing performance', async () => {
+    console.log('⚡ Testing end-to-end processing performance...');
+    
+    const testEmails = Array.from({ length: PERFORMANCE_CONFIG.MEDIUM_BATCH }, (_, i) => 
+      generateTestEmail(i)
+    );
+    
+    const startTime = Date.now();
+    const results = [];
+    
+    for (const email of testEmails) {
+      const processStart = Date.now();
+      
+      const result = await EmailProcessingService.processEmail(
+        email.subject,
+        email.from,
+        email.html,
+        email.text,
+        {
+          createMissingPortfolios: true,
+          skipDuplicateCheck: false,
+          dryRun: false
+        }
+      );
+      
+      const processTime = Date.now() - processStart;
+      results.push({ result, processTime });
+      
+      expect(processTime).toBeLessThan(PERFORMANCE_CONFIG.MAX_PROCESSING_TIME_MS);
+    }
+    
+    const totalTime = Date.now() - startTime;
+    const avgTime = totalTime / testEmails.length;
+    const successfulProcesses = results.filter(r => r.result.success).length;
+    
+    console.log(`📊 End-to-end processing performance:`);
+    console.log(`- Total emails: ${testEmails.length}`);
+    console.log(`- Total time: ${totalTime}ms`);
+    console.log(`- Average time: ${avgTime.toFixed(2)}ms per email`);
+    console.log(`- Successful processes: ${successfulProcesses}`);
+    console.log(`- Success rate: ${(successfulProcesses / testEmails.length * 100).toFixed(1)}%`);
+    
+    expect(avgTime).toBeLessThan(PERFORMANCE_CONFIG.MAX_PROCESSING_TIME_MS);
+    expect(successfulProcesses).toBeGreaterThan(testEmails.length * 0.9); // 90% success rate
+    
+    console.log('✅ End-to-end processing performance acceptable');
+  });
+
+  test('should test batch processing performance', async () => {
+    console.log('⚡ Testing batch processing performance...');
+    
+    const batchEmails = Array.from({ length: PERFORMANCE_CONFIG.MEDIUM_BATCH }, (_, i) => {
+      const email = generateTestEmail(i);
+      return {
+        subject: email.subject,
+        fromEmail: email.from,
+        htmlContent: email.html,
+        textContent: email.text
+      };
+    });
+    
+    const startTime = Date.now();
+    
+    const batchResult = await EmailProcessingService.processBatchEmails(batchEmails, {
+      createMissingPortfolios: true,
+      skipDuplicateCheck: false
+    });
+    
+    const totalTime = Date.now() - startTime;
+    const avgTime = totalTime / batchEmails.length;
+    const successfulProcesses = batchResult.filter(r => r.success).length;
+    
+    console.log(`📊 Batch processing performance:`);
+    console.log(`- Batch size: ${batchEmails.length}`);
+    console.log(`- Total time: ${totalTime}ms`);
+    console.log(`- Average time: ${avgTime.toFixed(2)}ms per email`);
+    console.log(`- Successful processes: ${successfulProcesses}`);
+    console.log(`- Success rate: ${(successfulProcesses / batchEmails.length * 100).toFixed(1)}%`);
+    
+    expect(batchResult.length).toBe(batchEmails.length);
+    expect(successfulProcesses).toBeGreaterThan(batchEmails.length * 0.9); // 90% success rate
+    
+    console.log('✅ Batch processing performance acceptable');
+  });
+
+  test('should test concurrent processing performance', async () => {
+    console.log('⚡ Testing concurrent processing performance...');
+    
+    const testEmails = Array.from({ length: PERFORMANCE_CONFIG.MEDIUM_BATCH }, (_, i) => 
+      generateTestEmail(i)
+    );
+    
+    const batchSize = Math.ceil(testEmails.length / PERFORMANCE_CONFIG.CONCURRENT_PROCESSORS);
+    const batches = [];
+    
+    for (let i = 0; i < testEmails.length; i += batchSize) {
+      batches.push(testEmails.slice(i, i + batchSize));
+    }
+    
+    const startTime = Date.now();
+    
+    const processingPromises = batches.map(async (batch, batchIndex) => {
+      const batchResults = [];
+      
+      for (const email of batch) {
+        const result = await EmailProcessingService.processEmail(
+          email.subject,
+          email.from,
+          email.html,
+          email.text,
+          {
+            createMissingPortfolios: true,
+            skipDuplicateCheck: false,
+            dryRun: false
+          }
+        );
+        
+        batchResults.push(result);
+      }
+      
+      return { batchIndex, results: batchResults };
+    });
+    
+    const batchResults = await Promise.all(processingPromises);
+    const totalTime = Date.now() - startTime;
+    
+    const allResults = batchResults.flatMap(batch => batch.results);
+    const successfulProcesses = allResults.filter(r => r.success).length;
+    const avgTime = totalTime / testEmails.length;
+    
+    console.log(`📊 Concurrent processing performance:`);
+    console.log(`- Total emails: ${testEmails.length}`);
+    console.log(`- Concurrent processors: ${PERFORMANCE_CONFIG.CONCURRENT_PROCESSORS}`);
+    console.log(`- Total time: ${totalTime}ms`);
+    console.log(`- Average time: ${avgTime.toFixed(2)}ms per email`);
+    console.log(`- Successful processes: ${successfulProcesses}`);
+    console.log(`- Success rate: ${(successfulProcesses / testEmails.length * 100).toFixed(1)}%`);
+    
+    expect(allResults.length).toBe(testEmails.length);
+    expect(successfulProcesses).toBeGreaterThan(testEmails.length * 0.9); // 90% success rate
+    
+    console.log('✅ Concurrent processing performance acceptable');
+  });
+
+  test('should test memory usage during processing', async () => {
+    console.log('💾 Testing memory usage during processing...');
+    
+    const initialMemory = process.memoryUsage();
+    console.log(`Initial memory usage: ${(initialMemory.heapUsed / 1024 / 1024).toFixed(2)} MB`);
+    
+    const testEmails = Array.from({ length: PERFORMANCE_CONFIG.LARGE_BATCH }, (_, i) => 
+      generateTestEmail(i)
+    );
+    
+    const memoryCheckpoints = [];
+    const checkpointInterval = Math.floor(testEmails.length / 10); // 10 checkpoints
+    
+    for (let i = 0; i < testEmails.length; i++) {
+      const email = testEmails[i];
+      
+      await EmailProcessingService.processEmail(
+        email.subject,
+        email.from,
+        email.html,
+        email.text,
+        {
+          createMissingPortfolios: true,
+          skipDuplicateCheck: false,
+          dryRun: false
+        }
+      );
+      
+      if (i % checkpointInterval === 0) {
+        const currentMemory = process.memoryUsage();
+        memoryCheckpoints.push({
+          emailsProcessed: i + 1,
+          heapUsed: currentMemory.heapUsed,
+          heapTotal: currentMemory.heapTotal,
+          external: currentMemory.external
+        });
+      }
+    }
+    
+    const finalMemory = process.memoryUsage();
+    const memoryIncrease = finalMemory.heapUsed - initialMemory.heapUsed;
+    const memoryPerEmail = memoryIncrease / testEmails.length;
+    
+    console.log(`📊 Memory usage analysis:`);
+    console.log(`- Initial heap: ${(initialMemory.heapUsed / 1024 / 1024).toFixed(2)} MB`);
+    console.log(`- Final heap: ${(finalMemory.heapUsed / 1024 / 1024).toFixed(2)} MB`);
+    console.log(`- Memory increase: ${(memoryIncrease / 1024 / 1024).toFixed(2)} MB`);
+    console.log(`- Memory per email: ${(memoryPerEmail / 1024).toFixed(2)} KB`);
+    
+    console.log('Memory checkpoints:');
+    memoryCheckpoints.forEach(checkpoint => {
+      console.log(`  ${checkpoint.emailsProcessed} emails: ${(checkpoint.heapUsed / 1024 / 1024).toFixed(2)} MB`);
+    });
+    
+    // Memory should not increase too much per email
+    expect(memoryPerEmail).toBeLessThan(100 * 1024); // Less than 100KB per email
+    
+    console.log('✅ Memory usage acceptable');
+  });
+
+  test('should test stress conditions', async () => {
+    console.log('🔥 Testing stress conditions...');
+    
+    const stressEmails = Array.from({ length: PERFORMANCE_CONFIG.STRESS_BATCH }, (_, i) => 
+      generateTestEmail(i)
+    );
+    
+    console.log(`Starting stress test with ${stressEmails.length} emails...`);
+    
+    const startTime = Date.now();
+    let processedCount = 0;
+    let successCount = 0;
+    let errorCount = 0;
+    
+    const processingPromises = stressEmails.map(async (email, index) => {
+      try {
+        const result = await EmailProcessingService.processEmail(
+          email.subject,
+          email.from,
+          email.html,
+          email.text,
+          {
+            createMissingPortfolios: true,
+            skipDuplicateCheck: true, // Skip duplicate checks for stress test
+            dryRun: true // Use dry run to avoid database stress
+          }
+        );
+        
+        processedCount++;
+        if (result.success) {
+          successCount++;
+        } else {
+          errorCount++;
+        }
+        
+        // Log progress every 100 emails
+        if ((index + 1) % 100 === 0) {
+          console.log(`Processed ${index + 1}/${stressEmails.length} emails...`);
+        }
+        
+        return result;
+      } catch (error) {
+        errorCount++;
+        processedCount++;
+        throw error;
+      }
+    });
+    
+    const results = await Promise.allSettled(processingPromises);
+    const totalTime = Date.now() - startTime;
+    
+    const successfulResults = results.filter(r => r.status === 'fulfilled').length;
+    const failedResults = results.filter(r => r.status === 'rejected').length;
+    
+    console.log(`📊 Stress test results:`);
+    console.log(`- Total emails: ${stressEmails.length}`);
+    console.log(`- Processed: ${processedCount}`);
+    console.log(`- Successful: ${successCount}`);
+    console.log(`- Errors: ${errorCount}`);
+    console.log(`- Total time: ${totalTime}ms (${(totalTime / 1000).toFixed(2)}s)`);
+    console.log(`- Average time: ${(totalTime / stressEmails.length).toFixed(2)}ms per email`);
+    console.log(`- Throughput: ${(stressEmails.length / (totalTime / 1000)).toFixed(2)} emails/second`);
+    
+    // Should handle at least 80% of emails successfully under stress
+    expect(successfulResults).toBeGreaterThan(stressEmails.length * 0.8);
+    
+    console.log('✅ Stress test completed successfully');
+  });
+
+  test('should test error recovery under load', async () => {
+    console.log('🛠️ Testing error recovery under load...');
+    
+    // Mix of valid and invalid emails
+    const mixedEmails = [];
+    
+    // Add valid emails
+    for (let i = 0; i < 20; i++) {
+      mixedEmails.push({
+        ...generateTestEmail(i),
+        valid: true
+      });
+    }
+    
+    // Add invalid emails
+    for (let i = 0; i < 10; i++) {
+      mixedEmails.push({
+        subject: 'Invalid email',
+        from: 'invalid@example.com',
+        html: '<html><body>Not a transaction email</body></html>',
+        text: 'Not a transaction email',
+        valid: false
+      });
+    }
+    
+    // Shuffle the array
+    for (let i = mixedEmails.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [mixedEmails[i], mixedEmails[j]] = [mixedEmails[j], mixedEmails[i]];
+    }
+    
+    const startTime = Date.now();
+    let validProcessed = 0;
+    let invalidProcessed = 0;
+    let errors = 0;
+    
+    for (const email of mixedEmails) {
+      try {
+        const result = await EmailProcessingService.processEmail(
+          email.subject,
+          email.from,
+          email.html,
+          email.text,
+          {
+            createMissingPortfolios: true,
+            skipDuplicateCheck: false,
+            dryRun: true
+          }
+        );
+        
+        if (email.valid && result.success) {
+          validProcessed++;
+        } else if (!email.valid && !result.success) {
+          invalidProcessed++;
+        }
+      } catch (error) {
+        errors++;
+        console.log(`Error processing email: ${error}`);
+      }
+    }
+    
+    const totalTime = Date.now() - startTime;
+    
+    console.log(`📊 Error recovery test results:`);
+    console.log(`- Total emails: ${mixedEmails.length}`);
+    console.log(`- Valid emails processed: ${validProcessed}/20`);
+    console.log(`- Invalid emails handled: ${invalidProcessed}/10`);
+    console.log(`- Unexpected errors: ${errors}`);
+    console.log(`- Total time: ${totalTime}ms`);
+    
+    // Should process most valid emails successfully
+    expect(validProcessed).toBeGreaterThan(15); // At least 75% of valid emails
+    
+    // Should handle most invalid emails gracefully
+    expect(invalidProcessed).toBeGreaterThan(7); // At least 70% of invalid emails
+    
+    // Should not have many unexpected errors
+    expect(errors).toBeLessThan(3);
+    
+    console.log('✅ Error recovery working correctly under load');
+  });
+});

@@ -337,7 +337,7 @@ const AccountDestinationManager: React.FC<AccountDestinationManagerProps> = ({
       loadDestinations();
       showMessage('Account destination deleted successfully', 'success');
       onUpdate?.();
-    } catch (error) {
+    } catch {
       showMessage('Failed to delete account destination', 'error');
     }
   };

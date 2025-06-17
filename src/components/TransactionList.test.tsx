@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, cleanup, within, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { vi, describe, it, expect, beforeEach, afterEach, type MockInstance } from 'vitest';
 import TransactionList, { TransactionWithAsset } from './TransactionList';
 import * as assetCategorization from '../utils/assetCategorization';
 
@@ -9,7 +9,7 @@ import * as assetCategorization from '../utils/assetCategorization';
 vi.mock('./CompanyLogo', () => ({ default: () => <div data-testid="company-logo-mock">Logo</div> }));
 
 // Spy on parseOptionSymbol
-let parseOptionSymbolSpy: any;
+let parseOptionSymbolSpy: MockInstance;
 
 
 const mockTransactions: TransactionWithAsset[] = [

@@ -1,0 +1,198 @@
+name: Deploy Email Server (Development)
+
+on:
+  push:
+    branches: [ develop, development/*, feature/*, bugfix/*, hotfix/* ]
+    paths:
+      - 'email-server/**'
+      - '.github/workflows/deploy-email-server-dev.yml'
+  pull_request:
+    branches: [ main, master, develop ]
+    paths:
+      - 'email-server/**'
+      - '.github/workflows/deploy-email-server-dev.yml'
+  workflow_dispatch:
+    inputs:
+      target_branch:
+        description: 'Branch to deploy'
+        required: false
+        default: 'develop'
+        type: string
+      vm_environment:
+        description: 'VM Environment'
+        required: true
+        default: 'development'
+        type: choice
+        options:
+          - development
+          - staging
+          - testing
+
+env:
+  EMAIL_DOMAIN: dev.investra.com
+  EMAIL_HOSTNAME: mail-dev.investra.com
+  EMAIL_USER: transactions-dev@investra.com
+
+jobs:
+  deploy-dev-email-server:
+    name: Deploy Development Email Server
+    runs-on: self-hosted  # Use self-hosted runner to reach private VM
+    environment: development
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.inputs.target_branch || github.ref }}
+
+    - name: Display deployment info
+      run: |
+        echo "🚀 Development Email Server Deployment"
+        echo "======================================"
+        echo "Branch: ${{ github.ref_name }}"
+        echo "Environment: development"
+        echo "Email Domain: ${{ env.EMAIL_DOMAIN }}"
+        echo "Email User: ${{ env.EMAIL_USER }}"
+        echo "Target VM: Development VM"
+
+    - name: Deploy to VM via SSH
+      run: |
+        echo "Starting deployment to development VM..."
+        ssh root@${{ secrets.RHEL_HOST }} "
+          echo 'Deploying email server with working configuration...'
+          cd /home/lab/investra-email-server-dev
+          
+          # Stop and remove any existing containers
+          podman rm -f \$(podman ps -aq) 2>/dev/null || true
+          
+          # Create necessary directories
+          mkdir -p ./data/mail-data
+          mkdir -p ./data/mail-state
+          mkdir -p ./data/config
+          
+          # Create email accounts configuration
+          echo 'Creating email accounts...'
+          echo '${{ env.EMAIL_USER }}|{PLAIN}${{ secrets.DEV_EMAIL_PASSWORD }}' > ./data/config/postfix-accounts.cf
+          
+          # Create aliases configuration  
+          echo 'Creating email aliases...'
+          echo '@${{ env.EMAIL_DOMAIN }} ${{ env.EMAIL_USER }}' > ./data/config/postfix-virtual.cf
+          
+          # Deploy with the proven working configuration
+          echo 'Starting email server with working configuration...'
+          podman run -d \\
+            --name investra-mailserver-dev \\
+            --hostname ${{ env.EMAIL_HOSTNAME }} \\
+            -p 25:25 \\
+            -p 587:587 \\
+            -p 143:143 \\
+            -v ./data/mail-data:/var/mail:Z \\
+            -v ./data/mail-state:/var/mail-state:Z \\
+            -v ./data/config:/tmp/docker-mailserver:Z \\
+            -e OVERRIDE_HOSTNAME=${{ env.EMAIL_HOSTNAME }} \\
+            -e DOMAINNAME=${{ env.EMAIL_DOMAIN }} \\
+            -e PERMIT_DOCKER=network \\
+            -e ENABLE_SPAMASSASSIN=0 \\
+            -e ENABLE_CLAMAV=0 \\
+            -e ENABLE_FAIL2BAN=0 \\
+            -e ENABLE_POSTGREY=0 \\
+            -e ENABLE_SASLAUTHD=0 \\
+            -e ONE_DIR=1 \\
+            -e DMS_DEBUG=0 \\
+            ghcr.io/docker-mailserver/docker-mailserver:latest
+          
+          echo 'Container deployment completed'
+        "
+
+    - name: Wait and verify deployment
+      run: |
+        echo "Waiting 30 seconds for container to fully start..."
+        sleep 30
+        
+        echo "Checking container status..."
+        ssh root@${{ secrets.RHEL_HOST }} "
+          echo 'Container status:'
+          podman ps | grep investra-mailserver-dev || {
+            echo 'Container failed to start, showing logs:'
+            podman logs investra-mailserver-dev
+            exit 1
+          }
+          
+          echo 'Container is running successfully!'
+          echo 'Full container details:'
+          podman ps | grep investra-mailserver-dev
+        "
+
+    - name: Check email ports
+      run: |
+        echo "Verifying email ports are accessible..."
+        ssh root@${{ secrets.RHEL_HOST }} "
+          echo 'Checking if email ports are listening:'
+          for port in 25 587 143; do
+            if ss -tlnp | grep \":\$port \"; then
+              echo \"✅ Port \$port is listening\"
+            else
+              echo \"❌ Port \$port is not listening\"
+            fi
+          done
+        "
+
+    - name: Display deployment summary
+      run: |
+        echo "============================================"
+        echo "📧 DEVELOPMENT EMAIL SERVER DEPLOYED"
+        echo "============================================"
+        echo ""
+        echo "🌐 Development Server Details:"
+        echo "   Email Server: ${{ env.EMAIL_HOSTNAME }}"
+        echo "   IP Address: ${{ secrets.RHEL_HOST }}"
+        echo "   Email Account: ${{ env.EMAIL_USER }}"
+        echo "   Environment: Development"
+        echo ""
+        echo "📧 Development Connection Settings:"
+        echo "   IMAP: ${{ secrets.RHEL_HOST }}:143 (Plain - Dev Only)"
+        echo "   SMTP: ${{ secrets.RHEL_HOST }}:587 (STARTTLS)"
+        echo "   SMTP: ${{ secrets.RHEL_HOST }}:25 (Standard)"
+        echo ""
+        echo "🔧 Development Management:"
+        echo "   Monitor: ssh root@${{ secrets.RHEL_HOST }} 'podman ps'"
+        echo "   Logs: ssh root@${{ secrets.RHEL_HOST }} 'podman logs investra-mailserver-dev'"
+        echo "   Restart: ssh root@${{ secrets.RHEL_HOST }} 'podman restart investra-mailserver-dev'"
+        echo ""
+        echo "📋 Development Features:"
+        echo "   ✅ No SSL complications (simplified for dev)"
+        echo "   ✅ Basic email services only"
+        echo "   ✅ Optimized for reliability over security"
+        echo "   ✅ Ready for Wealthsimple email reception"
+        echo "   ✅ IMAP ready for Investra AI connection"
+        echo ""
+        echo "🎯 Next Steps:"
+        echo "   1. Configure Gmail forwarding to ${{ env.EMAIL_USER }}"
+        echo "   2. Update Investra AI IMAP connection"
+        echo "   3. Test email reception"
+        echo ""
+        echo "============================================"
+
+    - name: Send deployment notification
+      if: success()
+      run: |
+        echo "✅ Development email server deployed successfully"
+        echo "Server: ${{ secrets.RHEL_HOST }}"
+        echo "Email: ${{ env.EMAIL_USER }}"
+        echo "Branch: ${{ github.ref_name }}"
+        echo "Environment: Development"
+        echo "Configuration: Simplified working setup"
+
+    - name: Handle deployment failure
+      if: failure()
+      run: |
+        echo "❌ Development email server deployment failed"
+        echo "Check the logs above for error details"
+        echo "Common development issues:"
+        echo "- SSH connection to dev VM"
+        echo "- Podman container startup"
+        echo "- Port conflicts on dev VM"
+        echo "- Missing development secrets"
+        echo ""
+        echo "Manual recovery command:"
+        echo "ssh root@${{ secrets.RHEL_HOST }} 'cd /home/lab/investra-email-server-dev && podman logs investra-mailserver-dev'"

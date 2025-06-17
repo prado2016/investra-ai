@@ -6,17 +6,17 @@
  */
 
 export class PositionDebugger {
-  static async findOrphanedPositions(_portfolioId: string) {
+  static async findOrphanedPositions() {
     console.log('PositionDebugger temporarily disabled');
     return { orphaned: [], summary: 'Debugger disabled' };
   }
 
-  static async cleanupOrphanedPositions(_portfolioId: string) {
+  static async cleanupOrphanedPositions() {
     console.log('PositionDebugger temporarily disabled');
     return { success: true, deleted: 0 };
   }
 
-  static async validatePositions(_portfolioId: string) {
+  static async validatePositions() {
     console.log('PositionDebugger temporarily disabled');
     return { valid: true, issues: [] };
   }
@@ -24,5 +24,5 @@ export class PositionDebugger {
 
 // Make debugger available in browser console for manual debugging
 if (typeof window !== 'undefined') {
-  (window as any).PositionDebugger = PositionDebugger;
+  (window as unknown as Record<string, unknown>).PositionDebugger = PositionDebugger;
 }

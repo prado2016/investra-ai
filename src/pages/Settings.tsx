@@ -11,6 +11,8 @@ import ThemeToggle from '../components/ThemeToggle';
 import ApiKeySettings from '../components/SimpleApiKeySettings';
 import GeminiTestComponent from '../components/GeminiTestComponent';
 import AccountDestinationManager from '../components/AccountDestinationManager';
+import PortfolioManagementModal from '../components/PortfolioManagementModal';
+import EmailDatabaseTest from '../components/EmailDatabaseTest';
 // import AIServicesTest from '../components/AIServicesTest';
 // import AISymbolLookupAPITest from '../components/AISymbolLookupAPITest';
 // import AISymbolInputTest from '../components/AISymbolInputTest';
@@ -209,6 +211,9 @@ const Settings: React.FC = () => {
     type: 'success' | 'error' | 'info';
   } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Portfolio management modal state
+  const [showPortfolioModal, setShowPortfolioModal] = useState(false);
   
   // P&L calculation preferences
   const [costBasisMethod, setCostBasisMethod] = useState<CostBasisMethod>(() => {
@@ -531,6 +536,28 @@ const Settings: React.FC = () => {
         </ButtonGroup>
       </Section>
 
+      {/* Portfolio Management */}
+      <Section>
+        <SectionTitle>Portfolio Management</SectionTitle>
+        <Description>
+          Create, edit, and manage your portfolios. You can set default portfolios, 
+          modify portfolio settings, and organize your investments across multiple accounts.
+        </Description>
+        <ButtonGroup>
+          <Button 
+            $variant="primary" 
+            onClick={() => setShowPortfolioModal(true)}
+            disabled={isLoading}
+          >
+            Manage Portfolios
+          </Button>
+        </ButtonGroup>
+        <Description style={{ fontSize: '0.875rem', marginTop: '1rem', marginBottom: 0 }}>
+          Current portfolios: <strong>{portfolios.length}</strong> | 
+          Active: <strong>{portfolios.find(p => p.is_default)?.name || 'None set'}</strong>
+        </Description>
+      </Section>
+
       {/* Account Destination Management */}
       <Section>
         <AccountDestinationManager />
@@ -601,6 +628,11 @@ const Settings: React.FC = () => {
       {/* Gemini AI Test */}
       <Section>
         <GeminiTestComponent />
+      </Section>
+
+      {/* Email Database Test */}
+      <Section>
+        <EmailDatabaseTest />
       </Section>
 
       {/* AI Services Test - Commented out due to import issues
@@ -784,6 +816,24 @@ const Settings: React.FC = () => {
           </Description>
         </FormGroup>
       </Section>
+
+      {/* Email Database Test */}
+      <Section>
+        <SectionTitle>Email Configuration Database Test</SectionTitle>
+        <Description>
+          Test the email configuration database tables deployment status.
+          This verifies that the email configuration tables have been successfully deployed to Supabase.
+        </Description>
+        
+        <EmailDatabaseTest />
+      </Section>
+
+      {/* Portfolio Management Modal */}
+      <PortfolioManagementModal
+        isOpen={showPortfolioModal}
+        onClose={() => setShowPortfolioModal(false)}
+        initialTab="manage"
+      />
     </PageContainer>
   );
 };

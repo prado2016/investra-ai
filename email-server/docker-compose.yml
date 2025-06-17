@@ -1,0 +1,83 @@
+version: '3.8'
+
+services:
+  mailserver:
+    image: ghcr.io/docker-mailserver/docker-mailserver:latest
+    hostname: mail.investra.com
+    domainname: investra.com
+    ports:
+      - "25:25"    # SMTP
+      - "587:587"  # SMTP Submission
+      - "993:993"  # IMAPS
+      - "143:143"  # IMAP
+    volumes:
+      - ./docker-data/dms/mail-data/:/var/mail/
+      - ./docker-data/dms/mail-state/:/var/mail-state/
+      - ./docker-data/dms/mail-logs/:/var/log/mail/
+      - ./docker-data/dms/config/:/tmp/docker-mailserver/
+      - /etc/localtime:/etc/localtime:ro
+      # SSL Certificates (Let's Encrypt recommended)
+      - ./docker-data/dms/certs/:/etc/letsencrypt/live/
+    environment:
+      # Basic Configuration
+      - ENABLE_SPAMASSASSIN=1
+      - ENABLE_CLAMAV=0
+      - ENABLE_FAIL2BAN=1
+      - ENABLE_POSTGREY=1
+      - ENABLE_MANAGESIEVE=1
+      
+      # Security Settings
+      - SSL_TYPE=letsencrypt
+      - TLS_LEVEL=modern
+      - ENABLE_SRS=1
+      
+      # Authentication
+      - PERMIT_DOCKER=none
+      - SPOOF_PROTECTION=1
+      - ENABLE_SASLAUTHD=0
+      
+      # Postfix Configuration
+      - POSTFIX_MAILBOX_SIZE_LIMIT=0
+      - POSTFIX_MESSAGE_SIZE_LIMIT=100000000
+      
+      # Dovecot Configuration
+      - DOVECOT_MAILBOX_FORMAT=maildir
+      - DOVECOT_TLS=yes
+      
+      # Debugging (disable in production)
+      - LOG_LEVEL=info
+      - DMS_DEBUG=0
+      
+      # Custom Environment
+      - OVERRIDE_HOSTNAME=mail.investra.com
+      
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+      - SYS_PTRACE
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "ss", "-lnpt", "state", "listening"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+  # Optional: Email administration interface
+  mailserver-admin:
+    image: roundcube/roundcubemail:latest
+    ports:
+      - "8080:80"
+    environment:
+      - ROUNDCUBEMAIL_DEFAULT_HOST=ssl://mailserver
+      - ROUNDCUBEMAIL_DEFAULT_PORT=993
+      - ROUNDCUBEMAIL_SMTP_SERVER=tls://mailserver
+      - ROUNDCUBEMAIL_SMTP_PORT=587
+    depends_on:
+      - mailserver
+    restart: unless-stopped
+
+networks:
+  default:
+    driver: bridge

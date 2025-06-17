@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Processing Monitor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f7;
+            color: #1d1d1f;
+            line-height: 1.6;
+        }
+
+        .header {
+            background: white;
+            border-bottom: 1px solid #d2d2d7;
+            padding: 1rem 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            border: 1px solid #d2d2d7;
+        }
+
+        .card h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: #1d1d1f;
+        }
+
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid #f5f5f7;
+        }
+
+        .metric:last-child {
+            border-bottom: none;
+        }
+
+        .metric-label {
+            font-weight: 500;
+            color: #86868b;
+        }
+
+        .metric-value {
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+
+        .status-healthy { background: #30d158; }
+        .status-warning { background: #ff9f0a; }
+        .status-error { background: #ff3b30; }
+        .status-unknown { background: #8e8e93; }
+
+        .events-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .event {
+            padding: 0.75rem;
+            border-bottom: 1px solid #f5f5f7;
+            font-size: 0.9rem;
+        }
+
+        .event-time {
+            color: #86868b;
+            font-size: 0.8rem;
+        }
+
+        .event-type {
+            font-weight: 600;
+            margin: 0.25rem 0;
+        }
+
+        .event-details {
+            color: #515154;
+        }
+
+        .alerts-container {
+            margin-top: 2rem;
+        }
+
+        .alert {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .alert.severity-high {
+            background: #f8d7da;
+            border-color: #f5c6cb;
+        }
+
+        .alert.severity-critical {
+            background: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+
+        .refresh-button {
+            background: #007aff;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 0.75rem 1.5rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .refresh-button:hover {
+            background: #0056cc;
+        }
+
+        .connection-status {
+            position: fixed;
+            bottom: 1rem;
+            right: 1rem;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            background: white;
+            border: 1px solid #d2d2d7;
+            font-size: 0.8rem;
+            display: flex;
+            align-items: center;
+        }
+
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📊 Email Processing Monitor</h1>
+    </div>
+
+    <div class="container">
+        <div class="grid">
+            <!-- System Health Card -->
+            <div class="card">
+                <h2>System Health</h2>
+                <div id="health-status">
+                    <div class="metric">
+                        <span class="metric-label">Overall Status</span>
+                        <span class="metric-value" id="overall-status">
+                            <span class="status-indicator status-unknown"></span>
+                            Loading...
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Processing Metrics Card -->
+            <div class="card">
+                <h2>Processing Metrics</h2>
+                <div id="processing-metrics">
+                    <div class="metric">
+                        <span class="metric-label">Total Processed</span>
+                        <span class="metric-value" id="total-processed">-</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Success Rate</span>
+                        <span class="metric-value" id="success-rate">-</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Avg Processing Time</span>
+                        <span class="metric-value" id="avg-processing-time">-</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Queue Size</span>
+                        <span class="metric-value" id="queue-size">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Error Metrics Card -->
+            <div class="card">
+                <h2>Error Metrics</h2>
+                <div id="error-metrics">
+                    <div class="metric">
+                        <span class="metric-label">Error Count (24h)</span>
+                        <span class="metric-value" id="error-count">-</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Error Rate</span>
+                        <span class="metric-value" id="error-rate">-</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Last Error</span>
+                        <span class="metric-value" id="last-error">-</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Events -->
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <h2>Recent Events</h2>
+                <button class="refresh-button" onclick="refreshData()">Refresh</button>
+            </div>
+            <div class="events-list" id="events-list">
+                <div class="event">Loading events...</div>
+            </div>
+        </div>
+
+        <!-- Active Alerts -->
+        <div class="alerts-container">
+            <div class="card">
+                <h2>Active Alerts</h2>
+                <div id="alerts-container">
+                    <div>No active alerts</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="connection-status" id="connection-status">
+        <span class="status-indicator status-unknown"></span>
+        <span>Connecting...</span>
+    </div>
+
+    <script>
+        class MonitoringDashboard {
+            constructor() {
+                this.apiBase = 'http://localhost:3002/api/monitoring';
+                this.wsUrl = 'ws://localhost:3002';
+                this.ws = null;
+                this.reconnectDelay = 1000;
+                this.maxReconnectDelay = 30000;
+                
+                this.init();
+            }
+
+            async init() {
+                await this.loadInitialData();
+                this.connectWebSocket();
+                
+                // Set up periodic refresh fallback
+                setInterval(() => this.refreshData(), 30000);
+            }
+
+            async loadInitialData() {
+                try {
+                    await Promise.all([
+                        this.loadMetrics(),
+                        this.loadHealth(),
+                        this.loadEvents(),
+                        this.loadAlerts()
+                    ]);
+                } catch (error) {
+                    console.error('Error loading initial data:', error);
+                }
+            }
+
+            async loadMetrics() {
+                try {
+                    const response = await fetch(`${this.apiBase}/metrics`);
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        this.updateMetrics(result.data);
+                    }
+                } catch (error) {
+                    console.error('Error loading metrics:', error);
+                }
+            }
+
+            async loadHealth() {
+                try {
+                    const response = await fetch(`${this.apiBase}/health`);
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        this.updateHealth(result.data);
+                    }
+                } catch (error) {
+                    console.error('Error loading health:', error);
+                }
+            }
+
+            async loadEvents() {
+                try {
+                    const response = await fetch(`${this.apiBase}/events?limit=20`);
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        this.updateEvents(result.data.events);
+                    }
+                } catch (error) {
+                    console.error('Error loading events:', error);
+                }
+            }
+
+            async loadAlerts() {
+                try {
+                    const response = await fetch(`${this.apiBase}/alerts`);
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        this.updateAlerts(result.data);
+                    }
+                } catch (error) {
+                    console.error('Error loading alerts:', error);
+                }
+            }
+
+            connectWebSocket() {
+                try {
+                    this.ws = new WebSocket(this.wsUrl);
+                    
+                    this.ws.onopen = () => {
+                        console.log('WebSocket connected');
+                        this.updateConnectionStatus(true);
+                        this.reconnectDelay = 1000;
+                    };
+                    
+                    this.ws.onmessage = (event) => {
+                        try {
+                            const message = JSON.parse(event.data);
+                            this.handleWebSocketMessage(message);
+                        } catch (error) {
+                            console.error('Error parsing WebSocket message:', error);
+                        }
+                    };
+                    
+                    this.ws.onclose = () => {
+                        console.log('WebSocket disconnected');
+                        this.updateConnectionStatus(false);
+                        this.scheduleReconnect();
+                    };
+                    
+                    this.ws.onerror = (error) => {
+                        console.error('WebSocket error:', error);
+                        this.updateConnectionStatus(false);
+                    };
+                } catch (error) {
+                    console.error('Error connecting WebSocket:', error);
+                    this.updateConnectionStatus(false);
+                    this.scheduleReconnect();
+                }
+            }
+
+            scheduleReconnect() {
+                setTimeout(() => {
+                    this.connectWebSocket();
+                    this.reconnectDelay = Math.min(this.reconnectDelay * 2, this.maxReconnectDelay);
+                }, this.reconnectDelay);
+            }
+
+            handleWebSocketMessage(message) {
+                switch (message.type) {
+                    case 'initial_data':
+                    case 'metrics_updated':
+                        this.updateMetrics(message.data);
+                        break;
+                    case 'event_recorded':
+                        this.addEvent(message.data);
+                        break;
+                    case 'alert_triggered':
+                        this.addAlert(message.data);
+                        break;
+                    case 'alert_resolved':
+                        this.removeAlert(message.data);
+                        break;
+                }
+            }
+
+            updateMetrics(metrics) {
+                // Processing metrics
+                document.getElementById('total-processed').textContent = 
+                    metrics.processing?.totalEmails || 0;
+                
+                const successRate = metrics.processing?.successRate || 0;
+                document.getElementById('success-rate').textContent = 
+                    `${(successRate * 100).toFixed(1)}%`;
+                
+                const avgTime = metrics.performance?.averageProcessingTime || 0;
+                document.getElementById('avg-processing-time').textContent = 
+                    `${avgTime.toFixed(0)}ms`;
+                
+                document.getElementById('queue-size').textContent = 
+                    metrics.queue?.size || 0;
+
+                // Error metrics
+                document.getElementById('error-count').textContent = 
+                    metrics.errors?.count24h || 0;
+                
+                const errorRate = metrics.errors?.rate || 0;
+                document.getElementById('error-rate').textContent = 
+                    `${(errorRate * 100).toFixed(1)}%`;
+                
+                const lastError = metrics.errors?.lastError;
+                document.getElementById('last-error').textContent = 
+                    lastError ? new Date(lastError.timestamp).toLocaleTimeString() : 'None';
+            }
+
+            updateHealth(health) {
+                const status = health.overall;
+                const statusElement = document.getElementById('overall-status');
+                const indicator = statusElement.querySelector('.status-indicator');
+                
+                indicator.className = `status-indicator status-${status}`;
+                statusElement.innerHTML = `<span class="status-indicator status-${status}"></span>${status.charAt(0).toUpperCase() + status.slice(1)}`;
+            }
+
+            updateEvents(events) {
+                const container = document.getElementById('events-list');
+                container.innerHTML = '';
+                
+                events.forEach(event => this.addEventToDOM(event, container));
+            }
+
+            addEvent(event) {
+                const container = document.getElementById('events-list');
+                this.addEventToDOM(event, container, true);
+                
+                // Remove old events if we have too many
+                while (container.children.length > 20) {
+                    container.removeChild(container.lastChild);
+                }
+            }
+
+            addEventToDOM(event, container, prepend = false) {
+                const eventDiv = document.createElement('div');
+                eventDiv.className = 'event';
+                
+                const time = new Date(event.timestamp).toLocaleTimeString();
+                const details = event.email ? `${event.email.subject || 'Unknown subject'}` : '';
+                
+                eventDiv.innerHTML = `
+                    <div class="event-time">${time}</div>
+                    <div class="event-type">${event.type.replace(/_/g, ' ').toUpperCase()}</div>
+                    <div class="event-details">${details}</div>
+                `;
+                
+                if (prepend) {
+                    container.insertBefore(eventDiv, container.firstChild);
+                } else {
+                    container.appendChild(eventDiv);
+                }
+            }
+
+            updateAlerts(alerts) {
+                const container = document.getElementById('alerts-container');
+                container.innerHTML = '';
+                
+                if (alerts.length === 0) {
+                    container.innerHTML = '<div>No active alerts</div>';
+                    return;
+                }
+                
+                alerts.forEach(alert => this.addAlertToDOM(alert, container));
+            }
+
+            addAlert(alert) {
+                const container = document.getElementById('alerts-container');
+                if (container.textContent === 'No active alerts') {
+                    container.innerHTML = '';
+                }
+                this.addAlertToDOM(alert, container, true);
+            }
+
+            removeAlert(alert) {
+                const container = document.getElementById('alerts-container');
+                const alertElement = container.querySelector(`[data-alert-id="${alert.id}"]`);
+                if (alertElement) {
+                    alertElement.remove();
+                }
+                
+                if (container.children.length === 0) {
+                    container.innerHTML = '<div>No active alerts</div>';
+                }
+            }
+
+            addAlertToDOM(alert, container, prepend = false) {
+                const alertDiv = document.createElement('div');
+                alertDiv.className = `alert severity-${alert.severity}`;
+                alertDiv.setAttribute('data-alert-id', alert.id);
+                
+                alertDiv.innerHTML = `
+                    <strong>${alert.type.replace(/_/g, ' ').toUpperCase()}</strong>
+                    <div>${alert.message}</div>
+                    <small>Triggered: ${new Date(alert.timestamp).toLocaleString()}</small>
+                `;
+                
+                if (prepend) {
+                    container.insertBefore(alertDiv, container.firstChild);
+                } else {
+                    container.appendChild(alertDiv);
+                }
+            }
+
+            updateConnectionStatus(connected) {
+                const status = document.getElementById('connection-status');
+                const indicator = status.querySelector('.status-indicator');
+                const text = status.querySelector('span:last-child');
+                
+                if (connected) {
+                    indicator.className = 'status-indicator status-healthy';
+                    text.textContent = 'Connected';
+                } else {
+                    indicator.className = 'status-indicator status-error';
+                    text.textContent = 'Disconnected';
+                }
+            }
+
+            async refreshData() {
+                document.body.classList.add('loading');
+                await this.loadInitialData();
+                document.body.classList.remove('loading');
+            }
+        }
+
+        // Initialize dashboard
+        let dashboard;
+        
+        function refreshData() {
+            if (dashboard) {
+                dashboard.refreshData();
+            }
+        }
+
+        // Start the dashboard when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            dashboard = new MonitoringDashboard();
+        });
+    </script>
+</body>
+</html>

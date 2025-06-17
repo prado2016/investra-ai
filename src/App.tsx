@@ -25,6 +25,8 @@ import Positions from './pages/Positions';
 import Transactions from './pages/Transactions';
 import Summary from './pages/Summary';
 import Settings from './pages/Settings';
+import EmailManagement from './pages/EmailManagement';
+import Notifications from './pages/Notifications';
 import { debug, ErrorTracker, isDev } from './utils/debug';
 import './styles/App.css';
 
@@ -170,6 +172,8 @@ function AppContent() {
               <Route path="/transactions" element={<Transactions />} />
               <Route path="/summary" element={<Summary />} />
               <Route path="/daily-summary" element={<Navigate to="/summary" replace />} />
+              <Route path="/email-management" element={<EmailManagement />} />
+              <Route path="/notifications" element={<Notifications />} />
               <Route path="/settings" element={<Settings />} />
             </Routes>
           </main>
@@ -206,6 +210,8 @@ function AppContent() {
             <Route path="/transactions" element={<Transactions />} />
             <Route path="/summary" element={<Summary />} />
             <Route path="/daily-summary" element={<Navigate to="/summary" replace />} />
+            <Route path="/email-management" element={<EmailManagement />} />
+            <Route path="/notifications" element={<Notifications />} />
             <Route path="/settings" element={<Settings />} />
           </Routes>
         </main>
