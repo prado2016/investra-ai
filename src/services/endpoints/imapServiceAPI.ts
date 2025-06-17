@@ -35,7 +35,7 @@ export interface IMAPServiceConfigResponse {
 export interface IMAPConnectionTestResponse {
   success: boolean;
   error?: string;
-  serverInfo?: any;
+  serverInfo?: Record<string, unknown>;
   responseTime: number;
 }
 

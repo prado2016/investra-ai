@@ -22,7 +22,7 @@ declare module 'imapflow' {
       from?: Array<{ address: string; name?: string }>;
       date?: Date;
     };
-    bodyStructure?: any;
+    bodyStructure?: Record<string, unknown>;
   }
 
   export interface SearchQuery {
@@ -46,7 +46,7 @@ declare module 'imapflow' {
     connect(): Promise<void>;
     logout(): Promise<void>;
     
-    mailboxOpen(mailbox: string): Promise<any>;
+    mailboxOpen(mailbox: string): Promise<Record<string, unknown>>;
     
     fetch(query: SearchQuery | string, options: FetchOptions): AsyncIterable<ImapMessage>;
     
@@ -56,6 +56,6 @@ declare module 'imapflow' {
     on(event: 'error', listener: (error: Error) => void): void;
     on(event: 'exists', listener: (data: { count: number }) => void): void;
     
-    serverInfo?: any;
+    serverInfo?: Record<string, unknown>;
   }
 }

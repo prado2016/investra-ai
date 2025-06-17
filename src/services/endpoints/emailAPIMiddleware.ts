@@ -37,7 +37,7 @@ export type ValidationRule =
   | { type: 'email'; message?: string }
   | { type: 'array'; minItems?: number; maxItems?: number; message?: string }
   | { type: 'enum'; values: string[]; message?: string }
-  | { type: 'custom'; validator: (value: any) => boolean; message: string };
+  | { type: 'custom'; validator: (value: unknown) => boolean; message: string };
 
 /**
  * Validation schema type
@@ -184,7 +184,7 @@ export class EmailAPIMiddleware {
   /**
    * Validate request data against schema
    */
-  static validateRequest(data: any, schema: ValidationSchema): ValidationResult {
+  static validateRequest(data: Record<string, unknown>, schema: ValidationSchema): ValidationResult {
     const errors: Record<string, string[]> = {};
     const warnings: Record<string, string[]> = {};
 
@@ -224,15 +224,16 @@ export class EmailAPIMiddleware {
   /**
    * Validate individual field against a rule
    */
-  private static validateField(value: any, rule: ValidationRule, fieldName: string): { error?: string; warning?: string } {
+  private static validateField(value: unknown, rule: ValidationRule, fieldName: string): { error?: string; warning?: string } {
     switch (rule.type) {
-      case 'required':
+      case 'required': {
         if (value === undefined || value === null || value === '') {
           return { error: rule.message || `${fieldName} is required` };
         }
         break;
+      }
 
-      case 'string':
+      case 'string': {
         if (typeof value !== 'string') {
           return { error: rule.message || `${fieldName} must be a string` };
         }
@@ -243,8 +244,9 @@ export class EmailAPIMiddleware {
           return { error: rule.message || `${fieldName} cannot exceed ${rule.maxLength} characters` };
         }
         break;
+      }
 
-      case 'number':
+      case 'number': {
         if (typeof value !== 'number' || isNaN(value)) {
           return { error: rule.message || `${fieldName} must be a valid number` };
         }
@@ -255,8 +257,9 @@ export class EmailAPIMiddleware {
           return { error: rule.message || `${fieldName} cannot exceed ${rule.max}` };
         }
         break;
+      }
 
-      case 'email':
+      case 'email': {
         if (typeof value !== 'string') {
           return { error: rule.message || `${fieldName} must be a string` };
         }
@@ -265,8 +268,9 @@ export class EmailAPIMiddleware {
           return { error: rule.message || `${fieldName} must be a valid email address` };
         }
         break;
+      }
 
-      case 'array':
+      case 'array': {
         if (!Array.isArray(value)) {
           return { error: rule.message || `${fieldName} must be an array` };
         }
@@ -277,18 +281,21 @@ export class EmailAPIMiddleware {
           return { error: rule.message || `${fieldName} cannot have more than ${rule.maxItems} items` };
         }
         break;
+      }
 
-      case 'enum':
-        if (!rule.values.includes(value)) {
+      case 'enum': {
+        if (!rule.values.includes(value as string)) {
           return { error: rule.message || `${fieldName} must be one of: ${rule.values.join(', ')}` };
         }
         break;
+      }
 
-      case 'custom':
+      case 'custom': {
         if (!rule.validator(value)) {
           return { error: rule.message };
         }
         break;
+      }
     }
 
     return {};
@@ -367,7 +374,7 @@ export class EmailAPIMiddleware {
   /**
    * Sanitize input data
    */
-  static sanitizeInput(data: any): any {
+  static sanitizeInput(data: unknown): unknown {
     if (typeof data === 'string') {
       // Remove potential XSS attempts and trim whitespace
       return data
@@ -382,7 +389,7 @@ export class EmailAPIMiddleware {
     }
 
     if (data && typeof data === 'object') {
-      const sanitized: any = {};
+      const sanitized: Record<string, unknown> = {};
       for (const [key, value] of Object.entries(data)) {
         // Sanitize key name
         const sanitizedKey = key.replace(/[^\w\-_]/g, '');
@@ -427,14 +434,14 @@ export class EmailAPIMiddleware {
    * Comprehensive request validation and auth wrapper
    */
   static async validateAndAuthenticate(
-    requestData: any,
+    requestData: Record<string, unknown>,
     schema?: ValidationSchema,
     rateLimitConfig?: RateLimitConfig
   ): Promise<{
     success: boolean;
     context?: RequestContext;
     error?: APIResponse;
-    sanitizedData?: any;
+    sanitizedData?: Record<string, unknown>;
   }> {
     const requestId = `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const startTime = Date.now();
@@ -492,7 +499,7 @@ export class EmailAPIMiddleware {
               {
                 errors: validationResult.errors,
                 warnings: validationResult.warnings
-              },
+              } as Record<string, unknown>,
               authResult.user.id
             )
           };
@@ -509,7 +516,7 @@ export class EmailAPIMiddleware {
       return {
         success: true,
         context,
-        sanitizedData
+        sanitizedData: sanitizedData as Record<string, unknown>
       };
 
     } catch (error) {
@@ -532,7 +539,7 @@ export class EmailAPIMiddleware {
     const now = Date.now();
     const toDelete: string[] = [];
 
-    for (const [key, data] of this.rateLimitStore.entries()) {
+    for (const [key, data] of Array.from(this.rateLimitStore.entries())) {
       if (now > data.resetTime) {
         toDelete.push(key);
       }

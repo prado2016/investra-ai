@@ -13,7 +13,7 @@ export interface QueueTestResult {
   testName: string;
   success: boolean;
   queueItem?: ReviewQueueItem;
-  queueStats?: any;
+  queueStats?: Record<string, unknown>;
   errors: string[];
   warnings: string[];
   performance: {
@@ -436,7 +436,7 @@ export class ManualReviewQueueTestSuite {
    */
   private static async runQueueTest(
     testName: string,
-    testFunction: () => Promise<any>
+    testFunction: () => Promise<Record<string, unknown>>
   ): Promise<QueueTestResult> {
     const startTime = Date.now();
     

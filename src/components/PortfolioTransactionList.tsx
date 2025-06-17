@@ -563,7 +563,7 @@ const PortfolioTransactionList: React.FC<PortfolioTransactionListProps> = ({
     if (filterPortfolio === 'active') {
       // Filter will automatically update based on activePortfolio
     }
-  }, [activePortfolio?.id]);
+  }, [activePortfolio?.id, filterPortfolio]);
 
   const filteredTransactions = useMemo(() => {
     return transactions.filter(transaction => {

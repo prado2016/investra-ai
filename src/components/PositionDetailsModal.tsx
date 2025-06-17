@@ -349,7 +349,7 @@ export const PositionDetailsModal: React.FC<PositionDetailsModalProps> = ({
     if (isOpen && position) {
       fetchTransactions();
     }
-  }, [isOpen, position.assetSymbol, fetchTransactions]);
+  }, [isOpen, position, fetchTransactions]);
 
   const handleEditTransaction = (transaction: TransactionWithAsset) => {
     setEditingTransaction(transaction);

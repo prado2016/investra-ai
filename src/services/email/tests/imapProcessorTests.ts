@@ -12,7 +12,7 @@ export interface IMAPTestResult {
   testName: string;
   success: boolean;
   error?: string;
-  details?: any;
+  details?: Record<string, unknown>;
   duration: number;
 }
 
@@ -342,7 +342,7 @@ export class IMAPProcessorTestSuite {
       try {
         await service.start();
         throw new Error('Expected service start to fail with invalid config');
-      } catch (serviceError) {
+      } catch {
         // This is expected
         const status = service.getStatus();
         if (status.status !== 'error') {

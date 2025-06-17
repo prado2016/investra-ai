@@ -20,7 +20,7 @@ export interface APITestResult {
   statusCode?: number;
   errors: string[];
   warnings: string[];
-  data?: any;
+  data?: unknown;
 }
 
 /**
@@ -465,7 +465,7 @@ export class EmailAPITestSuite {
     testName: string,
     endpoint: string,
     method: string,
-    testFunction: () => Promise<{ success: boolean; data?: any; statusCode?: number }>
+    testFunction: () => Promise<{ success: boolean; data?: unknown; statusCode?: number }>
   ): Promise<APITestResult> {
     const startTime = Date.now();
     
@@ -550,7 +550,11 @@ export class EmailAPITestSuite {
         }
       };
 
-      const sanitized = EmailAPIMiddleware.sanitizeInput(maliciousInput);
+      const sanitized = EmailAPIMiddleware.sanitizeInput(maliciousInput) as { 
+        subject: string; 
+        content: string; 
+        data: { normalKey: string; [key: string]: unknown }; 
+      };
       
       const success = 
         !sanitized.subject.includes('<script>') &&

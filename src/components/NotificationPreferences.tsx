@@ -89,7 +89,7 @@ interface NotificationRule {
     severityLevels: string[];
     portfolios: string[];
     timeWindows: string[];
-    customFilters?: Record<string, any>;
+    customFilters?: Record<string, unknown>;
   };
   actions: {
     channels: string[];
@@ -609,7 +609,7 @@ const EmptyState = styled.div`
 interface NotificationPreferencesProps {
   channels?: NotificationChannel[];
   rules?: NotificationRule[];
-  onSavePreferences?: (preferences: any) => Promise<void>;
+  onSavePreferences?: (preferences: Record<string, unknown>) => Promise<void>;
   onTestChannel?: (channelId: string) => Promise<void>;
   className?: string;
 }
@@ -820,7 +820,7 @@ const NotificationPreferences: React.FC<NotificationPreferencesProps> = ({
     try {
       // In real implementation, this would call the API
       success('Channel Updated', `Channel ${enabled ? 'enabled' : 'disabled'} successfully`);
-    } catch (err) {
+    } catch {
       error('Update Failed', 'Failed to update channel status');
     }
   };
@@ -829,7 +829,7 @@ const NotificationPreferences: React.FC<NotificationPreferencesProps> = ({
     try {
       await onTestChannel(channelId);
       success('Test Sent', 'Test notification sent successfully');
-    } catch (err) {
+    } catch {
       error('Test Failed', 'Failed to send test notification');
     }
   };
@@ -842,7 +842,7 @@ const NotificationPreferences: React.FC<NotificationPreferencesProps> = ({
         rules: currentRules
       });
       success('Preferences Saved', 'Notification preferences updated successfully');
-    } catch (err) {
+    } catch {
       error('Save Failed', 'Failed to save notification preferences');
     } finally {
       setSaving(false);

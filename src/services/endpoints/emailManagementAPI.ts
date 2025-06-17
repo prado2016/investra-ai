@@ -468,7 +468,7 @@ export class EmailManagementAPI {
     page = 1,
     pageSize = 20,
     filter?: ReviewQueueFilter
-  ): Promise<APIResponse<{ items: ReviewQueueItem[]; pagination: any; stats: any }>> {
+  ): Promise<APIResponse<{ items: ReviewQueueItem[]; pagination: unknown; stats: unknown }>> {
     const requestId = this.generateRequestId();
     const startTime = Date.now();
 
@@ -546,28 +546,31 @@ export class EmailManagementAPI {
           let action: ReviewAction;
 
           switch (request.action) {
-            case 'approve-all':
+            case 'approve-all': {
               action = {
                 action: 'approve',
                 reason: 'Bulk approval',
                 reviewerId: request.reviewerId
               };
               break;
-            case 'reject-all':
+            }
+            case 'reject-all': {
               action = {
                 action: 'reject',
                 reason: 'Bulk rejection',
                 reviewerId: request.reviewerId
               };
               break;
-            case 'escalate-all':
+            }
+            case 'escalate-all': {
               action = {
                 action: 'escalate',
                 reason: 'Bulk escalation',
                 reviewerId: request.reviewerId
               };
               break;
-            case 'bulk-action':
+            }
+            case 'bulk-action': {
               if (!request.bulkAction) {
                 throw new Error('Bulk action details required');
               }
@@ -578,8 +581,10 @@ export class EmailManagementAPI {
                 reviewerId: request.reviewerId
               };
               break;
-            default:
+            }
+            default: {
               throw new Error('Invalid action type');
+            }
           }
 
           const result = await ManualReviewQueue.processReviewAction(item.id, action);

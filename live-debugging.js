@@ -52,7 +52,7 @@ const debugFundMovement = (function() {
         ['amount', 'fees', 'originalAmount', 'convertedAmount'].forEach(field => {
             const value = field === 'amount' ? amount : options?.[field];
             if (typeof value === 'number' && value > decimal15_6_limit) {
-                potentialOverflows.push(`${field}: ${value} > ${decimal15_6_limit}`);
+                potentialOverflows.push(\`\${field}: \${value} > \${decimal15_6_limit}\`);
             }
         });
         
@@ -196,7 +196,7 @@ function testEdgeCases() {
     ];
     
     edgeCases.forEach(testCase => {
-        console.log(\`\\n--- Testing: \${testCase.name} ---\`);
+        console.log('\\n--- Testing: ' + testCase.name + ' ---');
         console.log('Input:', testCase);
         
         const originalAmount = testCase.originalAmount;

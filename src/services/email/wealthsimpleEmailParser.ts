@@ -66,19 +66,19 @@ export class WealthsimpleEmailParser {
   };
 
   private static readonly PRICE_PATTERNS = [
-    /(?:at|@|price)\s*[\$]?(\d+(?:,\d{3})*(?:\.\d{2,4})?)/i,
-    /[\$](\d+(?:,\d{3})*(?:\.\d{2,4}))/g,
+    /(?:at|@|price)\s*[$]?(\d+(?:,\d{3})*(?:\.\d{2,4})?)/i,
+    /[$](\d+(?:,\d{3})*(?:\.\d{2,4}))/g,
     /(\d+(?:,\d{3})*(?:\.\d{2,4}))\s*(?:per\s+share|each)/i
   ];
 
   private static readonly ACCOUNT_PATTERNS = {
-    TFSA: /tfsa|tax.free.savings/i,
-    RRSP: /rrsp|registered.retirement/i,
-    RESP: /resp|registered.education/i,
-    Margin: /margin|non.registered/i,
+    TFSA: /tfsa|tax[._]free[._]savings/i,
+    RRSP: /rrsp|registered[._]retirement/i,
+    RESP: /resp|registered[._]education/i,
+    Margin: /margin|non[._]registered/i,
     Cash: /cash|personal/i,
-    LIRA: /lira|locked.in.retirement/i,
-    RRIF: /rrif|registered.retirement.income/i
+    LIRA: /lira|locked[._]in[._]retirement/i,
+    RRIF: /rrif|registered[._]retirement[._]income/i
   };
 
   private static readonly DATE_PATTERNS = [
@@ -334,7 +334,7 @@ export class WealthsimpleEmailParser {
    */
   private static extractTransaction(content: string): {
     success: boolean;
-    data: { type: any; symbol: string; quantity: number; assetName?: string };
+    data: { type: 'buy' | 'sell' | 'dividend' | 'option_expired'; symbol: string; quantity: number; assetName?: string };
     error?: string;
   } {
     for (const [type, pattern] of Object.entries(this.TRANSACTION_PATTERNS)) {
@@ -346,7 +346,7 @@ export class WealthsimpleEmailParser {
         return {
           success: true,
           data: {
-            type: type as any,
+            type: type as 'buy' | 'sell' | 'dividend' | 'option_expired',
             symbol,
             quantity,
             assetName: this.extractAssetName(content, symbol)
@@ -393,7 +393,7 @@ export class WealthsimpleEmailParser {
     const price = prices[0];
     
     // Look for fees
-    const feeMatch = content.match(/(?:fee|commission|charge)[\s\$]*(\d+(?:\.\d{2})?)/i);
+    const feeMatch = content.match(/(?:fee|commission|charge)[\s$]*(\d+(?:\.\d{2})?)/i);
     const fees = feeMatch ? parseFloat(feeMatch[1]) : undefined;
 
     return {
@@ -470,8 +470,8 @@ export class WealthsimpleEmailParser {
     
     // Common patterns for company names
     const namePatterns = [
-      /([A-Z][a-zA-Z\s&\.]+(?:Inc|Corp|Ltd|LLC|Company))/,
-      /([A-Z][a-zA-Z\s&\.]{10,50})/
+      /([A-Z][a-zA-Z\s&.]+(?:Inc|Corp|Ltd|LLC|Company))/,
+      /([A-Z][a-zA-Z\s&.]{10,50})/
     ];
 
     for (const pattern of namePatterns) {

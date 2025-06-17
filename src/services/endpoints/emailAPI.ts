@@ -90,7 +90,7 @@ export class EmailAPI {
   /**
    * Get processing history
    */
-  static async getProcessingHistory(page?: number, pageSize?: number, filter?: any) {
+  static async getProcessingHistory(page?: number, pageSize?: number, filter?: Record<string, unknown>) {
     return EmailStatusAPI.getProcessingHistory(page, pageSize, filter);
   }
 
@@ -111,7 +111,7 @@ export class EmailAPI {
   /**
    * Get import jobs
    */
-  static async getImportJobs(page?: number, pageSize?: number, filter?: any) {
+  static async getImportJobs(page?: number, pageSize?: number, filter?: Record<string, unknown>) {
     return EmailManagementAPI.getImportJobs(page, pageSize, filter);
   }
 
@@ -125,7 +125,7 @@ export class EmailAPI {
   /**
    * Get review queue
    */
-  static async getReviewQueue(page?: number, pageSize?: number, filter?: any) {
+  static async getReviewQueue(page?: number, pageSize?: number, filter?: Record<string, unknown>) {
     return EmailManagementAPI.getReviewQueue(page, pageSize, filter);
   }
 

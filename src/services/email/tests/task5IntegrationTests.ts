@@ -389,7 +389,7 @@ export class Task5IntegrationTestSuite {
         processingTime: Date.now() - startTime
       };
 
-    } catch (error) {
+    } catch {
       return {
         success: false,
         processingTime: Date.now() - startTime

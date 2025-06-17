@@ -64,6 +64,7 @@ export class IMAPEmailProcessor {
   private isProcessing = false;
   private connectionStartTime = 0;
   private stats: IMAPProcessorStats;
+  private monitoringIntervalId: NodeJS.Timeout | null = null;
   
   // Processing options
   private readonly pollInterval = 30000; // 30 seconds
@@ -466,7 +467,7 @@ export class IMAPEmailProcessor {
     }, this.pollInterval);
 
     // Store interval ID for cleanup
-    (this as any).monitoringIntervalId = intervalId;
+    this.monitoringIntervalId = intervalId;
 
     console.log('✅ IMAP: Email monitoring started');
   }
@@ -475,9 +476,9 @@ export class IMAPEmailProcessor {
    * Stop email monitoring
    */
   stopMonitoring(): void {
-    if ((this as any).monitoringIntervalId) {
-      clearInterval((this as any).monitoringIntervalId);
-      (this as any).monitoringIntervalId = null;
+    if (this.monitoringIntervalId) {
+      clearInterval(this.monitoringIntervalId);
+      this.monitoringIntervalId = null;
     }
 
     console.log('📧 IMAP: Email monitoring stopped');
