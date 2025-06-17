@@ -59,4 +59,33 @@ src/**/*.d.ts.map
 !src/**/*.spec.js
 !src/**/*.test.d.ts
 !src/**/*.spec.d.ts
+
+# Temporary files and scripts
+*.tmp
+*.temp
+*-debug.js
+*-debug.mjs
+*-debug.html
+*-test.js
+*-test.mjs
+debug-*.js
+debug-*.mjs
+test-*.js
+test-*.mjs
+
+# Database exports and backups
+*-supabase-export-*.json
+*.sql
+
+# Shell scripts (unless in tools/ directory)
+/*.sh
+
+# Editor-specific directories
+.cursor/
+.roo/
+.claude/
+.windsurfrules
+.roomodes
+
+# E2E test auth files
 src/test/e2e/.auth/ 
