@@ -7,10 +7,7 @@ import { supabase } from '../lib/supabase'
 import type { 
   EmailConfiguration, 
   EmailProcessingLog, 
-  EmailImportRule,
-  EmailProvider,
-  EmailProcessingStatus,
-  EmailImportAction 
+  EmailProvider
 } from '../lib/database/types'
 
 // Request/Response Types
@@ -298,16 +295,6 @@ export class EmailConfigurationService {
     // TODO: Implement proper encryption using crypto
     // For now, just base64 encode (NOT SECURE - placeholder only)
     return btoa(password)
-  }
-
-  /**
-   * Private method to decrypt passwords
-   * TODO: Implement proper decryption
-   */
-  private static async decryptPassword(encryptedPassword: string): Promise<string> {
-    // TODO: Implement proper decryption using crypto
-    // For now, just base64 decode (NOT SECURE - placeholder only)
-    return atob(encryptedPassword)
   }
 }
 
