@@ -17,18 +17,27 @@
     "allowSyntheticDefaultImports": true,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
-    "baseUrl": ".",
+    "baseUrl": "./",
     "paths": {
-      "@/*": ["../src/*"]
+      "@/*": ["../src/services/endpoints/*"]
     }
   },
   "include": [
-    "**/*.ts",
-    "../src/**/*.ts"
+    "server-ts.ts",
+    "src/**/*.ts"
   ],
   "exclude": [
     "node_modules",
     "dist",
+    "../node_modules",
+    "../dist",
+    "../build",
+    "../src/components",
+    "../src/hooks",
+    "../src/lib",
+    "../src/utils",
+    "../src/pages",
+    "../src/services/mockSupabaseService.ts",
     "**/*.test.ts",
     "**/*.spec.ts"
   ]

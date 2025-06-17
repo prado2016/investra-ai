@@ -8,23 +8,22 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
-import { fileURLToPath } from 'url';
 
-// Import the existing email API endpoints
-import { EmailAPI } from '../src/services/endpoints/emailAPI.js';
-import { EmailProcessingAPI } from '../src/services/endpoints/emailProcessingAPI.js';
-import { EmailStatusAPI } from '../src/services/endpoints/emailStatusAPI.js';
-import { EmailManagementAPI } from '../src/services/endpoints/emailManagementAPI.js';
-import { IMAPServiceAPI } from '../src/services/endpoints/imapServiceAPI.js';
-import { EmailAPIMiddleware } from '../src/services/endpoints/emailAPIMiddleware.js';
-
-// Import IMAP service
-import { IMAPProcessorService } from '../src/services/email/imapProcessorService.js';
+// Import local type definitions
+import type {
+  APIResponse,
+  EmailProcessRequest,
+  BatchEmailProcessRequest,
+  EmailProcessResponse,
+  ProcessingStatus,
+  ProcessingHistoryItem,
+  ProcessingStatsResponse,
+  ImportJob,
+  ReviewQueueItem,
+  IMAPServiceStatus
+} from './src/types/emailTypes';
 
 dotenv.config();
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -276,21 +275,7 @@ app.use('*', (req, res) => {
 async function startServer() {
   try {
     console.log('🚀 Starting Investra AI Email Processing API Server...');
-    
-    // Initialize IMAP service (optional - can be started via API)
-    try {
-      const config = IMAPProcessorService.createConfigFromEnv();
-      if (config.enabled) {
-        console.log('📧 Initializing IMAP service...');
-        const service = IMAPProcessorService.getInstance(config);
-        console.log('✅ IMAP service initialized (use /api/imap/start to begin processing)');
-      } else {
-        console.log('📧 IMAP service disabled in configuration');
-      }
-    } catch (error) {
-      console.warn('⚠️ IMAP service initialization failed:', error instanceof Error ? error.message : 'Unknown error');
-      console.log('💡 IMAP service can be configured later via /api/imap/config endpoint');
-    }
+    console.log('📧 IMAP service can be configured via /api/imap/config endpoint');
     
     app.listen(PORT, () => {
       console.log(`✅ Server running on port ${PORT}`);

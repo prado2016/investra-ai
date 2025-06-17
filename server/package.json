@@ -2,12 +2,13 @@
   "name": "investra-email-api-server",
   "version": "1.0.0",
   "description": "TypeScript API server for Investra email processing",
-  "main": "dist/server.js",
+  "main": "dist/server-ts.js",
   "scripts": {
     "build": "tsc",
-    "start": "node dist/server.js",
-    "dev": "ts-node server.ts",
-    "dev:watch": "nodemon --exec ts-node server.ts"
+    "start": "node dist/server-ts.js",
+    "dev": "ts-node server-ts.ts",
+    "dev:watch": "nodemon --exec ts-node server-ts.ts",
+    "start:js": "node server.js"
   },
   "keywords": ["email", "processing", "api", "investra"],
   "author": "Investra AI",

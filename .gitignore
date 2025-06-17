@@ -49,4 +49,14 @@ tasks.json
 tasks/
 
 # E2E test auth files
+
+# TypeScript compilation artifacts (should not be committed for frontend)
+src/**/*.js
+src/**/*.d.ts
+src/**/*.js.map
+src/**/*.d.ts.map
+!src/**/*.test.js
+!src/**/*.spec.js
+!src/**/*.test.d.ts
+!src/**/*.spec.d.ts
 src/test/e2e/.auth/ 
