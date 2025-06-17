@@ -218,7 +218,7 @@ Date: June 17, 2025 10:30 AM EST
 /**
  * Get IMAP configuration for your server
  */
-export function getIMAPConfig(credentials = {}) {
+export function getIMAPConfig(credentials: { username?: string; password?: string } = {}) {
   return {
     host: EMAIL_TEST_CONFIG.server.host,
     port: EMAIL_TEST_CONFIG.server.defaultPort,
@@ -234,21 +234,21 @@ export function getIMAPConfig(credentials = {}) {
 /**
  * Get test email by type
  */
-export function getTestEmail(type = 'stockBuy') {
+export function getTestEmail(type: keyof typeof EMAIL_TEST_CONFIG.testEmails = 'stockBuy') {
   return EMAIL_TEST_CONFIG.testEmails[type] || EMAIL_TEST_CONFIG.testEmails.stockBuy;
 }
 
 /**
  * Get expected result for test email
  */
-export function getExpectedResult(type = 'stockBuy') {
+export function getExpectedResult(type: keyof typeof EMAIL_TEST_CONFIG.expectedResults = 'stockBuy') {
   return EMAIL_TEST_CONFIG.expectedResults[type] || EMAIL_TEST_CONFIG.expectedResults.stockBuy;
 }
 
 /**
  * Validate processing result against expected outcome
  */
-export function validateProcessingResult(result, expected) {
+export function validateProcessingResult(result: any, expected: any) {
   const errors = [];
   
   if (result.account !== expected.account) {

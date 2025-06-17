@@ -4,7 +4,7 @@
  * Real-time dashboard showing IMAP service status and email processing metrics
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React from 'react';
 import styled from 'styled-components';
 import {
   Mail,
@@ -26,49 +26,14 @@ import {
 } from 'lucide-react';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
-import { useNotifications } from '../hooks/useNotifications';
+import { useEmailProcessing } from '../hooks/useEmailProcessing';
+import type { 
+  EmailProcessingStats, 
+  IMAPServiceStatus
+} from '../services/emailApiService';
 
-interface EmailProcessingStats {
-  totalProcessed: number;
-  successful: number;
-  failed: number;
-  duplicates: number;
-  reviewRequired: number;
-  averageProcessingTime: number;
-  lastProcessedAt?: string;
-}
-
-interface IMAPServiceStatus {
-  status: 'stopped' | 'starting' | 'running' | 'error' | 'reconnecting';
-  healthy: boolean;
-  uptime: number;
-  lastError?: string;
-  startedAt?: string;
-}
-
-interface ProcessingQueueItem {
-  id: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed' | 'review-required';
-  emailSubject: string;
-  fromEmail: string;
-  progress: {
-    current: number;
-    total: number;
-    percentage: number;
-  };
-  stages: {
-    parsing: 'pending' | 'completed' | 'failed';
-    duplicateCheck: 'pending' | 'completed' | 'failed';
-    symbolProcessing: 'pending' | 'completed' | 'failed';
-    transactionCreation: 'pending' | 'completed' | 'failed';
-  };
-  timestamps: {
-    startedAt: string;
-    completedAt?: string;
-    lastUpdatedAt: string;
-  };
-  errors: string[];
-}
+// Remove local interface definitions since they're now imported from the hook
+// The interfaces are now defined in the emailApiService
 
 const DashboardContainer = styled.div`
   display: flex;
@@ -506,131 +471,56 @@ const EmailProcessingStatusDisplay: React.FC<EmailProcessingStatusDisplayProps> 
   autoRefresh = true,
   refreshInterval = 5000
 }) => {
-  const { success, error } = useNotifications();
-  const [loading, setLoading] = useState(false);
-  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
-  
-  // Mock data - in real implementation, this would come from API calls
-  const [imapStatus, setImapStatus] = useState<IMAPServiceStatus>({
-    status: 'running',
-    healthy: true,
-    uptime: 86400000, // 24 hours in ms
-    startedAt: new Date(Date.now() - 86400000).toISOString()
-  });
+  // Use the email processing hook instead of local state and mock data
+  const {
+    loading,
+    lastRefresh,
+    processingStats,
+    imapStatus,
+    processingQueue,
+    refreshData,
+    startService,
+    stopService,
+    restartService,
+    processNow
+  } = useEmailProcessing(autoRefresh, refreshInterval);
 
-  const [processingStats] = useState<EmailProcessingStats>({
-    totalProcessed: 142,
-    successful: 138,
-    failed: 2,
-    duplicates: 15,
-    reviewRequired: 3,
-    averageProcessingTime: 1200,
-    lastProcessedAt: new Date(Date.now() - 300000).toISOString() // 5 minutes ago
-  });
+  // Handle null values with default fallbacks
+  const safeImapStatus: IMAPServiceStatus = imapStatus || {
+    status: 'stopped',
+    healthy: false,
+    uptime: 0,
+    startedAt: undefined
+  };
 
-  const [processingQueue] = useState<ProcessingQueueItem[]>([
-    {
-      id: 'proc-1',
-      status: 'processing',
-      emailSubject: 'Trade Confirmation - AAPL Purchase',
-      fromEmail: 'notifications@wealthsimple.com',
-      progress: { current: 3, total: 4, percentage: 75 },
-      stages: {
-        parsing: 'completed',
-        duplicateCheck: 'completed',
-        symbolProcessing: 'completed',
-        transactionCreation: 'pending'
-      },
-      timestamps: {
-        startedAt: new Date(Date.now() - 30000).toISOString(),
-        lastUpdatedAt: new Date().toISOString()
-      },
-      errors: []
-    },
-    {
-      id: 'proc-2',
-      status: 'review-required',
-      emailSubject: 'Trade Confirmation - TSLA Sale',
-      fromEmail: 'notifications@wealthsimple.com',
-      progress: { current: 2, total: 4, percentage: 50 },
-      stages: {
-        parsing: 'completed',
-        duplicateCheck: 'completed',
-        symbolProcessing: 'failed',
-        transactionCreation: 'pending'
-      },
-      timestamps: {
-        startedAt: new Date(Date.now() - 120000).toISOString(),
-        lastUpdatedAt: new Date(Date.now() - 60000).toISOString()
-      },
-      errors: ['Symbol lookup failed for TSLA']
-    }
-  ]);
+  const safeProcessingStats: EmailProcessingStats = processingStats || {
+    totalProcessed: 0,
+    successful: 0,
+    failed: 0,
+    duplicates: 0,
+    reviewRequired: 0,
+    averageProcessingTime: 0
+  };
 
-  const refreshData = useCallback(async () => {
-    setLoading(true);
-    try {
-      // In real implementation, these would be API calls to:
-      // - GET /api/imap/status
-      // - GET /api/email/stats  
-      // - GET /api/email/queue
-      
-      await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API call
-      
-      setLastRefresh(new Date());
-      if (autoRefresh) {
-        success('Status Updated', 'Processing status refreshed successfully');
-      }
-    } catch {
-      error('Refresh Failed', 'Failed to update processing status');
-    } finally {
-      setLoading(false);
-    }
-  }, [autoRefresh, success, error]);
-
+  // Handle service actions
   const handleServiceAction = async (action: 'start' | 'stop' | 'restart') => {
-    setLoading(true);
-    try {
-      // In real implementation, these would be API calls to:
-      // - POST /api/imap/start
-      // - POST /api/imap/stop  
-      // - POST /api/imap/restart
-      
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
-      
-      setImapStatus(prev => ({ 
-        ...prev, 
-        status: action === 'stop' ? 'stopped' : 'running'
-      }));
-      
-      success('Service Updated', `IMAP service ${action} completed successfully`);
-    } catch {
-      error('Service Action Failed', `Failed to ${action} IMAP service`);
-    } finally {
-      setLoading(false);
+    switch (action) {
+      case 'start':
+        await startService();
+        break;
+      case 'stop':
+        await stopService();
+        break;
+      case 'restart':
+        await restartService();
+        break;
     }
   };
 
+  // Handle manual processing
   const handleProcessNow = async () => {
-    setLoading(true);
-    try {
-      // POST /api/imap/process-now
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      success('Processing Started', 'Manual email processing initiated');
-    } catch {
-      error('Processing Failed', 'Failed to start manual processing');
-    } finally {
-      setLoading(false);
-    }
+    await processNow();
   };
-
-  // Auto-refresh effect
-  useEffect(() => {
-    if (!autoRefresh) return;
-
-    const interval = setInterval(refreshData, refreshInterval);
-    return () => clearInterval(interval);
-  }, [autoRefresh, refreshInterval, refreshData]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -685,7 +575,7 @@ const EmailProcessingStatusDisplay: React.FC<EmailProcessingStatusDisplayProps> 
           <Button
             variant="outline"
             onClick={handleProcessNow}
-            disabled={loading || imapStatus.status !== 'running'}
+            disabled={loading || safeImapStatus.status !== 'running'}
           >
             <Zap size={16} />
             Process Now
@@ -693,33 +583,33 @@ const EmailProcessingStatusDisplay: React.FC<EmailProcessingStatusDisplayProps> 
         </HeaderRight>
       </Header>
 
-      <ServiceStatusCard $status={imapStatus.status}>
+      <ServiceStatusCard $status={safeImapStatus.status}>
         <ServiceHeader>
           <ServiceTitle>
             <Server size={20} />
             IMAP Email Service
           </ServiceTitle>
-          <StatusIndicator $status={imapStatus.status}>
-            {getStatusIcon(imapStatus.status)}
-            {imapStatus.status.charAt(0).toUpperCase() + imapStatus.status.slice(1)}
+          <StatusIndicator $status={safeImapStatus.status}>
+            {getStatusIcon(safeImapStatus.status)}
+            {safeImapStatus.status.charAt(0).toUpperCase() + safeImapStatus.status.slice(1)}
           </StatusIndicator>
         </ServiceHeader>
         
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
           <div>
             <div style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem' }}>Uptime</div>
-            <div style={{ fontWeight: '600' }}>{formatUptime(imapStatus.uptime)}</div>
+            <div style={{ fontWeight: '600' }}>{formatUptime(safeImapStatus.uptime)}</div>
           </div>
           <div>
             <div style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem' }}>Health</div>
-            <div style={{ fontWeight: '600', color: imapStatus.healthy ? '#059669' : '#dc2626' }}>
-              {imapStatus.healthy ? 'Healthy' : 'Unhealthy'}
+            <div style={{ fontWeight: '600', color: safeImapStatus.healthy ? '#059669' : '#dc2626' }}>
+              {safeImapStatus.healthy ? 'Healthy' : 'Unhealthy'}
             </div>
           </div>
           <div>
             <div style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem' }}>Started</div>
             <div style={{ fontWeight: '600' }}>
-              {imapStatus.startedAt ? new Date(imapStatus.startedAt).toLocaleString() : 'N/A'}
+              {safeImapStatus.startedAt ? new Date(safeImapStatus.startedAt).toLocaleString() : 'N/A'}
             </div>
           </div>
         </div>
@@ -729,7 +619,7 @@ const EmailProcessingStatusDisplay: React.FC<EmailProcessingStatusDisplayProps> 
             variant="outline"
             size="sm"
             onClick={() => handleServiceAction('start')}
-            disabled={loading || imapStatus.status === 'running'}
+            disabled={loading || safeImapStatus.status === 'running'}
           >
             <Play size={14} />
             Start
@@ -738,7 +628,7 @@ const EmailProcessingStatusDisplay: React.FC<EmailProcessingStatusDisplayProps> 
             variant="outline"
             size="sm"
             onClick={() => handleServiceAction('stop')}
-            disabled={loading || imapStatus.status === 'stopped'}
+            disabled={loading || safeImapStatus.status === 'stopped'}
           >
             <Pause size={14} />
             Stop
@@ -772,7 +662,7 @@ const EmailProcessingStatusDisplay: React.FC<EmailProcessingStatusDisplayProps> 
               <Mail size={16} />
             </StatIcon>
           </StatHeader>
-          <StatValue>{processingStats.totalProcessed}</StatValue>
+          <StatValue>{safeProcessingStats.totalProcessed}</StatValue>
           <StatChange $positive={true}>
             <TrendingUp size={14} />
             +12 this hour
@@ -787,7 +677,9 @@ const EmailProcessingStatusDisplay: React.FC<EmailProcessingStatusDisplayProps> 
             </StatIcon>
           </StatHeader>
           <StatValue>
-            {Math.round((processingStats.successful / processingStats.totalProcessed) * 100)}%
+            {safeProcessingStats.totalProcessed > 0 
+              ? Math.round((safeProcessingStats.successful / safeProcessingStats.totalProcessed) * 100)
+              : 0}%
           </StatValue>
           <StatChange $positive={true}>
             <TrendingUp size={14} />
@@ -802,7 +694,7 @@ const EmailProcessingStatusDisplay: React.FC<EmailProcessingStatusDisplayProps> 
               <AlertTriangle size={16} />
             </StatIcon>
           </StatHeader>
-          <StatValue>{processingStats.failed}</StatValue>
+          <StatValue>{safeProcessingStats.failed}</StatValue>
           <StatChange $positive={false}>
             <AlertCircle size={14} />
             Needs attention
@@ -816,7 +708,7 @@ const EmailProcessingStatusDisplay: React.FC<EmailProcessingStatusDisplayProps> 
               <Activity size={16} />
             </StatIcon>
           </StatHeader>
-          <StatValue>{(processingStats.averageProcessingTime / 1000).toFixed(1)}s</StatValue>
+          <StatValue>{(safeProcessingStats.averageProcessingTime / 1000).toFixed(1)}s</StatValue>
           <StatChange $positive={true}>
             <TrendingUp size={14} />
             -0.3s improvement

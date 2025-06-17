@@ -18,7 +18,7 @@ import {
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { usePageTitle } from '../hooks/usePageTitle';
-import { useNotifications } from '../hooks/useNotifications';
+import { useEmailProcessing } from '../hooks/useEmailProcessing';
 
 // Import the existing email management components
 import ImportStatusNotifications from '../components/ImportStatusNotifications';
@@ -179,31 +179,32 @@ const ActionBar = styled.div`
 
 const EmailManagementPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('overview');
-  const { success } = useNotifications();
   
   // Set page title
   usePageTitle('Email Management', { subtitle: 'Import Settings & Monitoring' });
 
-  // Mock stats data - in real app this would come from API
-  const stats = {
-    totalProcessed: 1247,
-    successful: 1198,
-    failed: 23,
-    pendingReview: 26,
-    serverStatus: 'running',
-    lastProcessed: '2 minutes ago'
+  // Use real email processing data
+  const {
+    processingStats,
+    imapStatus,
+    startService,
+    stopService,
+    refreshData
+  } = useEmailProcessing();
+
+  // Use safe fallbacks for stats
+  const safeStats = processingStats || {
+    totalProcessed: 0,
+    successful: 0,
+    failed: 0,
+    reviewRequired: 0,
+    averageProcessingTime: 0
   };
 
-  const handleStartService = () => {
-    success('Email Service', 'Email processing service started');
-  };
-
-  const handleStopService = () => {
-    success('Email Service', 'Email processing service stopped');
-  };
-
-  const handleRefreshStats = () => {
-    success('Stats Updated', 'Email processing statistics refreshed');
+  const safeImapStatus = imapStatus || {
+    status: 'stopped' as const,
+    healthy: false,
+    uptime: 0
   };
 
   const tabs = [
@@ -227,7 +228,7 @@ const EmailManagementPage: React.FC = () => {
                     <Mail size={16} />
                   </StatIcon>
                 </StatHeader>
-                <StatValue>{stats.totalProcessed.toLocaleString()}</StatValue>
+                <StatValue>{safeStats.totalProcessed.toLocaleString()}</StatValue>
                 <StatDescription>Emails processed this month</StatDescription>
               </StatCard>
 
@@ -238,8 +239,12 @@ const EmailManagementPage: React.FC = () => {
                     <CheckCircle size={16} />
                   </StatIcon>
                 </StatHeader>
-                <StatValue>{((stats.successful / stats.totalProcessed) * 100).toFixed(1)}%</StatValue>
-                <StatDescription>{stats.successful} successful imports</StatDescription>
+                <StatValue>
+                  {safeStats.totalProcessed > 0 
+                    ? ((safeStats.successful / safeStats.totalProcessed) * 100).toFixed(1)
+                    : 0}%
+                </StatValue>
+                <StatDescription>{safeStats.successful} successful imports</StatDescription>
               </StatCard>
 
               <StatCard>
@@ -249,7 +254,7 @@ const EmailManagementPage: React.FC = () => {
                     <AlertTriangle size={16} />
                   </StatIcon>
                 </StatHeader>
-                <StatValue>{stats.failed}</StatValue>
+                <StatValue>{safeStats.failed}</StatValue>
                 <StatDescription>Require manual intervention</StatDescription>
               </StatCard>
 
@@ -260,21 +265,21 @@ const EmailManagementPage: React.FC = () => {
                     <Eye size={16} />
                   </StatIcon>
                 </StatHeader>
-                <StatValue>{stats.pendingReview}</StatValue>
+                <StatValue>{safeStats.reviewRequired}</StatValue>
                 <StatDescription>Items pending review</StatDescription>
               </StatCard>
             </QuickStatsGrid>
 
             <ActionBar>
-              <Button variant="primary" onClick={handleStartService}>
+              <Button variant="primary" onClick={startService}>
                 <Play size={16} />
                 Start Email Service
               </Button>
-              <Button variant="outline" onClick={handleStopService}>
+              <Button variant="outline" onClick={stopService}>
                 <Pause size={16} />
                 Stop Service
               </Button>
-              <Button variant="outline" onClick={handleRefreshStats}>
+              <Button variant="outline" onClick={refreshData}>
                 <RefreshCw size={16} />
                 Refresh Stats
               </Button>
@@ -288,10 +293,12 @@ const EmailManagementPage: React.FC = () => {
                 <div>
                   <strong>IMAP Server:</strong> localhost:993 (SSL)<br />
                   <strong>Email Account:</strong> transactions@investra.com<br />
-                  <strong>Status:</strong> <span style={{ color: '#10b981' }}>Connected</span>
+                  <strong>Status:</strong> <span style={{ color: safeImapStatus.healthy ? '#10b981' : '#dc2626' }}>
+                    {safeImapStatus.healthy ? 'Connected' : 'Disconnected'}
+                  </span>
                 </div>
                 <div>
-                  <strong>Last Check:</strong> {stats.lastProcessed}<br />
+                  <strong>Last Check:</strong> {new Date().toLocaleString()}<br />
                   <strong>Processing Mode:</strong> Automatic<br />
                   <strong>Filter:</strong> Wealthsimple emails only
                 </div>
@@ -301,7 +308,11 @@ const EmailManagementPage: React.FC = () => {
         );
 
       case 'status':
-        return <EmailProcessingStatusDisplay />;
+        return (
+          <div>
+            <EmailProcessingStatusDisplay />
+          </div>
+        );
 
       case 'review':
         return <ManualReviewQueueManager />;
