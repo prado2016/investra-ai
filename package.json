@@ -40,6 +40,7 @@
     "date-fns": "^4.1.0",
     "imapflow": "^1.0.188",
     "lucide-react": "^0.511.0",
+    "mailparser": "^3.7.3",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-router-dom": "^6.30.1",

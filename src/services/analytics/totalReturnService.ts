@@ -112,7 +112,7 @@ export class TotalReturnAnalyticsService {
     const includeFees = options?.includeFees ?? true;
 
     let totalInvested = 0;  // Total cash invested (buy transactions)
-    let totalWithdrawn = 0; // Total cash withdrawn (sell transactions)
+    // let totalWithdrawn = 0; // Total cash withdrawn (sell transactions) - currently unused
     let totalRealizedPL = 0;
     let totalDividends = 0;
     let totalFees = 0;
