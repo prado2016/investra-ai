@@ -13,7 +13,8 @@ import {
   Play,
   Pause,
   RefreshCw,
-  Eye
+  Eye,
+  Settings
 } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -25,6 +26,7 @@ import ImportStatusNotifications from '../components/ImportStatusNotifications';
 import ManualReviewQueueManager from '../components/ManualReviewQueueManager';
 import FailedImportResolutionInterface from '../components/FailedImportResolutionInterface';
 import EmailProcessingStatusDisplay from '../components/EmailProcessingStatusDisplay';
+import EmailConfigurationPanel from '../components/EmailConfigurationPanel';
 
 const PageContainer = styled.div`
   padding: 2rem;
@@ -213,6 +215,7 @@ const EmailManagementPage: React.FC = () => {
     { id: 'review', label: 'Manual Review', icon: Eye },
     { id: 'failed', label: 'Failed Imports', icon: AlertTriangle },
     { id: 'notifications', label: 'Notifications', icon: Mail },
+    { id: 'configuration', label: 'Configuration', icon: Settings },
   ];
 
   const renderTabContent = () => {
@@ -291,11 +294,23 @@ const EmailManagementPage: React.FC = () => {
               </h3>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1rem' }}>
                 <div>
-                  <strong>IMAP Server:</strong> localhost:993 (SSL)<br />
-                  <strong>Email Account:</strong> transactions@investra.com<br />
+                  <strong>IMAP Server:</strong> {process.env.REACT_APP_IMAP_HOST || 'localhost'}:{process.env.REACT_APP_IMAP_PORT || '993'} (SSL)<br />
+                  <strong>Email Account:</strong> {process.env.REACT_APP_IMAP_USER || 'transactions@investra.com'}<br />
                   <strong>Status:</strong> <span style={{ color: safeImapStatus.healthy ? '#10b981' : '#dc2626' }}>
                     {safeImapStatus.healthy ? 'Connected' : 'Disconnected'}
                   </span>
+                  {!safeImapStatus.healthy && (
+                    <div style={{ 
+                      marginTop: '0.5rem', 
+                      padding: '0.5rem', 
+                      backgroundColor: '#fef3c7', 
+                      borderRadius: '4px',
+                      fontSize: '0.875rem',
+                      color: '#92400e'
+                    }}>
+                      ⚠️ Email server not configured. See <a href="/docs/EMAIL_SETUP_GUIDE.md" target="_blank" style={{ color: '#1d4ed8' }}>Setup Guide</a>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <strong>Last Check:</strong> {new Date().toLocaleString()}<br />
@@ -322,6 +337,9 @@ const EmailManagementPage: React.FC = () => {
 
       case 'notifications':
         return <ImportStatusNotifications />;
+
+      case 'configuration':
+        return <EmailConfigurationPanel />;
 
       default:
         return <div>Select a tab to view content</div>;

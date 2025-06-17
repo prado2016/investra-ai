@@ -9,6 +9,15 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
 
+// Import email connection test route
+import emailConnectionTestRoute from './routes/emailConnectionTest';
+
+// Import the existing APIs
+import { EmailProcessingAPI } from '../src/services/endpoints/emailProcessingAPI';
+import { EmailStatusAPI } from '../src/services/endpoints/emailStatusAPI';
+import { EmailManagementAPI } from '../src/services/endpoints/emailManagementAPI';
+import { IMAPServiceAPI } from '../src/services/endpoints/imapServiceAPI';
+
 // Import local type definitions
 import type {
   APIResponse,
@@ -117,6 +126,9 @@ const handleAPIResponse = async (apiCall: Promise<any>, res: express.Response) =
     });
   }
 };
+
+// Mount email connection test routes
+app.use('/api/email', emailConnectionTestRoute);
 
 // Email Processing API Routes
 app.post('/api/email/process', async (req, res) => {
