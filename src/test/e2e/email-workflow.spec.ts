@@ -1,0 +1,487 @@
+/**
+ * Task 14.1: Test Complete Email Flow
+ * End-to-end integration tests for the email processing workflow
+ * Tests: email reception → parsing → database storage workflow
+ */
+
+import { test, expect } from '@playwright/test';
+import { EmailProcessingService } from '../../services/email/emailProcessingService';
+import { WealthsimpleEmailParser } from '../../services/email/wealthsimpleEmailParser';
+import { IMAPEmailProcessor } from '../../services/email/imapEmailProcessor';
+import { SupabaseService } from '../../services/supabaseService';
+
+// Mock Wealthsimple emails for testing
+const MOCK_WEALTHSIMPLE_EMAILS = {
+  stockBuy: {
+    subject: 'Your order has been filled',
+    from: 'noreply@wealthsimple.com',
+    html: `
+      <html>
+        <body>
+          <h1>Order Confirmation</h1>
+          <p>Account: TFSA</p>
+          <p>Transaction: Buy</p>
+          <p>Symbol: AAPL</p>
+          <p>Quantity: 10 shares</p>
+          <p>Price: $150.50 per share</p>
+          <p>Total: $1,505.00</p>
+          <p>Date: June 17, 2025 10:30 EDT</p>
+          <p>Order ID: WS-123456789</p>
+        </body>
+      </html>
+    `,
+    text: `
+      Order Confirmation
+      Account: TFSA
+      Transaction: Buy
+      Symbol: AAPL
+      Quantity: 10 shares
+      Price: $150.50 per share
+      Total: $1,505.00
+      Date: June 17, 2025 10:30 EDT
+      Order ID: WS-123456789
+    `
+  },
+  stockSell: {
+    subject: 'Your sell order has been executed',
+    from: 'noreply@wealthsimple.com',
+    html: `
+      <html>
+        <body>
+          <h1>Sale Confirmation</h1>
+          <p>Account: RRSP</p>
+          <p>Transaction: Sell</p>
+          <p>Symbol: TSLA</p>
+          <p>Quantity: 5 shares</p>
+          <p>Price: $245.75 per share</p>
+          <p>Total: $1,228.75</p>
+          <p>Date: June 17, 2025 14:15 EDT</p>
+          <p>Order ID: WS-987654321</p>
+        </body>
+      </html>
+    `,
+    text: `
+      Sale Confirmation
+      Account: RRSP
+      Transaction: Sell
+      Symbol: TSLA
+      Quantity: 5 shares
+      Price: $245.75 per share
+      Total: $1,228.75
+      Date: June 17, 2025 14:15 EDT
+      Order ID: WS-987654321
+    `
+  },
+  optionTransaction: {
+    subject: 'Your option order has been filled',
+    from: 'noreply@wealthsimple.com',
+    html: `
+      <html>
+        <body>
+          <h1>Option Order Confirmation</h1>
+          <p>Account: Margin</p>
+          <p>Transaction: Buy to Close</p>
+          <p>Option: TSLL 13.00 call</p>
+          <p>Contracts: 10</p>
+          <p>Average price: US$0.02</p>
+          <p>Total cost: US$27.50</p>
+          <p>Date: June 17, 2025 11:44 EDT</p>
+          <p>Order ID: WS-111222333</p>
+        </body>
+      </html>
+    `,
+    text: `
+      Option Order Confirmation
+      Account: Margin
+      Transaction: Buy to Close
+      Option: TSLL 13.00 call
+      Contracts: 10
+      Average price: US$0.02
+      Total cost: US$27.50
+      Date: June 17, 2025 11:44 EDT
+      Order ID: WS-111222333
+    `
+  },
+  dividend: {
+    subject: 'Dividend payment received',
+    from: 'noreply@wealthsimple.com',
+    html: `
+      <html>
+        <body>
+          <h1>Dividend Payment</h1>
+          <p>Account: TFSA</p>
+          <p>Symbol: VTI</p>
+          <p>Dividend per share: $0.87</p>
+          <p>Shares: 100</p>
+          <p>Total dividend: $87.00</p>
+          <p>Payment date: June 15, 2025</p>
+          <p>Record date: June 10, 2025</p>
+        </body>
+      </html>
+    `,
+    text: `
+      Dividend Payment
+      Account: TFSA
+      Symbol: VTI
+      Dividend per share: $0.87
+      Shares: 100
+      Total dividend: $87.00
+      Payment date: June 15, 2025
+      Record date: June 10, 2025
+    `
+  }
+};
+
+test.describe('Email Workflow End-to-End Tests', () => {
+  let testPortfolioId: string;
+  let originalTransactionCount: number;
+
+  test.beforeAll(async () => {
+    // Set up test environment
+    console.log('🧪 Setting up E2E test environment...');
+    
+    // Create a test portfolio for testing
+    const portfolioResult = await SupabaseService.createPortfolio({
+      name: 'E2E Test Portfolio',
+      description: 'Test portfolio for email workflow testing',
+      type: 'TFSA',
+      currency: 'CAD'
+    });
+    
+    if (portfolioResult.success && portfolioResult.data) {
+      testPortfolioId = portfolioResult.data.id;
+      console.log(`✅ Created test portfolio: ${testPortfolioId}`);
+    } else {
+      throw new Error('Failed to create test portfolio');
+    }
+
+    // Get initial transaction count
+    const transactionsResult = await SupabaseService.getTransactions(testPortfolioId);
+    originalTransactionCount = transactionsResult.data?.length || 0;
+  });
+
+  test.afterAll(async () => {
+    // Cleanup test data
+    if (testPortfolioId) {
+      console.log('🧹 Cleaning up test data...');
+      
+      // Delete test transactions
+      const transactionsResult = await SupabaseService.getTransactions(testPortfolioId);
+      if (transactionsResult.success && transactionsResult.data) {
+        for (const transaction of transactionsResult.data) {
+          await SupabaseService.deleteTransaction(transaction.id);
+        }
+      }
+      
+      // Delete test portfolio
+      await SupabaseService.deletePortfolio(testPortfolioId);
+      console.log('✅ Test cleanup completed');
+    }
+  });
+
+  test('should process stock buy email end-to-end', async () => {
+    const email = MOCK_WEALTHSIMPLE_EMAILS.stockBuy;
+    
+    console.log('📧 Testing stock buy email processing...');
+    
+    // Step 1: Parse the email
+    const parseResult = WealthsimpleEmailParser.parseEmail(
+      email.subject,
+      email.from,
+      email.html,
+      email.text
+    );
+    
+    expect(parseResult.success).toBe(true);
+    expect(parseResult.data).toBeTruthy();
+    expect(parseResult.data?.symbol).toBe('AAPL');
+    expect(parseResult.data?.transactionType).toBe('buy');
+    expect(parseResult.data?.quantity).toBe(10);
+    expect(parseResult.data?.price).toBe(150.50);
+    expect(parseResult.data?.accountType).toBe('TFSA');
+    
+    // Step 2: Process through EmailProcessingService
+    const processingResult = await EmailProcessingService.processEmail(
+      email.subject,
+      email.from,
+      email.html,
+      email.text,
+      {
+        createMissingPortfolios: true,
+        skipDuplicateCheck: false,
+        dryRun: false
+      }
+    );
+    
+    expect(processingResult.success).toBe(true);
+    expect(processingResult.emailParsed).toBe(true);
+    expect(processingResult.portfolioMapped).toBe(true);
+    expect(processingResult.transactionCreated).toBe(true);
+    expect(processingResult.transaction).toBeTruthy();
+    
+    // Step 3: Verify transaction was created in database
+    const createdTransaction = processingResult.transaction;
+    expect(createdTransaction?.type).toBe('buy');
+    expect(createdTransaction?.quantity).toBe(10);
+    expect(createdTransaction?.price).toBe(150.50);
+    
+    // Step 4: Verify transaction can be retrieved
+    const retrievedTransaction = await SupabaseService.getTransaction(createdTransaction!.id);
+    expect(retrievedTransaction.success).toBe(true);
+    expect(retrievedTransaction.data?.symbol).toBe('AAPL');
+    
+    console.log('✅ Stock buy email processed successfully');
+  });
+
+  test('should process stock sell email end-to-end', async () => {
+    const email = MOCK_WEALTHSIMPLE_EMAILS.stockSell;
+    
+    console.log('📧 Testing stock sell email processing...');
+    
+    const processingResult = await EmailProcessingService.processEmail(
+      email.subject,
+      email.from,
+      email.html,
+      email.text,
+      {
+        createMissingPortfolios: true,
+        skipDuplicateCheck: false,
+        dryRun: false
+      }
+    );
+    
+    expect(processingResult.success).toBe(true);
+    expect(processingResult.emailParsed).toBe(true);
+    expect(processingResult.portfolioMapped).toBe(true);
+    expect(processingResult.transactionCreated).toBe(true);
+    
+    const createdTransaction = processingResult.transaction;
+    expect(createdTransaction?.type).toBe('sell');
+    expect(createdTransaction?.quantity).toBe(5);
+    expect(createdTransaction?.price).toBe(245.75);
+    expect(createdTransaction?.symbol).toBe('TSLA');
+    
+    console.log('✅ Stock sell email processed successfully');
+  });
+
+  test('should process option transaction email end-to-end', async () => {
+    const email = MOCK_WEALTHSIMPLE_EMAILS.optionTransaction;
+    
+    console.log('📧 Testing option transaction email processing...');
+    
+    const processingResult = await EmailProcessingService.processEmail(
+      email.subject,
+      email.from,
+      email.html,
+      email.text,
+      {
+        createMissingPortfolios: true,
+        skipDuplicateCheck: false,
+        dryRun: false
+      }
+    );
+    
+    expect(processingResult.success).toBe(true);
+    expect(processingResult.emailParsed).toBe(true);
+    
+    const createdTransaction = processingResult.transaction;
+    expect(createdTransaction?.type).toBe('sell'); // "Buy to Close" = sell
+    expect(createdTransaction?.quantity).toBe(10);
+    expect(createdTransaction?.price).toBe(0.02);
+    expect(createdTransaction?.symbol).toContain('TSLL');
+    
+    console.log('✅ Option transaction email processed successfully');
+  });
+
+  test('should process dividend email end-to-end', async () => {
+    const email = MOCK_WEALTHSIMPLE_EMAILS.dividend;
+    
+    console.log('📧 Testing dividend email processing...');
+    
+    const processingResult = await EmailProcessingService.processEmail(
+      email.subject,
+      email.from,
+      email.html,
+      email.text,
+      {
+        createMissingPortfolios: true,
+        skipDuplicateCheck: false,
+        dryRun: false
+      }
+    );
+    
+    expect(processingResult.success).toBe(true);
+    expect(processingResult.emailParsed).toBe(true);
+    
+    const createdTransaction = processingResult.transaction;
+    expect(createdTransaction?.type).toBe('dividend');
+    expect(createdTransaction?.quantity).toBe(100);
+    expect(createdTransaction?.price).toBe(0.87);
+    expect(createdTransaction?.symbol).toBe('VTI');
+    
+    console.log('✅ Dividend email processed successfully');
+  });
+
+  test('should handle email processing errors gracefully', async () => {
+    console.log('📧 Testing error handling...');
+    
+    // Test with invalid email
+    const processingResult = await EmailProcessingService.processEmail(
+      'Invalid subject',
+      'invalid@example.com',
+      '<html><body>Not a Wealthsimple email</body></html>',
+      'Not a Wealthsimple email',
+      {
+        createMissingPortfolios: true,
+        skipDuplicateCheck: false,
+        dryRun: false
+      }
+    );
+    
+    expect(processingResult.success).toBe(false);
+    expect(processingResult.errors.length).toBeGreaterThan(0);
+    expect(processingResult.emailParsed).toBe(false);
+    
+    console.log('✅ Error handling working correctly');
+  });
+
+  test('should handle batch email processing', async () => {
+    console.log('📧 Testing batch email processing...');
+    
+    const emails = [
+      {
+        subject: MOCK_WEALTHSIMPLE_EMAILS.stockBuy.subject,
+        fromEmail: MOCK_WEALTHSIMPLE_EMAILS.stockBuy.from,
+        htmlContent: MOCK_WEALTHSIMPLE_EMAILS.stockBuy.html,
+        textContent: MOCK_WEALTHSIMPLE_EMAILS.stockBuy.text
+      },
+      {
+        subject: MOCK_WEALTHSIMPLE_EMAILS.stockSell.subject,
+        fromEmail: MOCK_WEALTHSIMPLE_EMAILS.stockSell.from,
+        htmlContent: MOCK_WEALTHSIMPLE_EMAILS.stockSell.html,
+        textContent: MOCK_WEALTHSIMPLE_EMAILS.stockSell.text
+      }
+    ];
+    
+    const batchResult = await EmailProcessingService.processBatchEmails(emails, {
+      createMissingPortfolios: true,
+      skipDuplicateCheck: false
+    });
+    
+    expect(batchResult.length).toBe(2);
+    expect(batchResult.filter(r => r.success).length).toBe(2);
+    
+    console.log('✅ Batch email processing working correctly');
+  });
+
+  test('should maintain data integrity across workflow', async () => {
+    console.log('📧 Testing data integrity...');
+    
+    const email = MOCK_WEALTHSIMPLE_EMAILS.stockBuy;
+    
+    // Process the same email twice to test duplicate handling
+    const firstResult = await EmailProcessingService.processEmail(
+      email.subject,
+      email.from,
+      email.html,
+      email.text,
+      {
+        createMissingPortfolios: true,
+        skipDuplicateCheck: false,
+        dryRun: false
+      }
+    );
+    
+    expect(firstResult.success).toBe(true);
+    
+    const secondResult = await EmailProcessingService.processEmail(
+      email.subject,
+      email.from,
+      email.html,
+      email.text,
+      {
+        createMissingPortfolios: true,
+        skipDuplicateCheck: false,
+        dryRun: false
+      }
+    );
+    
+    // Second processing should either succeed with duplicate detection or handle gracefully
+    expect(secondResult.warnings?.some(w => w.includes('duplicate'))).toBeTruthy();
+    
+    console.log('✅ Data integrity maintained');
+  });
+
+  test('should work with dry run mode', async () => {
+    console.log('📧 Testing dry run mode...');
+    
+    const email = MOCK_WEALTHSIMPLE_EMAILS.stockBuy;
+    
+    const processingResult = await EmailProcessingService.processEmail(
+      email.subject,
+      email.from,
+      email.html,
+      email.text,
+      {
+        createMissingPortfolios: true,
+        skipDuplicateCheck: false,
+        dryRun: true // Dry run mode
+      }
+    );
+    
+    expect(processingResult.success).toBe(true);
+    expect(processingResult.emailParsed).toBe(true);
+    expect(processingResult.portfolioMapped).toBe(true);
+    expect(processingResult.transactionCreated).toBe(false); // Should not create transaction in dry run
+    
+    console.log('✅ Dry run mode working correctly');
+  });
+});
+
+test.describe('IMAP Integration Tests', () => {
+  // Note: These tests would require a test email server
+  // For now, we'll test the IMAP processor structure and mock connections
+  
+  test('should initialize IMAP processor correctly', async () => {
+    console.log('📧 Testing IMAP processor initialization...');
+    
+    const config = {
+      host: 'localhost',
+      port: 993,
+      secure: true,
+      auth: {
+        user: 'test@example.com',
+        pass: 'testpass'
+      }
+    };
+    
+    const processor = new IMAPEmailProcessor(config);
+    expect(processor).toBeTruthy();
+    expect(processor.getStats().connected).toBe(false);
+    
+    console.log('✅ IMAP processor initialized correctly');
+  });
+
+  test('should handle IMAP connection errors gracefully', async () => {
+    console.log('📧 Testing IMAP error handling...');
+    
+    const config = {
+      host: 'invalid-host',
+      port: 993,
+      secure: true,
+      auth: {
+        user: 'test@example.com',
+        pass: 'testpass'
+      }
+    };
+    
+    const processor = new IMAPEmailProcessor(config);
+    
+    try {
+      await processor.connect();
+    } catch (error) {
+      expect(error).toBeTruthy();
+      console.log('✅ IMAP error handling working correctly');
+    }
+  });
+});
