@@ -11,6 +11,7 @@ import winston from 'winston';
 import 'winston-daily-rotate-file';
 import { ImapFlow } from 'imapflow';
 import { ServiceMonitor } from './monitoring-service';
+import configurationAPIRoutes from './routes/configurationAPI';
 
 // Server-specific email processing will be implemented inline
 // to avoid frontend dependencies
@@ -364,6 +365,9 @@ app.use((req, res, next) => {
   
   next();
 });
+
+// Configuration Management API Routes
+app.use('/api/configuration', configurationAPIRoutes);
 
 // Health check endpoint
 app.get('/health', async (req, res) => {
@@ -769,6 +773,8 @@ async function startServer() {
     port: PORT,
     logLevel: LOG_LEVEL
   });
+
+  logger.info('✅ Configuration Management API routes mounted at /api/configuration');
 
   try {
     // Initialize monitoring

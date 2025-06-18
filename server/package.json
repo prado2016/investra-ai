@@ -25,10 +25,14 @@
   "author": "Investra AI",
   "license": "ISC",
   "dependencies": {
+    "@types/jsonwebtoken": "^9.0.10",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
+    "express-rate-limit": "^7.5.0",
+    "express-validator": "^7.2.1",
     "imapflow": "^1.0.188",
+    "jsonwebtoken": "^9.0.2",
     "node-fetch": "^3.3.2",
     "winston": "^3.17.0",
     "winston-daily-rotate-file": "^4.7.1"
