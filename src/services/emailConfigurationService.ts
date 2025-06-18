@@ -53,7 +53,9 @@ export interface ServiceResponse<T> {
  */
 export class EmailConfigurationService {
   /**
-   * Create a new email configuration
+   * Create or update an email configuration (upsert)
+   * If a configuration already exists for the user and email address, it will be updated.
+   * Otherwise, a new configuration will be created.
    */
   static async createConfiguration(config: CreateEmailConfigRequest): Promise<ServiceResponse<EmailConfiguration>> {
     try {
@@ -63,32 +65,63 @@ export class EmailConfigurationService {
         return { data: null, error: 'User not authenticated', success: false }
       }
 
-      // TODO: Encrypt password before storing
-      const encryptedPassword = await this.encryptPassword(config.password)
-
-      const { data, error } = await supabase
+      // Check if configuration already exists for this user and email
+      const { data: existingConfig } = await supabase
         .from('email_configurations')
-        .insert({
-          user_id: user.id,
-          name: config.name,
-          provider: config.provider,
-          imap_host: config.imap_host,
-          imap_port: config.imap_port,
-          imap_secure: config.imap_secure,
-          email_address: config.email_address,
-          encrypted_password: encryptedPassword,
-          auto_import_enabled: config.auto_import_enabled ?? true,
-          default_portfolio_id: config.default_portfolio_id,
-          is_active: true
-        })
-        .select()
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('email_address', config.email_address)
         .single()
 
-      if (error) {
-        return { data: null, error: error.message, success: false }
+      // Encrypt password before storing
+      const encryptedPassword = await this.encryptPassword(config.password)
+
+      let result;
+      if (existingConfig) {
+        // Update existing configuration
+        result = await supabase
+          .from('email_configurations')
+          .update({
+            name: config.name,
+            provider: config.provider,
+            imap_host: config.imap_host,
+            imap_port: config.imap_port,
+            imap_secure: config.imap_secure,
+            encrypted_password: encryptedPassword,
+            auto_import_enabled: config.auto_import_enabled ?? true,
+            default_portfolio_id: config.default_portfolio_id,
+            is_active: true,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingConfig.id)
+          .select()
+          .single()
+      } else {
+        // Create new configuration
+        result = await supabase
+          .from('email_configurations')
+          .insert({
+            user_id: user.id,
+            name: config.name,
+            provider: config.provider,
+            imap_host: config.imap_host,
+            imap_port: config.imap_port,
+            imap_secure: config.imap_secure,
+            email_address: config.email_address,
+            encrypted_password: encryptedPassword,
+            auto_import_enabled: config.auto_import_enabled ?? true,
+            default_portfolio_id: config.default_portfolio_id,
+            is_active: true
+          })
+          .select()
+          .single()
       }
 
-      return { data, error: null, success: true }
+      if (result.error) {
+        return { data: null, error: result.error.message, success: false }
+      }
+
+      return { data: result.data, error: null, success: true }
     } catch (error) {
       return { 
         data: null, 

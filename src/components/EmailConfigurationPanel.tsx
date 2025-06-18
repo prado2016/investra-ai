@@ -27,6 +27,7 @@ export const EmailConfigurationPanel: React.FC = () => {
   const [testing, setTesting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [lastSavedConfig, setLastSavedConfig] = useState<EmailConfig | null>(null);
+  const [hasExistingConfig, setHasExistingConfig] = useState(false);
 
   // Load saved configuration on component mount
   useEffect(() => {
@@ -44,6 +45,9 @@ export const EmailConfigurationPanel: React.FC = () => {
           };
           setConfig(prev => ({ ...prev, ...configToLoad }));
           setLastSavedConfig(configToLoad);
+          setHasExistingConfig(true);
+        } else {
+          setHasExistingConfig(false);
         }
       } catch (error) {
         console.warn('Failed to load email configurations from database:', error);
@@ -93,13 +97,16 @@ export const EmailConfigurationPanel: React.FC = () => {
       if (result.success) {
         const configToSave = { ...config, password: '' };
         setLastSavedConfig(configToSave);
+        setHasExistingConfig(true); // Now we definitely have a config
         
         // Keep localStorage as backup
         localStorage.setItem(STORAGE_KEY, JSON.stringify(configToSave));
         
         setTestResult({
           success: true,
-          message: 'Configuration saved to database successfully!'
+          message: hasExistingConfig 
+            ? 'Configuration updated successfully!' 
+            : 'Configuration saved successfully!'
         });
       } else {
         throw new Error(result.error || 'Failed to save configuration');
@@ -115,7 +122,7 @@ export const EmailConfigurationPanel: React.FC = () => {
         
         setTestResult({
           success: true,
-          message: 'Configuration saved locally (database unavailable)'
+          message: 'Configuration saved locally (database temporarily unavailable)'
         });
       } catch (fallbackError) {
         setTestResult({

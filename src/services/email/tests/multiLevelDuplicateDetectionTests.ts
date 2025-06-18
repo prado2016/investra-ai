@@ -14,6 +14,24 @@ const MOCK_WEALTHSIMPLE_EMAILS = {
     from: "notifications@wealthsimple.com",
     html: "<p>Bought 100 shares of AAPL at $150.25</p>",
     text: "Bought 100 shares of AAPL at $150.25"
+  },
+  stockSell: {
+    subject: "Trade Confirmation - AAPL Sale",
+    from: "notifications@wealthsimple.com", 
+    html: "<p>Sold 50 shares of AAPL at $155.50</p>",
+    text: "Sold 50 shares of AAPL at $155.50"
+  },
+  canadianStock: {
+    subject: "Trade Confirmation - CNR.TO Purchase",
+    from: "notifications@wealthsimple.com",
+    html: "<p>Bought 25 shares of CNR.TO at C$165.50</p>",
+    text: "Bought 25 shares of CNR.TO at C$165.50"
+  },
+  etfPurchase: {
+    subject: "Trade Confirmation - VTI Purchase",
+    from: "notifications@wealthsimple.com",
+    html: "<p>Bought 100 shares of VTI at $240.25</p>",
+    text: "Bought 100 shares of VTI at $240.25"
   }
 };
 
@@ -23,6 +41,12 @@ const EDGE_CASES = {
     from: "notifications@wealthsimple.com",
     html: "<p>Bought 0.75 shares</p>",
     text: "Bought 0.75 shares"
+  },
+  highValue: {
+    subject: "Trade Confirmation - High Value",
+    from: "notifications@wealthsimple.com",
+    html: "<p>Bought 1000 shares of AAPL at $150.25</p>",
+    text: "Bought 1000 shares of AAPL at $150.25"
   }
 };
 
