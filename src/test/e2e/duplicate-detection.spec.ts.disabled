@@ -4,9 +4,9 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { MultiLevelDuplicateDetection } from '../../services/email/multiLevelDuplicateDetection';
+import MultiLevelDuplicateDetection from '../../services/email/multiLevelDuplicateDetection';
 import { WealthsimpleEmailParser } from '../../services/email/wealthsimpleEmailParser';
-import { EmailProcessingService } from '../../services/email/emailProcessingService';
+import EmailProcessingService from '../../services/email/emailProcessingService';
 import { SupabaseService } from '../../services/supabaseService';
 import type { WealthsimpleEmailData } from '../../services/email/wealthsimpleEmailParser';
 
