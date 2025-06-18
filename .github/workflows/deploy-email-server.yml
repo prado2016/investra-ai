@@ -1,4 +1,4 @@
-name: Deploy Email Server to RHEL VM
+name: Deploy Email Server (Self-Hosted)
 
 on:
   push:
@@ -22,10 +22,6 @@ on:
           - development
           - staging
           - production
-      branch:
-        description: 'Branch to deploy (leave empty for current branch)'
-        required: false
-        type: string
 
 env:
   EMAIL_DOMAIN: investra.com
@@ -40,9 +36,6 @@ jobs:
       environment: ${{ steps.env.outputs.environment }}
       hostname: ${{ steps.env.outputs.hostname }}
       email-user: ${{ steps.env.outputs.email-user }}
-      vm-host-secret: ${{ steps.env.outputs.vm-host-secret }}
-      vm-user-secret: ${{ steps.env.outputs.vm-user-secret }}
-      vm-key-secret: ${{ steps.env.outputs.vm-key-secret }}
       email-password-secret: ${{ steps.env.outputs.email-password-secret }}
       admin-email-secret: ${{ steps.env.outputs.admin-email-secret }}
     
@@ -50,58 +43,37 @@ jobs:
     - name: Determine environment and configuration
       id: env
       run: |
-        # Determine environment based on trigger and inputs
         if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
           ENVIRONMENT="${{ github.event.inputs.environment }}"
         elif [ "${{ github.event_name }}" = "pull_request" ]; then
           ENVIRONMENT="staging"
         else
-          # Push event - determine by branch
           case "${{ github.ref_name }}" in
-            main|master)
-              ENVIRONMENT="production"
-              ;;
-            staging)
-              ENVIRONMENT="staging"
-              ;;
-            develop|development)
-              ENVIRONMENT="development"
-              ;;
-            *)
-              ENVIRONMENT="development"
-              ;;
+            main|master) ENVIRONMENT="production" ;;
+            staging) ENVIRONMENT="staging" ;;
+            develop|development) ENVIRONMENT="development" ;;
+            *) ENVIRONMENT="development" ;;
           esac
         fi
         
-        echo "Determined environment: $ENVIRONMENT"
         echo "environment=$ENVIRONMENT" >> $GITHUB_OUTPUT
         
-        # Set environment-specific configuration
         case "$ENVIRONMENT" in
           production)
             echo "hostname=mail.investra.com" >> $GITHUB_OUTPUT
             echo "email-user=transactions@investra.com" >> $GITHUB_OUTPUT
-            echo "vm-host-secret=RHEL_HOST" >> $GITHUB_OUTPUT
-            echo "vm-user-secret=RHEL_USER" >> $GITHUB_OUTPUT
-            echo "vm-key-secret=RHEL_SSH_KEY" >> $GITHUB_OUTPUT
             echo "email-password-secret=EMAIL_PASSWORD" >> $GITHUB_OUTPUT
             echo "admin-email-secret=ADMIN_EMAIL" >> $GITHUB_OUTPUT
             ;;
           staging)
             echo "hostname=mail-staging.investra.com" >> $GITHUB_OUTPUT
             echo "email-user=transactions-staging@investra.com" >> $GITHUB_OUTPUT
-            echo "vm-host-secret=RHEL_HOST" >> $GITHUB_OUTPUT
-            echo "vm-user-secret=RHEL_USER" >> $GITHUB_OUTPUT
-            echo "vm-key-secret=RHEL_SSH_KEY" >> $GITHUB_OUTPUT
             echo "email-password-secret=STAGING_EMAIL_PASSWORD" >> $GITHUB_OUTPUT
             echo "admin-email-secret=ADMIN_EMAIL" >> $GITHUB_OUTPUT
             ;;
           development)
             echo "hostname=mail-dev.investra.com" >> $GITHUB_OUTPUT
             echo "email-user=transactions-dev@investra.com" >> $GITHUB_OUTPUT
-            echo "vm-host-secret=RHEL_HOST" >> $GITHUB_OUTPUT
-            echo "vm-user-secret=RHEL_USER" >> $GITHUB_OUTPUT
-            echo "vm-key-secret=RHEL_SSH_KEY" >> $GITHUB_OUTPUT
             echo "email-password-secret=DEV_EMAIL_PASSWORD" >> $GITHUB_OUTPUT
             echo "admin-email-secret=ADMIN_EMAIL" >> $GITHUB_OUTPUT
             ;;
@@ -109,7 +81,7 @@ jobs:
 
   deploy-email-server:
     name: Deploy Email Server
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: determine-environment
     environment: ${{ needs.determine-environment.outputs.environment }}
     
@@ -117,756 +89,203 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Debug environment and secrets
+    - name: Debug environment
       run: |
-        echo "=== Environment Debug Information ==="
         echo "Environment: ${{ needs.determine-environment.outputs.environment }}"
         echo "Hostname: ${{ needs.determine-environment.outputs.hostname }}"
-        echo "VM Host Secret Name: ${{ needs.determine-environment.outputs.vm-host-secret }}"
-        echo "VM User Secret Name: ${{ needs.determine-environment.outputs.vm-user-secret }}"
-        echo "VM Key Secret Name: ${{ needs.determine-environment.outputs.vm-key-secret }}"
-        echo "=== End Debug ==="
+        echo "Email User: ${{ needs.determine-environment.outputs.email-user }}"
+        echo "Current user: $(whoami)"
+        echo "Server IP: $(hostname -I | awk '{print $1}')"
 
-    - name: Setup SSH key
+    - name: Verify secrets
       run: |
-        mkdir -p ~/.ssh
-        
-        # Check if SSH key secret exists and is not empty
-        SSH_KEY="${{ secrets[needs.determine-environment.outputs.vm-key-secret] }}"
-        if [ -z "$SSH_KEY" ]; then
-          echo "❌ SSH key secret '${{ needs.determine-environment.outputs.vm-key-secret }}' is empty or doesn't exist"
-          echo "Please ensure the secret is properly configured in GitHub repository settings"
-          exit 1
-        fi
-        
-        # Write SSH key to file and fix format if needed
-        echo "$SSH_KEY" > ~/.ssh/id_rsa_raw
-        chmod 600 ~/.ssh/id_rsa_raw
-        
-        # Debug SSH key format
-        echo "🔍 Debugging SSH key format..."
-        echo "First few characters of SSH key:"
-        head -c 50 ~/.ssh/id_rsa_raw
-        echo ""
-        echo "Last few characters of SSH key:"
-        tail -c 50 ~/.ssh/id_rsa_raw
-        echo ""
-        
-        # Check if it's a properly formatted private key
-        if grep -q "BEGIN.*PRIVATE KEY" ~/.ssh/id_rsa_raw; then
-          echo "✅ SSH private key with proper headers detected"
-          cp ~/.ssh/id_rsa_raw ~/.ssh/id_rsa
-        elif grep -q "BEGIN OPENSSH PRIVATE KEY" ~/.ssh/id_rsa_raw; then
-          echo "✅ OpenSSH private key with proper headers detected"
-          cp ~/.ssh/id_rsa_raw ~/.ssh/id_rsa
-        elif [[ $(head -c 20 ~/.ssh/id_rsa_raw) == "b3BlbnNzaC1rZXktdjE"* ]]; then
-          echo "🔧 Detected base64 OpenSSH key without headers - fixing format..."
-          # Add proper OpenSSH private key headers
-          echo "-----BEGIN OPENSSH PRIVATE KEY-----" > ~/.ssh/id_rsa
-          cat ~/.ssh/id_rsa_raw >> ~/.ssh/id_rsa
-          echo "-----END OPENSSH PRIVATE KEY-----" >> ~/.ssh/id_rsa
-          echo "✅ SSH key format fixed"
-        else
-          echo "❌ Invalid SSH key format detected"
-          echo "Expected formats:"
-          echo "1. -----BEGIN RSA PRIVATE KEY----- ... -----END RSA PRIVATE KEY-----"
-          echo "2. -----BEGIN OPENSSH PRIVATE KEY----- ... -----END OPENSSH PRIVATE KEY-----"
-          echo "3. Base64 encoded OpenSSH key (will be auto-fixed)"
-          echo ""
-          echo "Actual content preview:"
-          head -n 3 ~/.ssh/id_rsa_raw
-          echo "..."
-          tail -n 3 ~/.ssh/id_rsa_raw
-          echo ""
-          echo "Please check your RHEL_SSH_KEY secret in GitHub repository settings"
-          exit 1
-        fi
-        
-        chmod 600 ~/.ssh/id_rsa
-        
-        # Test SSH key format (more forgiving check)
-        if ssh-keygen -l -f ~/.ssh/id_rsa 2>/dev/null; then
-          echo "✅ SSH key format validated successfully"
-        else
-          echo "⚠️  SSH key format validation failed, but continuing..."
-          echo "This might be due to newer key formats or special characters"
-          echo "Testing SSH connection will verify if the key works..."
-        fi
-        
-        echo "✅ SSH key setup completed"
-
-    - name: Add RHEL VM to known hosts
-      run: |
-        mkdir -p ~/.ssh
-        
-        # Check if host secret exists and is not empty
-        VM_HOST="${{ secrets[needs.determine-environment.outputs.vm-host-secret] }}"
-        if [ -z "$VM_HOST" ]; then
-          echo "❌ VM host secret '${{ needs.determine-environment.outputs.vm-host-secret }}' is empty or doesn't exist"
-          echo "Please ensure the secret is properly configured in GitHub repository settings"
-          exit 1
-        fi
-        
-        echo "🔍 Adding host '$VM_HOST' to known_hosts..."
-        ssh-keyscan -H "$VM_HOST" >> ~/.ssh/known_hosts
-        echo "✅ Host key added successfully"
-
-    - name: Test SSH connection
-      run: |
-        # Set up connection variables
-        VM_HOST="${{ secrets[needs.determine-environment.outputs.vm-host-secret] }}"
-        VM_USER="${{ secrets[needs.determine-environment.outputs.vm-user-secret] }}"
-        
-        if [ -z "$VM_HOST" ] || [ -z "$VM_USER" ]; then
-          echo "❌ Missing VM connection secrets"
-          exit 1
-        fi
-        
-        echo "🔐 Testing SSH connection to $VM_USER@$VM_HOST"
-        
-        # Test SSH connection with timeout
-        if ssh -i ~/.ssh/id_rsa -o ConnectTimeout=15 -o StrictHostKeyChecking=no -o BatchMode=yes "$VM_USER@$VM_HOST" "echo 'SSH connection successful'" 2>/dev/null; then
-          echo "✅ SSH connection test passed"
-        else
-          echo "❌ SSH connection test failed"
-          echo "Common issues:"
-          echo "1. SSH key format is incorrect"
-          echo "2. SSH key doesn't match the server"
-          echo "3. Username is incorrect"
-          echo "4. Server is not accessible"
-          echo "5. Firewall blocking SSH (port 22)"
-          echo ""
-          echo "Please verify:"
-          echo "- RHEL_SSH_KEY contains the correct private key"
-          echo "- RHEL_USER is the correct username for the server"
-          echo "- RHEL_HOST is the correct IP/hostname"
-          echo "- The server is running and accessible"
-          exit 1
-        fi
-
-    - name: Install Podman on RHEL VM
-      run: |
-        # Set up connection variables
-        VM_HOST="${{ secrets[needs.determine-environment.outputs.vm-host-secret] }}"
-        VM_USER="${{ secrets[needs.determine-environment.outputs.vm-user-secret] }}"
-        
-        if [ -z "$VM_HOST" ] || [ -z "$VM_USER" ]; then
-          echo "❌ Missing VM connection secrets"
-          exit 1
-        fi
-        
-        echo "🔗 Connecting to $VM_USER@$VM_HOST"
-        ssh -i ~/.ssh/id_rsa -o ConnectTimeout=30 -o StrictHostKeyChecking=no "$VM_USER@$VM_HOST" << 'EOF'
-          # Update system
-          sudo dnf update -y
-          
-          # Install Podman if not already installed
-          if ! command -v podman &> /dev/null; then
-            echo "Installing Podman..."
-            sudo dnf install -y podman podman compose podman-docker
-            
-            # Enable and start podman socket for docker compatibility
-            systemctl --user enable podman.socket
-            systemctl --user start podman.socket
-            
-            echo "Podman installation completed"
-          else
-            echo "Podman is already installed"
-            podman --version
-          fi
-          
-          # Enable lingering for user to allow user services to run without login
-          sudo loginctl enable-linger $USER
-          
-          # Create podman alias for docker compatibility if needed
-          if ! command -v docker &> /dev/null; then
-            echo 'alias docker=podman' >> ~/.bashrc
-            echo 'alias docker-compose="podman compose"' >> ~/.bashrc
-          fi
-          
-          # Verify installations
-          podman --version
-          podman compose --version 2>/dev/null || echo "podman compose available"
-        EOF
-
-    - name: Configure firewall for email server
-      run: |
-        # Set up connection variables
-        VM_HOST="${{ secrets[needs.determine-environment.outputs.vm-host-secret] }}"
-        VM_USER="${{ secrets[needs.determine-environment.outputs.vm-user-secret] }}"
-        
-        if [ -z "$VM_HOST" ] || [ -z "$VM_USER" ]; then
-          echo "❌ Missing VM connection secrets"
-          exit 1
-        fi
-        
-        echo "🔥 Configuring firewall on $VM_HOST"
-        ssh -i ~/.ssh/id_rsa "$VM_USER@$VM_HOST" << 'EOF'
-          # Configure firewall for email services
-          echo "Configuring firewall..."
-          
-          # Check if firewalld is running
-          if sudo systemctl is-active --quiet firewalld; then
-            echo "Configuring firewalld..."
-            sudo firewall-cmd --permanent --add-service=smtp
-            sudo firewall-cmd --permanent --add-service=smtp-submission
-            sudo firewall-cmd --permanent --add-service=imaps
-            sudo firewall-cmd --permanent --add-port=8080/tcp  # Roundcube web interface
-            sudo firewall-cmd --reload
-            echo "Firewall configured with firewalld"
-          elif command -v ufw &> /dev/null; then
-            echo "Configuring ufw..."
-            sudo ufw allow 25/tcp    # SMTP
-            sudo ufw allow 587/tcp   # SMTP Submission
-            sudo ufw allow 993/tcp   # IMAPS
-            sudo ufw allow 8080/tcp  # Roundcube
-            echo "Firewall configured with ufw"
-          else
-            echo "No supported firewall found, manual configuration may be needed"
-          fi
-          
-          # Stop and disable system postfix if running (to avoid port conflicts)
-          if sudo systemctl is-active --quiet postfix; then
-            echo "Stopping system postfix to avoid port conflicts..."
-            sudo systemctl stop postfix
-            sudo systemctl disable postfix
-          fi
-        EOF
-
-    - name: Create email server directory and copy files
-      run: |
-        # Set up connection variables
-        VM_HOST="${{ secrets[needs.determine-environment.outputs.vm-host-secret] }}"
-        VM_USER="${{ secrets[needs.determine-environment.outputs.vm-user-secret] }}"
-        
-        if [ -z "$VM_HOST" ] || [ -z "$VM_USER" ]; then
-          echo "❌ Missing VM connection secrets"
-          exit 1
-        fi
-        
-        echo "📁 Creating email server directory on $VM_HOST"
-        # Create directory on remote server
-        ssh -i ~/.ssh/id_rsa "$VM_USER@$VM_HOST" "mkdir -p ~/investra-email-server"
-        
-        echo "📤 Copying email server files to $VM_HOST"
-        # Copy email server files
-        scp -i ~/.ssh/id_rsa -r email-server/* "$VM_USER@$VM_HOST:~/investra-email-server/"
-        echo "✅ Files copied successfully"
-
-    - name: Configure email server environment
-      run: |
-        # Set up connection variables
-        VM_HOST="${{ secrets[needs.determine-environment.outputs.vm-host-secret] }}"
-        VM_USER="${{ secrets[needs.determine-environment.outputs.vm-user-secret] }}"
         EMAIL_PASSWORD="${{ secrets[needs.determine-environment.outputs.email-password-secret] }}"
+        ADMIN_EMAIL="${{ secrets[needs.determine-environment.outputs.admin-email-secret] }}"
         
-        if [ -z "$VM_HOST" ] || [ -z "$VM_USER" ] || [ -z "$EMAIL_PASSWORD" ]; then
-          echo "❌ Missing required secrets"
+        if [ -z "$EMAIL_PASSWORD" ]; then
+          echo "❌ Email password secret missing"
           exit 1
         fi
         
-        echo "⚙️  Configuring email server environment on $VM_HOST"
-        ssh -i ~/.ssh/id_rsa "$VM_USER@$VM_HOST" << EOF
-          cd ~/investra-email-server
-          
-          # Create environment file with production settings
-          cat > .env << 'ENVEOF'
-        # Production Email Server Configuration
-        HOSTNAME=${{ needs.determine-environment.outputs.hostname }}
-        DOMAINNAME=${{ env.EMAIL_DOMAIN }}
-        
-        # Email Credentials
-        MAILSERVER_USER=${{ needs.determine-environment.outputs.email-user }}
-        MAILSERVER_PASS=$EMAIL_PASSWORD
-        
-        # IMAP Connection Details
-        IMAP_HOST=$VM_HOST
-        IMAP_PORT=993
-        IMAP_TLS=true
-        
-        # SMTP Configuration  
-        SMTP_HOST=$VM_HOST
-        SMTP_PORT=587
-        SMTP_TLS=true
-        
-        # Production settings
-        DMS_DEBUG=0
-        LOG_LEVEL=warn
-        ENVEOF
-          
-          echo "Environment file created"
-        EOF
-
-    - name: Update docker-compose for production
-      run: |
-        # Set up connection variables
-        VM_HOST="${{ secrets[needs.determine-environment.outputs.vm-host-secret] }}"
-        VM_USER="${{ secrets[needs.determine-environment.outputs.vm-user-secret] }}"
-        
-        if [ -z "$VM_HOST" ] || [ -z "$VM_USER" ]; then
-          echo "❌ Missing VM connection secrets"
+        if [ -z "$ADMIN_EMAIL" ]; then
+          echo "❌ Admin email secret missing"
           exit 1
         fi
         
-        echo "🐳 Updating docker-compose configuration on $VM_HOST"
-        ssh -i ~/.ssh/id_rsa "$VM_USER@$VM_HOST" << EOF
-          cd ~/investra-email-server
-          
-          # Update docker-compose.yml for production
-          cat > docker-compose.yml << 'COMPOSEEOF'
-        version: '3.8'
-        
-        services:
-          mailserver:
-            image: ghcr.io/docker-mailserver/docker-mailserver:latest
-            hostname: ${{ needs.determine-environment.outputs.hostname }}
-            domainname: ${{ env.EMAIL_DOMAIN }}
-            ports:
-              - "25:25"    # SMTP
-              - "587:587"  # SMTP Submission
-              - "993:993"  # IMAPS
-              - "143:143"  # IMAP
-            volumes:
-              - ./docker-data/dms/mail-data/:/var/mail/
-              - ./docker-data/dms/mail-state/:/var/mail-state/
-              - ./docker-data/dms/mail-logs/:/var/log/mail/
-              - ./docker-data/dms/config/:/tmp/docker-mailserver/
-              - /etc/localtime:/etc/localtime:ro
-              # SSL Certificates
-              - ./docker-data/dms/certs/:/etc/letsencrypt/live/
-            environment:
-              # Basic Configuration
-              - ENABLE_SPAMASSASSIN=1
-              - ENABLE_CLAMAV=0
-              - ENABLE_FAIL2BAN=1
-              - ENABLE_POSTGREY=1
-              - ENABLE_MANAGESIEVE=1
-              
-              # Security Settings
-              - SSL_TYPE=manual
-              - SSL_CERT_PATH=/etc/letsencrypt/live/${{ needs.determine-environment.outputs.hostname }}/fullchain.pem
-              - SSL_KEY_PATH=/etc/letsencrypt/live/${{ needs.determine-environment.outputs.hostname }}/privkey.pem
-              - TLS_LEVEL=modern
-              - ENABLE_SRS=1
-              
-              # Authentication
-              - PERMIT_DOCKER=none
-              - SPOOF_PROTECTION=1
-              - ENABLE_SASLAUTHD=0
-              
-              # Postfix Configuration
-              - POSTFIX_MAILBOX_SIZE_LIMIT=0
-              - POSTFIX_MESSAGE_SIZE_LIMIT=100000000
-              
-              # Dovecot Configuration
-              - DOVECOT_MAILBOX_FORMAT=maildir
-              - DOVECOT_TLS=yes
-              
-              # Production settings
-              - LOG_LEVEL=warn
-              - DMS_DEBUG=0
-              
-              # Custom Environment
-              - OVERRIDE_HOSTNAME=${{ env.EMAIL_HOSTNAME }}
-              
-            restart: unless-stopped
-            cap_add:
-              - NET_ADMIN
-              - SYS_PTRACE
-            
-            # Health check
-            healthcheck:
-              test: ["CMD", "ss", "-lnpt", "state", "listening"]
-              interval: 30s
-              timeout: 5s
-              retries: 3
-              start_period: 60s
-        
-          # Email administration interface
-          mailserver-admin:
-            image: roundcube/roundcubemail:latest
-            ports:
-              - "8080:80"
-            environment:
-              - ROUNDCUBEMAIL_DEFAULT_HOST=ssl://mailserver
-              - ROUNDCUBEMAIL_DEFAULT_PORT=993
-              - ROUNDCUBEMAIL_SMTP_SERVER=tls://mailserver
-              - ROUNDCUBEMAIL_SMTP_PORT=587
-              - ROUNDCUBEMAIL_DB_TYPE=sqlite
-            depends_on:
-              - mailserver
-            restart: unless-stopped
-            volumes:
-              - ./docker-data/roundcube:/var/www/html
-        
-        networks:
-          default:
-            driver: bridge
-        COMPOSEEOF
-          
-          echo "Docker Compose file updated for production"
-        EOF
+        echo "✅ All required secrets are available"
 
-    - name: Setup SSL certificates with Let's Encrypt
+    - name: Install dependencies
       run: |
-        # Set up connection variables
-        VM_HOST="${{ secrets[needs.determine-environment.outputs.vm-host-secret] }}"
-        VM_USER="${{ secrets[needs.determine-environment.outputs.vm-user-secret] }}"
+        echo "🔗 Installing dependencies"
+        sudo dnf update -y
+        
+        if ! command -v podman &> /dev/null; then
+          sudo dnf install -y podman podman-compose podman-docker
+          systemctl --user enable podman.socket
+          systemctl --user start podman.socket
+        fi
+        
+        sudo loginctl enable-linger $USER
+        podman --version
+
+    - name: Configure firewall
+      run: |
+        echo "🔥 Configuring firewall"
+        
+        if sudo systemctl is-active --quiet firewalld; then
+          sudo firewall-cmd --permanent --add-service=smtp
+          sudo firewall-cmd --permanent --add-service=smtp-submission  
+          sudo firewall-cmd --permanent --add-service=imaps
+          sudo firewall-cmd --permanent --add-port=8080/tcp
+          sudo firewall-cmd --reload
+        fi
+        
+        if sudo systemctl is-active --quiet postfix; then
+          sudo systemctl stop postfix
+          sudo systemctl disable postfix
+        fi
+
+    - name: Setup email server
+      run: |
+        echo "📁 Setting up email server directory"
+        mkdir -p ~/investra-email-server
+        cp -r email-server/* ~/investra-email-server/
+        cd ~/investra-email-server
+
+    - name: Configure environment
+      run: |
+        cd ~/investra-email-server
+        EMAIL_PASSWORD="${{ secrets[needs.determine-environment.outputs.email-password-secret] }}"
+        SERVER_IP=$(hostname -I | awk '{print $1}')
+        
+        echo "HOSTNAME=${{ needs.determine-environment.outputs.hostname }}" > .env
+        echo "DOMAINNAME=${{ env.EMAIL_DOMAIN }}" >> .env
+        echo "MAILSERVER_USER=${{ needs.determine-environment.outputs.email-user }}" >> .env
+        echo "MAILSERVER_PASS=$EMAIL_PASSWORD" >> .env
+        echo "IMAP_HOST=$SERVER_IP" >> .env
+        echo "SMTP_HOST=$SERVER_IP" >> .env
+        echo "DMS_DEBUG=0" >> .env
+        echo "LOG_LEVEL=warn" >> .env
+
+    - name: Setup SSL certificates
+      run: |
+        cd ~/investra-email-server
         ADMIN_EMAIL="${{ secrets[needs.determine-environment.outputs.admin-email-secret] }}"
         HOSTNAME="${{ needs.determine-environment.outputs.hostname }}"
         
-        if [ -z "$VM_HOST" ] || [ -z "$VM_USER" ] || [ -z "$ADMIN_EMAIL" ] || [ -z "$HOSTNAME" ]; then
-          echo "❌ Missing required secrets for SSL setup"
-          exit 1
+        if ! command -v certbot &> /dev/null; then
+          sudo dnf install -y epel-release certbot
         fi
         
-        echo "🔒 Setting up SSL certificates on $VM_HOST"
-        ssh -i ~/.ssh/id_rsa "$VM_USER@$VM_HOST" << EOF
-          cd ~/investra-email-server
+        mkdir -p docker-data/dms/certs/$HOSTNAME
+        
+        if [ ! -f "docker-data/dms/certs/$HOSTNAME/fullchain.pem" ]; then
+          sudo systemctl stop httpd nginx apache2 2>/dev/null || true
           
-          # Install certbot if not present
-          if ! command -v certbot &> /dev/null; then
-            echo "Installing certbot..."
-            sudo dnf install -y epel-release
-            sudo dnf install -y certbot
-          fi
-          
-          # Create SSL certificate directory
-          mkdir -p docker-data/dms/certs/$HOSTNAME
-          
-          # Check if certificates already exist
-          if [ ! -f "docker-data/dms/certs/$HOSTNAME/fullchain.pem" ]; then
-            echo "Obtaining SSL certificate..."
+          sudo certbot certonly --standalone \
+            --non-interactive \
+            --agree-tos \
+            --email $ADMIN_EMAIL \
+            -d $HOSTNAME || echo "SSL certificate generation failed, continuing..."
             
-            # Stop any services using port 80
-            sudo systemctl stop httpd nginx apache2 2>/dev/null || true
-            
-            # Get certificate using standalone mode
-            sudo certbot certonly --standalone \
-              --non-interactive \
-              --agree-tos \
-              --email $ADMIN_EMAIL \
-              -d $HOSTNAME \
-              --cert-path docker-data/dms/certs/$HOSTNAME/cert.pem \
-              --key-path docker-data/dms/certs/$HOSTNAME/privkey.pem \
-              --fullchain-path docker-data/dms/certs/$HOSTNAME/fullchain.pem \
-              --chain-path docker-data/dms/certs/$HOSTNAME/chain.pem
-              
-            # Copy certificates to docker directory
+          if [ -d "/etc/letsencrypt/live/$HOSTNAME" ]; then
             sudo cp /etc/letsencrypt/live/$HOSTNAME/* docker-data/dms/certs/$HOSTNAME/
-            sudo chown -R \$(whoami):\$(whoami) docker-data/dms/certs/
-            
-            echo "SSL certificates obtained"
-          else
-            echo "SSL certificates already exist"
+            sudo chown -R $(whoami):$(whoami) docker-data/dms/certs/
           fi
-          
-          # Setup certificate renewal
-          echo "0 2 * * * certbot renew --quiet && docker-compose restart mailserver" | sudo crontab -
-        EOF
+        fi
 
-    - name: Run email server setup
+    - name: Setup email accounts
       run: |
-        # Set up connection variables
-        VM_HOST="${{ secrets[needs.determine-environment.outputs.vm-host-secret] }}"
-        VM_USER="${{ secrets[needs.determine-environment.outputs.vm-user-secret] }}"
+        cd ~/investra-email-server
         EMAIL_PASSWORD="${{ secrets[needs.determine-environment.outputs.email-password-secret] }}"
         EMAIL_USER="${{ needs.determine-environment.outputs.email-user }}"
         
-        if [ -z "$VM_HOST" ] || [ -z "$VM_USER" ] || [ -z "$EMAIL_PASSWORD" ] || [ -z "$EMAIL_USER" ]; then
-          echo "❌ Missing required secrets for email setup"
-          exit 1
-        fi
+        mkdir -p docker-data/dms/config
+        mkdir -p docker-data/dms/mail-data
+        mkdir -p docker-data/dms/mail-state
+        mkdir -p docker-data/dms/mail-logs
         
-        echo "⚙️  Running email server setup on $VM_HOST"
-        ssh -i ~/.ssh/id_rsa "$VM_USER@$VM_HOST" << EOF
-          cd ~/investra-email-server
-          
-          # Make scripts executable
-          chmod +x *.sh
-          
-          # Run setup script
-          ./setup.sh
-          
-          # Update email account with production password
-          echo "$EMAIL_USER|{PLAIN}$EMAIL_PASSWORD" > docker-data/dms/config/postfix-accounts.cf
-          
-          echo "Email server setup completed"
-        EOF
+        echo "$EMAIL_USER|{PLAIN}$EMAIL_PASSWORD" > docker-data/dms/config/postfix-accounts.cf
 
     - name: Start email server
       run: |
-        # Set up connection variables
-        VM_HOST="${{ secrets[needs.determine-environment.outputs.vm-host-secret] }}"
-        VM_USER="${{ secrets[needs.determine-environment.outputs.vm-user-secret] }}"
+        cd ~/investra-email-server
+        echo "🚀 Starting email server"
         
-        if [ -z "$VM_HOST" ] || [ -z "$VM_USER" ]; then
-          echo "❌ Missing VM connection secrets"
-          exit 1
-        fi
+        podman compose down 2>/dev/null || true
+        podman compose pull
+        podman compose up -d
         
-        echo "🚀 Starting email server on $VM_HOST"
-        ssh -i ~/.ssh/id_rsa "$VM_USER@$VM_HOST" << EOF
-          cd ~/investra-email-server
-          
-          # Start email server
-          podman compose down || true  # Stop if already running
-          podman compose pull          # Get latest images
-          podman compose up -d         # Start in background
-          
-          echo "Email server started"
-          
-          # Wait for services to be ready
-          echo "Waiting for services to start..."
-          sleep 30
-          
-          # Check status
-          podman compose ps
-          
-          # Check if ports are listening
-          echo "Checking if email ports are listening..."
-          ss -tlnp | grep -E ':(25|587|993|8080)'
-        EOF
-
-    - name: Test email server connectivity
-      run: |
-        # Set up connection variables
-        VM_HOST="${{ secrets[needs.determine-environment.outputs.vm-host-secret] }}"
-        VM_USER="${{ secrets[needs.determine-environment.outputs.vm-user-secret] }}"
-        
-        if [ -z "$VM_HOST" ] || [ -z "$VM_USER" ]; then
-          echo "❌ Missing VM connection secrets"
-          exit 1
-        fi
-        
-        echo "🧪 Testing email server connectivity on $VM_HOST"
-        ssh -i ~/.ssh/id_rsa "$VM_USER@$VM_HOST" << EOF
-          cd ~/investra-email-server
-          
-          echo "Testing email server connectivity..."
-          
-          # Test SMTP port
-          timeout 5 bash -c "</dev/tcp/localhost/25" && echo "✅ SMTP port 25 is open" || echo "❌ SMTP port 25 failed"
-          
-          # Test SMTP submission port
-          timeout 5 bash -c "</dev/tcp/localhost/587" && echo "✅ SMTP submission port 587 is open" || echo "❌ SMTP submission port 587 failed"
-          
-          # Test IMAPS port
-          timeout 5 bash -c "</dev/tcp/localhost/993" && echo "✅ IMAPS port 993 is open" || echo "❌ IMAPS port 993 failed"
-          
-          # Test web interface
-          timeout 5 bash -c "</dev/tcp/localhost/8080" && echo "✅ Roundcube port 8080 is open" || echo "❌ Roundcube port 8080 failed"
-          
-          # Check docker logs for errors
-          echo "Checking for Docker errors..."
-          podman compose logs --tail=10 mailserver | grep -i error || echo "No errors found in mailserver logs"
-          
-          echo "Email server testing completed"
-        EOF
-
-    - name: Setup monitoring and logging
-      run: |
-        # Set up connection variables
-        VM_HOST="${{ secrets[needs.determine-environment.outputs.vm-host-secret] }}"
-        VM_USER="${{ secrets[needs.determine-environment.outputs.vm-user-secret] }}"
-        
-        if [ -z "$VM_HOST" ] || [ -z "$VM_USER" ]; then
-          echo "❌ Missing VM connection secrets"
-          exit 1
-        fi
-        
-        echo "📊 Setting up monitoring and logging on $VM_HOST"
-        ssh -i ~/.ssh/id_rsa "$VM_USER@$VM_HOST" << EOF
-          cd ~/investra-email-server
-          
-          # Create monitoring script
-          cat > monitor-email.sh << 'MONITOREOF'
-        #!/bin/bash
-        # Email Server Monitoring Script
-        
-        echo "=== Email Server Status $(date) ==="
-        
-        # Check Docker containers
-        echo "Docker Containers:"
+        echo "Waiting for services..."
+        sleep 30
         podman compose ps
-        
-        # Check ports
-        echo -e "\nPort Status:"
-        ss -tlnp | grep -E ':(25|587|993|8080)' || echo "No email ports found"
-        
-        # Check disk space
-        echo -e "\nDisk Usage:"
-        df -h | grep -E '(Filesystem|/)'
-        
-        # Check recent logs
-        echo -e "\nRecent Logs (last 10 lines):"
-        podman compose logs --tail=10 mailserver
-        
-        # Check mail queue
-        echo -e "\nMail Queue:"
-        podman compose exec -T mailserver postqueue -p 2>/dev/null || echo "Could not check mail queue"
-        MONITOREOF
-          
-          chmod +x monitor-email.sh
-          
-          # Create log rotation for email logs
-          sudo tee /etc/logrotate.d/investra-email << 'LOGROTATEEOF'
-        ~/investra-email-server/docker-data/dms/mail-logs/*.log {
-            daily
-            missingok
-            rotate 30
-            compress
-            delaycompress
-            copytruncate
-            create 644
-        }
-        LOGROTATEEOF
-          
-          # Create systemd service for email server
-          sudo tee /etc/systemd/system/investra-email.service << SYSTEMDEOF
-        [Unit]
-        Description=Investra Email Server
-        Wants=network-online.target
-        After=network-online.target
-        
-        [Service]
-        Type=oneshot
-        RemainAfterExit=yes
-        User=$VM_USER
-        WorkingDirectory=/home/$VM_USER/investra-email-server
-        ExecStart=/usr/bin/podman start investra-mailserver investra-roundcube
-        ExecStop=/usr/bin/podman stop investra-mailserver investra-roundcube
-        TimeoutStartSec=300
-        
-        [Install]
-        WantedBy=multi-user.target
-        SYSTEMDEOF
-          
-          # Enable and start service
-          sudo systemctl daemon-reload
-          sudo systemctl enable investra-email.service
-          
-          echo "Monitoring and logging setup completed"
-        EOF
 
-    - name: Create backup script
+    - name: Test connectivity
       run: |
-        # Set up connection variables
-        VM_HOST="${{ secrets[needs.determine-environment.outputs.vm-host-secret] }}"
-        VM_USER="${{ secrets[needs.determine-environment.outputs.vm-user-secret] }}"
+        cd ~/investra-email-server
+        echo "🧪 Testing connectivity"
         
-        if [ -z "$VM_HOST" ] || [ -z "$VM_USER" ]; then
-          echo "❌ Missing VM connection secrets"
-          exit 1
-        fi
+        timeout 5 bash -c "</dev/tcp/localhost/25" && echo "✅ SMTP" || echo "❌ SMTP"
+        timeout 5 bash -c "</dev/tcp/localhost/587" && echo "✅ SMTP-Sub" || echo "❌ SMTP-Sub" 
+        timeout 5 bash -c "</dev/tcp/localhost/993" && echo "✅ IMAPS" || echo "❌ IMAPS"
+        timeout 5 bash -c "</dev/tcp/localhost/8080" && echo "✅ Web" || echo "❌ Web"
+
+    - name: Setup monitoring
+      run: |
+        cd ~/investra-email-server
+        echo "📊 Setting up monitoring"
         
-        echo "💾 Creating backup script on $VM_HOST"
-        ssh -i ~/.ssh/id_rsa "$VM_USER@$VM_HOST" << EOF
-          cd ~/investra-email-server
-          
-          # Create backup script
-          cat > backup-email.sh << 'BACKUPEOF'
+        cat > monitor-email.sh << 'SCRIPT_END'
         #!/bin/bash
-        # Email Server Backup Script
+        echo "=== Email Server Status $(date) ==="
+        echo "Containers:"
+        podman compose ps
+        echo "Ports:"
+        ss -tlnp | grep -E ':(25|587|993|8080)' || echo "No ports found"
+        echo "Logs:"
+        podman compose logs --tail=5 mailserver
+        SCRIPT_END
         
+        chmod +x monitor-email.sh
+
+    - name: Create backup script  
+      run: |
+        cd ~/investra-email-server
+        echo "💾 Setting up backup"
+        
+        cat > backup-email.sh << 'SCRIPT_END'
+        #!/bin/bash
         BACKUP_DIR="/backup/investra-email"
         DATE=$(date +%Y%m%d_%H%M%S)
-        
-        # Create backup directory
         mkdir -p $BACKUP_DIR
-        
-        echo "Starting email backup at $(date)"
-        
-        # Backup email data
-        tar -czf "$BACKUP_DIR/email-data-$DATE.tar.gz" \
-          docker-data/dms/mail-data/ \
-          docker-data/dms/config/ \
-          .env \
-          docker-compose.yml
-        
-        # Backup SSL certificates
-        tar -czf "$BACKUP_DIR/ssl-certs-$DATE.tar.gz" \
-          docker-data/dms/certs/
-        
-        # Keep only last 7 days of backups
+        tar -czf "$BACKUP_DIR/email-data-$DATE.tar.gz" docker-data/ .env docker-compose.yml
         find $BACKUP_DIR -name "*.tar.gz" -mtime +7 -delete
+        echo "Backup completed: $BACKUP_DIR/email-data-$DATE.tar.gz"
+        SCRIPT_END
         
-        echo "Email backup completed: $BACKUP_DIR/email-data-$DATE.tar.gz"
-        BACKUPEOF
-          
-          chmod +x backup-email.sh
-          
-          # Add to crontab for daily backups
-          (crontab -l 2>/dev/null; echo "0 1 * * * /home/$VM_USER/investra-email-server/backup-email.sh") | crontab -
-          
-          echo "Backup script created and scheduled"
-        EOF
+        chmod +x backup-email.sh
 
-    - name: Display deployment summary
+    - name: Display summary
       run: |
-        # Set up connection variables
-        VM_HOST="${{ secrets[needs.determine-environment.outputs.vm-host-secret] }}"
-        VM_USER="${{ secrets[needs.determine-environment.outputs.vm-user-secret] }}"
         EMAIL_USER="${{ needs.determine-environment.outputs.email-user }}"
         HOSTNAME="${{ needs.determine-environment.outputs.hostname }}"
+        SERVER_IP=$(hostname -I | awk '{print $1}')
         
-        if [ -z "$VM_HOST" ] || [ -z "$VM_USER" ]; then
-          echo "❌ Missing VM connection secrets"
-          exit 1
-        fi
-        
-        echo "📊 Displaying deployment summary from $VM_HOST"
-        ssh -i ~/.ssh/id_rsa "$VM_USER@$VM_HOST" << EOF
-          cd ~/investra-email-server
-          
-          echo "============================================"
-          echo "📧 EMAIL SERVER DEPLOYMENT COMPLETE"
-          echo "============================================"
-          echo ""
-          echo "🌐 Server Details:"
-          echo "   Email Server: $HOSTNAME"
-          echo "   IP Address: $VM_HOST"
-          echo "   Email Account: $EMAIL_USER"
-          echo ""
-          echo "📧 Connection Settings:"
-          echo "   IMAP: $VM_HOST:993 (SSL)"
-          echo "   SMTP: $VM_HOST:587 (STARTTLS)"
-          echo "   Web Interface: http://$VM_HOST:8080"
-          echo ""
-          echo "🔧 Management Commands:"
-          echo "   Status: cd ~/investra-email-server && podman compose ps"
-          echo "   Logs: cd ~/investra-email-server && podman compose logs -f mailserver"
-          echo "   Restart: cd ~/investra-email-server && podman compose restart"
-          echo "   Monitor: cd ~/investra-email-server && ./monitor-email.sh"
-          echo "   Backup: cd ~/investra-email-server && ./backup-email.sh"
-          echo ""
-          echo "📋 Next Steps:"
-          echo "   1. Update DNS MX record to point to $VM_HOST"
-          echo "   2. Configure Wealthsimple to send emails to $EMAIL_USER"
-          echo "   3. Test email reception"
-          echo "   4. Monitor logs and performance"
-          echo ""
-          echo "============================================"
-        EOF
+        echo "============================================"
+        echo "📧 EMAIL SERVER DEPLOYMENT COMPLETE"
+        echo "============================================"
+        echo "Server: $HOSTNAME"
+        echo "IP: $SERVER_IP"
+        echo "Email: $EMAIL_USER"
+        echo "Web: http://$SERVER_IP:8080"
+        echo "============================================"
 
-    - name: Send deployment notification
+    - name: Success notification
       if: success()
       run: |
-        VM_HOST="${{ secrets[needs.determine-environment.outputs.vm-host-secret] }}"
-        EMAIL_USER="${{ needs.determine-environment.outputs.email-user }}"
-        
-        echo "✅ Email server deployed successfully to RHEL VM"
-        echo "Server: $VM_HOST"
-        echo "Email: $EMAIL_USER"
-        echo "Web Interface: http://$VM_HOST:8080"
+        echo "✅ Email server deployed successfully"
 
-    - name: Handle deployment failure
+    - name: Failure notification
       if: failure()
       run: |
-        echo "Email server deployment failed"
-        echo "Check the logs above for error details"
-        echo "Common issues:"
-        echo "- SSH connection problems"
-        echo "- Docker installation issues"
-        echo "- Port conflicts"
-        echo "- SSL certificate problems"
+        echo "❌ Deployment failed - check logs above"
