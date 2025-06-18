@@ -112,17 +112,13 @@ jobs:
         # Create deployment working directory
         mkdir -p ~/investra-email-api-deployment
         
-        # Copy server files
+        # Copy server files from the correct location (workspace root)
         cp -r server/* ~/investra-email-api-deployment/
         
         echo "✅ Deployment preparation complete"
 
     - name: Deploy application
       run: |
-        cd ~/investra-email-server
-        
-        # Copy server files to deployment location
-        cp -r server ~/investra-email-api-deployment
         cd ~/investra-email-api-deployment
         
         # Make deployment script executable
