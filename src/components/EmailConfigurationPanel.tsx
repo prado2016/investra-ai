@@ -33,7 +33,9 @@ export const EmailConfigurationPanel: React.FC = () => {
   useEffect(() => {
     const loadConfigurations = async () => {
       try {
+        console.log('🔄 Loading email configurations from database...');
         const result = await EmailConfigurationService.getConfigurations();
+        
         if (result.success && result.data && result.data.length > 0) {
           const savedConfig = result.data[0]; // Use first configuration
           const configToLoad = {
@@ -46,22 +48,29 @@ export const EmailConfigurationPanel: React.FC = () => {
           setConfig(prev => ({ ...prev, ...configToLoad }));
           setLastSavedConfig(configToLoad);
           setHasExistingConfig(true);
+          console.log('✅ Loaded configuration for:', savedConfig.email_address);
         } else {
+          console.log('📭 No saved configuration found');
           setHasExistingConfig(false);
         }
       } catch (error) {
-        console.warn('Failed to load email configurations from database:', error);
+        console.warn('⚠️ Failed to load email configurations from database:', error);
         
         // Fallback to localStorage for backward compatibility
-        const savedConfig = localStorage.getItem(STORAGE_KEY);
-        if (savedConfig) {
-          try {
+        try {
+          const savedConfig = localStorage.getItem(STORAGE_KEY);
+          if (savedConfig) {
             const parsed = JSON.parse(savedConfig);
             setConfig(prev => ({ ...prev, ...parsed, password: '' })); // Don't persist password
             setLastSavedConfig(parsed);
-          } catch (error) {
-            console.warn('Failed to load saved email configuration:', error);
+            setHasExistingConfig(true);
+            console.log('✅ Loaded configuration from localStorage fallback');
+          } else {
+            setHasExistingConfig(false);
           }
+        } catch (fallbackError) {
+          console.warn('⚠️ Failed to load saved email configuration from localStorage:', fallbackError);
+          setHasExistingConfig(false);
         }
       }
     };
@@ -71,7 +80,11 @@ export const EmailConfigurationPanel: React.FC = () => {
 
   const saveConfiguration = async () => {
     setSaving(true);
+    setTestResult(null); // Clear any previous test results
+    
     try {
+      console.log('💾 Saving email configuration...');
+      
       // Determine provider from host
       let provider: EmailProvider = 'custom';
       if (config.host.includes('gmail')) {
@@ -108,27 +121,33 @@ export const EmailConfigurationPanel: React.FC = () => {
             ? 'Configuration updated successfully!' 
             : 'Configuration saved successfully!'
         });
+        
+        console.log('✅ Configuration saved to database successfully');
       } else {
         throw new Error(result.error || 'Failed to save configuration');
       }
     } catch (error) {
-      console.warn('Database save failed, falling back to localStorage:', error);
+      console.warn('⚠️ Database save failed, falling back to localStorage:', error);
       
       // Fallback to localStorage
       try {
         const configToSave = { ...config, password: '' };
         localStorage.setItem(STORAGE_KEY, JSON.stringify(configToSave));
         setLastSavedConfig(configToSave);
+        setHasExistingConfig(true);
         
         setTestResult({
           success: true,
           message: 'Configuration saved locally (database temporarily unavailable)'
         });
+        
+        console.log('✅ Configuration saved to localStorage as fallback');
       } catch (fallbackError) {
         setTestResult({
           success: false,
           message: 'Failed to save configuration: ' + (error instanceof Error ? error.message : 'Unknown error')
         });
+        console.error('❌ Failed to save configuration:', error);
       }
     } finally {
       setSaving(false);
@@ -202,7 +221,8 @@ export const EmailConfigurationPanel: React.FC = () => {
       config.host !== lastSavedConfig.host ||
       config.port !== lastSavedConfig.port ||
       config.user !== lastSavedConfig.user ||
-      config.secure !== lastSavedConfig.secure
+      config.secure !== lastSavedConfig.secure ||
+      config.password.trim() !== '' // Always allow save if password is entered
     );
   };
 
@@ -414,7 +434,7 @@ export const EmailConfigurationPanel: React.FC = () => {
             
             <Button
               onClick={saveConfiguration}
-              disabled={saving || !isConfigChanged()}
+              disabled={saving || !isFormValid()}
               variant="secondary"
             >
               {saving ? '💾 Saving...' : '💾 Save Configuration'}
@@ -430,6 +450,26 @@ export const EmailConfigurationPanel: React.FC = () => {
               color: testResult.success ? '#15803d' : '#dc2626'
             }}>
               <strong>{testResult.success ? '✅ Success:' : '❌ Error:'}</strong> {testResult.message}
+            </div>
+          )}
+
+          {/* Debug Information */}
+          {process.env.NODE_ENV === 'development' && (
+            <div style={{ 
+              marginTop: '1rem', 
+              padding: '0.75rem', 
+              backgroundColor: '#f8fafc', 
+              border: '1px solid #e2e8f0',
+              borderRadius: '0.375rem',
+              fontSize: '0.75rem',
+              color: '#64748b'
+            }}>
+              <strong>🐛 Debug Info:</strong>
+              <br />• Has existing config: {hasExistingConfig ? 'Yes' : 'No'}
+              <br />• Form valid: {isFormValid() ? 'Yes' : 'No'}
+              <br />• Config changed: {isConfigChanged() ? 'Yes' : 'No'}
+              <br />• Password length: {config.password.length} chars
+              <br />• Last saved user: {lastSavedConfig?.user || 'None'}
             </div>
           )}
 
