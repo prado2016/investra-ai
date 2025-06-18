@@ -236,9 +236,12 @@ interface GlobalSupabaseReset {
   (): void;
 }
 
-(window as unknown as { __resetSupabaseCircuitBreaker: GlobalSupabaseReset }).__resetSupabaseCircuitBreaker = () => {
-  enhancedSupabase.resetCircuitBreaker();
-};
+// Only expose global function in browser environment
+if (typeof window !== 'undefined') {
+  (window as unknown as { __resetSupabaseCircuitBreaker: GlobalSupabaseReset }).__resetSupabaseCircuitBreaker = () => {
+    enhancedSupabase.resetCircuitBreaker();
+  };
+}
 
 export { EnhancedSupabaseClient };
 export type { Database };

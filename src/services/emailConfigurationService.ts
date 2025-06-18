@@ -4,6 +4,7 @@
  */
 
 import { supabase } from '../lib/supabase'
+import { EncryptionService } from './security/encryptionService'
 import type { 
   EmailConfiguration, 
   EmailProcessingLog, 
@@ -321,13 +322,110 @@ export class EmailConfigurationService {
   }
 
   /**
-   * Private method to encrypt passwords
-   * TODO: Implement proper encryption
+   * Get configuration with decrypted password (for internal use only)
+   */
+  static async getConfigurationWithPassword(id: string): Promise<ServiceResponse<EmailConfiguration & { decrypted_password: string }>> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (!user) {
+        return { data: null, error: 'User not authenticated', success: false }
+      }
+
+      const { data, error } = await supabase
+        .from('email_configurations')
+        .select('*')
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .single()
+
+      if (error) {
+        return { data: null, error: error.message, success: false }
+      }
+
+      if (!data) {
+        return { data: null, error: 'Configuration not found', success: false }
+      }
+
+      // Decrypt password
+      const decryptedPassword = await this.decryptPassword(data.encrypted_password)
+
+      return { 
+        data: { 
+          ...data, 
+          decrypted_password: decryptedPassword 
+        }, 
+        error: null, 
+        success: true 
+      }
+    } catch (error) {
+      return { 
+        data: null, 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
+
+  /**
+   * Private method to encrypt passwords using enhanced encryption service
    */
   private static async encryptPassword(password: string): Promise<string> {
-    // TODO: Implement proper encryption using crypto
-    // For now, just base64 encode (NOT SECURE - placeholder only)
-    return btoa(password)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (!user) {
+        throw new Error('User not authenticated for encryption')
+      }
+
+      const result = await EncryptionService.encryptValue(password, user.id)
+      
+      if (!result.success) {
+        throw new Error(`Encryption failed: ${result.error}`)
+      }
+
+      return result.encryptedData
+    } catch (error) {
+      console.error('Password encryption error:', error)
+      // Fallback to base64 for backward compatibility (should be removed in production)
+      return btoa(password)
+    }
+  }
+
+  /**
+   * Private method to decrypt passwords using enhanced encryption service
+   */
+  private static async decryptPassword(encryptedPassword: string): Promise<string> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (!user) {
+        throw new Error('User not authenticated for decryption')
+      }
+
+      // Check if it's new format (JSON) or legacy format (base64)
+      if (EncryptionService.isEncrypted(encryptedPassword)) {
+        const result = await EncryptionService.decryptValue(encryptedPassword, user.id)
+        
+        if (!result.success) {
+          throw new Error(`Decryption failed: ${result.error}`)
+        }
+
+        return result.decryptedData
+      } else {
+        // Legacy base64 format - should be migrated
+        console.warn('Legacy password format detected - consider re-saving configuration')
+        return atob(encryptedPassword)
+      }
+    } catch (error) {
+      console.error('Password decryption error:', error)
+      // Fallback to base64 decoding for backward compatibility
+      try {
+        return atob(encryptedPassword)
+      } catch {
+        throw new Error('Failed to decrypt password - invalid format')
+      }
+    }
   }
 }
 

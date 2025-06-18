@@ -71,8 +71,11 @@ interface GlobalEmergencyStop {
   status: () => ReturnType<EmergencyStop['getStatus']>;
 }
 
-(window as unknown as { __emergencyStop: GlobalEmergencyStop }).__emergencyStop = {
-  activate: (reason: string) => emergencyStop.activate(reason),
-  deactivate: () => emergencyStop.deactivate(),
-  status: () => emergencyStop.getStatus()
-};
+// Only expose global function in browser environment
+if (typeof window !== 'undefined') {
+  (window as unknown as { __emergencyStop: GlobalEmergencyStop }).__emergencyStop = {
+    activate: (reason: string) => emergencyStop.activate(reason),
+    deactivate: () => emergencyStop.deactivate(),
+    status: () => emergencyStop.getStatus()
+  };
+}

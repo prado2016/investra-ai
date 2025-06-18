@@ -65,7 +65,7 @@ export const registerSupabaseInstance = (
   storageKey?: string, 
   url?: string
 ): void => {
-  if (import.meta.env.DEV) {
+  if (typeof import.meta !== 'undefined' && import.meta.env?.DEV) {
     supabaseInstanceTracker.registerInstance(id, storageKey, url);
   }
 };
@@ -76,7 +76,7 @@ export const getSupabaseInstanceCount = (): number => {
 };
 
 // Global debug function
-if (import.meta.env.DEV) {
+if (typeof window !== 'undefined' && typeof import.meta !== 'undefined' && import.meta.env?.DEV) {
   (window as unknown as { __supabaseDebug: unknown }).__supabaseDebug = {
     getInstances: () => supabaseInstanceTracker.getInstances(),
     getCount: () => supabaseInstanceTracker.getInstanceCount(),

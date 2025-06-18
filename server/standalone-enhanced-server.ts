@@ -13,8 +13,14 @@ import { ImapFlow } from 'imapflow';
 import { ServiceMonitor } from './monitoring-service';
 import configurationAPIRoutes from './routes/configurationAPI';
 
-// Server-specific email processing will be implemented inline
-// to avoid frontend dependencies
+// Import real email processing services
+import { EmailProcessingService } from '../src/services/email/emailProcessingService';
+import { WealthsimpleEmailParser } from '../src/services/email/wealthsimpleEmailParser';
+import { ManualReviewQueue } from '../src/services/email/manualReviewQueue';
+import { IMAPProcessorService } from '../src/services/email/imapProcessorService';
+import { supabase } from '../src/lib/supabase';
+
+// Server-specific email processing will be implemented with real services
 
 dotenv.config();
 
@@ -79,6 +85,78 @@ interface IMAPConfig {
     user: string;
     pass: string;
   };
+}
+
+// Configuration hot-reload functionality
+let configurationCache: Map<string, any> = new Map();
+let lastConfigUpdate: string | null = null;
+
+/**
+ * Reload configuration from database without server restart
+ */
+async function reloadConfiguration(): Promise<boolean> {
+  try {
+    logger.info('Reloading configuration from database...');
+    
+    // Fetch latest configurations
+    const { data: configs, error } = await supabase
+      .from('email_configurations')
+      .select('*')
+      .eq('is_active', true);
+
+    if (error) {
+      logger.error('Failed to reload configuration:', error);
+      return false;
+    }
+
+    // Update configuration cache
+    configurationCache.clear();
+    configs?.forEach(config => {
+      configurationCache.set(`${config.configuration_type}_${config.id}`, config);
+    });
+
+    lastConfigUpdate = new Date().toISOString();
+    
+    // Reinitialize IMAP if configuration changed
+    const imapConfig = configs?.find(c => c.configuration_type === 'imap');
+    if (imapConfig && imapClient) {
+      logger.info('IMAP configuration changed, reinitializing...');
+      await reinitializeIMAPService(imapConfig.configuration_data);
+    }
+
+    logger.info('Configuration reloaded successfully', {
+      configCount: configs?.length || 0,
+      lastUpdate: lastConfigUpdate
+    });
+
+    return true;
+  } catch (error) {
+    logger.error('Configuration reload failed:', error);
+    return false;
+  }
+}
+
+/**
+ * Reinitialize IMAP service with new configuration
+ */
+async function reinitializeIMAPService(newConfig: any): Promise<void> {
+  try {
+    // Close existing connection
+    if (imapClient) {
+      await imapClient.logout();
+      imapClient = null;
+      imapStatus.status = 'stopped';
+    }
+
+    // Initialize with new configuration
+    await initializeIMAPService();
+    
+    logger.info('IMAP service reinitialized with new configuration');
+  } catch (error) {
+    logger.error('Failed to reinitialize IMAP service:', error);
+    imapStatus.status = 'error';
+    imapStatus.lastError = error instanceof Error ? error.message : 'Unknown error';
+  }
 }
 
 // Global services
@@ -243,50 +321,58 @@ async function initializeIMAPService(): Promise<boolean> {
 }
 
 /**
- * Process email content (simplified version)
+ * Process email content using real EmailProcessingService
  */
 async function processEmailContent(emailRequest: EmailProcessRequest): Promise<EmailProcessResponse> {
   const startTime = Date.now();
   processingStats.pending++;
 
   try {
-    // Simplified email processing logic
-    // In a real implementation, this would use actual parsing services
-    const { emailContent, fromEmail, subject } = emailRequest;
-    
-    // Basic symbol extraction (placeholder)
-    const symbolMatch = emailContent.match(/\b[A-Z]{1,5}\b/);
-    const quantityMatch = emailContent.match(/(\d+(?:\.\d+)?)\s*shares?/i);
-    const priceMatch = emailContent.match(/\$(\d+(?:\.\d+)?)/);
-    
-    if (!symbolMatch) {
-      throw new Error('No symbol found in email content');
-    }
+    logger.info('Processing email with real services', {
+      subject: emailRequest.subject,
+      fromEmail: emailRequest.fromEmail,
+      hasContent: !!emailRequest.emailContent
+    });
 
-    const result = {
-      symbol: symbolMatch[0],
-      type: emailContent.toLowerCase().includes('buy') ? 'buy' : 'sell',
-      quantity: quantityMatch ? parseFloat(quantityMatch[1]) : 0,
-      price: priceMatch ? parseFloat(priceMatch[1]) : 0,
-      date: new Date().toISOString(),
-      confidence: 0.8
-    };
+    // Use real EmailProcessingService to process the email
+    const processingResult = await EmailProcessingService.processEmail(
+      emailRequest.subject,
+      emailRequest.fromEmail,
+      emailRequest.emailContent,
+      emailRequest.emailContent // textContent fallback
+    );
+
+    if (!processingResult.success) {
+      throw new Error(processingResult.errors?.join(', ') || 'Email processing failed');
+    }
 
     const processingTime = Date.now() - startTime;
     processingStats.processingTimes.push(processingTime);
     processingStats.successfullyProcessed++;
     processingStats.lastProcessedAt = new Date().toISOString();
 
-    logger.info('Email processed successfully', { 
-      symbol: result.symbol, 
-      processingTime,
-      fromEmail 
+    // Extract relevant data from processing result
+    const emailData = processingResult.emailData;
+    const symbolResult = processingResult.symbolResult;
+
+    logger.info('Email processed successfully with real services', { 
+      symbol: symbolResult?.symbol,
+      confidence: symbolResult?.confidence,
+      transactionCreated: processingResult.transactionCreated,
+      processingTime
     });
 
     return {
       success: true,
       message: 'Email processed successfully',
-      data: result
+      data: {
+        symbol: symbolResult?.symbol || emailData?.symbol || 'Unknown',
+        type: emailData?.transactionType || 'unknown',
+        quantity: emailData?.quantity || 0,
+        price: emailData?.price || 0,
+        date: emailData?.transactionDate || new Date().toISOString(),
+        confidence: symbolResult?.confidence || emailData?.confidence || 0
+      }
     };
   } catch (error) {
     processingStats.failed++;
@@ -596,11 +682,67 @@ app.post('/api/imap/process-now', async (req, res) => {
   const requestId = req.requestId;
   
   try {
-    // Simple implementation - just return success for now
-    res.json(createResponse({
-      processed: 0,
-      message: 'Manual email processing triggered (placeholder implementation)'
-    }, true, requestId));
+    logger.info('Manual email processing triggered via API', { requestId });
+    
+    // Use real IMAPProcessorService for manual processing
+    if (imapClient) {
+      // Get current IMAP configuration from database
+      const { data: config, error } = await supabase
+        .from('email_configurations')
+        .select('*')
+        .eq('configuration_type', 'imap')
+        .eq('is_active', true)
+        .single();
+
+      if (error || !config) {
+        logger.warn('No active IMAP configuration found', { error, requestId });
+        return res.status(400).json(createResponse(
+          null,
+          false,
+          requestId,
+          'No active IMAP configuration found'
+        ));
+      }
+
+      // Process emails using real IMAP processor
+      const processor = new IMAPProcessorService(imapClient, {
+        folder: config.configuration_data.folder || 'INBOX',
+        batchSize: 10,
+        processingOptions: {
+          markAsRead: config.configuration_data.mark_as_read || false,
+          archiveProcessed: config.configuration_data.archive_processed || false
+        }
+      });
+
+      const results = await processor.processNewEmails();
+      
+      // Update processing stats
+      processingStats.totalProcessed += results.totalProcessed;
+      processingStats.successfullyProcessed += results.successful;
+      processingStats.failed += results.failed;
+      processingStats.lastProcessedAt = new Date().toISOString();
+
+      logger.info('Manual IMAP processing completed', {
+        requestId,
+        results,
+        totalProcessed: results.totalProcessed
+      });
+
+      res.json(createResponse({
+        processed: results.totalProcessed,
+        successful: results.successful,
+        failed: results.failed,
+        message: `Successfully processed ${results.totalProcessed} emails`,
+        details: results
+      }, true, requestId));
+    } else {
+      res.status(503).json(createResponse(
+        { processed: 0, message: 'IMAP service not available' },
+        false,
+        requestId,
+        'IMAP service not initialized'
+      ));
+    }
   } catch (error) {
     logger.error('IMAP process-now endpoint error:', error);
     res.status(500).json(createResponse(
@@ -612,15 +754,26 @@ app.post('/api/imap/process-now', async (req, res) => {
   }
 });
 
-// Email Management API endpoints - simplified mock implementations
+// Email Management API endpoints - integrated with real services
 app.get('/api/email/import/jobs', async (req, res) => {
   const requestId = req.requestId;
   
   try {
-    // Return empty list for now
+    // Use real database query for import jobs
+    const { data: jobs, error } = await supabase
+      .from('email_processing_logs')
+      .select('*')
+      .eq('processing_type', 'batch_import')
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    if (error) {
+      throw error;
+    }
+
     res.json(createResponse({
-      jobs: [],
-      total: 0,
+      jobs: jobs || [],
+      total: jobs?.length || 0,
       page: 1,
       pageSize: 20
     }, true, requestId));
@@ -639,11 +792,35 @@ app.post('/api/email/import/jobs', async (req, res) => {
   const requestId = req.requestId;
   
   try {
-    // Simple mock implementation
+    const { email_count, source_type = 'manual', configuration_id } = req.body;
+    
+    // Create real import job in database
+    const { data: job, error } = await supabase
+      .from('email_processing_logs')
+      .insert([{
+        processing_type: 'batch_import',
+        status: 'pending',
+        email_count: email_count || 0,
+        source_type,
+        configuration_id,
+        user_id: 'system', // TODO: get from auth context
+        metadata: { 
+          request_id: requestId,
+          created_via: 'api'
+        }
+      }])
+      .select()
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
     res.status(201).json(createResponse({
-      id: Date.now(),
-      status: 'created',
-      message: 'Import job created (placeholder implementation)'
+      id: job.id,
+      status: job.status,
+      message: 'Import job created successfully',
+      job
     }, true, requestId));
   } catch (error) {
     logger.error('Create import job endpoint error:', error);
@@ -660,12 +837,26 @@ app.get('/api/email/review/queue', async (req, res) => {
   const requestId = req.requestId;
   
   try {
-    // Return empty queue for now
+    const page = parseInt(req.query.page as string) || 1;
+    const pageSize = parseInt(req.query.pageSize as string) || 20;
+    
+    // Use real ManualReviewQueue to get queue items
+    const queueItems = ManualReviewQueue.getQueueItems(
+      { status: 'pending' },
+      'priority',
+      'desc',
+      pageSize,
+      (page - 1) * pageSize
+    );
+
+    const queueStats = ManualReviewQueue.getQueueStats();
+
     res.json(createResponse({
-      queue: [],
-      total: 0,
-      page: 1,
-      pageSize: 20
+      queue: queueItems,
+      total: queueStats.total,
+      page,
+      pageSize,
+      stats: queueStats
     }, true, requestId));
   } catch (error) {
     logger.error('Review queue endpoint error:', error);
@@ -674,6 +865,127 @@ app.get('/api/email/review/queue', async (req, res) => {
       false,
       requestId,
       'Error retrieving review queue'
+    ));
+  }
+});
+
+// Get processing queue (active/pending processing jobs)
+app.get('/api/email/processing/queue', async (req, res) => {
+  const requestId = req.requestId;
+  
+  try {
+    // Get real processing queue from database
+    const { data: processingJobs, error } = await supabase
+      .from('email_processing_logs')
+      .select('*')
+      .in('status', ['pending', 'processing'])
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (error) {
+      throw error;
+    }
+
+    const queueItems = (processingJobs || []).map(job => ({
+      id: job.id,
+      status: job.status,
+      emailSubject: job.metadata?.email_subject || 'Unknown Subject',
+      fromEmail: job.metadata?.from_email || 'Unknown Sender',
+      progress: {
+        current: job.status === 'completed' ? 4 : job.status === 'processing' ? 2 : 0,
+        total: 4,
+        percentage: job.status === 'completed' ? 100 : job.status === 'processing' ? 50 : 0
+      },
+      stages: {
+        parsing: job.status === 'completed' || job.status === 'processing' ? 'completed' : 'pending',
+        duplicateCheck: job.status === 'completed' ? 'completed' : 'pending',
+        symbolProcessing: job.status === 'completed' ? 'completed' : 'pending',
+        transactionCreation: job.status === 'completed' ? 'completed' : 'pending'
+      },
+      timestamps: {
+        startedAt: job.created_at,
+        completedAt: job.status === 'completed' ? job.updated_at : undefined,
+        lastUpdatedAt: job.updated_at
+      },
+      errors: job.error_details ? [job.error_details] : []
+    }));
+
+    res.json(createResponse(queueItems, true, requestId));
+  } catch (error) {
+    logger.error('Processing queue endpoint error:', error);
+    res.status(500).json(createResponse(
+      null,
+      false,
+      requestId,
+      'Error retrieving processing queue'
+    ));
+  }
+});
+
+// Review queue management endpoints
+app.post('/api/email/review/queue/:id/claim', async (req, res) => {
+  const requestId = req.requestId;
+  const { id } = req.params;
+  const { reviewerId } = req.body;
+  
+  try {
+    const success = await ManualReviewQueue.claimForReview(id, reviewerId || 'system');
+    
+    if (success) {
+      const item = ManualReviewQueue.getQueueItem(id);
+      res.json(createResponse({
+        success: true,
+        message: 'Item claimed for review',
+        item
+      }, true, requestId));
+    } else {
+      res.status(404).json(createResponse(
+        null,
+        false,
+        requestId,
+        'Item not found or not available for claim'
+      ));
+    }
+  } catch (error) {
+    logger.error('Claim review item error:', error);
+    res.status(500).json(createResponse(
+      null,
+      false,
+      requestId,
+      'Error claiming review item'
+    ));
+  }
+});
+
+app.post('/api/email/review/queue/:id/action', async (req, res) => {
+  const requestId = req.requestId;
+  const { id } = req.params;
+  const action = req.body;
+  
+  try {
+    const result = await ManualReviewQueue.processReviewAction(id, action);
+    
+    if (result.success) {
+      res.json(createResponse({
+        success: true,
+        message: 'Review action processed successfully',
+        item: result.item
+      }, true, requestId));
+    } else {
+      res.status(400).json(createResponse(
+        null,
+        false,
+        requestId,
+        result.error || 'Failed to process review action'
+      ));
+    }
+  } catch (error) {
+    logger.error('Process review action error:', error);
+    res.status(500).json(createResponse(
+      null,
+      false,
+      requestId,
+      'Error processing review action'
     ));
   }
 });
@@ -709,6 +1021,54 @@ app.get('/api/email/stats', async (req, res) => {
   const requestId = req.requestId;
   
   try {
+    // Get real processing stats from database and services
+    const { data: processingLogs, error } = await supabase
+      .from('email_processing_logs')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    if (error) {
+      throw error;
+    }
+
+    // Get queue stats from ManualReviewQueue
+    const queueStats = ManualReviewQueue.getQueueStats();
+    
+    // Calculate real stats from database
+    const logs = processingLogs || [];
+    const successful = logs.filter(log => log.status === 'completed').length;
+    const failed = logs.filter(log => log.status === 'failed').length;
+    const lastProcessedLog = logs.find(log => log.status === 'completed');
+    
+    const avgProcessingTime = logs.length > 0 
+      ? logs.reduce((sum, log) => sum + (log.processing_time || 0), 0) / logs.length
+      : processingStats.processingTimes.length > 0 
+        ? processingStats.processingTimes.reduce((a, b) => a + b, 0) / processingStats.processingTimes.length 
+        : 0;
+
+    res.json(createResponse({
+      // Real database stats
+      totalProcessed: logs.length || processingStats.totalProcessed,
+      successful: successful || processingStats.successfullyProcessed,
+      failed: failed || processingStats.failed,
+      
+      // Queue stats from ManualReviewQueue
+      duplicates: queueStats.byPriority.high + queueStats.byPriority.urgent, // Approximate duplicates as high priority items
+      reviewRequired: queueStats.byStatus.pending + queueStats.byStatus['in-review'],
+      
+      // Performance metrics
+      averageProcessingTime: avgProcessingTime,
+      lastProcessedAt: lastProcessedLog?.created_at || processingStats.lastProcessedAt,
+      
+      // Queue health metrics
+      queueHealthScore: queueStats.queueHealthScore,
+      throughputMetrics: queueStats.throughputMetrics
+    }, true, requestId));
+  } catch (error) {
+    logger.error('Email stats endpoint error:', error);
+    
+    // Fallback to in-memory stats if database query fails
     res.json(createResponse({
       totalProcessed: processingStats.totalProcessed,
       successful: processingStats.successfullyProcessed,
@@ -719,13 +1079,125 @@ app.get('/api/email/stats', async (req, res) => {
         processingStats.processingTimes.reduce((a, b) => a + b, 0) / processingStats.processingTimes.length : 0,
       lastProcessedAt: processingStats.lastProcessedAt
     }, true, requestId));
+  }
+});
+
+// Configuration management endpoints
+app.post('/api/configuration/reload', async (req, res) => {
+  const requestId = req.requestId;
+  
+  try {
+    logger.info('Configuration reload requested via API', { requestId });
+    
+    const success = await reloadConfiguration();
+    
+    if (success) {
+      res.json(createResponse({
+        success: true,
+        message: 'Configuration reloaded successfully',
+        lastUpdate: lastConfigUpdate,
+        configCount: configurationCache.size
+      }, true, requestId));
+    } else {
+      res.status(500).json(createResponse(
+        null,
+        false,
+        requestId,
+        'Failed to reload configuration'
+      ));
+    }
   } catch (error) {
-    logger.error('Email stats endpoint error:', error);
+    logger.error('Configuration reload endpoint error:', error);
     res.status(500).json(createResponse(
       null,
       false,
       requestId,
-      'Error retrieving email statistics'
+      'Error reloading configuration'
+    ));
+  }
+});
+
+app.get('/api/configuration/status', async (req, res) => {
+  const requestId = req.requestId;
+  
+  try {
+    res.json(createResponse({
+      lastUpdate: lastConfigUpdate,
+      configCount: configurationCache.size,
+      configurations: Array.from(configurationCache.keys()),
+      imapStatus: imapStatus.status,
+      services: {
+        imap: imapClient ? 'configured' : 'not_configured',
+        monitoring: serviceMonitor ? 'active' : 'inactive'
+      }
+    }, true, requestId));
+  } catch (error) {
+    logger.error('Configuration status endpoint error:', error);
+    res.status(500).json(createResponse(
+      null,
+      false,
+      requestId,
+      'Error retrieving configuration status'
+    ));
+  }
+});
+
+// Configuration management endpoints
+app.post('/api/configuration/reload', async (req, res) => {
+  const requestId = req.requestId;
+  
+  try {
+    logger.info('Configuration reload requested via API', { requestId });
+    
+    const success = await reloadConfiguration();
+    
+    if (success) {
+      res.json(createResponse({
+        success: true,
+        message: 'Configuration reloaded successfully',
+        lastUpdate: lastConfigUpdate,
+        configCount: configurationCache.size
+      }, true, requestId));
+    } else {
+      res.status(500).json(createResponse(
+        null,
+        false,
+        requestId,
+        'Failed to reload configuration'
+      ));
+    }
+  } catch (error) {
+    logger.error('Configuration reload endpoint error:', error);
+    res.status(500).json(createResponse(
+      null,
+      false,
+      requestId,
+      'Error reloading configuration'
+    ));
+  }
+});
+
+app.get('/api/configuration/status', async (req, res) => {
+  const requestId = req.requestId;
+  
+  try {
+    res.json(createResponse({
+      lastUpdate: lastConfigUpdate,
+      configCount: configurationCache.size,
+      configurations: Array.from(configurationCache.keys()),
+      imapStatus: imapStatus.status,
+      services: {
+        imap: imapClient ? 'configured' : 'not_configured',
+        monitoring: serviceMonitor ? 'active' : 'inactive'
+      }
+    }, true, requestId));
+  } catch (error) {
+    logger.error('Configuration status endpoint error:', error);
+    res.status(500).json(createResponse(
+      null,
+      false,
+      requestId,
+      'Error retrieving configuration status'
     ));
   }
 });

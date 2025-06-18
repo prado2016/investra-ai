@@ -27,6 +27,7 @@ import ManualReviewQueueManager from '../components/ManualReviewQueueManager';
 import FailedImportResolutionInterface from '../components/FailedImportResolutionInterface';
 import EmailProcessingStatusDisplay from '../components/EmailProcessingStatusDisplay';
 import EmailConfigurationPanel from '../components/EmailConfigurationPanel';
+import RealTimeEmailStatus from '../components/RealTimeEmailStatus';
 
 const PageContainer = styled.div`
   padding: 2rem;
@@ -325,7 +326,8 @@ const EmailManagementPage: React.FC = () => {
 
       case 'status':
         return (
-          <div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <RealTimeEmailStatus />
             <EmailProcessingStatusDisplay />
           </div>
         );

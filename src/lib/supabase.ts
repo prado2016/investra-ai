@@ -2,11 +2,17 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from './database/types'
 import { registerSupabaseInstance } from '../utils/supabaseInstanceTracker'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+// Cross-platform environment variable support
+const supabaseUrl = typeof import.meta !== 'undefined' && import.meta.env 
+  ? import.meta.env.VITE_SUPABASE_URL 
+  : process.env.VITE_SUPABASE_URL
+
+const supabaseKey = typeof import.meta !== 'undefined' && import.meta.env 
+  ? import.meta.env.VITE_SUPABASE_ANON_KEY 
+  : process.env.VITE_SUPABASE_ANON_KEY
 
 if (!supabaseUrl || !supabaseKey) {
-  throw new Error('Missing Supabase environment variables')
+  throw new Error('Missing Supabase environment variables. Please check VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY')
 }
 
 // Singleton instance to prevent multiple GoTrueClient instances
