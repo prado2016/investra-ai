@@ -11,6 +11,13 @@ import { emailProcessingMonitor } from '../monitoring/emailProcessingMonitor';
 import type { Transaction } from '../../lib/database/types';
 import type { ServiceResponse } from '../supabaseService';
 
+// Development-only logging utility
+const devLog = (message: string) => {
+  if (process.env.NODE_ENV === 'development') {
+    console.log(message);
+  }
+};
+
 export interface EmailProcessingResult {
   success: boolean;
   emailParsed: boolean;
@@ -82,7 +89,7 @@ export class EmailProcessingService {
     try {
       // Step 1: Parse the email
       const parseStartTime = Date.now();
-      console.log('📧 Parsing Wealthsimple email...');
+      devLog('📧 Parsing Wealthsimple email...');
       
       // Record parsing started event
       emailProcessingMonitor.recordEvent({
@@ -137,7 +144,7 @@ export class EmailProcessingService {
         result.warnings.push(...parseResult.warnings);
       }
 
-      console.log(`✅ Email parsed: ${parseResult.data.symbol} ${parseResult.data.transactionType} ${parseResult.data.quantity}`);
+      devLog(`✅ Email parsed: ${parseResult.data.symbol} ${parseResult.data.transactionType} ${parseResult.data.quantity}`);
 
       // Record successful parsing
       emailProcessingMonitor.recordEvent({
@@ -174,7 +181,7 @@ export class EmailProcessingService {
       let symbolResult: EmailSymbolParseResult | undefined;
       
       if (opts.enhanceSymbols) {
-        console.log('🤖 Processing symbol with AI enhancement...');
+        devLog('🤖 Processing symbol with AI enhancement...');
         try {
           symbolResult = await EnhancedEmailSymbolParser.processEmailSymbol(parseResult.data);
           result.symbolProcessed = true;
@@ -185,19 +192,19 @@ export class EmailProcessingService {
             result.warnings.push(`Symbol processing warnings: ${symbolValidation.errors.join(', ')}`);
           }
           
-          console.log(`✅ Symbol processed: ${symbolResult.symbol} -> ${symbolResult.normalizedSymbol} (${symbolResult.source}, confidence: ${symbolResult.confidence.toFixed(2)})`);
+          devLog(`✅ Symbol processed: ${symbolResult.symbol} -> ${symbolResult.normalizedSymbol} (${symbolResult.source}, confidence: ${symbolResult.confidence.toFixed(2)})`);
           
           if (symbolResult.warnings && symbolResult.warnings.length > 0) {
             result.warnings.push(...symbolResult.warnings);
           }
         } catch (error) {
           result.warnings.push(`Symbol enhancement failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-          console.log('⚠️ Symbol enhancement failed, continuing with original symbol');
+          devLog('⚠️ Symbol enhancement failed, continuing with original symbol');
         }
       }
 
       // Step 3: Map to portfolio
-      console.log('🏦 Mapping to portfolio...');
+      devLog('🏦 Mapping to portfolio...');
       let portfolioResult: ServiceResponse<MappingResult>;
       
       if (opts.createMissingPortfolios) {
@@ -223,18 +230,18 @@ export class EmailProcessingService {
       result.portfolioMapped = true;
       result.portfolioMapping = portfolioResult.data;
 
-      console.log(`✅ Portfolio mapped: ${portfolioResult.data.portfolioName} (${portfolioResult.data.created ? 'created' : 'existing'})`);
+      devLog(`✅ Portfolio mapped: ${portfolioResult.data.portfolioName} (${portfolioResult.data.created ? 'created' : 'existing'})`);
 
       // Stop here if dry run
       if (opts.dryRun) {
         result.success = true;
-        console.log('🧪 Dry run mode - stopping before transaction creation');
+        devLog('🧪 Dry run mode - stopping before transaction creation');
         return result;
       }
 
       // Step 4: Check for duplicates (unless skipped)
       if (!opts.skipDuplicateCheck) {
-        console.log('🔍 Checking for duplicate transactions...');
+        devLog('🔍 Checking for duplicate transactions...');
         const isDuplicate = await this.checkForDuplicate(
           portfolioResult.data.portfolioId,
           parseResult.data
@@ -242,12 +249,12 @@ export class EmailProcessingService {
 
         if (isDuplicate) {
           result.warnings.push('Potential duplicate transaction detected');
-          console.log('⚠️ Potential duplicate transaction detected');
+          devLog('⚠️ Potential duplicate transaction detected');
         }
       }
 
       // Step 5: Create transaction
-      console.log('💰 Creating transaction...');
+      devLog('💰 Creating transaction...');
       const transactionResult = await this.createTransaction(
         portfolioResult.data.portfolioId,
         parseResult.data,
@@ -263,8 +270,8 @@ export class EmailProcessingService {
       result.transaction = transactionResult.data;
       result.success = true;
 
-      console.log(`✅ Transaction created: ${transactionResult.data.id}`);
-      console.log('🎉 Email processing completed successfully!');
+      devLog(`✅ Transaction created: ${transactionResult.data.id}`);
+      devLog('🎉 Email processing completed successfully!');
 
       // Record successful transaction creation
       emailProcessingMonitor.recordEvent({
@@ -376,7 +383,7 @@ export class EmailProcessingService {
         };
       }
 
-      console.log(`📊 Asset resolved: ${symbolToUse} -> ${assetResult.data.id} (${assetResult.data.asset_type})`);
+      devLog(`📊 Asset resolved: ${symbolToUse} -> ${assetResult.data.id} (${assetResult.data.asset_type})`);
 
       // Map transaction types
       const transactionTypeMap: Record<string, 'buy' | 'sell' | 'dividend' | 'option_expired'> = {
@@ -406,7 +413,7 @@ export class EmailProcessingService {
       );
 
       if (transactionResult.success && symbolResult) {
-        console.log(`🤖 Used enhanced symbol processing: ${emailData.symbol} -> ${symbolResult.normalizedSymbol} (${symbolResult.source})`);
+        devLog(`🤖 Used enhanced symbol processing: ${emailData.symbol} -> ${symbolResult.normalizedSymbol} (${symbolResult.source})`);
       }
 
       return transactionResult;
@@ -434,11 +441,11 @@ export class EmailProcessingService {
   ): Promise<EmailProcessingResult[]> {
     const results: EmailProcessingResult[] = [];
 
-    console.log(`📬 Processing batch of ${emails.length} emails...`);
+    devLog(`📬 Processing batch of ${emails.length} emails...`);
 
     for (let i = 0; i < emails.length; i++) {
       const email = emails[i];
-      console.log(`\n📧 Processing email ${i + 1}/${emails.length}: ${email.subject}`);
+      devLog(`\n📧 Processing email ${i + 1}/${emails.length}: ${email.subject}`);
       
       const result = await this.processEmail(
         email.subject,
@@ -460,14 +467,14 @@ export class EmailProcessingService {
     const successful = results.filter(r => r.success).length;
     const failed = results.filter(r => !r.success).length;
     
-    console.log(`\n📊 Batch processing complete:`);
-    console.log(`  Successful: ${successful}/${emails.length}`);
-    console.log(`  Failed: ${failed}/${emails.length}`);
+    devLog(`\n📊 Batch processing complete:`);
+    devLog(`  Successful: ${successful}/${emails.length}`);
+    devLog(`  Failed: ${failed}/${emails.length}`);
     
     if (failed > 0) {
-      console.log(`\n❌ Failed emails:`);
+      devLog(`\n❌ Failed emails:`);
       results.filter(r => !r.success).forEach((r, i) => {
-        console.log(`  ${i + 1}. ${r.errors.join(', ')}`);
+        devLog(`  ${i + 1}. ${r.errors.join(', ')}`);
       });
     }
 

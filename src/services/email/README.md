@@ -335,7 +335,7 @@ await processor.processNewEmails();
 
 ### Adding New Email Formats
 
-1. **Add test data** in `tests/mockWealthsimpleEmails.ts`
+1. **Add test data** inline in test files (production builds exclude test files)
 2. **Update patterns** in `wealthsimpleEmailParser.ts`
 3. **Test thoroughly** with `EmailParserTestSuite`
 4. **Update documentation**

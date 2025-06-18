@@ -586,15 +586,35 @@ export class EmailProcessingHealthCheck {
    */
   private async checkSupabaseAPI(): Promise<boolean> {
     try {
-      // Simple ping to Supabase
-      const response = await fetch(`${process.env.VITE_SUPABASE_URL}/rest/v1/`, {
+      // Validate required environment variables
+      const supabaseUrl = process.env.VITE_SUPABASE_URL;
+      const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
+      
+      if (!supabaseUrl || !supabaseKey) {
+        console.error('Missing Supabase environment variables');
+        return false;
+      }
+
+      // Simple ping to Supabase with timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
+      const response = await fetch(`${supabaseUrl}/rest/v1/`, {
         method: 'HEAD',
         headers: {
-          'apikey': process.env.VITE_SUPABASE_ANON_KEY || '',
-        }
+          'apikey': supabaseKey,
+        },
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
       return response.ok;
-    } catch {
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.error('Supabase API check timeout');
+      } else {
+        console.error('Supabase API check failed:', error);
+      }
       return false;
     }
   }

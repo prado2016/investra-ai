@@ -20,7 +20,12 @@ touch docker-data/dms/config/dovecot.cf
 
 # Create main email account for transactions
 echo "📧 Setting up transactions@investra.com email account..."
-echo "transactions@investra.com|{PLAIN}InvestraSecure2025!" > docker-data/dms/config/postfix-accounts.cf
+if [ -z "$EMAIL_PASSWORD" ]; then
+  echo "❌ Error: EMAIL_PASSWORD environment variable not set"
+  echo "   Please set EMAIL_PASSWORD before running this script"
+  exit 1
+fi
+echo "transactions@investra.com|{PLAIN}${EMAIL_PASSWORD}" > docker-data/dms/config/postfix-accounts.cf
 
 # Configure virtual aliases
 echo "📮 Setting up email aliases..."

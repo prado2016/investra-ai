@@ -6,6 +6,13 @@
 
 import { IMAPEmailProcessor, type IMAPConfig, type ProcessingResult, type IMAPProcessorStats } from './imapEmailProcessor';
 
+// Development-only logging utility
+const devLog = (message: string) => {
+  if (process.env.NODE_ENV === 'development') {
+    console.log(message);
+  }
+};
+
 export interface IMAPServiceConfig {
   enabled: boolean;
   host: string;
@@ -76,18 +83,18 @@ export class IMAPProcessorService {
    */
   async start(): Promise<void> {
     if (!this.config.enabled) {
-      console.log('📧 IMAP Service: Disabled in configuration');
+      devLog('📧 IMAP Service: Disabled in configuration');
       return;
     }
 
     if (this.status.status === 'running') {
-      console.log('📧 IMAP Service: Already running');
+      devLog('📧 IMAP Service: Already running');
       return;
     }
 
     try {
       this.updateStatus('starting');
-      console.log('📧 IMAP Service: Starting...');
+      devLog('📧 IMAP Service: Starting...');
 
       // Create IMAP processor
       const imapConfig: IMAPConfig = {
@@ -116,7 +123,7 @@ export class IMAPProcessorService {
       this.updateStatus('running');
       this.retryCount = 0;
       
-      console.log('✅ IMAP Service: Started successfully');
+      devLog('✅ IMAP Service: Started successfully');
 
     } catch (error) {
       console.error('❌ IMAP Service: Failed to start:', error);
@@ -136,12 +143,12 @@ export class IMAPProcessorService {
    */
   async stop(): Promise<void> {
     if (this.status.status === 'stopped') {
-      console.log('📧 IMAP Service: Already stopped');
+      devLog('📧 IMAP Service: Already stopped');
       return;
     }
 
     try {
-      console.log('📧 IMAP Service: Stopping...');
+      devLog('📧 IMAP Service: Stopping...');
 
       if (this.processor) {
         this.processor.stopMonitoring();
@@ -152,7 +159,7 @@ export class IMAPProcessorService {
       this.updateStatus('stopped');
       this.retryCount = 0;
 
-      console.log('✅ IMAP Service: Stopped successfully');
+      devLog('✅ IMAP Service: Stopped successfully');
 
     } catch (error) {
       console.error('❌ IMAP Service: Error during stop:', error);
@@ -164,7 +171,7 @@ export class IMAPProcessorService {
    * Restart the service
    */
   async restart(): Promise<void> {
-    console.log('📧 IMAP Service: Restarting...');
+    devLog('📧 IMAP Service: Restarting...');
     await this.stop();
     await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
     await this.start();
@@ -178,11 +185,11 @@ export class IMAPProcessorService {
       throw new Error('IMAP Service not running');
     }
 
-    console.log('📧 IMAP Service: Processing emails manually...');
+    devLog('📧 IMAP Service: Processing emails manually...');
     
     try {
       const results = await this.processor.processNewEmails(portfolioId || this.config.defaultPortfolioId);
-      console.log(`✅ IMAP Service: Processed ${results.length} emails manually`);
+      devLog(`✅ IMAP Service: Processed ${results.length} emails manually`);
       return results;
     } catch (error) {
       console.error('❌ IMAP Service: Manual processing failed:', error);
@@ -229,7 +236,7 @@ export class IMAPProcessorService {
       await this.start();
     }
 
-    console.log('✅ IMAP Service: Configuration updated');
+    devLog('✅ IMAP Service: Configuration updated');
   }
 
   /**
@@ -286,7 +293,7 @@ export class IMAPProcessorService {
   clearProcessedCache(): void {
     if (this.processor) {
       this.processor.clearProcessedUIDs();
-      console.log('✅ IMAP Service: Cleared processed emails cache');
+      devLog('✅ IMAP Service: Cleared processed emails cache');
     }
   }
 
@@ -316,7 +323,7 @@ export class IMAPProcessorService {
     this.retryCount++;
     const retryDelay = Math.min(5000 * Math.pow(2, this.retryCount - 1), 300000); // Exponential backoff, max 5 minutes
     
-    console.log(`📧 IMAP Service: Scheduling retry ${this.retryCount}/${this.maxRetries} in ${retryDelay}ms...`);
+    devLog(`📧 IMAP Service: Scheduling retry ${this.retryCount}/${this.maxRetries} in ${retryDelay}ms...`);
     this.updateStatus('reconnecting');
 
     setTimeout(async () => {

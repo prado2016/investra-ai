@@ -143,6 +143,73 @@ jobs:
         SUPABASE_SERVICE_KEY="${{ secrets.SUPABASE_SERVICE_KEY }}" \
         ./deploy-api-server.sh deploy
 
+    - name: Fix PM2 configuration
+      run: |
+        cd ~/investra-email-api-deployment
+        
+        # Create corrected PM2 ecosystem configuration
+        echo "🔧 Fixing PM2 ecosystem configuration..."
+        
+        # Backup original config
+        cp ecosystem.config.js ecosystem.config.js.backup
+        
+        # Create corrected configuration with proper paths
+        cat > ecosystem.config.js << 'EOF'
+        module.exports = {
+          apps: [
+            {
+              name: '${{ needs.determine-environment.outputs.service-name }}',
+              script: 'dist/simple-production-server.js',
+              cwd: '${{ needs.determine-environment.outputs.server-dir }}',
+              instances: ${{ needs.determine-environment.outputs.pm2-instances }},
+              exec_mode: 'cluster',
+              
+              env: {
+                NODE_ENV: '${{ needs.determine-environment.outputs.environment }}',
+                PORT: ${{ needs.determine-environment.outputs.api-port }},
+                LOG_LEVEL: 'info'
+              },
+              
+              max_memory_restart: '1G',
+              min_uptime: '10s',
+              max_restarts: 10,
+              restart_delay: 4000,
+              
+              log_file: '/var/log/investra/email-api-combined.log',
+              out_file: '/var/log/investra/email-api-out.log',
+              error_file: '/var/log/investra/email-api-error.log',
+              log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
+              merge_logs: true,
+              
+              watch: false,
+              autorestart: true,
+              vizion: false,
+              
+              node_args: [
+                '--max-old-space-size=2048',
+                '--enable-source-maps'
+              ],
+              
+              env_file: '.env.${{ needs.determine-environment.outputs.environment }}',
+              kill_timeout: 5000,
+              listen_timeout: 3000,
+              treekill: true
+            }
+          ]
+        };
+        EOF
+        
+        # Copy corrected config to deployment directory
+        cp ecosystem.config.js "${{ needs.determine-environment.outputs.server-dir }}/"
+        
+        # Restart PM2 with corrected configuration
+        cd "${{ needs.determine-environment.outputs.server-dir }}"
+        pm2 delete all || true
+        pm2 start ecosystem.config.js
+        pm2 save
+        
+        echo "✅ PM2 configuration fixed and applied"
+
     - name: Verify deployment
       run: |
         cd ~/investra-email-api-deployment

@@ -5,7 +5,34 @@
 import { WealthsimpleEmailParser } from '../wealthsimpleEmailParser';
 import { PortfolioMappingService } from '../portfolioMappingService';
 import { AISymbolIntegrationTests } from './aiIntegrationTests';
-import { MOCK_WEALTHSIMPLE_EMAILS, INVALID_EMAILS, EDGE_CASES } from './mockWealthsimpleEmails';
+
+// Minimal mock data for testing - production builds exclude test files
+const MOCK_WEALTHSIMPLE_EMAILS = {
+  stockBuy: {
+    subject: "Trade Confirmation - AAPL Purchase",
+    from: "notifications@wealthsimple.com",
+    html: "<p>Bought 100 shares of AAPL at $150.25</p>",
+    text: "Bought 100 shares of AAPL at $150.25"
+  }
+};
+
+const INVALID_EMAILS = {
+  nonWealthsimple: {
+    subject: "Test",
+    from: "test@example.com", 
+    html: "<p>Test</p>",
+    text: "Test"
+  }
+};
+
+const EDGE_CASES = {
+  fractionalShares: {
+    subject: "Trade Confirmation",
+    from: "notifications@wealthsimple.com",
+    html: "<p>Bought 0.75 shares</p>",
+    text: "Bought 0.75 shares"
+  }
+};
 
 export interface TestResult {
   name: string;

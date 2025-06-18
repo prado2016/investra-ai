@@ -43,12 +43,13 @@ export const EmailConfigurationPanel: React.FC = () => {
   const saveConfiguration = async () => {
     setSaving(true);
     try {
-      // Save to localStorage (excluding password for security)
+      // TODO: Replace localStorage with database service
+      // For now, keep localStorage as fallback
       const configToSave = { ...config, password: '' };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(configToSave));
       setLastSavedConfig(configToSave);
       
-      // Could also save to backend here if needed
+      // Future: Use EmailConfigurationService.createConfiguration() here
       await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API call
       
       setTestResult({
@@ -70,7 +71,14 @@ export const EmailConfigurationPanel: React.FC = () => {
     setTestResult(null);
     
     try {
-      const response = await fetch('http://localhost:3001/api/email/test-connection', {
+      // Use environment variable for API base URL, fallback to current domain
+      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || window.location.origin;
+      
+      // Add timeout to the request
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      
+      const response = await fetch(`${apiBaseUrl}/api/email/test-connection`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -82,8 +90,11 @@ export const EmailConfigurationPanel: React.FC = () => {
           secure: config.secure,
           username: config.user,
           password: config.password
-        })
+        }),
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
       
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -97,9 +108,19 @@ export const EmailConfigurationPanel: React.FC = () => {
         await saveConfiguration();
       }
     } catch (error) {
+      let errorMessage = 'Connection test failed';
+      
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          errorMessage = 'Connection test timed out (30 seconds). Please check your server configuration.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
       setTestResult({
         success: false,
-        message: error instanceof Error ? error.message : 'Connection test failed'
+        message: errorMessage
       });
     } finally {
       setTesting(false);

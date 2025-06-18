@@ -17,24 +17,24 @@ const TEST_CONFIGS = [
     host: process.env.IMAP_HOST || 'localhost',
     port: parseInt(process.env.IMAP_PORT || '993'),
     secure: process.env.IMAP_SECURE !== 'false',
-    username: process.env.IMAP_USERNAME || 'transactions@investra.com',
-    password: process.env.IMAP_PASSWORD || 'InvestraSecure2025!'
+    username: process.env.IMAP_USERNAME || '',
+    password: process.env.IMAP_PASSWORD || ''
   },
   {
     name: 'Alternative Configuration (STARTTLS)',
     host: process.env.IMAP_HOST || 'localhost',
     port: 143,
     secure: false,
-    username: process.env.IMAP_USERNAME || 'transactions@investra.com',
-    password: process.env.IMAP_PASSWORD || 'InvestraSecure2025!'
+    username: process.env.IMAP_USERNAME || '',
+    password: process.env.IMAP_PASSWORD || ''
   },
   {
     name: 'Local Development Server',
-    host: '127.0.0.1',
+    host: process.env.IMAP_HOST || 'localhost',
     port: 993,
     secure: true,
-    username: 'transactions@investra.com',
-    password: 'InvestraSecure2025!'
+    username: process.env.IMAP_USERNAME || '',
+    password: process.env.IMAP_PASSWORD || ''
   }
 ];
 
@@ -151,8 +151,8 @@ class EmailConnectionTester {
     const hosts = [
       'localhost',
       '127.0.0.1',
-      '10.0.0.83',
-      '10.0.0.89'
+      // Add environment-specific hosts if provided
+      ...(process.env.TEST_HOSTS ? process.env.TEST_HOSTS.split(',').filter(Boolean) : [])
     ];
     
     for (const host of hosts) {

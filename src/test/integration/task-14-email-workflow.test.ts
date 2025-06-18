@@ -132,7 +132,7 @@ Payment Date: June 17, 2025`
 };
 
 describe('Task 14.1: Complete Email Workflow Tests', () => {
-  let testPortfolioIds: string[] = [];
+  const testPortfolioIds: string[] = [];
 
   beforeAll(async () => {
     console.log('🚀 Setting up integration test environment...');

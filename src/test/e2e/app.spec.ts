@@ -4,8 +4,8 @@ test.describe('Investra AI App - Basic Functionality', () => {
   test.beforeEach(async ({ page }) => {
     // Set E2E flags before navigation
     await page.addInitScript(() => {
-      (window as any).__E2E_TEST_MODE__ = true;
-      (window as any).__CI_TEST_MODE__ = true;
+      (window as Record<string, unknown>).__E2E_TEST_MODE__ = true;
+      (window as Record<string, unknown>).__CI_TEST_MODE__ = true;
       localStorage.setItem('__E2E_TEST_MODE__', 'true');
       localStorage.setItem('__AUTH_BYPASS__', 'true');
       localStorage.setItem('__CI_TEST_MODE__', 'true');

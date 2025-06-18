@@ -205,7 +205,10 @@ export class ManualReviewQueue {
     // Check for automatic escalation
     await this.checkAutoEscalation(queueItem);
     
-    console.log(`📋 Added item ${id} to review queue (Priority: ${priority}, Risk: ${riskScore.toFixed(2)})`);
+    // Log for development debugging - replace with proper logging in production
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`📋 Added item ${id} to review queue (Priority: ${priority}, Risk: ${riskScore.toFixed(2)})`);
+    }
     
     return queueItem;
   }
@@ -345,7 +348,10 @@ export class ManualReviewQueue {
       item.tags.push(`escalated-level-${item.escalationLevel}`);
     }
     
-    console.log(`✅ Processed review action: ${action.action} for item ${itemId} by ${action.reviewerId}`);
+    // Log for development debugging - replace with proper logging in production
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`✅ Processed review action: ${action.action} for item ${itemId} by ${action.reviewerId}`);
+    }
     
     return { success: true, item };
   }
@@ -363,7 +369,10 @@ export class ManualReviewQueue {
     item.status = 'in-review';
     item.reviewedBy = reviewerId;
     
-    console.log(`👤 Item ${itemId} claimed for review by ${reviewerId}`);
+    // Log for development debugging - replace with proper logging in production
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`👤 Item ${itemId} claimed for review by ${reviewerId}`);
+    }
     
     return true;
   }
@@ -381,7 +390,10 @@ export class ManualReviewQueue {
     item.status = 'pending';
     item.reviewedBy = undefined;
     
-    console.log(`🔄 Item ${itemId} released back to pending status`);
+    // Log for development debugging - replace with proper logging in production
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`🔄 Item ${itemId} released back to pending status`);
+    }
     
     return true;
   }
@@ -398,7 +410,10 @@ export class ManualReviewQueue {
     
     this.queue.delete(itemId);
     
-    console.log(`🗑️ Removed item ${itemId} from queue. Reason: ${reason}`);
+    // Log for development debugging - replace with proper logging in production
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`🗑️ Removed item ${itemId} from queue. Reason: ${reason}`);
+    }
     
     return true;
   }
@@ -509,7 +524,7 @@ export class ManualReviewQueue {
       });
     }
     
-    if (expiredItems.length > 0) {
+    if (expiredItems.length > 0 && process.env.NODE_ENV === 'development') {
       console.log(`⏰ Processed ${expiredItems.length} expired queue items`);
     }
     
@@ -749,7 +764,10 @@ export class ManualReviewQueue {
    */
   static clearQueue(): void {
     this.queue.clear();
-    console.log('🧹 Queue cleared');
+    // Log for development debugging - replace with proper logging in production
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🧹 Queue cleared');
+    }
   }
 }
 

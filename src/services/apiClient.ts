@@ -3,7 +3,10 @@
  * Handles HTTP requests to the backend API server
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+// Use environment variable for API base URL, fallback to current domain for production
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (
+  typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3001'
+);
 
 export class ApiClient {
   private static async request<T>(
@@ -12,30 +15,53 @@ export class ApiClient {
   ): Promise<T> {
     const url = `${API_BASE_URL}${endpoint}`;
     
-    console.log(`Making API request to: ${url}`);
+    // Only log in development
+    if (import.meta.env.DEV) {
+      console.log(`Making API request to: ${url}`);
+    }
+    
+    // Add timeout to all requests
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
     
     const config: RequestInit = {
       headers: {
         'Content-Type': 'application/json',
         ...options.headers,
       },
+      signal: controller.signal,
       ...options,
     };
 
     try {
       const response = await fetch(url, config);
       
-      console.log(`API response status: ${response.status} ${response.statusText}`);
+      if (import.meta.env.DEV) {
+        console.log(`API response status: ${response.status} ${response.statusText}`);
+      }
       
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       
       const data = await response.json();
-      console.log('API response data:', data);
+      if (import.meta.env.DEV) {
+        console.log('API response data:', data);
+      }
+      clearTimeout(timeoutId);
       return data;
     } catch (error) {
-      console.error(`API request failed: ${endpoint}`, error);
+      clearTimeout(timeoutId);
+      
+      if (error instanceof Error && error.name === 'AbortError') {
+        const timeoutError = new Error(`Request timeout: ${endpoint}`);
+        timeoutError.name = 'TimeoutError';
+        throw timeoutError;
+      }
+      
+      if (import.meta.env.DEV) {
+        console.error(`API request failed: ${endpoint}`, error);
+      }
       throw error;
     }
   }

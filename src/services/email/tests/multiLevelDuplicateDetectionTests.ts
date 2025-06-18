@@ -5,8 +5,26 @@
 
 import { MultiLevelDuplicateDetection, type DuplicateDetectionResult, type StoredEmailRecord } from '../multiLevelDuplicateDetection';
 import { EmailIdentificationService } from '../emailIdentificationService';
-import { MOCK_WEALTHSIMPLE_EMAILS, EDGE_CASES } from './mockWealthsimpleEmails';
 import type { WealthsimpleEmailData } from '../wealthsimpleEmailParser';
+
+// Minimal mock data for testing - production builds exclude test files
+const MOCK_WEALTHSIMPLE_EMAILS = {
+  stockBuy: {
+    subject: "Trade Confirmation - AAPL Purchase",
+    from: "notifications@wealthsimple.com",
+    html: "<p>Bought 100 shares of AAPL at $150.25</p>",
+    text: "Bought 100 shares of AAPL at $150.25"
+  }
+};
+
+const EDGE_CASES = {
+  fractionalShares: {
+    subject: "Trade Confirmation",
+    from: "notifications@wealthsimple.com",
+    html: "<p>Bought 0.75 shares</p>",
+    text: "Bought 0.75 shares"
+  }
+};
 
 export interface DetectionTestResult {
   testName: string;

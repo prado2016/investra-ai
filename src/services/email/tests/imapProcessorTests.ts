@@ -5,8 +5,17 @@
 
 import { IMAPProcessorService } from '../imapProcessorService';
 import { IMAPEmailProcessor } from '../imapEmailProcessor';
-import { MOCK_WEALTHSIMPLE_EMAILS } from './mockWealthsimpleEmails';
 import type { IMAPConfig } from '../imapEmailProcessor';
+
+// Minimal mock data for testing - production builds exclude test files
+const MOCK_WEALTHSIMPLE_EMAILS = {
+  stockBuy: {
+    subject: "Trade Confirmation - AAPL Purchase", 
+    from: "notifications@wealthsimple.com",
+    html: "<p>Bought 100 shares of AAPL at $150.25</p>",
+    text: "Bought 100 shares of AAPL at $150.25"
+  }
+};
 
 export interface IMAPTestResult {
   testName: string;

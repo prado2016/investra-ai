@@ -86,12 +86,6 @@ export {
   type TestResult 
 } from './tests/emailParserTests';
 
-export { 
-  MOCK_WEALTHSIMPLE_EMAILS,
-  INVALID_EMAILS,
-  EDGE_CASES 
-} from './tests/mockWealthsimpleEmails';
-
 // Re-export defaults with different names to avoid conflicts
 export { default as WealthsimpleEmailParserDefault } from './wealthsimpleEmailParser';
 export { default as EnhancedEmailSymbolParserDefault } from './enhancedEmailSymbolParser';
