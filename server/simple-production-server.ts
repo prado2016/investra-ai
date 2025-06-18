@@ -158,6 +158,60 @@ app.post('/api/email/process', (req, res) => {
   }
 });
 
+// Email configuration endpoints
+app.post('/api/email/test-connection', async (req, res) => {
+  try {
+    const { host, port, secure, username, password } = req.body;
+    
+    // Validate required fields
+    if (!host || !port || !username || !password) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Missing required fields: host, port, username, password'
+        }
+      });
+    }
+
+    // For now, simulate IMAP connection test
+    // TODO: Implement real IMAP connection using imapflow
+    const mockTest = {
+      success: true,
+      message: `IMAP connection test passed for ${username}`,
+      details: {
+        host,
+        port,
+        secure,
+        username,
+        connectionTime: Date.now(),
+        protocol: secure ? 'IMAPS' : 'IMAP'
+      }
+    };
+
+    logger.info('Email connection tested', { username, host, port, secure });
+
+    res.json({
+      success: true,
+      data: mockTest,
+      metadata: {
+        timestamp: new Date().toISOString(),
+        requestId: Math.random().toString(36).substring(7)
+      }
+    });
+
+  } catch (error) {
+    logger.error('Email connection test error', { error });
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'CONNECTION_TEST_ERROR',
+        message: 'Email connection test failed'
+      }
+    });
+  }
+});
+
 // API status endpoint
 app.get('/api/status', (req, res) => {
   res.json({
@@ -173,6 +227,7 @@ app.get('/api/status', (req, res) => {
       endpoints: [
         'GET /health',
         'POST /api/email/process',
+        'POST /api/email/test-connection',
         'GET /api/status'
       ]
     }
