@@ -1,16 +1,17 @@
 /**
  * Email Processing Hook
  * Manages API calls and state for email processing
+ * Updated to work with simple production server endpoints
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { EmailApiService } from '../services/emailApiService';
+import { SimpleEmailApiService } from '../services/simpleEmailApiService';
 import type {
   EmailProcessingStats,
   IMAPServiceStatus,
   ProcessingQueueItem,
   HealthCheckResponse
-} from '../services/emailApiService';
+} from '../services/simpleEmailApiService';
 import { useNotifications } from './useNotifications';
 
 interface UseEmailProcessingReturn {
@@ -67,7 +68,7 @@ export const useEmailProcessing = (
   const refreshStats = useCallback(async () => {
     try {
       console.log('🔄 Fetching processing stats...');
-      const stats = await EmailApiService.getProcessingStats();
+      const stats = await SimpleEmailApiService.getProcessingStats();
       console.log('✅ Processing stats received:', stats);
       setProcessingStats(stats);
     } catch (apiError) {
@@ -79,7 +80,7 @@ export const useEmailProcessing = (
   const refreshIMAPStatus = useCallback(async () => {
     try {
       console.log('🔄 Fetching IMAP status...');
-      const status = await EmailApiService.getIMAPStatus();
+      const status = await SimpleEmailApiService.getIMAPStatus();
       console.log('✅ IMAP status received:', status);
       setImapStatus(status);
     } catch (apiError) {
@@ -91,7 +92,7 @@ export const useEmailProcessing = (
   const refreshQueue = useCallback(async () => {
     try {
       console.log('🔄 Fetching processing queue...');
-      const queue = await EmailApiService.getProcessingQueue();
+      const queue = await SimpleEmailApiService.getProcessingQueue();
       console.log('✅ Processing queue received:', queue);
       setProcessingQueue(queue);
     } catch (apiError) {
@@ -103,7 +104,7 @@ export const useEmailProcessing = (
   const refreshHealthCheck = useCallback(async () => {
     try {
       console.log('🔄 Fetching health check...');
-      const health = await EmailApiService.getHealthCheck();
+      const health = await SimpleEmailApiService.getHealthCheck();
       console.log('✅ Health check received:', health);
       setHealthCheck(health);
     } catch (apiError) {
@@ -142,7 +143,7 @@ export const useEmailProcessing = (
   const startService = useCallback(async () => {
     setLoading(true);
     try {
-      const status = await EmailApiService.startIMAPService();
+      const status = await SimpleEmailApiService.startIMAPService();
       setImapStatus(status);
       success('Service Started', 'IMAP email service started successfully');
       // Refresh stats after starting
@@ -157,7 +158,7 @@ export const useEmailProcessing = (
   const stopService = useCallback(async () => {
     setLoading(true);
     try {
-      const status = await EmailApiService.stopIMAPService();
+      const status = await SimpleEmailApiService.stopIMAPService();
       setImapStatus(status);
       success('Service Stopped', 'IMAP email service stopped successfully');
       // Refresh stats after stopping
@@ -172,7 +173,7 @@ export const useEmailProcessing = (
   const restartService = useCallback(async () => {
     setLoading(true);
     try {
-      const status = await EmailApiService.restartIMAPService();
+      const status = await SimpleEmailApiService.restartIMAPService();
       setImapStatus(status);
       success('Service Restarted', 'IMAP email service restarted successfully');
       // Refresh all data after restart
@@ -187,7 +188,7 @@ export const useEmailProcessing = (
   const processNow = useCallback(async () => {
     setLoading(true);
     try {
-      await EmailApiService.processEmailsNow();
+      await SimpleEmailApiService.processEmailsNow();
       success('Processing Started', 'Manual email processing initiated');
       // Refresh queue and stats after processing
       await Promise.all([refreshQueue(), refreshStats()]);

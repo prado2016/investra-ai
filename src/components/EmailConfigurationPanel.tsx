@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Button } from './ui';
+import { EmailConfigurationService } from '../services/emailConfigurationService';
+import type { EmailProvider } from '../lib/database/types';
 
 interface EmailConfig {
   host: string;
@@ -28,39 +30,99 @@ export const EmailConfigurationPanel: React.FC = () => {
 
   // Load saved configuration on component mount
   useEffect(() => {
-    const savedConfig = localStorage.getItem(STORAGE_KEY);
-    if (savedConfig) {
+    const loadConfigurations = async () => {
       try {
-        const parsed = JSON.parse(savedConfig);
-        setConfig(prev => ({ ...prev, ...parsed, password: '' })); // Don't persist password
-        setLastSavedConfig(parsed);
+        const result = await EmailConfigurationService.getConfigurations();
+        if (result.success && result.data && result.data.length > 0) {
+          const savedConfig = result.data[0]; // Use first configuration
+          const configToLoad = {
+            host: savedConfig.imap_host,
+            port: savedConfig.imap_port,
+            user: savedConfig.email_address,
+            password: '', // Never load password from storage
+            secure: savedConfig.imap_secure
+          };
+          setConfig(prev => ({ ...prev, ...configToLoad }));
+          setLastSavedConfig(configToLoad);
+        }
       } catch (error) {
-        console.warn('Failed to load saved email configuration:', error);
+        console.warn('Failed to load email configurations from database:', error);
+        
+        // Fallback to localStorage for backward compatibility
+        const savedConfig = localStorage.getItem(STORAGE_KEY);
+        if (savedConfig) {
+          try {
+            const parsed = JSON.parse(savedConfig);
+            setConfig(prev => ({ ...prev, ...parsed, password: '' })); // Don't persist password
+            setLastSavedConfig(parsed);
+          } catch (error) {
+            console.warn('Failed to load saved email configuration:', error);
+          }
+        }
       }
-    }
+    };
+    
+    loadConfigurations();
   }, []);
 
   const saveConfiguration = async () => {
     setSaving(true);
     try {
-      // TODO: Replace localStorage with database service
-      // For now, keep localStorage as fallback
-      const configToSave = { ...config, password: '' };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(configToSave));
-      setLastSavedConfig(configToSave);
-      
-      // Future: Use EmailConfigurationService.createConfiguration() here
-      await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API call
-      
-      setTestResult({
-        success: true,
-        message: 'Configuration saved successfully!'
+      // Determine provider from host
+      let provider: EmailProvider = 'custom';
+      if (config.host.includes('gmail')) {
+        provider = 'gmail';
+      } else if (config.host.includes('outlook')) {
+        provider = 'outlook';
+      } else if (config.host.includes('yahoo')) {
+        provider = 'yahoo';
+      }
+
+      // Try to save to database first
+      const result = await EmailConfigurationService.createConfiguration({
+        name: `${config.user} Configuration`,
+        provider,
+        imap_host: config.host,
+        imap_port: config.port,
+        imap_secure: config.secure,
+        email_address: config.user,
+        password: config.password, // Will be encrypted by service
+        auto_import_enabled: true
       });
+      
+      if (result.success) {
+        const configToSave = { ...config, password: '' };
+        setLastSavedConfig(configToSave);
+        
+        // Keep localStorage as backup
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(configToSave));
+        
+        setTestResult({
+          success: true,
+          message: 'Configuration saved to database successfully!'
+        });
+      } else {
+        throw new Error(result.error || 'Failed to save configuration');
+      }
     } catch (error) {
-      setTestResult({
-        success: false,
-        message: 'Failed to save configuration: ' + (error instanceof Error ? error.message : 'Unknown error')
-      });
+      console.warn('Database save failed, falling back to localStorage:', error);
+      
+      // Fallback to localStorage
+      try {
+        const configToSave = { ...config, password: '' };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(configToSave));
+        setLastSavedConfig(configToSave);
+        
+        setTestResult({
+          success: true,
+          message: 'Configuration saved locally (database unavailable)'
+        });
+      } catch (fallbackError) {
+        setTestResult({
+          success: false,
+          message: 'Failed to save configuration: ' + (error instanceof Error ? error.message : 'Unknown error')
+        });
+      }
     } finally {
       setSaving(false);
     }
