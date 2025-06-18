@@ -170,28 +170,29 @@ jobs:
     - name: Setup SSL certificates
       run: |
         cd ~/investra-email-server
-        ADMIN_EMAIL="${{ secrets[needs.determine-environment.outputs.admin-email-secret] }}"
+        
+        # Make SSL setup script executable
+        chmod +x setup-ssl.sh
+        
+        # Run the improved SSL setup script in automated mode
+        ADMIN_EMAIL="${{ secrets[needs.determine-environment.outputs.admin-email-secret] }}" \
+        HOSTNAME="${{ needs.determine-environment.outputs.hostname }}" \
+        EMAIL_DOMAIN="${{ env.EMAIL_DOMAIN }}" \
+        ./setup-ssl.sh auto
+
+    - name: Verify SSL certificates
+      run: |
+        cd ~/investra-email-server
         HOSTNAME="${{ needs.determine-environment.outputs.hostname }}"
         
-        if ! command -v certbot &> /dev/null; then
-          sudo dnf install -y epel-release certbot
-        fi
-        
-        mkdir -p docker-data/dms/certs/$HOSTNAME
-        
-        if [ ! -f "docker-data/dms/certs/$HOSTNAME/fullchain.pem" ]; then
-          sudo systemctl stop httpd nginx apache2 2>/dev/null || true
-          
-          sudo certbot certonly --standalone \
-            --non-interactive \
-            --agree-tos \
-            --email $ADMIN_EMAIL \
-            -d $HOSTNAME || echo "SSL certificate generation failed, continuing..."
-            
-          if [ -d "/etc/letsencrypt/live/$HOSTNAME" ]; then
-            sudo cp /etc/letsencrypt/live/$HOSTNAME/* docker-data/dms/certs/$HOSTNAME/
-            sudo chown -R $(whoami):$(whoami) docker-data/dms/certs/
-          fi
+        if [ -f "docker-data/dms/certs/$HOSTNAME/fullchain.pem" ] && [ -f "docker-data/dms/certs/$HOSTNAME/privkey.pem" ]; then
+          echo "✅ SSL certificates are present"
+          openssl x509 -in docker-data/dms/certs/$HOSTNAME/fullchain.pem -noout -subject -dates
+        else
+          echo "❌ SSL certificates are missing"
+          echo "📋 Available certificate files:"
+          ls -la docker-data/dms/certs/$HOSTNAME/ || echo "Certificate directory not found"
+          exit 1
         fi
 
     - name: Setup email accounts
