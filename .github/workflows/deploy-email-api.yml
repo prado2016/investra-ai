@@ -1,0 +1,175 @@
+name: Deploy Email API Server (Self-Hosted)
+
+on:
+  push:
+    branches: [ main, master, develop, staging ]
+    paths:
+      - 'server/**'
+      - '.github/workflows/deploy-email-api.yml'
+  pull_request:
+    branches: [ main, master ]
+    paths:
+      - 'server/**'
+      - '.github/workflows/deploy-email-api.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'development'
+        type: choice
+        options:
+          - development
+          - staging
+          - production
+
+env:
+  API_PORT: 3001
+  SERVICE_NAME: investra-email-api
+  SERVER_DIR: /opt/investra/email-api
+
+jobs:
+  determine-environment:
+    name: Determine Environment
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.env.outputs.environment }}
+      api-port: ${{ steps.env.outputs.api-port }}
+      service-name: ${{ steps.env.outputs.service-name }}
+      server-dir: ${{ steps.env.outputs.server-dir }}
+      pm2-instances: ${{ steps.env.outputs.pm2-instances }}
+    
+    steps:
+    - name: Determine environment and configuration
+      id: env
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          ENVIRONMENT="${{ github.event.inputs.environment }}"
+        elif [ "${{ github.event_name }}" = "pull_request" ]; then
+          ENVIRONMENT="staging"
+        else
+          case "${{ github.ref_name }}" in
+            main|master) ENVIRONMENT="production" ;;
+            staging) ENVIRONMENT="staging" ;;
+            develop|development) ENVIRONMENT="development" ;;
+            *) ENVIRONMENT="development" ;;
+          esac
+        fi
+        
+        echo "environment=$ENVIRONMENT" >> $GITHUB_OUTPUT
+        
+        case "$ENVIRONMENT" in
+          production)
+            echo "api-port=3001" >> $GITHUB_OUTPUT
+            echo "service-name=investra-email-api-prod" >> $GITHUB_OUTPUT
+            echo "server-dir=/opt/investra/email-api-prod" >> $GITHUB_OUTPUT
+            echo "pm2-instances=2" >> $GITHUB_OUTPUT
+            ;;
+          staging)
+            echo "api-port=3002" >> $GITHUB_OUTPUT
+            echo "service-name=investra-email-api-staging" >> $GITHUB_OUTPUT
+            echo "server-dir=/opt/investra/email-api-staging" >> $GITHUB_OUTPUT
+            echo "pm2-instances=1" >> $GITHUB_OUTPUT
+            ;;
+          development)
+            echo "api-port=3003" >> $GITHUB_OUTPUT
+            echo "service-name=investra-email-api-dev" >> $GITHUB_OUTPUT
+            echo "server-dir=/opt/investra/email-api-dev" >> $GITHUB_OUTPUT
+            echo "pm2-instances=1" >> $GITHUB_OUTPUT
+            ;;
+        esac
+
+  deploy-email-api:
+    name: Deploy Email API Server
+    runs-on: self-hosted
+    needs: determine-environment
+    environment: ${{ needs.determine-environment.outputs.environment }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Debug environment
+      run: |
+        echo "Environment: ${{ needs.determine-environment.outputs.environment }}"
+        echo "API Port: ${{ needs.determine-environment.outputs.api-port }}"
+        echo "Service Name: ${{ needs.determine-environment.outputs.service-name }}"
+        echo "Server Directory: ${{ needs.determine-environment.outputs.server-dir }}"
+        echo "Current user: $(whoami)"
+        echo "Server IP: $(hostname -I | awk '{print $1}')"
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: 'server/package-lock.json'
+
+    - name: Prepare for deployment
+      run: |
+        echo "📋 Preparing for API server deployment"
+        
+        # Create deployment working directory
+        mkdir -p ~/investra-email-api-deployment
+        
+        # Copy server files
+        cp -r server/* ~/investra-email-api-deployment/
+        
+        echo "✅ Deployment preparation complete"
+
+    - name: Deploy application
+      run: |
+        cd ~/investra-email-server
+        
+        # Copy server files to deployment location
+        cp -r server ~/investra-email-api-deployment
+        cd ~/investra-email-api-deployment
+        
+        # Make deployment script executable
+        chmod +x deploy-api-server.sh
+        
+        # Run deployment with environment variables
+        ENVIRONMENT="${{ needs.determine-environment.outputs.environment }}" \
+        SERVICE_NAME="${{ needs.determine-environment.outputs.service-name }}" \
+        API_PORT="${{ needs.determine-environment.outputs.api-port }}" \
+        SERVER_DIR="${{ needs.determine-environment.outputs.server-dir }}" \
+        EMAIL_HOST="${{ secrets.EMAIL_HOST }}" \
+        EMAIL_PORT="${{ secrets.EMAIL_PORT }}" \
+        EMAIL_USER="${{ secrets.EMAIL_USER }}" \
+        EMAIL_PASSWORD="${{ secrets.EMAIL_PASSWORD }}" \
+        IMAP_HOST="${{ secrets.IMAP_HOST }}" \
+        IMAP_PORT="${{ secrets.IMAP_PORT }}" \
+        IMAP_USER="${{ secrets.IMAP_USER }}" \
+        IMAP_PASSWORD="${{ secrets.IMAP_PASSWORD }}" \
+        DATABASE_URL="${{ secrets.DATABASE_URL }}" \
+        SUPABASE_URL="${{ secrets.SUPABASE_URL }}" \
+        SUPABASE_ANON_KEY="${{ secrets.SUPABASE_ANON_KEY }}" \
+        SUPABASE_SERVICE_KEY="${{ secrets.SUPABASE_SERVICE_KEY }}" \
+        ./deploy-api-server.sh deploy
+
+    - name: Verify deployment
+      run: |
+        cd ~/investra-email-api-deployment
+        
+        # Run status check through deployment script
+        ./deploy-api-server.sh status
+        
+        # Additional verification
+        echo ""
+        echo "🔍 Additional deployment verification:"
+        
+        # Check if application is responding
+        if timeout 30 bash -c 'until curl -f http://localhost:${{ needs.determine-environment.outputs.api-port }}/health; do sleep 2; done'; then
+          echo "✅ API health check passed"
+        else
+          echo "⚠️ API health check failed or timed out"
+        fi
+        
+        # Check Nginx proxy if configured
+        if command -v nginx &> /dev/null && systemctl is-active --quiet nginx; then
+          if curl -f http://localhost/health &>/dev/null; then
+            echo "✅ Nginx proxy working"
+          else
+            echo "⚠️ Nginx proxy not responding"
+          fi
+        fi
