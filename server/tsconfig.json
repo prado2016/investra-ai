@@ -26,7 +26,9 @@
   "include": [
     "server-ts.ts",
     "simple-production-server.ts",
+    "standalone-enhanced-server.ts",
     "simple-email-server.ts",
+    "monitoring-service.ts",
     "routes/**/*.ts",
     "types/**/*.ts",
     "src/types/*.ts"
@@ -42,7 +44,9 @@
     "../src/lib",
     "../src/utils",
     "../src/pages",
-    "../src/services/mockSupabaseService.ts",
+    "../src/services",
+    "enhanced-production-server.ts",
+    "production-server.ts",
     "**/*.test.ts",
     "**/*.spec.ts"
   ]

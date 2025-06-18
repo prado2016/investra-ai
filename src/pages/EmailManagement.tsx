@@ -297,7 +297,7 @@ const EmailManagementPage: React.FC = () => {
                   <strong>IMAP Server:</strong> {process.env.REACT_APP_IMAP_HOST || 'localhost'}:{process.env.REACT_APP_IMAP_PORT || '993'} (SSL)<br />
                   <strong>Email Account:</strong> {process.env.REACT_APP_IMAP_USER || 'transactions@investra.com'}<br />
                   <strong>Status:</strong> <span style={{ color: safeImapStatus.healthy ? '#10b981' : '#6b7280' }}>
-                    {safeImapStatus.healthy ? 'Connected' : 'Simple Server Mode'}
+                    {safeImapStatus.healthy ? 'Connected' : 'Enhanced Server Mode'}
                   </span>
                   {!safeImapStatus.healthy && (
                     <div style={{ 
@@ -309,7 +309,7 @@ const EmailManagementPage: React.FC = () => {
                       color: '#374151',
                       border: '1px solid #d1d5db'
                     }}>
-                      ℹ️ Running simple production server. IMAP email processing requires the enhanced server. Email configuration still works for testing connections.
+                      ℹ️ Enhanced production server with real IMAP processing. Service may be stopped - use controls above to start.
                     </div>
                   )}
                 </div>

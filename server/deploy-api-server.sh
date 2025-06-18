@@ -6,7 +6,10 @@
 set -e
 
 # Configuration
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${B      name: '${SERVICE_NAME}',
+      script: 'dist/standalone-enhanced-server.js',
+      cwd: '${SERVER_DIR}',
+      instances: '${PM2_INSTANCES}',SOURCE[0]}")" && pwd)"
 SERVICE_NAME="${SERVICE_NAME:-investra-email-api}"
 ENVIRONMENT="${ENVIRONMENT:-development}"
 API_PORT="${API_PORT:-3001}"

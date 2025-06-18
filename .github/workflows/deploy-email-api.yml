@@ -137,10 +137,14 @@ jobs:
         IMAP_PORT="${{ secrets.IMAP_PORT }}" \
         IMAP_USER="${{ secrets.IMAP_USER }}" \
         IMAP_PASSWORD="${{ secrets.IMAP_PASSWORD }}" \
+        IMAP_SECURE="${{ secrets.IMAP_SECURE || 'true' }}" \
+        IMAP_ENABLED="${{ secrets.IMAP_ENABLED || 'true' }}" \
         DATABASE_URL="${{ secrets.DATABASE_URL }}" \
         SUPABASE_URL="${{ secrets.SUPABASE_URL }}" \
         SUPABASE_ANON_KEY="${{ secrets.SUPABASE_ANON_KEY }}" \
         SUPABASE_SERVICE_KEY="${{ secrets.SUPABASE_SERVICE_KEY }}" \
+        NODE_ENV="${{ needs.determine-environment.outputs.environment }}" \
+        LOG_LEVEL="${{ secrets.LOG_LEVEL || 'info' }}" \
         ./deploy-api-server.sh deploy
 
     - name: Fix PM2 configuration
@@ -162,7 +166,7 @@ jobs:
           apps: [
             {
               name: '${SERVICE_NAME}',
-              script: 'dist/simple-production-server.js',  // Ensure this points to the correct script
+              script: 'dist/standalone-enhanced-server.js',  // Enhanced server with real IMAP processing
               cwd: '${SERVER_DIR}',
               instances: '${PM2_INSTANCES}',
               exec_mode: 'cluster',

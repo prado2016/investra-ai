@@ -6,12 +6,14 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { SimpleEmailApiService } from '../services/simpleEmailApiService';
+import { EnhancedEmailApiService } from '../services/enhancedEmailApiService';
 import type {
   EmailProcessingStats,
   IMAPServiceStatus,
   ProcessingQueueItem,
   HealthCheckResponse
 } from '../services/simpleEmailApiService';
+import type { HealthCheckResponse as EnhancedHealthCheckResponse } from '../services/enhancedEmailApiService';
 import { useNotifications } from './useNotifications';
 
 interface UseEmailProcessingReturn {
@@ -49,6 +51,7 @@ export const useEmailProcessing = (
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+  const [isEnhancedServer, setIsEnhancedServer] = useState<boolean>(false);
   
   // Data
   const [processingStats, setProcessingStats] = useState<EmailProcessingStats | null>(null);
@@ -64,42 +67,74 @@ export const useEmailProcessing = (
     console.error(`Email processing API error (${operation}):`, apiError);
   }, [notifyError]);
 
+  // Detect which server type we're using
+  const detectServerType = useCallback(async () => {
+    try {
+      // Try enhanced server endpoints first
+      const response = await fetch('/api/imap/status');
+      if (response.ok) {
+        const data = await response.json();
+        // Enhanced server returns more detailed status
+        if (data.data?.config || data.data?.lastSync !== undefined) {
+          setIsEnhancedServer(true);
+          console.log('✅ Detected enhanced production server');
+          return;
+        }
+      }
+      
+      // Fall back to simple server
+      setIsEnhancedServer(false);
+      console.log('📦 Using simple production server');
+    } catch (error) {
+      setIsEnhancedServer(false);
+      console.log('📦 Defaulting to simple production server');
+    }
+  }, []);
+
+  // Get the appropriate API service
+  const getApiService = useCallback(() => {
+    return isEnhancedServer ? EnhancedEmailApiService : SimpleEmailApiService;
+  }, [isEnhancedServer]);
+
   // Refresh individual data sources
   const refreshStats = useCallback(async () => {
     try {
       console.log('🔄 Fetching processing stats...');
-      const stats = await SimpleEmailApiService.getProcessingStats();
+      const ApiService = getApiService();
+      const stats = await ApiService.getProcessingStats();
       console.log('✅ Processing stats received:', stats);
       setProcessingStats(stats);
     } catch (apiError) {
       console.error('❌ Failed to fetch processing stats:', apiError);
       handleApiError(apiError, 'fetch processing stats');
     }
-  }, [handleApiError]);
+  }, [handleApiError, getApiService]);
 
   const refreshIMAPStatus = useCallback(async () => {
     try {
       console.log('🔄 Fetching IMAP status...');
-      const status = await SimpleEmailApiService.getIMAPStatus();
+      const ApiService = getApiService();
+      const status = await ApiService.getIMAPStatus();
       console.log('✅ IMAP status received:', status);
       setImapStatus(status);
     } catch (apiError) {
       console.error('❌ Failed to fetch IMAP status:', apiError);
       handleApiError(apiError, 'fetch IMAP status');
     }
-  }, [handleApiError]);
+  }, [handleApiError, getApiService]);
 
   const refreshQueue = useCallback(async () => {
     try {
       console.log('🔄 Fetching processing queue...');
-      const queue = await SimpleEmailApiService.getProcessingQueue();
+      const ApiService = getApiService();
+      const queue = await ApiService.getProcessingQueue();
       console.log('✅ Processing queue received:', queue);
       setProcessingQueue(queue);
     } catch (apiError) {
       console.error('❌ Failed to fetch processing queue:', apiError);
       handleApiError(apiError, 'fetch processing queue');
     }
-  }, [handleApiError]);
+  }, [handleApiError, getApiService]);
 
   const refreshHealthCheck = useCallback(async () => {
     try {

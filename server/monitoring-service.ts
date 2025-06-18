@@ -454,4 +454,4 @@ class ServiceMonitor extends EventEmitter {
   }
 }
 
-export { ServiceMonitor, MonitoringConfig };
+export { ServiceMonitor };
