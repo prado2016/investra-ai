@@ -147,26 +147,29 @@ jobs:
       run: |
         cd ~/investra-email-api-deployment
         
-        # Create corrected PM2 ecosystem configuration
-        echo "🔧 Fixing PM2 ecosystem configuration..."
+        echo "🔧 Preparing corrected PM2 ecosystem configuration..."
         
-        # Backup original config
-        cp ecosystem.config.js ecosystem.config.js.backup
+        # Remove any existing PM2 config files to ensure clean deployment
+        rm -f ecosystem.*.config.js ecosystem.config.js
         
-        # Create corrected configuration with proper paths
-        cat > ecosystem.config.js << 'EOF'
+        # Create a corrected PM2 configuration template that the deploy script will use
+        # This ensures the configuration uses the correct script path and environment settings
+        
+        cat > pm2-template.js << 'EOF'
+        // Template for PM2 configuration
+        // This will be used by the deployment script to generate the correct config
         module.exports = {
           apps: [
             {
-              name: '${{ needs.determine-environment.outputs.service-name }}',
-              script: 'dist/simple-production-server.js',
-              cwd: '${{ needs.determine-environment.outputs.server-dir }}',
-              instances: ${{ needs.determine-environment.outputs.pm2-instances }},
+              name: '${SERVICE_NAME}',
+              script: 'dist/simple-production-server.js',  // Ensure this points to the correct script
+              cwd: '${SERVER_DIR}',
+              instances: '${PM2_INSTANCES}',
               exec_mode: 'cluster',
               
               env: {
-                NODE_ENV: '${{ needs.determine-environment.outputs.environment }}',
-                PORT: ${{ needs.determine-environment.outputs.api-port }},
+                NODE_ENV: '${ENVIRONMENT}',
+                PORT: '${API_PORT}',
                 LOG_LEVEL: 'info'
               },
               
@@ -190,7 +193,7 @@ jobs:
                 '--enable-source-maps'
               ],
               
-              env_file: '.env.${{ needs.determine-environment.outputs.environment }}',
+              env_file: '.env.${ENVIRONMENT}',
               kill_timeout: 5000,
               listen_timeout: 3000,
               treekill: true
@@ -199,20 +202,15 @@ jobs:
         };
         EOF
         
-        # Copy corrected config to deployment directory
-        cp ecosystem.config.js "${{ needs.determine-environment.outputs.server-dir }}/"
-        
-        # Restart PM2 with corrected configuration
-        cd "${{ needs.determine-environment.outputs.server-dir }}"
-        pm2 delete all || true
-        pm2 start ecosystem.config.js
-        pm2 save
-        
-        echo "✅ PM2 configuration fixed and applied"
+        echo "✅ PM2 configuration template prepared"
+        echo "📁 The deployment script will handle creating the final configuration"
 
     - name: Verify deployment
       run: |
         cd ~/investra-email-api-deployment
+        
+        # Wait a moment for PM2 to stabilize
+        sleep 10
         
         # Run status check through deployment script
         ./deploy-api-server.sh status
