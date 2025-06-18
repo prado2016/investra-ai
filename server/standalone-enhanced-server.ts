@@ -12,6 +12,9 @@ import 'winston-daily-rotate-file';
 import { ImapFlow } from 'imapflow';
 import { ServiceMonitor } from './monitoring-service';
 
+// Server-specific email processing will be implemented inline
+// to avoid frontend dependencies
+
 dotenv.config();
 
 const app = express();
@@ -90,6 +93,29 @@ let processingStats = {
   processingTimes: [] as number[]
 };
 
+// Server-specific IMAP configuration interface
+interface ServerIMAPConfig {
+  host: string;
+  port: number;
+  secure: boolean;
+  username: string;
+  password: string;
+  enabled: boolean;
+}
+
+// IMAP status tracking
+let imapStatus = {
+  status: 'stopped' as 'stopped' | 'starting' | 'running' | 'error',
+  lastError: null as string | null,
+  connectedAt: null as string | null,
+  stats: {
+    totalEmails: 0,
+    processedEmails: 0,
+    failedEmails: 0,
+    lastCheckAt: null as string | null
+  }
+};
+
 /**
  * Initialize Winston logger with production configuration
  */
@@ -159,34 +185,57 @@ function createResponse<T>(
 }
 
 /**
- * Initialize IMAP service
+ * Initialize IMAP service using direct ImapFlow connection
  */
 async function initializeIMAPService(): Promise<boolean> {
   try {
-    const imapConfig: IMAPConfig = {
+    // Get IMAP configuration from environment
+    const config: ServerIMAPConfig = {
       host: process.env.IMAP_HOST || '',
       port: parseInt(process.env.IMAP_PORT || '993'),
       secure: process.env.IMAP_SECURE !== 'false',
-      auth: {
-        user: process.env.IMAP_USER || '',
-        pass: process.env.IMAP_PASS || ''
-      }
+      username: process.env.IMAP_USERNAME || '',
+      password: process.env.IMAP_PASSWORD || '',
+      enabled: process.env.IMAP_ENABLED === 'true'
     };
-
-    if (!imapConfig.host || !imapConfig.auth.user || !imapConfig.auth.pass) {
+    
+    if (!config.enabled || !config.host || !config.username || !config.password) {
       logger.warn('IMAP configuration incomplete, running in email-only mode');
+      imapStatus.status = 'stopped';
       return false;
     }
 
-    imapClient = new ImapFlow(imapConfig);
-    
+    // Initialize IMAP client
+    imapStatus.status = 'starting';
+    imapClient = new ImapFlow({
+      host: config.host,
+      port: config.port,
+      secure: config.secure,
+      auth: {
+        user: config.username,
+        pass: config.password
+      },
+      logger: false
+    });
+
     // Test connection
     await imapClient.connect();
     await imapClient.logout();
     
-    logger.info('IMAP service initialized successfully');
+    imapStatus.status = 'running';
+    imapStatus.connectedAt = new Date().toISOString();
+    imapStatus.lastError = null;
+    
+    logger.info('IMAP service initialized successfully', {
+      host: config.host,
+      port: config.port,
+      username: config.username
+    });
+    
     return true;
   } catch (error) {
+    imapStatus.status = 'error';
+    imapStatus.lastError = error instanceof Error ? error.message : 'Unknown error';
     logger.error('Failed to initialize IMAP service:', error);
     return false;
   }
@@ -328,8 +377,28 @@ app.get('/health', async (req, res) => {
       memory: process.memoryUsage(),
       environment: NODE_ENV,
       services: {
-        imap: imapClient ? 'connected' : 'not_configured',
-        monitoring: serviceMonitor ? 'active' : 'inactive'
+        imap: imapClient ? 'configured' : 'not_configured',
+        imapStatus: imapStatus.status,
+        monitoring: serviceMonitor ? 'active' : 'inactive',
+        emailProcessing: 'available'
+      },
+      endpoints: {
+        email: {
+          'POST /api/email/process': 'Process single email',
+          'GET /api/email/stats': 'Get processing statistics'
+        },
+        management: {
+          'GET /api/email/import/jobs': 'List import jobs',
+          'POST /api/email/import/jobs': 'Create import job',
+          'GET /api/email/review/queue': 'Get review queue'
+        },
+        imap: {
+          'GET /api/imap/status': 'Get IMAP service status',
+          'POST /api/imap/start': 'Start IMAP service',
+          'POST /api/imap/stop': 'Stop IMAP service',
+          'POST /api/imap/restart': 'Restart IMAP service',
+          'POST /api/imap/process-now': 'Process emails manually'
+        }
       }
     };
 
@@ -375,13 +444,21 @@ app.post('/api/process-email', async (req, res) => {
   }
 });
 
-// Get IMAP service status
-app.get('/api/imap/status', (req, res) => {
+// Get IMAP service status using direct status tracking
+app.get('/api/imap/status', async (req, res) => {
   const requestId = req.requestId;
   
   try {
-    const status = getIMAPServiceStatus();
-    res.json(createResponse(status, true, requestId));
+    const statusData = {
+      status: imapStatus.status,
+      healthy: imapStatus.status === 'running',
+      uptime: imapStatus.connectedAt ? 
+        Math.floor((Date.now() - new Date(imapStatus.connectedAt).getTime()) / 1000) : 0,
+      lastError: imapStatus.lastError,
+      stats: imapStatus.stats
+    };
+
+    res.json(createResponse(statusData, true, requestId));
   } catch (error) {
     logger.error('IMAP status endpoint error:', error);
     res.status(500).json(createResponse(
@@ -416,30 +493,27 @@ app.post('/api/imap/start', async (req, res) => {
   const requestId = req.requestId;
   
   try {
-    if (imapClient) {
-      return res.json(createResponse(
-        { message: 'IMAP service already running' },
-        true,
-        requestId
-      ));
+    if (imapStatus.status === 'running') {
+      return res.json(createResponse({
+        status: 'running',
+        message: 'IMAP service is already running'
+      }, true, requestId));
     }
 
     const initialized = await initializeIMAPService();
-    
-    if (initialized) {
-      res.json(createResponse(
-        { message: 'IMAP service started successfully' },
-        true,
-        requestId
-      ));
-    } else {
-      res.status(500).json(createResponse(
+    if (!initialized) {
+      return res.status(500).json(createResponse(
         null,
         false,
         requestId,
-        'Failed to start IMAP service'
+        'Failed to initialize IMAP service'
       ));
     }
+
+    res.json(createResponse({
+      status: imapStatus.status,
+      message: 'IMAP service started successfully'
+    }, true, requestId));
   } catch (error) {
     logger.error('IMAP start endpoint error:', error);
     res.status(500).json(createResponse(
@@ -458,14 +532,15 @@ app.post('/api/imap/stop', async (req, res) => {
     if (imapClient) {
       await imapClient.logout();
       imapClient = null;
-      logger.info('IMAP service stopped');
     }
+    
+    imapStatus.status = 'stopped';
+    imapStatus.connectedAt = null;
 
-    res.json(createResponse(
-      { message: 'IMAP service stopped' },
-      true,
-      requestId
-    ));
+    res.json(createResponse({
+      status: 'stopped',
+      message: 'IMAP service stopped successfully'
+    }, true, requestId));
   } catch (error) {
     logger.error('IMAP stop endpoint error:', error);
     res.status(500).json(createResponse(
@@ -473,6 +548,180 @@ app.post('/api/imap/stop', async (req, res) => {
       false,
       requestId,
       'Error stopping IMAP service'
+    ));
+  }
+});
+
+app.post('/api/imap/restart', async (req, res) => {
+  const requestId = req.requestId;
+  
+  try {
+    // Stop first
+    if (imapClient) {
+      await imapClient.logout();
+      imapClient = null;
+    }
+    
+    // Start again
+    const initialized = await initializeIMAPService();
+    if (!initialized) {
+      return res.status(500).json(createResponse(
+        null,
+        false,
+        requestId,
+        'Failed to restart IMAP service'
+      ));
+    }
+
+    res.json(createResponse({
+      status: imapStatus.status,
+      message: 'IMAP service restarted successfully'
+    }, true, requestId));
+  } catch (error) {
+    logger.error('IMAP restart endpoint error:', error);
+    res.status(500).json(createResponse(
+      null,
+      false,
+      requestId,
+      'Error restarting IMAP service'
+    ));
+  }
+});
+
+app.post('/api/imap/process-now', async (req, res) => {
+  const requestId = req.requestId;
+  
+  try {
+    // Simple implementation - just return success for now
+    res.json(createResponse({
+      processed: 0,
+      message: 'Manual email processing triggered (placeholder implementation)'
+    }, true, requestId));
+  } catch (error) {
+    logger.error('IMAP process-now endpoint error:', error);
+    res.status(500).json(createResponse(
+      null,
+      false,
+      requestId,
+      'Error processing emails manually'
+    ));
+  }
+});
+
+// Email Management API endpoints - simplified mock implementations
+app.get('/api/email/import/jobs', async (req, res) => {
+  const requestId = req.requestId;
+  
+  try {
+    // Return empty list for now
+    res.json(createResponse({
+      jobs: [],
+      total: 0,
+      page: 1,
+      pageSize: 20
+    }, true, requestId));
+  } catch (error) {
+    logger.error('Import jobs endpoint error:', error);
+    res.status(500).json(createResponse(
+      null,
+      false,
+      requestId,
+      'Error retrieving import jobs'
+    ));
+  }
+});
+
+app.post('/api/email/import/jobs', async (req, res) => {
+  const requestId = req.requestId;
+  
+  try {
+    // Simple mock implementation
+    res.status(201).json(createResponse({
+      id: Date.now(),
+      status: 'created',
+      message: 'Import job created (placeholder implementation)'
+    }, true, requestId));
+  } catch (error) {
+    logger.error('Create import job endpoint error:', error);
+    res.status(500).json(createResponse(
+      null,
+      false,
+      requestId,
+      'Error creating import job'
+    ));
+  }
+});
+
+app.get('/api/email/review/queue', async (req, res) => {
+  const requestId = req.requestId;
+  
+  try {
+    // Return empty queue for now
+    res.json(createResponse({
+      queue: [],
+      total: 0,
+      page: 1,
+      pageSize: 20
+    }, true, requestId));
+  } catch (error) {
+    logger.error('Review queue endpoint error:', error);
+    res.status(500).json(createResponse(
+      null,
+      false,
+      requestId,
+      'Error retrieving review queue'
+    ));
+  }
+});
+
+app.post('/api/email/process', async (req, res) => {
+  const requestId = req.requestId;
+  
+  try {
+    const result = await processEmailContent(req.body);
+    
+    if (result.success) {
+      res.json(createResponse(result, true, requestId));
+    } else {
+      res.status(422).json(createResponse(
+        null,
+        false,
+        requestId,
+        result.error || 'Failed to process email'
+      ));
+    }
+  } catch (error) {
+    logger.error('Process email endpoint error:', error);
+    res.status(500).json(createResponse(
+      null,
+      false,
+      requestId,
+      'Error processing email'
+    ));
+  }
+});
+
+app.get('/api/email/stats', async (req, res) => {
+  const requestId = req.requestId;
+  
+  try {
+    res.json(createResponse({
+      totalProcessed: processingStats.totalProcessed,
+      successful: processingStats.successfullyProcessed,
+      failed: processingStats.failed,
+      duplicates: 0,
+      reviewRequired: processingStats.pending,
+      averageProcessingTime: processingStats.processingTimes.length > 0 ?
+        processingStats.processingTimes.reduce((a, b) => a + b, 0) / processingStats.processingTimes.length : 0,
+      lastProcessedAt: processingStats.lastProcessedAt
+    }, true, requestId));
+  } catch (error) {
+    logger.error('Email stats endpoint error:', error);
+    res.status(500).json(createResponse(
+      null,
+      false,
+      requestId,
+      'Error retrieving email statistics'
     ));
   }
 });

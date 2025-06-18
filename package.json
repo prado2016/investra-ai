@@ -41,6 +41,7 @@
     "imapflow": "^1.0.188",
     "lucide-react": "^0.511.0",
     "mailparser": "^3.7.3",
+    "node-fetch": "^3.3.2",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-router-dom": "^6.30.1",

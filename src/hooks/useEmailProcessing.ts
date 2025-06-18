@@ -70,24 +70,37 @@ export const useEmailProcessing = (
   // Detect which server type we're using
   const detectServerType = useCallback(async () => {
     try {
-      // Try enhanced server endpoints first
-      const response = await fetch('/api/imap/status');
+      // Try enhanced server endpoints first - check health endpoint for enhanced features
+      const response = await fetch('/health');
       if (response.ok) {
         const data = await response.json();
-        // Enhanced server returns more detailed status
-        if (data.data?.config || data.data?.lastSync !== undefined) {
+        
+        // Enhanced server returns detailed endpoint information
+        if (data.data?.endpoints?.imap || data.data?.services?.emailProcessing) {
           setIsEnhancedServer(true);
-          console.log('✅ Detected enhanced production server');
+          console.log('✅ Detected enhanced production server with real IMAP capabilities');
+          return;
+        }
+      }
+      
+      // Try IMAP status endpoint as fallback
+      const imapResponse = await fetch('/api/imap/status');
+      if (imapResponse.ok) {
+        const imapData = await imapResponse.json();
+        // Enhanced server returns structured IMAP status
+        if (imapData.data && typeof imapData.data === 'object') {
+          setIsEnhancedServer(true);
+          console.log('✅ Detected enhanced production server via IMAP endpoint');
           return;
         }
       }
       
       // Fall back to simple server
       setIsEnhancedServer(false);
-      console.log('📦 Using simple production server');
+      console.log('📦 Using simple production server (mock data mode)');
     } catch (error) {
       setIsEnhancedServer(false);
-      console.log('📦 Defaulting to simple production server');
+      console.log('📦 Defaulting to simple production server due to detection error:', error);
     }
   }, []);
 
