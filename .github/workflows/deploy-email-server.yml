@@ -139,14 +139,43 @@ jobs:
           exit 1
         fi
         
+        # Write SSH key to file
         echo "$SSH_KEY" > ~/.ssh/id_rsa
         chmod 600 ~/.ssh/id_rsa
         
-        # Test SSH key format
-        if ! ssh-keygen -l -f ~/.ssh/id_rsa; then
-          echo "❌ Invalid SSH key format"
+        # Debug SSH key format
+        echo "🔍 Debugging SSH key format..."
+        echo "First few characters of SSH key:"
+        head -c 50 ~/.ssh/id_rsa
+        echo ""
+        echo "Last few characters of SSH key:"
+        tail -c 50 ~/.ssh/id_rsa
+        echo ""
+        
+        # Check if it's a private key
+        if grep -q "BEGIN.*PRIVATE KEY" ~/.ssh/id_rsa; then
+          echo "✅ SSH private key detected"
+        elif grep -q "BEGIN OPENSSH PRIVATE KEY" ~/.ssh/id_rsa; then
+          echo "✅ OpenSSH private key detected"
+        else
+          echo "❌ Invalid SSH key format detected"
+          echo "Expected format: -----BEGIN [RSA|OPENSSH] PRIVATE KEY-----"
+          echo "Actual content preview:"
+          head -n 3 ~/.ssh/id_rsa
+          echo "..."
+          tail -n 3 ~/.ssh/id_rsa
           exit 1
         fi
+        
+        # Test SSH key format (more forgiving check)
+        if ssh-keygen -l -f ~/.ssh/id_rsa 2>/dev/null; then
+          echo "✅ SSH key format validated successfully"
+        else
+          echo "⚠️  SSH key format validation failed, but continuing..."
+          echo "This might be due to newer key formats or special characters"
+          echo "Testing SSH connection will verify if the key works..."
+        fi
+        
         echo "✅ SSH key setup completed"
 
     - name: Add RHEL VM to known hosts
@@ -164,6 +193,39 @@ jobs:
         echo "🔍 Adding host '$VM_HOST' to known_hosts..."
         ssh-keyscan -H "$VM_HOST" >> ~/.ssh/known_hosts
         echo "✅ Host key added successfully"
+
+    - name: Test SSH connection
+      run: |
+        # Set up connection variables
+        VM_HOST="${{ secrets[needs.determine-environment.outputs.vm-host-secret] }}"
+        VM_USER="${{ secrets[needs.determine-environment.outputs.vm-user-secret] }}"
+        
+        if [ -z "$VM_HOST" ] || [ -z "$VM_USER" ]; then
+          echo "❌ Missing VM connection secrets"
+          exit 1
+        fi
+        
+        echo "🔐 Testing SSH connection to $VM_USER@$VM_HOST"
+        
+        # Test SSH connection with timeout
+        if ssh -i ~/.ssh/id_rsa -o ConnectTimeout=15 -o StrictHostKeyChecking=no -o BatchMode=yes "$VM_USER@$VM_HOST" "echo 'SSH connection successful'" 2>/dev/null; then
+          echo "✅ SSH connection test passed"
+        else
+          echo "❌ SSH connection test failed"
+          echo "Common issues:"
+          echo "1. SSH key format is incorrect"
+          echo "2. SSH key doesn't match the server"
+          echo "3. Username is incorrect"
+          echo "4. Server is not accessible"
+          echo "5. Firewall blocking SSH (port 22)"
+          echo ""
+          echo "Please verify:"
+          echo "- RHEL_SSH_KEY contains the correct private key"
+          echo "- RHEL_USER is the correct username for the server"
+          echo "- RHEL_HOST is the correct IP/hostname"
+          echo "- The server is running and accessible"
+          exit 1
+        fi
 
     - name: Install Podman on RHEL VM
       run: |
@@ -212,7 +274,17 @@ jobs:
 
     - name: Configure firewall for email server
       run: |
-        ssh ${{ secrets.RHEL_USER }}@${{ secrets.RHEL_HOST }} << 'EOF'
+        # Set up connection variables
+        VM_HOST="${{ secrets[needs.determine-environment.outputs.vm-host-secret] }}"
+        VM_USER="${{ secrets[needs.determine-environment.outputs.vm-user-secret] }}"
+        
+        if [ -z "$VM_HOST" ] || [ -z "$VM_USER" ]; then
+          echo "❌ Missing VM connection secrets"
+          exit 1
+        fi
+        
+        echo "🔥 Configuring firewall on $VM_HOST"
+        ssh -i ~/.ssh/id_rsa "$VM_USER@$VM_HOST" << 'EOF'
           # Configure firewall for email services
           echo "Configuring firewall..."
           
@@ -461,11 +533,11 @@ jobs:
               --cert-path docker-data/dms/certs/$HOSTNAME/cert.pem \
               --key-path docker-data/dms/certs/$HOSTNAME/privkey.pem \
               --fullchain-path docker-data/dms/certs/$HOSTNAME/fullchain.pem \
-              --chain-path docker-data/dms/certs/${{ env.EMAIL_HOSTNAME }}/chain.pem
+              --chain-path docker-data/dms/certs/$HOSTNAME/chain.pem
               
             # Copy certificates to docker directory
-            sudo cp /etc/letsencrypt/live/${{ env.EMAIL_HOSTNAME }}/* docker-data/dms/certs/${{ env.EMAIL_HOSTNAME }}/
-            sudo chown -R $(whoami):$(whoami) docker-data/dms/certs/
+            sudo cp /etc/letsencrypt/live/$HOSTNAME/* docker-data/dms/certs/$HOSTNAME/
+            sudo chown -R \$(whoami):\$(whoami) docker-data/dms/certs/
             
             echo "SSL certificates obtained"
           else
@@ -577,7 +649,17 @@ jobs:
 
     - name: Setup monitoring and logging
       run: |
-        ssh ${{ secrets.RHEL_USER }}@${{ secrets.RHEL_HOST }} << 'EOF'
+        # Set up connection variables
+        VM_HOST="${{ secrets[needs.determine-environment.outputs.vm-host-secret] }}"
+        VM_USER="${{ secrets[needs.determine-environment.outputs.vm-user-secret] }}"
+        
+        if [ -z "$VM_HOST" ] || [ -z "$VM_USER" ]; then
+          echo "❌ Missing VM connection secrets"
+          exit 1
+        fi
+        
+        echo "📊 Setting up monitoring and logging on $VM_HOST"
+        ssh -i ~/.ssh/id_rsa "$VM_USER@$VM_HOST" << EOF
           cd ~/investra-email-server
           
           # Create monitoring script
@@ -624,7 +706,7 @@ jobs:
         LOGROTATEEOF
           
           # Create systemd service for email server
-          sudo tee /etc/systemd/system/investra-email.service << 'SYSTEMDEOF'
+          sudo tee /etc/systemd/system/investra-email.service << SYSTEMDEOF
         [Unit]
         Description=Investra Email Server
         Wants=network-online.target
@@ -633,8 +715,8 @@ jobs:
         [Service]
         Type=oneshot
         RemainAfterExit=yes
-        User=${{ secrets.RHEL_USER }}
-        WorkingDirectory=/home/${{ secrets.RHEL_USER }}/investra-email-server
+        User=$VM_USER
+        WorkingDirectory=/home/$VM_USER/investra-email-server
         ExecStart=/usr/bin/podman start investra-mailserver investra-roundcube
         ExecStop=/usr/bin/podman stop investra-mailserver investra-roundcube
         TimeoutStartSec=300
@@ -652,7 +734,17 @@ jobs:
 
     - name: Create backup script
       run: |
-        ssh ${{ secrets.RHEL_USER }}@${{ secrets.RHEL_HOST }} << 'EOF'
+        # Set up connection variables
+        VM_HOST="${{ secrets[needs.determine-environment.outputs.vm-host-secret] }}"
+        VM_USER="${{ secrets[needs.determine-environment.outputs.vm-user-secret] }}"
+        
+        if [ -z "$VM_HOST" ] || [ -z "$VM_USER" ]; then
+          echo "❌ Missing VM connection secrets"
+          exit 1
+        fi
+        
+        echo "💾 Creating backup script on $VM_HOST"
+        ssh -i ~/.ssh/id_rsa "$VM_USER@$VM_HOST" << EOF
           cd ~/investra-email-server
           
           # Create backup script
