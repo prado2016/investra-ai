@@ -139,33 +139,50 @@ jobs:
           exit 1
         fi
         
-        # Write SSH key to file
-        echo "$SSH_KEY" > ~/.ssh/id_rsa
-        chmod 600 ~/.ssh/id_rsa
+        # Write SSH key to file and fix format if needed
+        echo "$SSH_KEY" > ~/.ssh/id_rsa_raw
+        chmod 600 ~/.ssh/id_rsa_raw
         
         # Debug SSH key format
         echo "🔍 Debugging SSH key format..."
         echo "First few characters of SSH key:"
-        head -c 50 ~/.ssh/id_rsa
+        head -c 50 ~/.ssh/id_rsa_raw
         echo ""
         echo "Last few characters of SSH key:"
-        tail -c 50 ~/.ssh/id_rsa
+        tail -c 50 ~/.ssh/id_rsa_raw
         echo ""
         
-        # Check if it's a private key
-        if grep -q "BEGIN.*PRIVATE KEY" ~/.ssh/id_rsa; then
-          echo "✅ SSH private key detected"
-        elif grep -q "BEGIN OPENSSH PRIVATE KEY" ~/.ssh/id_rsa; then
-          echo "✅ OpenSSH private key detected"
+        # Check if it's a properly formatted private key
+        if grep -q "BEGIN.*PRIVATE KEY" ~/.ssh/id_rsa_raw; then
+          echo "✅ SSH private key with proper headers detected"
+          cp ~/.ssh/id_rsa_raw ~/.ssh/id_rsa
+        elif grep -q "BEGIN OPENSSH PRIVATE KEY" ~/.ssh/id_rsa_raw; then
+          echo "✅ OpenSSH private key with proper headers detected"
+          cp ~/.ssh/id_rsa_raw ~/.ssh/id_rsa
+        elif [[ $(head -c 20 ~/.ssh/id_rsa_raw) == "b3BlbnNzaC1rZXktdjE"* ]]; then
+          echo "🔧 Detected base64 OpenSSH key without headers - fixing format..."
+          # Add proper OpenSSH private key headers
+          echo "-----BEGIN OPENSSH PRIVATE KEY-----" > ~/.ssh/id_rsa
+          cat ~/.ssh/id_rsa_raw >> ~/.ssh/id_rsa
+          echo "-----END OPENSSH PRIVATE KEY-----" >> ~/.ssh/id_rsa
+          echo "✅ SSH key format fixed"
         else
           echo "❌ Invalid SSH key format detected"
-          echo "Expected format: -----BEGIN [RSA|OPENSSH] PRIVATE KEY-----"
+          echo "Expected formats:"
+          echo "1. -----BEGIN RSA PRIVATE KEY----- ... -----END RSA PRIVATE KEY-----"
+          echo "2. -----BEGIN OPENSSH PRIVATE KEY----- ... -----END OPENSSH PRIVATE KEY-----"
+          echo "3. Base64 encoded OpenSSH key (will be auto-fixed)"
+          echo ""
           echo "Actual content preview:"
-          head -n 3 ~/.ssh/id_rsa
+          head -n 3 ~/.ssh/id_rsa_raw
           echo "..."
-          tail -n 3 ~/.ssh/id_rsa
+          tail -n 3 ~/.ssh/id_rsa_raw
+          echo ""
+          echo "Please check your RHEL_SSH_KEY secret in GitHub repository settings"
           exit 1
         fi
+        
+        chmod 600 ~/.ssh/id_rsa
         
         # Test SSH key format (more forgiving check)
         if ssh-keygen -l -f ~/.ssh/id_rsa 2>/dev/null; then
