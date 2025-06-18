@@ -34,10 +34,14 @@ const logger = winston.createLogger({
 app.use(cors({
   origin: [
     'http://localhost:5173',
+    'http://10.0.0.89',
+    'http://10.0.0.89:80',
     'https://investra.com',
     'https://app.investra.com'
   ],
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
 }));
 
 app.use(express.json({ limit: '50mb' }));
