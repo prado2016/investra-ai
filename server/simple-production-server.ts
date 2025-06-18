@@ -12,7 +12,7 @@ import winston from 'winston';
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = parseInt(process.env.PORT || '3001', 10);
 const NODE_ENV = process.env.NODE_ENV || 'production';
 
 // Initialize logger
@@ -268,18 +268,20 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 
 // Start server
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   logger.info('Server started', {
     port: PORT,
     environment: NODE_ENV,
+    host: '0.0.0.0',
     endpoints: [
-      `http://localhost:${PORT}/health`,
-      `http://localhost:${PORT}/api/status`,
-      `http://localhost:${PORT}/api/email/process`
+      `http://0.0.0.0:${PORT}/health`,
+      `http://0.0.0.0:${PORT}/api/status`,
+      `http://0.0.0.0:${PORT}/api/email/process`
     ]
   });
   
   console.log(`🚀 Simple production server running on port ${PORT}`);
   console.log(`📊 Environment: ${NODE_ENV}`);
-  console.log(`🔗 Health check: http://localhost:${PORT}/health`);
+  console.log(`🌐 Server accessible from all interfaces on 0.0.0.0:${PORT}`);
+  console.log(`🔗 Health check: http://0.0.0.0:${PORT}/health`);
 });
