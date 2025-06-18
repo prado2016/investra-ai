@@ -117,22 +117,67 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Debug environment and secrets
+      run: |
+        echo "=== Environment Debug Information ==="
+        echo "Environment: ${{ needs.determine-environment.outputs.environment }}"
+        echo "Hostname: ${{ needs.determine-environment.outputs.hostname }}"
+        echo "VM Host Secret Name: ${{ needs.determine-environment.outputs.vm-host-secret }}"
+        echo "VM User Secret Name: ${{ needs.determine-environment.outputs.vm-user-secret }}"
+        echo "VM Key Secret Name: ${{ needs.determine-environment.outputs.vm-key-secret }}"
+        echo "=== End Debug ==="
+
     - name: Setup SSH key
       run: |
         mkdir -p ~/.ssh
-        echo "${{ secrets[needs.determine-environment.outputs.vm-key-secret] }}" > ~/.ssh/id_rsa
+        
+        # Check if SSH key secret exists and is not empty
+        SSH_KEY="${{ secrets[needs.determine-environment.outputs.vm-key-secret] }}"
+        if [ -z "$SSH_KEY" ]; then
+          echo "❌ SSH key secret '${{ needs.determine-environment.outputs.vm-key-secret }}' is empty or doesn't exist"
+          echo "Please ensure the secret is properly configured in GitHub repository settings"
+          exit 1
+        fi
+        
+        echo "$SSH_KEY" > ~/.ssh/id_rsa
         chmod 600 ~/.ssh/id_rsa
+        
         # Test SSH key format
-        ssh-keygen -l -f ~/.ssh/id_rsa || echo "SSH key format check completed"
+        if ! ssh-keygen -l -f ~/.ssh/id_rsa; then
+          echo "❌ Invalid SSH key format"
+          exit 1
+        fi
+        echo "✅ SSH key setup completed"
 
     - name: Add RHEL VM to known hosts
       run: |
         mkdir -p ~/.ssh
-        ssh-keyscan -H ${{ secrets[needs.determine-environment.outputs.vm-host-secret] }} >> ~/.ssh/known_hosts
+        
+        # Check if host secret exists and is not empty
+        VM_HOST="${{ secrets[needs.determine-environment.outputs.vm-host-secret] }}"
+        if [ -z "$VM_HOST" ]; then
+          echo "❌ VM host secret '${{ needs.determine-environment.outputs.vm-host-secret }}' is empty or doesn't exist"
+          echo "Please ensure the secret is properly configured in GitHub repository settings"
+          exit 1
+        fi
+        
+        echo "🔍 Adding host '$VM_HOST' to known_hosts..."
+        ssh-keyscan -H "$VM_HOST" >> ~/.ssh/known_hosts
+        echo "✅ Host key added successfully"
 
     - name: Install Podman on RHEL VM
       run: |
-        ssh -i ~/.ssh/id_rsa ${{ secrets[needs.determine-environment.outputs.vm-user-secret] }}@${{ secrets[needs.determine-environment.outputs.vm-host-secret] }} << 'EOF'
+        # Set up connection variables
+        VM_HOST="${{ secrets[needs.determine-environment.outputs.vm-host-secret] }}"
+        VM_USER="${{ secrets[needs.determine-environment.outputs.vm-user-secret] }}"
+        
+        if [ -z "$VM_HOST" ] || [ -z "$VM_USER" ]; then
+          echo "❌ Missing VM connection secrets"
+          exit 1
+        fi
+        
+        echo "🔗 Connecting to $VM_USER@$VM_HOST"
+        ssh -i ~/.ssh/id_rsa -o ConnectTimeout=30 -o StrictHostKeyChecking=no "$VM_USER@$VM_HOST" << 'EOF'
           # Update system
           sudo dnf update -y
           
@@ -201,34 +246,57 @@ jobs:
 
     - name: Create email server directory and copy files
       run: |
-        # Create directory on remote server
-        ssh ${{ secrets.RHEL_USER }}@${{ secrets.RHEL_HOST }} "mkdir -p ~/investra-email-server"
+        # Set up connection variables
+        VM_HOST="${{ secrets[needs.determine-environment.outputs.vm-host-secret] }}"
+        VM_USER="${{ secrets[needs.determine-environment.outputs.vm-user-secret] }}"
         
+        if [ -z "$VM_HOST" ] || [ -z "$VM_USER" ]; then
+          echo "❌ Missing VM connection secrets"
+          exit 1
+        fi
+        
+        echo "📁 Creating email server directory on $VM_HOST"
+        # Create directory on remote server
+        ssh -i ~/.ssh/id_rsa "$VM_USER@$VM_HOST" "mkdir -p ~/investra-email-server"
+        
+        echo "📤 Copying email server files to $VM_HOST"
         # Copy email server files
-        scp -r email-server/* ${{ secrets.RHEL_USER }}@${{ secrets.RHEL_HOST }}:~/investra-email-server/
+        scp -i ~/.ssh/id_rsa -r email-server/* "$VM_USER@$VM_HOST:~/investra-email-server/"
+        echo "✅ Files copied successfully"
 
     - name: Configure email server environment
       run: |
-        ssh ${{ secrets.RHEL_USER }}@${{ secrets.RHEL_HOST }} << 'EOF'
+        # Set up connection variables
+        VM_HOST="${{ secrets[needs.determine-environment.outputs.vm-host-secret] }}"
+        VM_USER="${{ secrets[needs.determine-environment.outputs.vm-user-secret] }}"
+        EMAIL_PASSWORD="${{ secrets[needs.determine-environment.outputs.email-password-secret] }}"
+        
+        if [ -z "$VM_HOST" ] || [ -z "$VM_USER" ] || [ -z "$EMAIL_PASSWORD" ]; then
+          echo "❌ Missing required secrets"
+          exit 1
+        fi
+        
+        echo "⚙️  Configuring email server environment on $VM_HOST"
+        ssh -i ~/.ssh/id_rsa "$VM_USER@$VM_HOST" << EOF
           cd ~/investra-email-server
           
           # Create environment file with production settings
           cat > .env << 'ENVEOF'
         # Production Email Server Configuration
-        HOSTNAME=${{ env.EMAIL_HOSTNAME }}
+        HOSTNAME=${{ needs.determine-environment.outputs.hostname }}
         DOMAINNAME=${{ env.EMAIL_DOMAIN }}
         
         # Email Credentials
-        MAILSERVER_USER=${{ env.EMAIL_USER }}
-        MAILSERVER_PASS=${{ secrets.EMAIL_PASSWORD }}
+        MAILSERVER_USER=${{ needs.determine-environment.outputs.email-user }}
+        MAILSERVER_PASS=$EMAIL_PASSWORD
         
         # IMAP Connection Details
-        IMAP_HOST=${{ secrets.RHEL_HOST }}
+        IMAP_HOST=$VM_HOST
         IMAP_PORT=993
         IMAP_TLS=true
         
         # SMTP Configuration  
-        SMTP_HOST=${{ secrets.RHEL_HOST }}
+        SMTP_HOST=$VM_HOST
         SMTP_PORT=587
         SMTP_TLS=true
         
@@ -242,7 +310,17 @@ jobs:
 
     - name: Update docker-compose for production
       run: |
-        ssh ${{ secrets.RHEL_USER }}@${{ secrets.RHEL_HOST }} << 'EOF'
+        # Set up connection variables
+        VM_HOST="${{ secrets[needs.determine-environment.outputs.vm-host-secret] }}"
+        VM_USER="${{ secrets[needs.determine-environment.outputs.vm-user-secret] }}"
+        
+        if [ -z "$VM_HOST" ] || [ -z "$VM_USER" ]; then
+          echo "❌ Missing VM connection secrets"
+          exit 1
+        fi
+        
+        echo "🐳 Updating docker-compose configuration on $VM_HOST"
+        ssh -i ~/.ssh/id_rsa "$VM_USER@$VM_HOST" << EOF
           cd ~/investra-email-server
           
           # Update docker-compose.yml for production
@@ -252,7 +330,7 @@ jobs:
         services:
           mailserver:
             image: ghcr.io/docker-mailserver/docker-mailserver:latest
-            hostname: ${{ env.EMAIL_HOSTNAME }}
+            hostname: ${{ needs.determine-environment.outputs.hostname }}
             domainname: ${{ env.EMAIL_DOMAIN }}
             ports:
               - "25:25"    # SMTP
@@ -277,8 +355,8 @@ jobs:
               
               # Security Settings
               - SSL_TYPE=manual
-              - SSL_CERT_PATH=/etc/letsencrypt/live/${{ env.EMAIL_HOSTNAME }}/fullchain.pem
-              - SSL_KEY_PATH=/etc/letsencrypt/live/${{ env.EMAIL_HOSTNAME }}/privkey.pem
+              - SSL_CERT_PATH=/etc/letsencrypt/live/${{ needs.determine-environment.outputs.hostname }}/fullchain.pem
+              - SSL_KEY_PATH=/etc/letsencrypt/live/${{ needs.determine-environment.outputs.hostname }}/privkey.pem
               - TLS_LEVEL=modern
               - ENABLE_SRS=1
               
@@ -342,7 +420,19 @@ jobs:
 
     - name: Setup SSL certificates with Let's Encrypt
       run: |
-        ssh ${{ secrets.RHEL_USER }}@${{ secrets.RHEL_HOST }} << 'EOF'
+        # Set up connection variables
+        VM_HOST="${{ secrets[needs.determine-environment.outputs.vm-host-secret] }}"
+        VM_USER="${{ secrets[needs.determine-environment.outputs.vm-user-secret] }}"
+        ADMIN_EMAIL="${{ secrets[needs.determine-environment.outputs.admin-email-secret] }}"
+        HOSTNAME="${{ needs.determine-environment.outputs.hostname }}"
+        
+        if [ -z "$VM_HOST" ] || [ -z "$VM_USER" ] || [ -z "$ADMIN_EMAIL" ] || [ -z "$HOSTNAME" ]; then
+          echo "❌ Missing required secrets for SSL setup"
+          exit 1
+        fi
+        
+        echo "🔒 Setting up SSL certificates on $VM_HOST"
+        ssh -i ~/.ssh/id_rsa "$VM_USER@$VM_HOST" << EOF
           cd ~/investra-email-server
           
           # Install certbot if not present
@@ -353,10 +443,10 @@ jobs:
           fi
           
           # Create SSL certificate directory
-          mkdir -p docker-data/dms/certs/${{ env.EMAIL_HOSTNAME }}
+          mkdir -p docker-data/dms/certs/$HOSTNAME
           
           # Check if certificates already exist
-          if [ ! -f "docker-data/dms/certs/${{ env.EMAIL_HOSTNAME }}/fullchain.pem" ]; then
+          if [ ! -f "docker-data/dms/certs/$HOSTNAME/fullchain.pem" ]; then
             echo "Obtaining SSL certificate..."
             
             # Stop any services using port 80
@@ -366,11 +456,11 @@ jobs:
             sudo certbot certonly --standalone \
               --non-interactive \
               --agree-tos \
-              --email ${{ secrets.ADMIN_EMAIL }} \
-              -d ${{ env.EMAIL_HOSTNAME }} \
-              --cert-path docker-data/dms/certs/${{ env.EMAIL_HOSTNAME }}/cert.pem \
-              --key-path docker-data/dms/certs/${{ env.EMAIL_HOSTNAME }}/privkey.pem \
-              --fullchain-path docker-data/dms/certs/${{ env.EMAIL_HOSTNAME }}/fullchain.pem \
+              --email $ADMIN_EMAIL \
+              -d $HOSTNAME \
+              --cert-path docker-data/dms/certs/$HOSTNAME/cert.pem \
+              --key-path docker-data/dms/certs/$HOSTNAME/privkey.pem \
+              --fullchain-path docker-data/dms/certs/$HOSTNAME/fullchain.pem \
               --chain-path docker-data/dms/certs/${{ env.EMAIL_HOSTNAME }}/chain.pem
               
             # Copy certificates to docker directory
@@ -388,7 +478,19 @@ jobs:
 
     - name: Run email server setup
       run: |
-        ssh ${{ secrets.RHEL_USER }}@${{ secrets.RHEL_HOST }} << 'EOF'
+        # Set up connection variables
+        VM_HOST="${{ secrets[needs.determine-environment.outputs.vm-host-secret] }}"
+        VM_USER="${{ secrets[needs.determine-environment.outputs.vm-user-secret] }}"
+        EMAIL_PASSWORD="${{ secrets[needs.determine-environment.outputs.email-password-secret] }}"
+        EMAIL_USER="${{ needs.determine-environment.outputs.email-user }}"
+        
+        if [ -z "$VM_HOST" ] || [ -z "$VM_USER" ] || [ -z "$EMAIL_PASSWORD" ] || [ -z "$EMAIL_USER" ]; then
+          echo "❌ Missing required secrets for email setup"
+          exit 1
+        fi
+        
+        echo "⚙️  Running email server setup on $VM_HOST"
+        ssh -i ~/.ssh/id_rsa "$VM_USER@$VM_HOST" << EOF
           cd ~/investra-email-server
           
           # Make scripts executable
@@ -398,14 +500,24 @@ jobs:
           ./setup.sh
           
           # Update email account with production password
-          echo "${{ env.EMAIL_USER }}|{PLAIN}${{ secrets.EMAIL_PASSWORD }}" > docker-data/dms/config/postfix-accounts.cf
+          echo "$EMAIL_USER|{PLAIN}$EMAIL_PASSWORD" > docker-data/dms/config/postfix-accounts.cf
           
           echo "Email server setup completed"
         EOF
 
     - name: Start email server
       run: |
-        ssh ${{ secrets.RHEL_USER }}@${{ secrets.RHEL_HOST }} << 'EOF'
+        # Set up connection variables
+        VM_HOST="${{ secrets[needs.determine-environment.outputs.vm-host-secret] }}"
+        VM_USER="${{ secrets[needs.determine-environment.outputs.vm-user-secret] }}"
+        
+        if [ -z "$VM_HOST" ] || [ -z "$VM_USER" ]; then
+          echo "❌ Missing VM connection secrets"
+          exit 1
+        fi
+        
+        echo "🚀 Starting email server on $VM_HOST"
+        ssh -i ~/.ssh/id_rsa "$VM_USER@$VM_HOST" << EOF
           cd ~/investra-email-server
           
           # Start email server
@@ -429,7 +541,17 @@ jobs:
 
     - name: Test email server connectivity
       run: |
-        ssh ${{ secrets.RHEL_USER }}@${{ secrets.RHEL_HOST }} << 'EOF'
+        # Set up connection variables
+        VM_HOST="${{ secrets[needs.determine-environment.outputs.vm-host-secret] }}"
+        VM_USER="${{ secrets[needs.determine-environment.outputs.vm-user-secret] }}"
+        
+        if [ -z "$VM_HOST" ] || [ -z "$VM_USER" ]; then
+          echo "❌ Missing VM connection secrets"
+          exit 1
+        fi
+        
+        echo "🧪 Testing email server connectivity on $VM_HOST"
+        ssh -i ~/.ssh/id_rsa "$VM_USER@$VM_HOST" << EOF
           cd ~/investra-email-server
           
           echo "Testing email server connectivity..."
@@ -566,14 +688,26 @@ jobs:
           chmod +x backup-email.sh
           
           # Add to crontab for daily backups
-          (crontab -l 2>/dev/null; echo "0 1 * * * /home/${{ secrets.RHEL_USER }}/investra-email-server/backup-email.sh") | crontab -
+          (crontab -l 2>/dev/null; echo "0 1 * * * /home/$VM_USER/investra-email-server/backup-email.sh") | crontab -
           
           echo "Backup script created and scheduled"
         EOF
 
     - name: Display deployment summary
       run: |
-        ssh ${{ secrets.RHEL_USER }}@${{ secrets.RHEL_HOST }} << 'EOF'
+        # Set up connection variables
+        VM_HOST="${{ secrets[needs.determine-environment.outputs.vm-host-secret] }}"
+        VM_USER="${{ secrets[needs.determine-environment.outputs.vm-user-secret] }}"
+        EMAIL_USER="${{ needs.determine-environment.outputs.email-user }}"
+        HOSTNAME="${{ needs.determine-environment.outputs.hostname }}"
+        
+        if [ -z "$VM_HOST" ] || [ -z "$VM_USER" ]; then
+          echo "❌ Missing VM connection secrets"
+          exit 1
+        fi
+        
+        echo "📊 Displaying deployment summary from $VM_HOST"
+        ssh -i ~/.ssh/id_rsa "$VM_USER@$VM_HOST" << EOF
           cd ~/investra-email-server
           
           echo "============================================"
@@ -581,14 +715,14 @@ jobs:
           echo "============================================"
           echo ""
           echo "🌐 Server Details:"
-          echo "   Email Server: ${{ env.EMAIL_HOSTNAME }}"
-          echo "   IP Address: ${{ secrets.RHEL_HOST }}"
-          echo "   Email Account: ${{ env.EMAIL_USER }}"
+          echo "   Email Server: $HOSTNAME"
+          echo "   IP Address: $VM_HOST"
+          echo "   Email Account: $EMAIL_USER"
           echo ""
           echo "📧 Connection Settings:"
-          echo "   IMAP: ${{ secrets.RHEL_HOST }}:993 (SSL)"
-          echo "   SMTP: ${{ secrets.RHEL_HOST }}:587 (STARTTLS)"
-          echo "   Web Interface: http://${{ secrets.RHEL_HOST }}:8080"
+          echo "   IMAP: $VM_HOST:993 (SSL)"
+          echo "   SMTP: $VM_HOST:587 (STARTTLS)"
+          echo "   Web Interface: http://$VM_HOST:8080"
           echo ""
           echo "🔧 Management Commands:"
           echo "   Status: cd ~/investra-email-server && podman compose ps"
@@ -598,8 +732,8 @@ jobs:
           echo "   Backup: cd ~/investra-email-server && ./backup-email.sh"
           echo ""
           echo "📋 Next Steps:"
-          echo "   1. Update DNS MX record to point to ${{ secrets.RHEL_HOST }}"
-          echo "   2. Configure Wealthsimple to send emails to ${{ env.EMAIL_USER }}"
+          echo "   1. Update DNS MX record to point to $VM_HOST"
+          echo "   2. Configure Wealthsimple to send emails to $EMAIL_USER"
           echo "   3. Test email reception"
           echo "   4. Monitor logs and performance"
           echo ""
@@ -609,10 +743,13 @@ jobs:
     - name: Send deployment notification
       if: success()
       run: |
-        echo "Email server deployed successfully to RHEL VM"
-        echo "Server: ${{ secrets.RHEL_HOST }}"
-        echo "Email: ${{ env.EMAIL_USER }}"
-        echo "Web Interface: http://${{ secrets.RHEL_HOST }}:8080"
+        VM_HOST="${{ secrets[needs.determine-environment.outputs.vm-host-secret] }}"
+        EMAIL_USER="${{ needs.determine-environment.outputs.email-user }}"
+        
+        echo "✅ Email server deployed successfully to RHEL VM"
+        echo "Server: $VM_HOST"
+        echo "Email: $EMAIL_USER"
+        echo "Web Interface: http://$VM_HOST:8080"
 
     - name: Handle deployment failure
       if: failure()
