@@ -211,25 +211,36 @@ jobs:
     - name: Start email server
       run: |
         cd ~/investra-email-server
-        echo "🚀 Starting email server"
         
-        podman compose down 2>/dev/null || true
-        podman compose pull
-        podman compose up -d
+        # Make startup script executable
+        chmod +x start-mailserver.sh
         
-        echo "Waiting for services..."
-        sleep 30
-        podman compose ps
+        # Run the improved startup script in automated mode
+        EMAIL_PASSWORD="${{ secrets[needs.determine-environment.outputs.email-password-secret] }}" \
+        HOSTNAME="${{ needs.determine-environment.outputs.hostname }}" \
+        EMAIL_DOMAIN="${{ env.EMAIL_DOMAIN }}" \
+        EMAIL_USER="${{ needs.determine-environment.outputs.email-user }}" \
+        ./start-mailserver.sh auto
 
-    - name: Test connectivity
+    - name: Verify email server
       run: |
         cd ~/investra-email-server
-        echo "🧪 Testing connectivity"
         
-        timeout 5 bash -c "</dev/tcp/localhost/25" && echo "✅ SMTP" || echo "❌ SMTP"
-        timeout 5 bash -c "</dev/tcp/localhost/587" && echo "✅ SMTP-Sub" || echo "❌ SMTP-Sub" 
-        timeout 5 bash -c "</dev/tcp/localhost/993" && echo "✅ IMAPS" || echo "❌ IMAPS"
-        timeout 5 bash -c "</dev/tcp/localhost/8080" && echo "✅ Web" || echo "❌ Web"
+        # Additional verification after startup
+        echo "🔍 Verifying email server deployment..."
+        
+        # Check container status
+        podman ps --filter "name=mailserver"
+        
+        # Check logs for any errors
+        echo ""
+        echo "📋 Recent logs:"
+        podman logs --tail 20 mailserver || echo "No logs available yet"
+        
+        # Run connectivity test
+        echo ""
+        echo "🧪 Running additional connectivity tests..."
+        ./start-mailserver.sh test
 
     - name: Setup monitoring
       run: |
