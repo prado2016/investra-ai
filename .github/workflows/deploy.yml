@@ -323,13 +323,10 @@ jobs:
             exit 1
           fi
           
-          # Ensure files are readable by the service user
-          sudo chmod -R 644 /opt/investra-email-server/*
-          sudo chmod +x /opt/investra-email-server/*.js
-          
-          # Install production dependencies
+          # Install production dependencies first (while user still owns directory)
           cd /opt/investra-email-server
-          npm install --only=production
+          npm install --omit=dev
+          echo "✅ Node modules installed"
           
           # Create systemd service file
           sudo tee /etc/systemd/system/investra-email-server.service > /dev/null << 'EOF'
@@ -359,11 +356,12 @@ jobs:
             sudo useradd -r -s /bin/false investra
           fi
           
-          # Set proper ownership and permissions for the service
+          # Set proper ownership and permissions for the service (after npm install)
           sudo chown -R investra:investra /opt/investra-email-server
           sudo chmod -R 755 /opt/investra-email-server
           sudo chmod 644 /opt/investra-email-server/.env
           sudo chmod +x /opt/investra-email-server/*.js
+          sudo chmod -R 755 /opt/investra-email-server/node_modules
           
           # Reload systemd and start service
           sudo systemctl daemon-reload
