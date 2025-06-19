@@ -763,41 +763,41 @@ const EmailProcessingStatusDisplay: React.FC<EmailProcessingStatusDisplayProps> 
             </Card>
           ) : (
             processingQueue.map((item) => (
-              <QueueItem key={item.id}>
+              <QueueItem key={item?.id || Math.random()}>
                 <QueueItemHeader>
-                  <QueueItemTitle>{item.emailSubject}</QueueItemTitle>
-                  <QueueItemStatus $status={item.status}>
-                    {getStatusIcon(item.status)}
-                    {item.status.replace('-', ' ').toUpperCase()}
+                  <QueueItemTitle>{item?.emailSubject || 'Unknown Email'}</QueueItemTitle>
+                  <QueueItemStatus $status={item?.status}>
+                    {getStatusIcon(item?.status)}
+                    {item?.status?.replace('-', ' ').toUpperCase() || 'UNKNOWN'}
                   </QueueItemStatus>
                 </QueueItemHeader>
                 
                 <ProgressBar>
-                  <ProgressFill $percentage={item.progress.percentage} />
+                  <ProgressFill $percentage={item.progress?.percentage || 0} />
                 </ProgressBar>
                 
                 <StagesList>
-                  <Stage $status={item.stages.parsing}>
-                    {getStageIcon(item.stages.parsing)}
+                  <Stage $status={item.stages?.parsing}>
+                    {getStageIcon(item.stages?.parsing)}
                     Parsing
                   </Stage>
-                  <Stage $status={item.stages.duplicateCheck}>
-                    {getStageIcon(item.stages.duplicateCheck)}
+                  <Stage $status={item.stages?.duplicateCheck}>
+                    {getStageIcon(item.stages?.duplicateCheck)}
                     Duplicate Check
                   </Stage>
-                  <Stage $status={item.stages.symbolProcessing}>
-                    {getStageIcon(item.stages.symbolProcessing)}
+                  <Stage $status={item.stages?.symbolProcessing}>
+                    {getStageIcon(item.stages?.symbolProcessing)}
                     Symbol Processing
                   </Stage>
-                  <Stage $status={item.stages.transactionCreation}>
-                    {getStageIcon(item.stages.transactionCreation)}
+                  <Stage $status={item.stages?.transactionCreation}>
+                    {getStageIcon(item.stages?.transactionCreation)}
                     Transaction Creation
                   </Stage>
                 </StagesList>
 
-                {item.errors.length > 0 && (
+                {item.errors && item.errors.length > 0 && (
                   <div style={{ marginTop: '0.75rem', padding: '0.5rem', background: '#fef2f2', borderRadius: '4px', fontSize: '0.75rem', color: '#dc2626' }}>
-                    <strong>Errors:</strong> {item.errors.join(', ')}
+                    <strong>Errors:</strong> {item.errors?.join(', ') || 'Unknown error'}
                   </div>
                 )}
               </QueueItem>
