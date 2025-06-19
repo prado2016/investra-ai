@@ -9,6 +9,27 @@ jobs:
     runs-on: self-hosted
 
     steps:
+      - name: Fix workspace permissions
+        run: |
+          echo "🔧 Fixing workspace permissions to prevent cleanup issues..."
+          
+          # Fix ownership of workspace to ensure proper cleanup
+          if [ -d "$GITHUB_WORKSPACE" ]; then
+            sudo chown -R $(whoami):$(whoami) "$GITHUB_WORKSPACE" || true
+          fi
+          
+          # Fix any problematic directories that might have wrong ownership
+          if [ -d "dist" ]; then
+            sudo chown -R $(whoami):$(whoami) dist/ || true
+            sudo chmod -R 755 dist/ || true
+          fi
+          
+          if [ -d "node_modules" ]; then
+            sudo chown -R $(whoami):$(whoami) node_modules/ || true
+          fi
+          
+          echo "✅ Workspace permissions fixed"
+
       - name: Checkout code
         uses: actions/checkout@v4
 
