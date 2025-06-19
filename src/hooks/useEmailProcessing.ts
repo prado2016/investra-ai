@@ -96,6 +96,26 @@ export const useEmailProcessing = (
       }
       
       // Try local enhanced server endpoints (development mode)
+      // In development, check port 3001 directly
+      try {
+        const enhancedResponse = await fetch('http://localhost:3001/health');
+        if (enhancedResponse.ok) {
+          const enhancedData = await enhancedResponse.json();
+          
+          // Enhanced server returns detailed endpoint information
+          if (enhancedData.data?.endpoints?.imap || enhancedData.data?.services?.emailProcessing) {
+            setIsEnhancedServer(true);
+            console.log('✅ Detected enhanced development server with real IMAP capabilities');
+            // Store the enhanced server URL for API calls
+            (window as any).__ENHANCED_SERVER_URL__ = 'http://localhost:3001';
+            return;
+          }
+        }
+      } catch (localEnhancedError) {
+        console.log('⚠️ Enhanced server not available on localhost:3001:', localEnhancedError);
+      }
+      
+      // Also try the main dev server health endpoint as fallback
       const response = await fetch('/health');
       if (response.ok) {
         const data = await response.json();
