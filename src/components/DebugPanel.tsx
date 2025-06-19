@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { debug, ErrorTracker, PerformanceTracker, isDev, isDebug } from '../utils/debug';
 import { useDebugSettings } from '../contexts/DebugContext';
-import { Bug, X, Trash2, Download, Eye, EyeOff, Monitor } from 'lucide-react';
+import { Bug, X, Trash2, Download, Eye, EyeOff } from 'lucide-react';
 import InlineLogViewer from './InlineLogViewer';
 
 const DebugPanelContainer = styled.div<{ $isOpen: boolean }>`
@@ -349,12 +349,9 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({ enabled = isDev || isDeb
         <span>🐛 Debug Panel</span>
         <div>
           <ActionButton 
-            onClick={() => window.open('/browser-log-viewer.html', '_blank')} 
-            title="Open standalone log viewer"
+            onClick={() => setAutoScroll(!autoScroll)} 
+            title="Toggle auto-scroll"
           >
-            <Monitor />
-          </ActionButton>
-          <ActionButton onClick={() => setAutoScroll(!autoScroll)} title="Toggle auto-scroll">
             {autoScroll ? <Eye /> : <EyeOff />}
           </ActionButton>
           <ActionButton onClick={handleExportLogs} title="Export logs">
@@ -415,9 +412,9 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({ enabled = isDev || isDeb
             </ActionButton>
           )}
           {activeTab === 'browser' && (
-            <ActionButton onClick={() => window.open('/browser-log-viewer.html', '_blank')}>
-              <Monitor />
-              Open Full Viewer
+            <ActionButton onClick={handleClearLogs}>
+              <Trash2 />
+              Clear Logs
             </ActionButton>
           )}
           {activeTab === 'errors' && (

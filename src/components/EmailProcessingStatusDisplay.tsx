@@ -27,6 +27,7 @@ import {
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { useEmailProcessing } from '../hooks/useEmailProcessing';
+import { debug } from '../utils/debug';
 import type { 
   EmailProcessingStats, 
   IMAPServiceStatus
@@ -504,22 +505,46 @@ const EmailProcessingStatusDisplay: React.FC<EmailProcessingStatusDisplayProps> 
 
   // Handle service actions
   const handleServiceAction = async (action: 'start' | 'stop' | 'restart') => {
-    switch (action) {
-      case 'start':
-        await startService();
-        break;
-      case 'stop':
-        await stopService();
-        break;
-      case 'restart':
-        await restartService();
-        break;
+    debug.info(`Email service action initiated: ${action}`, { 
+      currentStatus: safeImapStatus.status,
+      action,
+      timestamp: new Date().toISOString() 
+    }, 'EmailProcessing');
+    
+    try {
+      switch (action) {
+        case 'start':
+          debug.info('Starting email processing service...', undefined, 'EmailProcessing');
+          await startService();
+          break;
+        case 'stop':
+          debug.info('Stopping email processing service...', undefined, 'EmailProcessing');
+          await stopService();
+          break;
+        case 'restart':
+          debug.info('Restarting email processing service...', undefined, 'EmailProcessing');
+          await restartService();
+          break;
+      }
+      debug.info(`Email service ${action} action completed successfully`, undefined, 'EmailProcessing');
+    } catch (error) {
+      debug.error(`Email service ${action} action failed`, error, 'EmailProcessing');
     }
   };
 
   // Handle manual processing
   const handleProcessNow = async () => {
-    await processNow();
+    debug.info('Manual email processing triggered', { 
+      serviceStatus: safeImapStatus.status,
+      currentStats: safeProcessingStats 
+    }, 'EmailProcessing');
+    
+    try {
+      await processNow();
+      debug.info('Manual email processing completed', undefined, 'EmailProcessing');
+    } catch (error) {
+      debug.error('Manual email processing failed', error, 'EmailProcessing');
+    }
   };
 
   const getStatusIcon = (status: string) => {

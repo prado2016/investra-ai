@@ -53,12 +53,6 @@ const DebugLogsPage: React.FC = () => {
             >
               💾 Export Logs
             </button>
-            <button 
-              className="btn btn-secondary"
-              onClick={() => window.open('/browser-log-viewer.html', '_blank')}
-            >
-              🖥️ Open Full Viewer
-            </button>
           </div>
         </div>
 

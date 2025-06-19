@@ -28,6 +28,7 @@ import FailedImportResolutionInterface from '../components/FailedImportResolutio
 import EmailProcessingStatusDisplay from '../components/EmailProcessingStatusDisplay';
 import EmailConfigurationPanel from '../components/EmailConfigurationPanel';
 import RealTimeEmailStatus from '../components/RealTimeEmailStatus';
+import DebugPanel from '../components/DebugPanel';
 
 const PageContainer = styled.div`
   padding: 2rem;
@@ -377,6 +378,9 @@ const EmailManagementPage: React.FC = () => {
       <TabContent>
         {renderTabContent()}
       </TabContent>
+      
+      {/* Debug Panel for Email Processing */}
+      <DebugPanel enabled={true} />
     </PageContainer>
   );
 };

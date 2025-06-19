@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, Button } from './ui';
 import { EmailConfigurationService } from '../services/emailConfigurationService';
 import type { EmailProvider } from '../lib/database/types';
+import { debug } from '../utils/debug';
 
 interface EmailConfig {
   host: string;
@@ -33,6 +34,7 @@ export const EmailConfigurationPanel: React.FC = () => {
   useEffect(() => {
     const loadConfigurations = async () => {
       try {
+        debug.info('Loading email configurations from database...', undefined, 'EmailConfig');
         console.log('🔄 Loading email configurations from database...');
         const result = await EmailConfigurationService.getConfigurations();
         
@@ -45,6 +47,12 @@ export const EmailConfigurationPanel: React.FC = () => {
             password: '', // Never load password from storage
             secure: savedConfig.imap_secure
           };
+          debug.info('Email configuration loaded successfully', { 
+            host: configToLoad.host, 
+            port: configToLoad.port, 
+            user: configToLoad.user,
+            secure: configToLoad.secure 
+          }, 'EmailConfig');
           setConfig(prev => ({ ...prev, ...configToLoad }));
           setLastSavedConfig(configToLoad);
           setHasExistingConfig(true);
@@ -82,6 +90,13 @@ export const EmailConfigurationPanel: React.FC = () => {
     setSaving(true);
     setTestResult(null); // Clear any previous test results
     
+    debug.info('Starting email configuration save...', { 
+      host: config.host, 
+      port: config.port, 
+      user: config.user,
+      secure: config.secure 
+    }, 'EmailConfig');
+    
     try {
       console.log('💾 Saving email configuration...');
       
@@ -94,6 +109,8 @@ export const EmailConfigurationPanel: React.FC = () => {
       } else if (config.host.includes('yahoo')) {
         provider = 'yahoo';
       }
+
+      debug.info('Determined email provider', { provider }, 'EmailConfig');
 
       // Try to save to database first
       const result = await EmailConfigurationService.createConfiguration({
@@ -108,6 +125,7 @@ export const EmailConfigurationPanel: React.FC = () => {
       });
       
       if (result.success) {
+        debug.info('Email configuration saved to database successfully', undefined, 'EmailConfig');
         const configToSave = { ...config, password: '' };
         setLastSavedConfig(configToSave);
         setHasExistingConfig(true); // Now we definitely have a config
@@ -124,9 +142,13 @@ export const EmailConfigurationPanel: React.FC = () => {
         
         console.log('✅ Configuration saved to database successfully');
       } else {
+        debug.error('Failed to save email configuration to database', { error: result.error }, 'EmailConfig');
         throw new Error(result.error || 'Failed to save configuration');
       }
     } catch (error) {
+      debug.warn('Database save failed, falling back to localStorage', { 
+        error: error instanceof Error ? error.message : String(error) 
+      }, 'EmailConfig');
       console.warn('⚠️ Database save failed, falling back to localStorage:', error);
       
       // Fallback to localStorage
@@ -136,6 +158,8 @@ export const EmailConfigurationPanel: React.FC = () => {
         setLastSavedConfig(configToSave);
         setHasExistingConfig(true);
         
+        debug.info('Email configuration saved to localStorage as fallback', undefined, 'EmailConfig');
+        
         setTestResult({
           success: true,
           message: 'Configuration saved locally (database temporarily unavailable)'
@@ -143,6 +167,11 @@ export const EmailConfigurationPanel: React.FC = () => {
         
         console.log('✅ Configuration saved to localStorage as fallback');
       } catch (fallbackError) {
+        debug.error('Failed to save email configuration completely', { 
+          originalError: error instanceof Error ? error.message : String(error),
+          fallbackError: fallbackError instanceof Error ? fallbackError.message : String(fallbackError)
+        }, 'EmailConfig');
+        
         setTestResult({
           success: false,
           message: 'Failed to save configuration: ' + (error instanceof Error ? error.message : 'Unknown error')
@@ -158,9 +187,18 @@ export const EmailConfigurationPanel: React.FC = () => {
     setTesting(true);
     setTestResult(null);
     
+    debug.info('Starting email connection test...', { 
+      host: config.host, 
+      port: config.port, 
+      user: config.user,
+      secure: config.secure 
+    }, 'EmailConfig');
+    
     try {
       // Use environment variable for API base URL, fallback to current domain
       const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || window.location.origin;
+      
+      debug.info('Testing connection to email server', { apiBaseUrl }, 'EmailConfig');
       
       // Add timeout to the request
       const controller = new AbortController();
@@ -185,10 +223,15 @@ export const EmailConfigurationPanel: React.FC = () => {
       clearTimeout(timeoutId);
       
       if (!response.ok) {
+        debug.error('HTTP error during connection test', { 
+          status: response.status, 
+          statusText: response.statusText 
+        }, 'EmailConfig');
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       
       const result = await response.json();
+      debug.info('Connection test completed', { success: result.success, message: result.message }, 'EmailConfig');
       setTestResult(result);
       
       // Auto-save configuration if connection test is successful
@@ -205,6 +248,11 @@ export const EmailConfigurationPanel: React.FC = () => {
           errorMessage = error.message;
         }
       }
+      
+      debug.error('Email connection test failed', { 
+        error: error instanceof Error ? error.message : String(error),
+        errorType: error instanceof Error ? error.name : 'Unknown'
+      }, 'EmailConfig');
       
       setTestResult({
         success: false,
@@ -439,6 +487,37 @@ export const EmailConfigurationPanel: React.FC = () => {
             >
               {saving ? '💾 Saving...' : '💾 Save Configuration'}
             </Button>
+            
+            {/* Debug Test Button */}
+            {process.env.NODE_ENV === 'development' && (
+              <Button
+                onClick={() => {
+                  debug.info('🧪 Debug test initiated by user', {
+                    currentConfig: {
+                      host: config.host,
+                      port: config.port,
+                      user: config.user,
+                      secure: config.secure
+                    },
+                    hasExistingConfig,
+                    formValid: isFormValid(),
+                    configChanged: isConfigChanged()
+                  }, 'EmailConfig');
+                  
+                  debug.warn('This is a test warning message', { level: 'warning' }, 'EmailConfig');
+                  debug.error('This is a test error message', new Error('Test error for debug panel'), 'EmailConfig');
+                  
+                  console.log('🎯 Test console.log message from EmailConfigurationPanel');
+                  console.info('🔍 Test console.info message with data:', { test: true, timestamp: new Date() });
+                  console.warn('⚠️ Test console.warn message');
+                  console.error('❌ Test console.error message');
+                }}
+                variant="secondary"
+                style={{ backgroundColor: '#f59e0b', color: 'white' }}
+              >
+                🧪 Test Debug Panel
+              </Button>
+            )}
           </div>
 
           {testResult && (
