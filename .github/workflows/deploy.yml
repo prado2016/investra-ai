@@ -334,7 +334,7 @@ jobs:
           sudo cp -r /tmp/investra-email-server-staging/* /opt/investra-email-server/
           echo "✅ Server files moved to final location"
           
-          # Create systemd service file
+          # Create systemd service file with enhanced logging
           sudo tee /etc/systemd/system/investra-email-server.service > /dev/null << 'EOF'
           [Unit]
           Description=Investra Enhanced Email API Server
@@ -346,11 +346,12 @@ jobs:
           WorkingDirectory=/opt/investra-email-server
           Environment=NODE_ENV=production
           Environment=PORT=3001
+          Environment=PATH=/usr/bin:/usr/local/bin
           ExecStart=/usr/bin/node standalone-enhanced-server-production.js
           Restart=on-failure
           RestartSec=10
-          StandardOutput=syslog
-          StandardError=syslog
+          StandardOutput=journal
+          StandardError=journal
           SyslogIdentifier=investra-email-server
           
           [Install]
@@ -414,23 +415,90 @@ jobs:
             sudo -u investra /usr/local/bin/node --version 2>/dev/null || echo "Node not at /usr/local/bin/node"
           }
           
+          echo "📋 Testing server file execution directly:"
+          cd /opt/investra-email-server
+          echo "Current directory: $(pwd)"
+          echo "Testing syntax check..."
+          sudo -u investra /usr/bin/node -c standalone-enhanced-server-production.js 2>&1 || echo "❌ Syntax check failed"
+          
+          echo "📋 Testing direct execution with full error capture..."
+          echo "Running server for 15 seconds to capture startup errors..."
+          # Capture both stdout and stderr, run in background, then wait and kill
+          sudo -u investra timeout 15s /usr/bin/node standalone-enhanced-server-production.js > /tmp/server-test.log 2>&1 &
+          SERVER_PID=$!
+          sleep 10
+          
+          # Check if process is still running (good sign)
+          if kill -0 $SERVER_PID 2>/dev/null; then
+            echo "✅ Server process is running successfully"
+            kill $SERVER_PID 2>/dev/null || true
+            wait $SERVER_PID 2>/dev/null || true
+          else
+            echo "❌ Server process exited early"
+          fi
+          
+          echo "📋 Server test output:"
+          cat /tmp/server-test.log 2>/dev/null || echo "No test log generated"
+          rm -f /tmp/server-test.log
+          
+          echo "📋 Checking required environment variables:"
+          sudo -u investra grep -E '^[A-Z_]+=' /opt/investra-email-server/.env | head -10 | sed 's/=.*/=***/' || echo "Failed to read env vars"
+          
           # Reload systemd and start service
           sudo systemctl daemon-reload
           sudo systemctl enable investra-email-server
-          sudo systemctl restart investra-email-server
           
-          # Wait for service to start
-          sleep 5
+          # Stop any existing service first
+          sudo systemctl stop investra-email-server 2>/dev/null || true
+          sleep 2
+          
+          # Start the service
+          echo "🚀 Starting enhanced email server service..."
+          sudo systemctl start investra-email-server
+          
+          # Wait longer and check status multiple times
+          echo "⏳ Waiting for service to stabilize..."
+          for i in {1..6}; do
+            sleep 5
+            echo "Check $i/6:"
+            if sudo systemctl is-active --quiet investra-email-server; then
+              echo "✅ Service is active on check $i"
+              break
+            else
+              echo "⚠️ Service not active yet on check $i"
+              sudo systemctl status investra-email-server --no-pager -l | head -10
+            fi
+            
+            if [ $i -eq 6 ]; then
+              echo "❌ Service failed to start after 30 seconds"
+              break
+            fi
+          done
           
           # Check service status with detailed debugging
           if sudo systemctl is-active --quiet investra-email-server; then
             echo "✅ Enhanced email server started successfully"
+            
+            # Additional checks for service health
+            echo "📋 Checking if service is listening on port 3001..."
+            if netstat -tlnp 2>/dev/null | grep :3001 || ss -tlnp 2>/dev/null | grep :3001; then
+              echo "✅ Service is listening on port 3001"
+            else
+              echo "⚠️ Service not listening on port 3001 yet, checking again in 5 seconds..."
+              sleep 5
+              netstat -tlnp 2>/dev/null | grep :3001 || ss -tlnp 2>/dev/null | grep :3001 || echo "❌ Still not listening on port 3001"
+            fi
+            
+            echo "📋 Final service status:"
+            sudo systemctl status investra-email-server --no-pager -l
           else
             echo "❌ Enhanced email server failed to start"
             echo "📋 Service status:"
             sudo systemctl status investra-email-server --no-pager
             echo "📋 Recent logs:"
-            sudo journalctl -u investra-email-server --no-pager -n 30
+            sudo journalctl -u investra-email-server --no-pager -n 50
+            echo "📋 Full service output since last restart:"
+            sudo journalctl -u investra-email-server --no-pager --since "5 minutes ago"
             echo "📋 Directory contents:"
             sudo ls -la /opt/investra-email-server/
             echo "📋 Environment file:"
@@ -443,6 +511,10 @@ jobs:
             sudo -u investra /usr/bin/node --version 2>&1 || echo "Node execution failed for investra user"
             echo "📋 Testing server file syntax:"
             sudo -u investra /usr/bin/node -c standalone-enhanced-server-production.js 2>&1 || echo "Syntax check failed"
+            echo "📋 Checking if server file has required dependencies:"
+            head -20 /opt/investra-email-server/standalone-enhanced-server-production.js
+            echo "📋 Checking package.json for main entry:"
+            cat /opt/investra-email-server/package.json | grep -A5 -B5 "main\|scripts"
             exit 1
           fi
           
