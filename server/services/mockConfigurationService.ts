@@ -119,7 +119,7 @@ export class MockConfigurationService {
     this.initialize();
     
     const userConfigs = this.configurations.get(userId) || {};
-    let categoryConfig = userConfigs[category] || {};
+    const categoryConfig = userConfigs[category] || {};
     
     categoryConfig[key] = value;
     categoryConfig.lastUpdated = new Date().toISOString();

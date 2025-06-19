@@ -287,7 +287,7 @@ test.describe('IMAP Processing Integration', () => {
     await imapPage.navigateToEmailManagement();
 
     // Monitor status changes over time
-    let statusChanges: string[] = [];
+    const statusChanges: string[] = [];
     
     // Listen for status updates
     page.on('response', async (response) => {
@@ -466,7 +466,7 @@ test.describe('IMAP Performance Tests', () => {
     });
 
     // Monitor memory usage
-    let memorySnapshots: number[] = [];
+    const memorySnapshots: number[] = [];
 
     const takeMemorySnapshot = async () => {
       const memory = await page.evaluate(() => {

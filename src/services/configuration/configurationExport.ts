@@ -414,7 +414,7 @@ export class ConfigurationExportService {
 
     for (const [key, value] of Object.entries(data)) {
       try {
-        let processedValue = { ...value }
+        const processedValue = { ...value }
 
         // Handle encrypted data
         if (value.isEncrypted && typeof value.value === 'string') {

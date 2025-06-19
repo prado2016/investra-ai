@@ -132,7 +132,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Processing statistics (in-memory for standalone server)
-let processingStats: ProcessingStats = {
+const processingStats: ProcessingStats = {
   totalProcessed: 0,
   successfullyProcessed: 0,
   failed: 0,
@@ -145,7 +145,7 @@ let processingStats: ProcessingStats = {
 const serverStartTime = Date.now();
 
 // Configuration cache
-let configurationCache = new Map<string, ConfigurationItem>();
+const configurationCache = new Map<string, ConfigurationItem>();
 let lastConfigLoad = 0;
 const CONFIG_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 

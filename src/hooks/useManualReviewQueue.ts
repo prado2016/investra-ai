@@ -6,7 +6,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { EnhancedEmailApiService } from '../services/enhancedEmailApiService';
-import { SimpleEmailApiService } from '../services/simpleEmailApiService';
+// import { SimpleEmailApiService } from '../services/simpleEmailApiService';
 import type { ManualReviewItem, ManualReviewStats } from '../services/enhancedEmailApiService';
 import { useNotifications } from './useNotifications';
 
@@ -78,10 +78,10 @@ export const useManualReviewQueue = (
     }
   }, []);
 
-  // Get the appropriate API service
-  const getApiService = useCallback(() => {
-    return isEnhancedServer ? EnhancedEmailApiService : SimpleEmailApiService;
-  }, [isEnhancedServer]);
+  // Get the appropriate API service (unused for now but kept for future use)
+  // const getApiService = useCallback(() => {
+  //   return isEnhancedServer ? EnhancedEmailApiService : SimpleEmailApiService;
+  // }, [isEnhancedServer]);
 
   // Refresh review queue
   const refreshQueue = useCallback(async () => {

@@ -91,7 +91,7 @@ interface IMAPConfig {
 }
 
 // Configuration hot-reload functionality
-let configurationCache: Map<string, any> = new Map();
+const configurationCache: Map<string, any> = new Map();
 let lastConfigUpdate: string | null = null;
 
 /**
@@ -166,7 +166,7 @@ async function reinitializeIMAPService(newConfig: any): Promise<void> {
 let imapClient: ImapFlow | null = null;
 let serviceMonitor: ServiceMonitor | null = null;
 let logger: winston.Logger;
-let processingStats = {
+const processingStats = {
   totalProcessed: 0,
   successfullyProcessed: 0,
   failed: 0,
@@ -186,7 +186,7 @@ interface ServerIMAPConfig {
 }
 
 // IMAP status tracking
-let imapStatus = {
+const imapStatus = {
   status: 'stopped' as 'stopped' | 'starting' | 'running' | 'error',
   lastError: null as string | null,
   connectedAt: null as string | null,
