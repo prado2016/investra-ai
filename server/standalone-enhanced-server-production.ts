@@ -13,6 +13,8 @@ import winston from 'winston';
 import dotenv from 'dotenv';
 import * as fs from 'fs';
 import * as path from 'path';
+import { createServer } from 'http';
+import { WebSocketServer, WebSocket } from 'ws';
 
 // Load environment variables
 dotenv.config();
@@ -105,6 +107,64 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // Initialize Express app
 const app = express();
+const server = createServer(app);
+
+// WebSocket server setup
+const WS_PORT = parseInt(process.env.WS_PORT || '3002', 10);
+const wss = new WebSocketServer({ port: WS_PORT });
+const wsClients = new Set<WebSocket>();
+
+// WebSocket message interface
+interface WebSocketMessage {
+  type: 'email_processing_started' | 'email_processing_completed' | 'email_processing_failed' | 'system_status' | 'connection_test';
+  data: any;
+  timestamp: string;
+  id: string;
+}
+
+// Broadcast message to all connected WebSocket clients
+function broadcastToClients(message: WebSocketMessage) {
+  const messageStr = JSON.stringify(message);
+  wsClients.forEach(client => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(messageStr);
+    }
+  });
+  logger.info('Broadcasted WebSocket message', { 
+    type: message.type, 
+    clientCount: wsClients.size 
+  });
+}
+
+// WebSocket connection handler
+wss.on('connection', (ws: WebSocket) => {
+  wsClients.add(ws);
+  logger.info('WebSocket client connected', { totalClients: wsClients.size });
+
+  // Send welcome message
+  const welcomeMessage: WebSocketMessage = {
+    type: 'system_status',
+    data: {
+      status: 'connected',
+      message: 'Real-time email processing updates enabled',
+      serverTime: new Date().toISOString()
+    },
+    timestamp: new Date().toISOString(),
+    id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+  };
+  
+  ws.send(JSON.stringify(welcomeMessage));
+
+  ws.on('close', () => {
+    wsClients.delete(ws);
+    logger.info('WebSocket client disconnected', { totalClients: wsClients.size });
+  });
+
+  ws.on('error', (error) => {
+    logger.error('WebSocket error', { error: error.message });
+    wsClients.delete(ws);
+  });
+});
 
 // Security middleware
 app.use(helmet({
@@ -274,7 +334,33 @@ app.get('/health', (req, res) => {
     status: 'healthy',
     timestamp: new Date().toISOString(),
     environment: NODE_ENV,
-    version: '2.0.0'
+    version: '2.0.0',
+    websocket: {
+      port: WS_PORT,
+      connectedClients: wsClients.size,
+      status: 'operational'
+    }
+  });
+});
+
+// WebSocket info endpoint
+app.get('/api/websocket/info', (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      websocketPort: WS_PORT,
+      connectedClients: wsClients.size,
+      status: 'operational',
+      connectionUrl: `ws://localhost:${WS_PORT}`,
+      messageTypes: [
+        'email_processing_started',
+        'email_processing_completed', 
+        'email_processing_failed',
+        'connection_test',
+        'system_status'
+      ]
+    },
+    timestamp: new Date().toISOString()
   });
 });
 
@@ -389,6 +475,8 @@ app.get('/api/email/processing/queue', async (req, res) => {
 
 // Process email content
 app.post('/api/email/process', async (req, res) => {
+  const processingId = `proc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  
   try {
     const { emailContent, userId } = req.body;
     
@@ -399,7 +487,32 @@ app.post('/api/email/process', async (req, res) => {
       });
     }
     
+    // Broadcast processing started
+    broadcastToClients({
+      type: 'email_processing_started',
+      data: {
+        processingId,
+        subject: 'Email Processing',
+        userId,
+        startTime: new Date().toISOString()
+      },
+      timestamp: new Date().toISOString(),
+      id: processingId
+    });
+    
     const result = await StandaloneEmailProcessingService.processEmail(emailContent, userId);
+    
+    // Broadcast processing completed
+    broadcastToClients({
+      type: 'email_processing_completed',
+      data: {
+        processingId,
+        result,
+        completedAt: new Date().toISOString()
+      },
+      timestamp: new Date().toISOString(),
+      id: processingId
+    });
     
     return res.json({
       success: true,
@@ -408,6 +521,19 @@ app.post('/api/email/process', async (req, res) => {
     });
   } catch (error) {
     logger.error('Email processing error:', error);
+    
+    // Broadcast processing failed
+    broadcastToClients({
+      type: 'email_processing_failed',
+      data: {
+        processingId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        failedAt: new Date().toISOString()
+      },
+      timestamp: new Date().toISOString(),
+      id: processingId
+    });
+    
     return res.status(500).json({
       success: false,
       error: 'Email processing failed',
@@ -1084,10 +1210,11 @@ app.use('*', (req, res) => {
   });
 });
 
-// Start server
-const server = app.listen(PORT, () => {
+// Start HTTP server
+server.listen(PORT, () => {
   logger.info('🚀 Standalone Enhanced Email Processing API Server started', {
-    port: PORT,
+    httpPort: PORT,
+    websocketPort: WS_PORT,
     environment: NODE_ENV,
     version: '2.0.0',
     timestamp: new Date().toISOString()
@@ -1095,6 +1222,7 @@ const server = app.listen(PORT, () => {
   
   logger.info('📧 Email Processing: Enabled');
   logger.info('📊 Monitoring: Active');
+  logger.info('🔌 WebSocket: Enabled on port ' + WS_PORT);
   logger.info(`🌍 Environment: ${NODE_ENV}`);
   
   // Load initial configuration
