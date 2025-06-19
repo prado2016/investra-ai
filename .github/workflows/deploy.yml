@@ -9,26 +9,25 @@ jobs:
     runs-on: self-hosted
 
     steps:
-      - name: Fix workspace permissions
+      - name: Clean workspace permissions
         run: |
-          echo "🔧 Fixing workspace permissions to prevent cleanup issues..."
+          echo "🧹 Cleaning workspace permissions..."
+          WORK_DIR="${GITHUB_WORKSPACE:-$(pwd)}"
           
-          # Fix ownership of workspace to ensure proper cleanup
-          if [ -d "$GITHUB_WORKSPACE" ]; then
-            sudo chown -R $(whoami):$(whoami) "$GITHUB_WORKSPACE" || true
+          # Fix any permission issues that might prevent checkout cleanup
+          if [ -d "$WORK_DIR" ]; then
+            echo "📁 Fixing permissions for: $WORK_DIR"
+            sudo chown -R $USER:$USER "$WORK_DIR" || true
+            sudo chmod -R u+rwX "$WORK_DIR" || true
+            
+            # Special handling for dist directory which often causes issues
+            if [ -d "$WORK_DIR/dist" ]; then
+              echo "🎯 Fixing dist directory permissions..."
+              sudo chown -R $USER:$USER "$WORK_DIR/dist" || true
+              sudo chmod -R 755 "$WORK_DIR/dist" || true
+            fi
           fi
-          
-          # Fix any problematic directories that might have wrong ownership
-          if [ -d "dist" ]; then
-            sudo chown -R $(whoami):$(whoami) dist/ || true
-            sudo chmod -R 755 dist/ || true
-          fi
-          
-          if [ -d "node_modules" ]; then
-            sudo chown -R $(whoami):$(whoami) node_modules/ || true
-          fi
-          
-          echo "✅ Workspace permissions fixed"
+          echo "✅ Workspace cleanup completed"
 
       - name: Checkout code
         uses: actions/checkout@v4

@@ -1,66 +1,44 @@
 #!/bin/bash
+# Fix GitHub Actions Permission Issues
+# This script resolves permission conflicts in the self-hosted runner
 
-# GitHub Actions Pre-Deployment Cleanup Script
-# This script fixes permission issues that can occur during deployment
+echo "🔧 Fixing GitHub Actions Permission Issues..."
 
-echo "🔧 Pre-deployment cleanup starting..."
+# Change to the GitHub Actions runner work directory
+WORK_DIR="/home/lab/actions-runner/_work/investra-ai/investra-ai"
 
-# Function to fix ownership and permissions
-fix_permissions() {
-    local dir="$1"
-    if [ -d "$dir" ]; then
-        echo "📁 Fixing permissions for: $dir"
-        chown -R lab:lab "$dir"
-        find "$dir" -type d -exec chmod 755 {} \;
-        find "$dir" -type f -exec chmod 644 {} \;
-        echo "✅ Permissions fixed for: $dir"
-    else
-        echo "⚠️  Directory not found: $dir"
+if [ -d "$WORK_DIR" ]; then
+    echo "📁 Found work directory: $WORK_DIR"
+    
+    # Fix ownership recursively (make everything owned by lab:lab)
+    echo "🔐 Fixing ownership..."
+    chown -R lab:lab "$WORK_DIR"
+    
+    # Fix permissions recursively 
+    echo "📝 Fixing permissions..."
+    find "$WORK_DIR" -type d -exec chmod 755 {} \;
+    find "$WORK_DIR" -type f -exec chmod 644 {} \;
+    
+    # Make sure lab user can delete everything
+    echo "🗑️ Setting delete permissions..."
+    chmod -R u+rwX "$WORK_DIR"
+    
+    # If dist directory exists, handle it specially
+    if [ -d "$WORK_DIR/dist" ]; then
+        echo "🎯 Fixing dist directory specifically..."
+        chown -R lab:lab "$WORK_DIR/dist"
+        chmod -R 755 "$WORK_DIR/dist"
     fi
-}
-
-# Fix GitHub Actions workspace directory
-WORKSPACE_DIR="/home/lab/actions-runner/_work/investra-ai/investra-ai"
-
-if [ -d "$WORKSPACE_DIR" ]; then
-    echo "🎯 Fixing GitHub Actions workspace permissions..."
     
-    # Fix ownership first
-    chown -R lab:lab "$WORKSPACE_DIR"
+    echo "✅ Permission fixes applied successfully"
     
-    # Fix specific problematic directories
-    fix_permissions "$WORKSPACE_DIR/dist"
-    fix_permissions "$WORKSPACE_DIR/node_modules"
-    fix_permissions "$WORKSPACE_DIR/server/dist"
-    fix_permissions "$WORKSPACE_DIR/server/node_modules"
-    fix_permissions "$WORKSPACE_DIR/.git"
+    # Show current permissions
+    echo "📊 Current permissions:"
+    ls -la "$WORK_DIR" | head -10
     
-    # Make sure all files are writable by the lab user
-    find "$WORKSPACE_DIR" -type f -exec chmod 644 {} \; 2>/dev/null || true
-    find "$WORKSPACE_DIR" -type d -exec chmod 755 {} \; 2>/dev/null || true
-    
-    echo "✅ GitHub Actions workspace permissions fixed"
 else
-    echo "ℹ️  GitHub Actions workspace not found - will be created during deployment"
+    echo "❌ Work directory not found: $WORK_DIR"
+    exit 1
 fi
 
-# Fix any PM2 related files that might have wrong ownership
-PM2_DIRS=(
-    "/home/lab/.pm2"
-    "/opt/investra-email-server"
-)
-
-for dir in "${PM2_DIRS[@]}"; do
-    if [ -d "$dir" ]; then
-        echo "🔧 Fixing PM2 directory: $dir"
-        chown -R lab:lab "$dir" 2>/dev/null || true
-    fi
-done
-
-echo "🎉 Pre-deployment cleanup completed successfully!"
-echo ""
-echo "📋 Summary:"
-echo "   ✅ GitHub Actions workspace permissions fixed"
-echo "   ✅ Node.js build directories accessible"
-echo "   ✅ PM2 directories properly owned"
-echo "   ✅ Ready for GitHub Actions deployment"
+echo "🚀 GitHub Actions should now be able to clean up properly"
