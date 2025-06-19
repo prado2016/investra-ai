@@ -30,7 +30,6 @@ import Notifications from './pages/Notifications';
 import DebugLogs from './pages/DebugLogs';
 import EncryptionServiceTest from './components/EncryptionServiceTest';
 import { debug, ErrorTracker, isDev } from './utils/debug';
-import { initializeBrowserLogIntegration } from './utils/browserLogIntegration';
 import './styles/App.css';
 
 // Component to conditionally render debug components
@@ -159,12 +158,6 @@ function AppContent() {
       debug.info('E2E Test Mode detected - bypassing authentication', undefined, 'App');
     }
     debug.info('App initialized', { user: user?.id, loading, isE2ETestMode }, 'App');
-    
-    // Initialize browser log integration in development
-    if (isDev) {
-      initializeBrowserLogIntegration();
-      debug.info('Browser log integration initialized', undefined, 'App');
-    }
   }, [user, loading, isE2ETestMode]);
 
   // Force immediate render in E2E test mode to prevent hanging
@@ -244,16 +237,6 @@ function App() {
       userAgent: navigator.userAgent,
       url: window.location.href 
     }, 'App');
-
-    // Initialize browser log integration in development mode
-    if (isDev) {
-      try {
-        initializeBrowserLogIntegration();
-        debug.info('Browser log integration initialized', undefined, 'App');
-      } catch (error) {
-        debug.warn('Failed to initialize browser log integration', error, 'App');
-      }
-    }
 
     // Enhanced error handling for unhandled errors
     const handleUnhandledError = (event: ErrorEvent) => {
