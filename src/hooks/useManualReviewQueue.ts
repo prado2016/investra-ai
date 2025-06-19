@@ -61,9 +61,9 @@ export const useManualReviewQueue = (
         return;
       }
 
-      // Try enhanced server endpoints
-      const response = await fetch('/api/manual-review/stats');
-      if (response.ok) {
+      // Try enhanced server endpoints using EnhancedEmailApiService (which uses proper ApiClient)
+      const stats = await EnhancedEmailApiService.getManualReviewStats();
+      if (stats && stats.pendingReviews !== undefined) {
         setIsEnhancedServer(true);
         console.log('✅ Detected enhanced server with manual review capabilities');
         return;

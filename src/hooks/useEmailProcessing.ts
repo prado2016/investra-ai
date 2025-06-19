@@ -104,8 +104,8 @@ export const useEmailProcessing = (
           const enhancedData = await enhancedResponse.json();
           console.log('🔍 Enhanced server response:', enhancedData);
           
-          // Enhanced server returns detailed endpoint information
-          if (enhancedData.data?.endpoints?.imap || enhancedData.data?.services?.emailProcessing) {
+          // Enhanced server returns version info and healthy status
+          if (enhancedData.status === 'healthy' && enhancedData.version) {
             setIsEnhancedServer(true);
             console.log('✅ Detected enhanced development server with real IMAP capabilities');
             // Store the enhanced server URL for API calls
@@ -126,8 +126,8 @@ export const useEmailProcessing = (
       if (response.ok) {
         const data = await response.json();
         
-        // Enhanced server returns detailed endpoint information
-        if (data.data?.endpoints?.imap || data.data?.services?.emailProcessing) {
+        // Enhanced server returns version info and healthy status
+        if (data.status === 'healthy' && data.version) {
           setIsEnhancedServer(true);
           console.log('✅ Detected enhanced development server with real IMAP capabilities');
           return;

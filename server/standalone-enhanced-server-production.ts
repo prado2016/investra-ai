@@ -634,59 +634,8 @@ app.get('/api/email/processing/queue', async (req, res) => {
 // Manual Review Queue endpoints
 app.get('/api/manual-review/queue', async (req, res) => {
   try {
-    // Return mock manual review items with realistic duplicate detection data
-    const reviewItems = [
-      {
-        id: 'review_' + Date.now() + '_1',
-        status: 'pending',
-        emailSubject: 'Wealthsimple Trade - AAPL Purchase',
-        fromEmail: 'noreply@wealthsimple.com',
-        flaggedReason: 'Potential duplicate transaction',
-        confidence: 0.72,
-        similarTransactions: [
-          {
-            id: 'trans_456',
-            date: '2025-06-19',
-            symbol: 'AAPL',
-            amount: 1000,
-            type: 'BUY'
-          }
-        ],
-        timestamps: {
-          flaggedAt: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
-          lastUpdatedAt: new Date(Date.now() - 5 * 60 * 1000).toISOString()
-        },
-        priority: 'high',
-        slaTarget: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(), // 2 hours from now
-        extractedData: {
-          symbol: 'AAPL',
-          amount: 1000,
-          date: '2025-06-19',
-          type: 'BUY'
-        }
-      },
-      {
-        id: 'review_' + Date.now() + '_2',
-        status: 'pending',
-        emailSubject: 'Wealthsimple Trade - Tesla Stock Sale',
-        fromEmail: 'noreply@wealthsimple.com',
-        flaggedReason: 'Ambiguous symbol extraction',
-        confidence: 0.65,
-        similarTransactions: [],
-        timestamps: {
-          flaggedAt: new Date(Date.now() - 25 * 60 * 1000).toISOString(),
-          lastUpdatedAt: new Date(Date.now() - 20 * 60 * 1000).toISOString()
-        },
-        priority: 'medium',
-        slaTarget: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString(), // 4 hours from now
-        extractedData: {
-          symbol: 'TSLA',
-          amount: 2500,
-          date: '2025-06-19',
-          type: 'SELL'
-        }
-      }
-    ];
+    // Return empty manual review queue - real items will be added when emails are actually flagged by duplicate detection
+    const reviewItems: any[] = [];
     
     res.json({
       success: true,
@@ -746,11 +695,11 @@ app.post('/api/manual-review/action', async (req, res) => {
 app.get('/api/manual-review/stats', async (req, res) => {
   try {
     const stats = {
-      pendingReviews: 2,
-      completedToday: 5,
-      averageReviewTime: 14, // minutes
-      slaCompliance: 92, // percentage
-      escalatedItems: 1,
+      pendingReviews: 0,
+      completedToday: 0,
+      averageReviewTime: 0, // minutes
+      slaCompliance: 100, // percentage
+      escalatedItems: 0,
       queueHealth: 'good'
     };
     
