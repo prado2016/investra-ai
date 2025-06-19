@@ -304,7 +304,7 @@
 
     <div class="container">
         <div class="controls">
-            <a href="http://localhost:5173" class="app-link" target="_blank" id="appLink">
+            <a href="http://10.0.0.89:5173" class="app-link" target="_blank" id="appLink">
                 🚀 Open Investra App
             </a>
             
@@ -397,17 +397,18 @@
 
             checkAppConnection() {
                 const appLink = document.getElementById('appLink');
-                const currentPort = window.location.port;
                 
                 // Determine the likely app URL based on current setup
+                // Updated to use production IP 10.0.0.89
                 const appUrls = [
-                    'http://localhost:5173',  // Vite default
-                    'http://localhost:5175',  // Alternative port
-                    'http://localhost:3000',  // Common React port
-                    'http://localhost:8080'   // Alternative
+                    'http://10.0.0.89:5173',   // Production Vite server
+                    'http://10.0.0.89:8080',   // Production alternative port
+                    'http://localhost:5173',   // Local development fallback
+                    'http://localhost:5175',   // Alternative local port
+                    'http://localhost:3000',   // Common React port
                 ];
 
-                appLink.href = appUrls[0]; // Default to first
+                appLink.href = appUrls[0]; // Default to production IP
             }
 
             startCapture() {

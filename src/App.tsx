@@ -245,6 +245,16 @@ function App() {
       url: window.location.href 
     }, 'App');
 
+    // Initialize browser log integration in development mode
+    if (isDev) {
+      try {
+        BrowserLogIntegration.getInstance();
+        debug.info('Browser log integration initialized', undefined, 'App');
+      } catch (error) {
+        debug.warn('Failed to initialize browser log integration', error, 'App');
+      }
+    }
+
     // Enhanced error handling for unhandled errors
     const handleUnhandledError = (event: ErrorEvent) => {
       ErrorTracker.trackError(new Error(event.message), {
