@@ -285,14 +285,47 @@ jobs:
         run: |
           echo "📧 Deploying enhanced email server..."
           
-          # Create server directory
+          # Create server directory and set proper ownership
           sudo mkdir -p /opt/investra-email-server
-          sudo chown $USER:$USER /opt/investra-email-server
+          sudo chown -R $USER:$USER /opt/investra-email-server
           
-          # Copy server files
-          cp -r server/dist/* /opt/investra-email-server/
-          cp server/package.json /opt/investra-email-server/
-          cp server/.env.production /opt/investra-email-server/.env
+          # Ensure directory has proper permissions
+          sudo chmod 755 /opt/investra-email-server
+          
+          # Debug: Check what files were built
+          echo "📋 Checking built server files:"
+          ls -la server/dist/ || echo "No dist directory found"
+          ls -la server/package.json || echo "No package.json found"
+          ls -la server/.env.production || echo "No .env.production found"
+          
+          # Copy server files with error checking
+          if [ -d "server/dist" ] && [ "$(ls -A server/dist)" ]; then
+            cp -r server/dist/* /opt/investra-email-server/
+            echo "✅ Server dist files copied"
+          else
+            echo "❌ No server dist files to copy"
+            exit 1
+          fi
+          
+          if [ -f "server/package.json" ]; then
+            cp server/package.json /opt/investra-email-server/
+            echo "✅ package.json copied"
+          else
+            echo "❌ server/package.json not found"
+            exit 1
+          fi
+          
+          if [ -f "server/.env.production" ]; then
+            cp server/.env.production /opt/investra-email-server/.env
+            echo "✅ .env.production copied"
+          else
+            echo "❌ server/.env.production not found"
+            exit 1
+          fi
+          
+          # Ensure files are readable by the service user
+          sudo chmod -R 644 /opt/investra-email-server/*
+          sudo chmod +x /opt/investra-email-server/*.js
           
           # Install production dependencies
           cd /opt/investra-email-server
@@ -326,8 +359,11 @@ jobs:
             sudo useradd -r -s /bin/false investra
           fi
           
-          # Set proper ownership
+          # Set proper ownership and permissions for the service
           sudo chown -R investra:investra /opt/investra-email-server
+          sudo chmod -R 755 /opt/investra-email-server
+          sudo chmod 644 /opt/investra-email-server/.env
+          sudo chmod +x /opt/investra-email-server/*.js
           
           # Reload systemd and start service
           sudo systemctl daemon-reload
