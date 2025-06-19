@@ -26,7 +26,7 @@ import ImportStatusNotifications from '../components/ImportStatusNotifications';
 import ManualReviewQueueManager from '../components/ManualReviewQueueManager';
 import FailedImportResolutionInterface from '../components/FailedImportResolutionInterface';
 import EmailProcessingStatusDisplay from '../components/EmailProcessingStatusDisplay';
-import EmailConfigurationPanel from '../components/EmailConfigurationPanel';
+import SimpleEmailServerSettings from '../components/SimpleEmailServerSettings';
 import RealTimeEmailStatus from '../components/RealTimeEmailStatus';
 import DebugPanel from '../components/DebugPanel';
 
@@ -343,7 +343,7 @@ const EmailManagementPage: React.FC = () => {
         return <ImportStatusNotifications />;
 
       case 'configuration':
-        return <EmailConfigurationPanel />;
+        return <SimpleEmailServerSettings />;
 
       default:
         return <div>Select a tab to view content</div>;
