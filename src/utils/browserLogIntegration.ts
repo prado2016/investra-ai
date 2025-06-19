@@ -363,6 +363,28 @@ export function initializeBrowserLogIntegration() {
     // Make available globally for debugging
     (window as any).browserLogIntegration = integration;
     
+    // Add a global test function
+    (window as any).testLogViewer = () => {
+      console.log('🧪 Testing log viewer communication...');
+      
+      // Test different log levels
+      console.log('Test console.log message');
+      console.info('Test console.info message');
+      console.warn('Test console.warn message');
+      console.error('Test console.error message');
+      
+      // Test debug logger
+      debug.info('Test debug.info message', {testData: 'example'}, 'TestSource');
+      debug.warn('Test debug.warn message', {level: 'warning'}, 'TestSource');
+      debug.error('Test debug.error message', new Error('Test error'), 'TestSource');
+      
+      // Test custom log
+      integration.sendCustomLog('info', 'Custom test message', {custom: true}, 'CustomTest');
+      
+      console.log('✅ Test messages sent! Check log viewer window.');
+      return integration.getStatus();
+    };
+    
     debug.info('Browser Log Integration ready', undefined, 'LogViewer');
     return integration;
   }
