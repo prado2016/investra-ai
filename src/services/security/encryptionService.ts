@@ -105,12 +105,14 @@ export interface EncryptionResult {
   encryptedData: string
   success: boolean
   error?: string
+  warning?: string
 }
 
 export interface DecryptionResult {
   decryptedData: string
   success: boolean
   error?: string
+  warning?: string
 }
 
 /**
@@ -217,6 +219,24 @@ export class EncryptionService {
         }
       }
 
+      // Check if Web Crypto API is available
+      if (!crypto.subtle) {
+        console.warn('Web Crypto API not available, using development fallback (data stored unencrypted)')
+        // In development mode without HTTPS, store data unencrypted but marked as such
+        const fallbackData = {
+          data: btoa(plaintext), // Simple base64 encoding for obfuscation
+          salt: 'dev-salt',
+          iv: 'dev-iv',
+          version: '1.0-dev-fallback'
+        }
+        
+        return {
+          encryptedData: JSON.stringify(fallbackData),
+          success: true,
+          warning: 'Data stored with development fallback (not secure)'
+        }
+      }
+
       const salt = generateSalt()
       const iv = crypto.getRandomValues(new Uint8Array(IV_LENGTH))
       const key = await deriveKey(userId, salt)
@@ -287,11 +307,39 @@ export class EncryptionService {
         }
       }
 
+      // Check for development fallback format
+      if (encryptedData.version === '1.0-dev-fallback') {
+        console.warn('Decrypting development fallback data (not secure)')
+        try {
+          const decrypted = atob(encryptedData.data)
+          return {
+            decryptedData: decrypted,
+            success: true,
+            warning: 'Data decrypted from development fallback (not secure)'
+          }
+        } catch {
+          return {
+            decryptedData: '',
+            success: false,
+            error: 'Failed to decode development fallback data'
+          }
+        }
+      }
+
       if (!this.validateEncryptedFormat(encryptedData)) {
         return {
           decryptedData: '',
           success: false,
           error: 'Malformed encrypted data structure'
+        }
+      }
+
+      // Check if Web Crypto API is available for real decryption
+      if (!crypto.subtle) {
+        return {
+          decryptedData: '',
+          success: false,
+          error: 'Web Crypto API not available for decryption'
         }
       }
 

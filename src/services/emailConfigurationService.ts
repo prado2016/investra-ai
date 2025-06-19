@@ -384,6 +384,10 @@ export class EmailConfigurationService {
         throw new Error(`Encryption failed: ${result.error}`)
       }
 
+      if (result.warning) {
+        console.warn('Encryption warning:', result.warning)
+      }
+
       return result.encryptedData
     } catch (error) {
       console.error('Password encryption error:', error)
@@ -409,6 +413,10 @@ export class EmailConfigurationService {
         
         if (!result.success) {
           throw new Error(`Decryption failed: ${result.error}`)
+        }
+
+        if (result.warning) {
+          console.warn('Decryption warning:', result.warning)
         }
 
         return result.decryptedData
