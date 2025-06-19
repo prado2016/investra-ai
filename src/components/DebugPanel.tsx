@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { debug, ErrorTracker, PerformanceTracker, isDev, isDebug } from '../utils/debug';
 import { useDebugSettings } from '../contexts/DebugContext';
-import { Bug, X, Trash2, Download, Eye, EyeOff } from 'lucide-react';
+import { Bug, X, Trash2, Download, Eye, EyeOff, Monitor } from 'lucide-react';
+import InlineLogViewer from './InlineLogViewer';
 
 const DebugPanelContainer = styled.div<{ $isOpen: boolean }>`
   position: fixed;
@@ -263,7 +264,7 @@ interface DebugPanelProps {
 
 export const DebugPanel: React.FC<DebugPanelProps> = ({ enabled = isDev || isDebug }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'logs' | 'errors' | 'performance'>('logs');
+  const [activeTab, setActiveTab] = useState<'logs' | 'browser' | 'errors' | 'performance'>('logs');
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [errors, setErrors] = useState<ErrorEntry[]>([]);
   const [measures, setMeasures] = useState<MeasureEntry[]>([]);
@@ -347,6 +348,12 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({ enabled = isDev || isDeb
       <DebugHeader>
         <span>🐛 Debug Panel</span>
         <div>
+          <ActionButton 
+            onClick={() => window.open('/browser-log-viewer.html', '_blank')} 
+            title="Open standalone log viewer"
+          >
+            <Monitor />
+          </ActionButton>
           <ActionButton onClick={() => setAutoScroll(!autoScroll)} title="Toggle auto-scroll">
             {autoScroll ? <Eye /> : <EyeOff />}
           </ActionButton>
@@ -381,6 +388,12 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({ enabled = isDev || isDeb
             Logs ({logs.length})
           </Tab>
           <Tab 
+            active={activeTab === 'browser'} 
+            onClick={() => setActiveTab('browser')}
+          >
+            Browser Console
+          </Tab>
+          <Tab 
             active={activeTab === 'errors'} 
             onClick={() => setActiveTab('errors')}
           >
@@ -399,6 +412,12 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({ enabled = isDev || isDeb
             <ActionButton onClick={handleClearLogs}>
               <Trash2 />
               Clear Logs
+            </ActionButton>
+          )}
+          {activeTab === 'browser' && (
+            <ActionButton onClick={() => window.open('/browser-log-viewer.html', '_blank')}>
+              <Monitor />
+              Open Full Viewer
             </ActionButton>
           )}
           {activeTab === 'errors' && (
@@ -432,6 +451,17 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({ enabled = isDev || isDeb
                 No logs yet...
               </div>
             )}
+          </div>
+        )}
+
+        {activeTab === 'browser' && (
+          <div style={{ height: '320px', marginTop: '10px' }}>
+            <InlineLogViewer 
+              height="300px" 
+              showControls={true}
+              autoScroll={autoScroll}
+              maxLogs={100}
+            />
           </div>
         )}
 

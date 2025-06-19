@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Investra AI - Browser Log Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f7;
+            color: #1d1d1f;
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 0.9rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .controls {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .btn {
+            background: #007aff;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 0.75rem 1.5rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+        }
+
+        .btn:hover {
+            background: #0056cc;
+            transform: translateY(-1px);
+        }
+
+        .btn.secondary {
+            background: #6c757d;
+        }
+
+        .btn.secondary:hover {
+            background: #545b62;
+        }
+
+        .btn.danger {
+            background: #dc3545;
+        }
+
+        .btn.danger:hover {
+            background: #c82333;
+        }
+
+        .btn.success {
+            background: #28a745;
+        }
+
+        .btn.success:hover {
+            background: #218838;
+        }
+
+        .filter-group {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .filter-group label {
+            font-weight: 500;
+            margin-right: 0.5rem;
+        }
+
+        .filter-select {
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            background: white;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .status-indicator.connected {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-indicator.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        .log-viewer {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            overflow: hidden;
+        }
+
+        .log-header {
+            background: #f8f9fa;
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .log-header h3 {
+            margin: 0;
+            font-size: 1.1rem;
+        }
+
+        .log-stats {
+            display: flex;
+            gap: 1rem;
+            font-size: 0.9rem;
+            color: #6c757d;
+        }
+
+        .log-content {
+            height: 500px;
+            overflow-y: auto;
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 0.85rem;
+            line-height: 1.4;
+        }
+
+        .log-entry {
+            padding: 0.75rem 1.5rem;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+        }
+
+        .log-entry:hover {
+            background: #f8f9fa;
+        }
+
+        .log-timestamp {
+            color: #6c757d;
+            font-size: 0.8rem;
+            min-width: 100px;
+            flex-shrink: 0;
+        }
+
+        .log-level {
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            min-width: 60px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        .log-level.log { background: #e9ecef; color: #495057; }
+        .log-level.info { background: #d1ecf1; color: #0c5460; }
+        .log-level.warn { background: #fff3cd; color: #856404; }
+        .log-level.error { background: #f8d7da; color: #721c24; }
+        .log-level.debug { background: #d4edda; color: #155724; }
+
+        .log-source {
+            background: #f0f0f0;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            color: #495057;
+            min-width: 80px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        .log-message {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .log-data {
+            margin-top: 0.5rem;
+            padding: 0.5rem;
+            background: #f8f9fa;
+            border-radius: 4px;
+            border-left: 3px solid #007aff;
+            font-size: 0.8rem;
+            white-space: pre-wrap;
+            overflow-x: auto;
+        }
+
+        .empty-state {
+            padding: 3rem;
+            text-align: center;
+            color: #6c757d;
+        }
+
+        .empty-state svg {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        .app-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: #28a745;
+            color: white;
+            text-decoration: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .app-link:hover {
+            background: #218838;
+            transform: translateY(-1px);
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+            
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .log-entry {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+            
+            .log-timestamp,
+            .log-level,
+            .log-source {
+                min-width: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔍 Browser Log Viewer</h1>
+        <p>Real-time browser console log monitoring for Investra AI</p>
+    </div>
+
+    <div class="container">
+        <div class="controls">
+            <a href="http://localhost:5173" class="app-link" target="_blank" id="appLink">
+                🚀 Open Investra App
+            </a>
+            
+            <button class="btn" onclick="startCapture()">▶️ Start Capture</button>
+            <button class="btn secondary" onclick="pauseCapture()">⏸️ Pause</button>
+            <button class="btn danger" onclick="clearLogs()">🗑️ Clear Logs</button>
+            <button class="btn success" onclick="exportLogs()">💾 Export</button>
+            
+            <div class="filter-group">
+                <label>Filter:</label>
+                <select class="filter-select" id="levelFilter" onchange="applyFilters()">
+                    <option value="all">All Levels</option>
+                    <option value="error">Errors Only</option>
+                    <option value="warn">Warnings & Errors</option>
+                    <option value="info">Info & Above</option>
+                    <option value="debug">Debug & Above</option>
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label>Source:</label>
+                <select class="filter-select" id="sourceFilter" onchange="applyFilters()">
+                    <option value="all">All Sources</option>
+                </select>
+            </div>
+            
+            <div class="status-indicator" id="captureStatus">
+                <div class="status-dot"></div>
+                <span>Disconnected</span>
+            </div>
+        </div>
+
+        <div class="log-viewer">
+            <div class="log-header">
+                <h3>Console Logs</h3>
+                <div class="log-stats">
+                    <span>Total: <span id="totalLogs">0</span></span>
+                    <span>Errors: <span id="errorCount">0</span></span>
+                    <span>Warnings: <span id="warnCount">0</span></span>
+                </div>
+            </div>
+            <div class="log-content" id="logContent">
+                <div class="empty-state">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                    </svg>
+                    <h4>No logs captured yet</h4>
+                    <p>Click "Start Capture" and then open the Investra app to begin monitoring console logs.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class BrowserLogViewer {
+            constructor() {
+                this.logs = [];
+                this.isCapturing = false;
+                this.originalConsole = {};
+                this.filters = {
+                    level: 'all',
+                    source: 'all'
+                };
+                this.sources = new Set();
+                this.stats = {
+                    total: 0,
+                    errors: 0,
+                    warnings: 0
+                };
+                
+                this.init();
+            }
+
+            init() {
+                // Store original console methods
+                this.originalConsole = {
+                    log: console.log.bind(console),
+                    info: console.info.bind(console),
+                    warn: console.warn.bind(console),
+                    error: console.error.bind(console),
+                    debug: console.debug.bind(console)
+                };
+
+                // Check if we can access the main app
+                this.checkAppConnection();
+                
+                // Auto-start capture
+                this.startCapture();
+            }
+
+            checkAppConnection() {
+                const appLink = document.getElementById('appLink');
+                const currentPort = window.location.port;
+                
+                // Determine the likely app URL based on current setup
+                const appUrls = [
+                    'http://localhost:5173',  // Vite default
+                    'http://localhost:5175',  // Alternative port
+                    'http://localhost:3000',  // Common React port
+                    'http://localhost:8080'   // Alternative
+                ];
+
+                appLink.href = appUrls[0]; // Default to first
+            }
+
+            startCapture() {
+                if (this.isCapturing) return;
+                
+                this.isCapturing = true;
+                this.updateStatus('connected', 'Capturing');
+                
+                // Override console methods
+                const levels = ['log', 'info', 'warn', 'error', 'debug'];
+                
+                levels.forEach(level => {
+                    console[level] = (...args) => {
+                        // Call original method
+                        this.originalConsole[level](...args);
+                        
+                        // Capture the log
+                        this.captureLog(level, args);
+                    };
+                });
+            }
+
+            pauseCapture() {
+                if (!this.isCapturing) return;
+                
+                this.isCapturing = false;
+                this.updateStatus('disconnected', 'Paused');
+                
+                // Restore original console methods
+                Object.keys(this.originalConsole).forEach(level => {
+                    console[level] = this.originalConsole[level];
+                });
+            }
+
+            captureLog(level, args) {
+                if (!this.isCapturing) return;
+
+                const timestamp = new Date();
+                const message = args.map(arg => {
+                    if (typeof arg === 'object') {
+                        try {
+                            return JSON.stringify(arg, null, 2);
+                        } catch (e) {
+                            return String(arg);
+                        }
+                    }
+                    return String(arg);
+                }).join(' ');
+
+                // Try to extract source from stack trace or message
+                const source = this.extractSource(message, args);
+                this.sources.add(source);
+
+                const logEntry = {
+                    id: Date.now() + Math.random(),
+                    timestamp,
+                    level,
+                    message,
+                    source,
+                    data: args.length > 1 ? args.slice(1) : null
+                };
+
+                this.logs.push(logEntry);
+                this.updateStats();
+                this.updateSourceFilter();
+                this.renderLogs();
+                
+                // Auto-scroll to bottom
+                const logContent = document.getElementById('logContent');
+                logContent.scrollTop = logContent.scrollHeight;
+            }
+
+            extractSource(message, args) {
+                // Try to extract source from common patterns
+                if (message.includes('[') && message.includes(']')) {
+                    const matches = message.match(/\[([^\]]+)\]/g);
+                    if (matches && matches.length >= 3) {
+                        return matches[2].replace(/[\[\]]/g, ''); // Usually the source is the third bracket
+                    }
+                }
+                
+                // Check for common Investra patterns
+                if (message.includes('Dashboard')) return 'Dashboard';
+                if (message.includes('Auth')) return 'Auth';
+                if (message.includes('API')) return 'API';
+                if (message.includes('Email')) return 'Email';
+                if (message.includes('React')) return 'React';
+                if (message.includes('Supabase')) return 'Supabase';
+                if (message.includes('Debug')) return 'Debug';
+                
+                return 'App';
+            }
+
+            updateStats() {
+                this.stats.total = this.logs.length;
+                this.stats.errors = this.logs.filter(log => log.level === 'error').length;
+                this.stats.warnings = this.logs.filter(log => log.level === 'warn').length;
+
+                document.getElementById('totalLogs').textContent = this.stats.total;
+                document.getElementById('errorCount').textContent = this.stats.errors;
+                document.getElementById('warnCount').textContent = this.stats.warnings;
+            }
+
+            updateSourceFilter() {
+                const sourceFilter = document.getElementById('sourceFilter');
+                const currentValue = sourceFilter.value;
+                
+                // Clear existing options except "All Sources"
+                sourceFilter.innerHTML = '<option value="all">All Sources</option>';
+                
+                // Add source options
+                Array.from(this.sources).sort().forEach(source => {
+                    const option = document.createElement('option');
+                    option.value = source;
+                    option.textContent = source;
+                    sourceFilter.appendChild(option);
+                });
+                
+                // Restore previous selection if it still exists
+                if (Array.from(sourceFilter.options).some(opt => opt.value === currentValue)) {
+                    sourceFilter.value = currentValue;
+                }
+            }
+
+            updateStatus(status, text) {
+                const statusElement = document.getElementById('captureStatus');
+                statusElement.className = `status-indicator ${status}`;
+                statusElement.querySelector('span').textContent = text;
+            }
+
+            applyFilters() {
+                this.filters.level = document.getElementById('levelFilter').value;
+                this.filters.source = document.getElementById('sourceFilter').value;
+                this.renderLogs();
+            }
+
+            filterLogs() {
+                let filtered = [...this.logs];
+
+                // Filter by level
+                if (this.filters.level !== 'all') {
+                    const levelPriority = { debug: 0, log: 1, info: 2, warn: 3, error: 4 };
+                    const minPriority = levelPriority[this.filters.level];
+                    
+                    filtered = filtered.filter(log => 
+                        levelPriority[log.level] >= minPriority
+                    );
+                }
+
+                // Filter by source
+                if (this.filters.source !== 'all') {
+                    filtered = filtered.filter(log => log.source === this.filters.source);
+                }
+
+                return filtered;
+            }
+
+            renderLogs() {
+                const logContent = document.getElementById('logContent');
+                const filtered = this.filterLogs();
+
+                if (filtered.length === 0) {
+                    logContent.innerHTML = `
+                        <div class="empty-state">
+                            <svg viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                            </svg>
+                            <h4>No logs match the current filters</h4>
+                            <p>Try adjusting the level or source filters to see more logs.</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const html = filtered.map(log => this.renderLogEntry(log)).join('');
+                logContent.innerHTML = html;
+            }
+
+            renderLogEntry(log) {
+                const timestamp = log.timestamp.toLocaleTimeString();
+                const dataHtml = log.data ? `<div class="log-data">${JSON.stringify(log.data, null, 2)}</div>` : '';
+                
+                return `
+                    <div class="log-entry">
+                        <div class="log-timestamp">${timestamp}</div>
+                        <div class="log-level ${log.level}">${log.level}</div>
+                        <div class="log-source">${log.source}</div>
+                        <div class="log-message">
+                            ${this.escapeHtml(log.message)}
+                            ${dataHtml}
+                        </div>
+                    </div>
+                `;
+            }
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            clearLogs() {
+                this.logs = [];
+                this.sources.clear();
+                this.stats = { total: 0, errors: 0, warnings: 0 };
+                this.updateStats();
+                this.updateSourceFilter();
+                this.renderLogs();
+            }
+
+            exportLogs() {
+                const data = {
+                    timestamp: new Date().toISOString(),
+                    totalLogs: this.logs.length,
+                    filters: this.filters,
+                    logs: this.logs
+                };
+
+                const blob = new Blob([JSON.stringify(data, null, 2)], { 
+                    type: 'application/json' 
+                });
+                
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `investra-browser-logs-${Date.now()}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
+        }
+
+        // Global functions for button handlers
+        let logViewer;
+
+        function startCapture() {
+            logViewer.startCapture();
+        }
+
+        function pauseCapture() {
+            logViewer.pauseCapture();
+        }
+
+        function clearLogs() {
+            logViewer.clearLogs();
+        }
+
+        function exportLogs() {
+            logViewer.exportLogs();
+        }
+
+        function applyFilters() {
+            logViewer.applyFilters();
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            logViewer = new BrowserLogViewer();
+        });
+    </script>
+</body>
+</html>

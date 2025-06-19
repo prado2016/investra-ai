@@ -27,8 +27,10 @@ import Summary from './pages/Summary';
 import Settings from './pages/Settings';
 import EmailManagement from './pages/EmailManagement';
 import Notifications from './pages/Notifications';
+import DebugLogs from './pages/DebugLogs';
 import EncryptionServiceTest from './components/EncryptionServiceTest';
 import { debug, ErrorTracker, isDev } from './utils/debug';
+import { BrowserLogIntegration } from './utils/browserLogIntegration';
 import './styles/App.css';
 
 // Component to conditionally render debug components
@@ -157,6 +159,12 @@ function AppContent() {
       debug.info('E2E Test Mode detected - bypassing authentication', undefined, 'App');
     }
     debug.info('App initialized', { user: user?.id, loading, isE2ETestMode }, 'App');
+    
+    // Initialize browser log integration in development
+    if (isDev) {
+      BrowserLogIntegration.getInstance();
+      debug.info('Browser log integration initialized', undefined, 'App');
+    }
   }, [user, loading, isE2ETestMode]);
 
   // Force immediate render in E2E test mode to prevent hanging
@@ -176,6 +184,7 @@ function AppContent() {
               <Route path="/email-management" element={<EmailManagement />} />
               <Route path="/notifications" element={<Notifications />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/debug-logs" element={<DebugLogs />} />
               <Route path="/encryption-test" element={<EncryptionServiceTest />} />
             </Routes>
           </main>
@@ -215,6 +224,7 @@ function AppContent() {
             <Route path="/email-management" element={<EmailManagement />} />
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/debug-logs" element={<DebugLogs />} />
             <Route path="/encryption-test" element={<EncryptionServiceTest />} />
           </Routes>
         </main>
