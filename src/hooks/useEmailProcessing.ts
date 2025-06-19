@@ -98,9 +98,11 @@ export const useEmailProcessing = (
       // Try local enhanced server endpoints (development mode)
       // In development, check port 3001 directly
       try {
+        console.log('🔍 Checking localhost:3001 for enhanced server...');
         const enhancedResponse = await fetch('http://localhost:3001/health');
         if (enhancedResponse.ok) {
           const enhancedData = await enhancedResponse.json();
+          console.log('🔍 Enhanced server response:', enhancedData);
           
           // Enhanced server returns detailed endpoint information
           if (enhancedData.data?.endpoints?.imap || enhancedData.data?.services?.emailProcessing) {
@@ -109,7 +111,11 @@ export const useEmailProcessing = (
             // Store the enhanced server URL for API calls
             (window as any).__ENHANCED_SERVER_URL__ = 'http://localhost:3001';
             return;
+          } else {
+            console.log('⚠️ Enhanced server health response missing required fields');
           }
+        } else {
+          console.log('⚠️ Enhanced server health check failed with status:', enhancedResponse.status);
         }
       } catch (localEnhancedError) {
         console.log('⚠️ Enhanced server not available on localhost:3001:', localEnhancedError);
@@ -151,6 +157,7 @@ export const useEmailProcessing = (
 
   // Get the appropriate API service
   const getApiService = useCallback(() => {
+    console.log(`🔧 API Service Selection: Enhanced=${isEnhancedServer}, Using=${isEnhancedServer ? 'EnhancedEmailApiService' : 'SimpleEmailApiService'}`);
     return isEnhancedServer ? EnhancedEmailApiService : SimpleEmailApiService;
   }, [isEnhancedServer]);
 
@@ -197,14 +204,15 @@ export const useEmailProcessing = (
   const refreshHealthCheck = useCallback(async () => {
     try {
       console.log('🔄 Fetching health check...');
-      const health = await SimpleEmailApiService.getHealthCheck();
+      const ApiService = getApiService();
+      const health = await ApiService.getHealthCheck();
       console.log('✅ Health check received:', health);
       setHealthCheck(health);
     } catch (apiError) {
       console.error('❌ Failed to fetch health check:', apiError);
       handleApiError(apiError, 'fetch health check');
     }
-  }, [handleApiError]);
+  }, [handleApiError, getApiService]);
 
   // Refresh all data
   const refreshData = useCallback(async () => {
@@ -236,7 +244,8 @@ export const useEmailProcessing = (
   const startService = useCallback(async () => {
     setLoading(true);
     try {
-      const status = await SimpleEmailApiService.startIMAPService();
+      const ApiService = getApiService();
+      const status = await ApiService.startIMAPService();
       setImapStatus(status);
       success('Service Started', 'IMAP email service started successfully');
       // Refresh stats after starting
@@ -246,12 +255,13 @@ export const useEmailProcessing = (
     } finally {
       setLoading(false);
     }
-  }, [success, handleApiError, refreshStats]);
+  }, [success, handleApiError, refreshStats, getApiService]);
 
   const stopService = useCallback(async () => {
     setLoading(true);
     try {
-      const status = await SimpleEmailApiService.stopIMAPService();
+      const ApiService = getApiService();
+      const status = await ApiService.stopIMAPService();
       setImapStatus(status);
       success('Service Stopped', 'IMAP email service stopped successfully');
       // Refresh stats after stopping
@@ -261,12 +271,13 @@ export const useEmailProcessing = (
     } finally {
       setLoading(false);
     }
-  }, [success, handleApiError, refreshStats]);
+  }, [success, handleApiError, refreshStats, getApiService]);
 
   const restartService = useCallback(async () => {
     setLoading(true);
     try {
-      const status = await SimpleEmailApiService.restartIMAPService();
+      const ApiService = getApiService();
+      const status = await ApiService.restartIMAPService();
       setImapStatus(status);
       success('Service Restarted', 'IMAP email service restarted successfully');
       // Refresh all data after restart
@@ -276,12 +287,13 @@ export const useEmailProcessing = (
     } finally {
       setLoading(false);
     }
-  }, [success, handleApiError, refreshData]);
+  }, [success, handleApiError, refreshData, getApiService]);
 
   const processNow = useCallback(async () => {
     setLoading(true);
     try {
-      await SimpleEmailApiService.processEmailsNow();
+      const ApiService = getApiService();
+      await ApiService.processEmailsNow();
       success('Processing Started', 'Manual email processing initiated');
       // Refresh queue and stats after processing
       await Promise.all([refreshQueue(), refreshStats()]);
@@ -290,7 +302,7 @@ export const useEmailProcessing = (
     } finally {
       setLoading(false);
     }
-  }, [success, handleApiError, refreshQueue, refreshStats]);
+  }, [success, handleApiError, refreshQueue, refreshStats, getApiService]);
 
   // Auto-refresh effect
   useEffect(() => {
@@ -299,6 +311,11 @@ export const useEmailProcessing = (
     const interval = setInterval(refreshData, refreshInterval);
     return () => clearInterval(interval);
   }, [autoRefresh, refreshInterval, refreshData]);
+
+  // Server type detection - must run first
+  useEffect(() => {
+    detectServerType();
+  }, [detectServerType]);
 
   // Initial data load
   useEffect(() => {
