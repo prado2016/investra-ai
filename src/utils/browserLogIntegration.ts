@@ -9,6 +9,7 @@ export class BrowserLogIntegration {
   private isConnected = false;
   private logQueue: Array<any> = [];
   private maxQueueSize = 1000;
+  private broadcastChannel: BroadcastChannel | null = null;
 
   static getInstance(): BrowserLogIntegration {
     if (!BrowserLogIntegration.instance) {
@@ -22,16 +23,46 @@ export class BrowserLogIntegration {
   }
 
   private init() {
+    // Set up BroadcastChannel for cross-window communication
+    try {
+      this.broadcastChannel = new BroadcastChannel('investra-logs');
+      this.broadcastChannel.addEventListener('message', this.handleBroadcastMessage.bind(this));
+    } catch (error) {
+      debug.warn('BroadcastChannel not available, falling back to postMessage', error, 'LogViewer');
+    }
+
     // Listen for messages from the log viewer
     window.addEventListener('message', this.handleMessage.bind(this));
     
     // Override the debug logger to also send to external viewer
     this.integrateWithDebugLogger();
     
+    // Override console methods too
+    this.integrateWithConsole();
+    
     // Announce availability
     this.announceAvailability();
     
     debug.info('Browser Log Integration initialized', undefined, 'LogViewer');
+  }
+
+  private handleBroadcastMessage(event: MessageEvent) {
+    const { type } = event.data;
+
+    switch (type) {
+      case 'LOG_VIEWER_CONNECT':
+        this.handleConnect();
+        break;
+      case 'LOG_VIEWER_DISCONNECT':
+        this.handleDisconnect();
+        break;
+      case 'REQUEST_LOG_HISTORY':
+        this.sendLogHistory();
+        break;
+      case 'CLEAR_LOGS':
+        this.clearLogs();
+        break;
+    }
   }
 
   private handleMessage(event: MessageEvent) {
@@ -60,8 +91,17 @@ export class BrowserLogIntegration {
     this.isConnected = true;
     debug.info('External log viewer connected', undefined, 'LogViewer');
     
-    // Send queued logs
+    // Send all existing logs from debug system and queue
     this.sendLogHistory();
+    
+    // Notify the viewer that we're connected
+    this.postToViewer({
+      type: 'APP_CONNECTED',
+      data: {
+        appName: 'Investra AI',
+        timestamp: new Date().toISOString()
+      }
+    });
   }
 
   private handleDisconnect() {
@@ -75,13 +115,19 @@ export class BrowserLogIntegration {
     // Get logs from the debug system
     const logs = debug.getLogs();
     
+    // Also include queued logs
+    const allLogs = [...logs, ...this.logQueue];
+    
     this.postToViewer({
       type: 'LOG_HISTORY',
       data: {
-        logs: logs.map(this.formatLogForViewer),
+        logs: allLogs.map(this.formatLogForViewer),
         timestamp: new Date().toISOString()
       }
     });
+
+    // Clear the queue since we've sent all logs
+    this.logQueue = [];
   }
 
   private formatLogForViewer(log: any) {
@@ -93,6 +139,56 @@ export class BrowserLogIntegration {
       source: log.source || 'App',
       data: log.data
     };
+  }
+
+  private integrateWithConsole() {
+    // Store original console methods
+    const originalConsole = {
+      log: console.log.bind(console),
+      info: console.info.bind(console),
+      warn: console.warn.bind(console),
+      error: console.error.bind(console),
+      debug: console.debug.bind(console)
+    };
+
+    // Override console methods to also send to external viewer
+    console.log = (...args) => {
+      originalConsole.log(...args);
+      this.sendLogToViewer('log', this.formatConsoleArgs(args), args, 'Console');
+    };
+
+    console.info = (...args) => {
+      originalConsole.info(...args);
+      this.sendLogToViewer('info', this.formatConsoleArgs(args), args, 'Console');
+    };
+
+    console.warn = (...args) => {
+      originalConsole.warn(...args);
+      this.sendLogToViewer('warn', this.formatConsoleArgs(args), args, 'Console');
+    };
+
+    console.error = (...args) => {
+      originalConsole.error(...args);
+      this.sendLogToViewer('error', this.formatConsoleArgs(args), args, 'Console');
+    };
+
+    console.debug = (...args) => {
+      originalConsole.debug(...args);
+      this.sendLogToViewer('debug', this.formatConsoleArgs(args), args, 'Console');
+    };
+  }
+
+  private formatConsoleArgs(args: any[]): string {
+    return args.map(arg => {
+      if (typeof arg === 'object') {
+        try {
+          return JSON.stringify(arg, null, 2);
+        } catch (e) {
+          return String(arg);
+        }
+      }
+      return String(arg);
+    }).join(' ');
   }
 
   private integrateWithDebugLogger() {
@@ -131,23 +227,23 @@ export class BrowserLogIntegration {
   }
 
   private sendLogToViewer(level: string, message: string, data?: unknown, source = 'App') {
-    if (!this.isConnected) {
-      // Queue the log for when viewer connects
-      this.queueLog(level, message, data, source);
-      return;
-    }
-
     const logEntry = {
       id: `${Date.now()}-${Math.random()}`,
-      timestamp: new Date(),
+      timestamp: new Date().toISOString(),
       level,
       message,
       source,
       data
     };
 
+    if (!this.isConnected) {
+      // Queue the log for when viewer connects
+      this.queueLog(level, message, data, source);
+      return;
+    }
+
     this.postToViewer({
-      type: 'NEW_LOG',
+      type: 'LOG_ENTRY',
       data: logEntry
     });
   }
@@ -170,14 +266,23 @@ export class BrowserLogIntegration {
   }
 
   private postToViewer(message: any) {
-    // Try to post to log viewer windows
+    // Try to post to log viewer windows using BroadcastChannel
+    try {
+      if (this.broadcastChannel) {
+        this.broadcastChannel.postMessage(message);
+      }
+    } catch (error) {
+      // Silently fail - viewer might not be available
+    }
+
+    // Fallback to postMessage for same-window communication
     try {
       // Post to parent if we're in an iframe
       if (window.parent !== window) {
         window.parent.postMessage(message, window.location.origin);
       }
       
-      // Post to all opened windows (limited by same-origin policy)
+      // Post to current window for internal communication
       window.postMessage(message, window.location.origin);
     } catch (error) {
       // Silently fail - viewer might not be available

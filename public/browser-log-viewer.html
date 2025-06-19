@@ -374,6 +374,7 @@
                     errors: 0,
                     warnings: 0
                 };
+                this.broadcastChannel = null;
                 
                 this.init();
             }
@@ -388,11 +389,140 @@
                     debug: console.debug.bind(console)
                 };
 
+                // Set up cross-window communication
+                this.setupCrossWindowCommunication();
+
                 // Check if we can access the main app
                 this.checkAppConnection();
                 
                 // Auto-start capture
                 this.startCapture();
+            }
+
+            setupCrossWindowCommunication() {
+                // Set up BroadcastChannel for cross-window communication
+                try {
+                    this.broadcastChannel = new BroadcastChannel('investra-logs');
+                    this.broadcastChannel.addEventListener('message', (event) => {
+                        const { type, data } = event.data;
+
+                        switch (type) {
+                            case 'LOG_ENTRY':
+                                this.receiveExternalLog(data);
+                                break;
+                            case 'LOG_HISTORY':
+                                this.receiveLogHistory(data);
+                                break;
+                            case 'LOGS_AVAILABLE':
+                                this.handleLogsAvailable(data);
+                                break;
+                        }
+                    });
+                    console.log('✅ BroadcastChannel setup successful');
+                } catch (error) {
+                    console.warn('BroadcastChannel not available:', error);
+                }
+
+                // Also listen for regular window messages as fallback
+                window.addEventListener('message', (event) => {
+                    // Only accept messages from same origin for security
+                    if (event.origin !== window.location.origin) return;
+
+                    const { type, data } = event.data;
+
+                    switch (type) {
+                        case 'LOG_ENTRY':
+                            this.receiveExternalLog(data);
+                            break;
+                        case 'LOG_HISTORY':
+                            this.receiveLogHistory(data);
+                            break;
+                        case 'APP_CONNECTED':
+                            this.handleAppConnection();
+                            break;
+                    }
+                });
+
+                // Announce that log viewer is ready
+                this.announceLogViewerReady();
+            }
+
+            announceLogViewerReady() {
+                // Try to connect via BroadcastChannel
+                try {
+                    if (this.broadcastChannel) {
+                        this.broadcastChannel.postMessage({
+                            type: 'LOG_VIEWER_CONNECT',
+                            timestamp: new Date().toISOString()
+                        });
+                    }
+                } catch (error) {
+                    console.warn('BroadcastChannel announcement failed:', error);
+                }
+
+                // Try to find the main app window and connect via postMessage
+                try {
+                    // Post message to parent if opened as popup
+                    if (window.opener) {
+                        window.opener.postMessage({
+                            type: 'LOG_VIEWER_CONNECT',
+                            timestamp: new Date().toISOString()
+                        }, window.location.origin);
+                    }
+
+                    console.log('🔗 Browser Log Viewer ready for cross-window communication');
+                } catch (error) {
+                    console.warn('Cross-window communication not available:', error);
+                }
+            }
+
+            handleLogsAvailable(data) {
+                console.log('📊 Logs available from main app:', data);
+                this.updateStatus('connected', `Connected (${data.logsCount} logs)`);
+                
+                // Request log history
+                if (this.broadcastChannel) {
+                    this.broadcastChannel.postMessage({
+                        type: 'REQUEST_LOG_HISTORY',
+                        timestamp: new Date().toISOString()
+                    });
+                }
+            }
+
+            receiveExternalLog(logData) {
+                // Receive log from main app
+                const logEntry = {
+                    id: logData.id || Date.now() + Math.random(),
+                    timestamp: new Date(logData.timestamp),
+                    level: logData.level,
+                    message: logData.message,
+                    source: logData.source || 'App',
+                    data: logData.data
+                };
+
+                this.logs.push(logEntry);
+                this.sources.add(logEntry.source);
+                this.updateStats();
+                this.updateSourceFilter();
+                this.renderLogs();
+                
+                // Auto-scroll to bottom
+                const logContent = document.getElementById('logContent');
+                logContent.scrollTop = logContent.scrollHeight;
+            }
+
+            receiveLogHistory(historyData) {
+                // Receive log history from main app
+                if (historyData.logs) {
+                    historyData.logs.forEach(log => {
+                        this.receiveExternalLog(log);
+                    });
+                }
+            }
+
+            handleAppConnection() {
+                this.updateStatus('connected', 'Connected to App');
+                console.log('✅ Connected to main Investra app');
             }
 
             checkAppConnection() {
