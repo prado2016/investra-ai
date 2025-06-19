@@ -29,8 +29,24 @@ export interface UseWebSocketOptions {
 }
 
 export function useWebSocket(options: UseWebSocketOptions = {}) {
+  // Get default WebSocket URL from environment or fallback
+  const getDefaultWebSocketUrl = () => {
+    if (import.meta.env.VITE_WEBSOCKET_URL) {
+      return import.meta.env.VITE_WEBSOCKET_URL;
+    }
+    
+    if (typeof window !== 'undefined') {
+      const isProduction = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+      if (isProduction) {
+        return `ws://${window.location.hostname}:3002`;
+      }
+    }
+    
+    return 'ws://localhost:3002';
+  };
+
   const {
-    url = 'ws://localhost:3002',
+    url = getDefaultWebSocketUrl(),
     autoConnect = true,
     reconnectAttempts = 5,
     reconnectInterval = 3000,
@@ -94,7 +110,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
           connecting: false
         }));
 
-        // Attempt to reconnect if not manually closed
+        // Attempt to reconnect if not manually closed and we haven't exceeded max attempts
         if (event.code !== 1000 && reconnectCountRef.current < reconnectAttempts) {
           reconnectCountRef.current++;
           console.log(`Attempting to reconnect (${reconnectCountRef.current}/${reconnectAttempts})...`);
@@ -102,6 +118,13 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
           reconnectTimeoutRef.current = setTimeout(() => {
             connect();
           }, reconnectInterval);
+        } else if (reconnectCountRef.current >= reconnectAttempts) {
+          // Max reconnection attempts reached, set persistent error
+          setState(prev => ({
+            ...prev,
+            error: 'WebSocket connection failed after maximum retry attempts. Real-time updates are not available.'
+          }));
+          console.warn('WebSocket connection failed after maximum retry attempts. Real-time updates disabled.');
         }
       };
 
@@ -193,10 +216,29 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
 
 // Specialized hook for email processing updates
 export function useEmailProcessingWebSocket() {
+  // Get WebSocket URL from environment variable, fallback to localhost for development
+  const getWebSocketUrl = () => {
+    if (import.meta.env.VITE_WEBSOCKET_URL) {
+      return import.meta.env.VITE_WEBSOCKET_URL;
+    }
+    
+    // Fallback logic
+    if (typeof window !== 'undefined') {
+      const isProduction = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+      if (isProduction) {
+        return `ws://${window.location.hostname}:3002`;
+      }
+    }
+    
+    return 'ws://localhost:3002';
+  };
+
   const webSocket = useWebSocket({
-    url: 'ws://localhost:3002',
+    url: getWebSocketUrl(),
     autoConnect: true,
-    maxMessages: 50
+    maxMessages: 50,
+    reconnectAttempts: 3, // Reduce reconnection attempts for production
+    reconnectInterval: 5000 // Increase interval to reduce noise
   });
 
   const emailProcessingMessages = webSocket.messages.filter(msg => 
