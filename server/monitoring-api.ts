@@ -343,7 +343,7 @@ emailAlertManager.on('alertResolved', (alert) => {
 /**
  * Start monitoring API server
  */
-export function startMonitoringAPI(port: number = 3001) {
+export function startMonitoringAPI(port: number = 3002) {
   return new Promise<void>((resolve) => {
     server.listen(port, () => {
       console.log(`📊 Monitoring API server running on port ${port}`);
