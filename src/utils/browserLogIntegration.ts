@@ -23,45 +23,63 @@ export class BrowserLogIntegration {
   }
 
   private init() {
+    console.log('🚀 Initializing BrowserLogIntegration...');
+    
     // Set up BroadcastChannel for cross-window communication
     try {
       this.broadcastChannel = new BroadcastChannel('investra-logs');
       this.broadcastChannel.addEventListener('message', this.handleBroadcastMessage.bind(this));
+      console.log('✅ BroadcastChannel initialized successfully');
     } catch (error) {
+      console.warn('❌ BroadcastChannel not available, falling back to postMessage', error);
       debug.warn('BroadcastChannel not available, falling back to postMessage', error, 'LogViewer');
     }
 
     // Listen for messages from the log viewer
     window.addEventListener('message', this.handleMessage.bind(this));
+    console.log('✅ Window message listener added');
     
     // Override the debug logger to also send to external viewer
     this.integrateWithDebugLogger();
+    console.log('✅ Debug logger integration complete');
     
     // Override console methods too
     this.integrateWithConsole();
+    console.log('✅ Console integration complete');
     
     // Announce availability
     this.announceAvailability();
+    console.log('✅ Availability announcements started');
     
     debug.info('Browser Log Integration initialized', undefined, 'LogViewer');
+    console.log('🎉 BrowserLogIntegration initialization complete!');
   }
 
   private handleBroadcastMessage(event: MessageEvent) {
     const { type } = event.data;
+    
+    // Add debugging for incoming messages
+    console.log('🔔 BrowserLogIntegration received BroadcastChannel message:', type, event.data);
 
     switch (type) {
       case 'LOG_VIEWER_CONNECT':
+        console.log('📡 Log viewer connection request received');
         this.handleConnect();
         break;
       case 'LOG_VIEWER_DISCONNECT':
+        console.log('📡 Log viewer disconnection request received');
         this.handleDisconnect();
         break;
       case 'REQUEST_LOG_HISTORY':
+        console.log('📡 Log history request received');
         this.sendLogHistory();
         break;
       case 'CLEAR_LOGS':
+        console.log('📡 Clear logs request received');
         this.clearLogs();
         break;
+      default:
+        console.log('📡 Unknown message type received:', type);
     }
   }
 
@@ -89,6 +107,7 @@ export class BrowserLogIntegration {
 
   private handleConnect() {
     this.isConnected = true;
+    console.log('🔗 External log viewer connected! isConnected =', this.isConnected);
     debug.info('External log viewer connected', undefined, 'LogViewer');
     
     // Send all existing logs from debug system and queue
@@ -102,6 +121,8 @@ export class BrowserLogIntegration {
         timestamp: new Date().toISOString()
       }
     });
+    
+    console.log('📤 Connection confirmation sent to log viewer');
   }
 
   private handleDisconnect() {
@@ -238,10 +259,12 @@ export class BrowserLogIntegration {
 
     if (!this.isConnected) {
       // Queue the log for when viewer connects
+      console.log('📋 Queueing log (viewer not connected):', message);
       this.queueLog(level, message, data, source);
       return;
     }
 
+    console.log('📤 Sending log to viewer:', message);
     this.postToViewer({
       type: 'LOG_ENTRY',
       data: logEntry
@@ -332,12 +355,16 @@ export class BrowserLogIntegration {
   }
 }
 
-// Auto-initialize in development
-if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
-  const integration = BrowserLogIntegration.getInstance();
-  
-  // Make available globally for debugging
-  (window as any).browserLogIntegration = integration;
-  
-  debug.info('Browser Log Integration ready', undefined, 'LogViewer');
+// Export function to manually initialize
+export function initializeBrowserLogIntegration() {
+  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+    const integration = BrowserLogIntegration.getInstance();
+    
+    // Make available globally for debugging
+    (window as any).browserLogIntegration = integration;
+    
+    debug.info('Browser Log Integration ready', undefined, 'LogViewer');
+    return integration;
+  }
+  return null;
 }

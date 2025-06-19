@@ -448,16 +448,23 @@
             }
 
             announceLogViewerReady() {
+                console.log('📡 Announcing log viewer ready...');
+                
                 // Try to connect via BroadcastChannel
                 try {
                     if (this.broadcastChannel) {
-                        this.broadcastChannel.postMessage({
+                        const connectMessage = {
                             type: 'LOG_VIEWER_CONNECT',
                             timestamp: new Date().toISOString()
-                        });
+                        };
+                        
+                        this.broadcastChannel.postMessage(connectMessage);
+                        console.log('✅ Sent LOG_VIEWER_CONNECT via BroadcastChannel:', connectMessage);
+                    } else {
+                        console.warn('❌ BroadcastChannel not available for connection');
                     }
                 } catch (error) {
-                    console.warn('BroadcastChannel announcement failed:', error);
+                    console.warn('❌ BroadcastChannel announcement failed:', error);
                 }
 
                 // Try to find the main app window and connect via postMessage

@@ -30,7 +30,7 @@ import Notifications from './pages/Notifications';
 import DebugLogs from './pages/DebugLogs';
 import EncryptionServiceTest from './components/EncryptionServiceTest';
 import { debug, ErrorTracker, isDev } from './utils/debug';
-import { BrowserLogIntegration } from './utils/browserLogIntegration';
+import { initializeBrowserLogIntegration } from './utils/browserLogIntegration';
 import './styles/App.css';
 
 // Component to conditionally render debug components
@@ -162,7 +162,7 @@ function AppContent() {
     
     // Initialize browser log integration in development
     if (isDev) {
-      BrowserLogIntegration.getInstance();
+      initializeBrowserLogIntegration();
       debug.info('Browser log integration initialized', undefined, 'App');
     }
   }, [user, loading, isE2ETestMode]);
@@ -248,7 +248,7 @@ function App() {
     // Initialize browser log integration in development mode
     if (isDev) {
       try {
-        BrowserLogIntegration.getInstance();
+        initializeBrowserLogIntegration();
         debug.info('Browser log integration initialized', undefined, 'App');
       } catch (error) {
         debug.warn('Failed to initialize browser log integration', error, 'App');
