@@ -31,7 +31,9 @@ import { Button } from './ui/Button';
 import { Modal } from './ui/Modal';
 import { Input } from './ui/Input';
 import { useNotifications } from '../hooks/useNotifications';
+import { useManualReviewQueue } from '../hooks/useManualReviewQueue';
 import { formatDate } from '../utils/formatting';
+import type { ManualReviewItem } from '../services/enhancedEmailApiService';
 
 interface ReviewItem {
   id: string;
@@ -656,6 +658,16 @@ const ManualReviewQueueManager: React.FC<ManualReviewQueueManagerProps> = ({
   className
 }) => {
   const { success, error } = useNotifications();
+  
+  // Use real manual review queue hook
+  const {
+    loading: hookLoading,
+    reviewItems: realReviewItems,
+    stats,
+    handleReviewAction: processReviewAction,
+    refreshQueue
+  } = useManualReviewQueue(true, 30000);
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterPriority, setFilterPriority] = useState<string>('all');
@@ -664,7 +676,58 @@ const ManualReviewQueueManager: React.FC<ManualReviewQueueManagerProps> = ({
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  // Mock data for demonstration
+  // Convert API ManualReviewItem to component ReviewItem format
+  const convertApiItemsToReviewItems = (apiItems: ManualReviewItem[]): ReviewItem[] => {
+    return apiItems.map(item => ({
+      id: item.id,
+      emailSubject: item.emailSubject,
+      fromEmail: item.fromEmail,
+      portfolioId: 'portfolio-1', // Default portfolio - could be extracted from API in future
+      receivedAt: item.timestamps.flaggedAt,
+      flaggedAt: item.timestamps.flaggedAt,
+      flagReason: item.flaggedReason.includes('duplicate') ? 'potential_duplicate' as const : 'ai_confidence_low' as const,
+      flagDetails: {
+        confidence: item.confidence,
+        triggerType: item.flaggedReason.includes('duplicate') ? 'time_proximity' as const : 'ai_uncertainty' as const,
+        relatedItems: item.similarTransactions.map(t => t.id),
+        aiNotes: item.flaggedReason,
+        context: {
+          similarTransactions: item.similarTransactions.length,
+          priority: item.priority
+        }
+      },
+      originalEmail: {
+        subject: item.emailSubject,
+        from: item.fromEmail,
+        htmlContent: '',
+        textContent: '',
+        receivedAt: item.timestamps.flaggedAt,
+        messageId: item.id
+      },
+      extractedData: {
+        symbol: item.extractedData.symbol,
+        amount: item.extractedData.amount,
+        transactionType: item.extractedData.type.toLowerCase() as 'buy' | 'sell',
+        date: item.extractedData.date
+      },
+      duplicateCandidates: item.similarTransactions.map(t => ({
+        id: t.id,
+        similarity: 0.8, // Default similarity
+        reason: `Similar ${t.type} transaction for ${t.symbol}`,
+        data: t
+      })),
+      status: item.status as 'pending' | 'under_review' | 'approved' | 'rejected',
+      priority: item.priority as 'low' | 'normal' | 'high' | 'urgent',
+      tags: [item.extractedData.symbol, item.priority],
+      estimatedReviewTime: 15, // Default 15 minutes
+      slaDeadline: item.slaTarget
+    }));
+  };
+
+  // Use real data when available, fallback to mock for demo
+  const realItems = convertApiItemsToReviewItems(realReviewItems);
+  
+  // Mock data for demonstration (when enhanced server not available)
   const mockReviewItems: ReviewItem[] = [
     {
       id: 'review-1',
@@ -761,7 +824,8 @@ const ManualReviewQueueManager: React.FC<ManualReviewQueueManagerProps> = ({
     }
   ];
 
-  const items = reviewItems.length > 0 ? reviewItems : mockReviewItems;
+  // Use real items from API when available, otherwise fall back to mock or props
+  const items = realItems.length > 0 ? realItems : (reviewItems.length > 0 ? reviewItems : mockReviewItems);
 
   const filteredItems = useMemo(() => {
     return items.filter(item => {
@@ -778,20 +842,45 @@ const ManualReviewQueueManager: React.FC<ManualReviewQueueManagerProps> = ({
     });
   }, [items, searchTerm, filterStatus, filterPriority, filterReason]);
 
-  const stats = useMemo(() => {
+  const displayStats = useMemo(() => {
+    // Use real API stats when available, otherwise calculate from items
+    if (stats) {
+      return {
+        pending: stats.pendingReviews,
+        underReview: 0, // Not available in API stats
+        overdue: stats.escalatedItems,
+        avgReviewTime: stats.averageReviewTime
+      };
+    }
+    
+    // Fallback to calculated stats from items
     const pending = items.filter(i => i.status === 'pending').length;
     const underReview = items.filter(i => i.status === 'under_review').length;
     const overdue = items.filter(i => new Date(i.slaDeadline) < new Date()).length;
     const avgReviewTime = items.reduce((acc, i) => acc + i.estimatedReviewTime, 0) / items.length || 0;
 
     return { pending, underReview, overdue, avgReviewTime };
-  }, [items]);
+  }, [items, stats]);
 
   const handleReviewAction = async (itemId: string, action: ReviewAction) => {
     setActionLoading(itemId);
     try {
-      await onReviewAction(itemId, action);
-      success('Action Completed', `Review ${action.type} action completed successfully`);
+      // Use real API when available
+      if (realReviewItems.length > 0) {
+        const decision = action.type === 'approve' ? 'approve' : 
+                       action.type === 'reject' ? 'reject' : 'escalate';
+        const result = await processReviewAction(itemId, decision, action.notes);
+        
+        if (result) {
+          success('Action Completed', `Review ${action.type} action completed successfully`);
+        } else {
+          throw new Error('API request failed');
+        }
+      } else {
+        // Fallback to prop function for mock data
+        await onReviewAction(itemId, action);
+        success('Action Completed', `Review ${action.type} action completed successfully`);
+      }
     } catch (err) {
       error('Action Failed', `Failed to ${action.type} review: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
@@ -872,10 +961,10 @@ const ManualReviewQueueManager: React.FC<ManualReviewQueueManagerProps> = ({
             </Button>
             <Button
               variant="outline"
-              onClick={() => {}}
-              disabled={loading}
+              onClick={refreshQueue}
+              disabled={loading || hookLoading}
             >
-              <RefreshCw size={16} />
+              <RefreshCw size={16} className={hookLoading ? 'animate-spin' : ''} />
               Refresh
             </Button>
           </HeaderActions>
@@ -883,19 +972,19 @@ const ManualReviewQueueManager: React.FC<ManualReviewQueueManagerProps> = ({
 
         <StatsBar>
           <StatItem>
-            <StatValue>{stats.pending}</StatValue>
+            <StatValue>{displayStats.pending}</StatValue>
             <StatLabel>Pending Review</StatLabel>
           </StatItem>
           <StatItem>
-            <StatValue>{stats.underReview}</StatValue>
+            <StatValue>{displayStats.underReview}</StatValue>
             <StatLabel>Under Review</StatLabel>
           </StatItem>
           <StatItem>
-            <StatValue>{stats.overdue}</StatValue>
+            <StatValue>{displayStats.overdue}</StatValue>
             <StatLabel>Overdue</StatLabel>
           </StatItem>
           <StatItem>
-            <StatValue>{stats.avgReviewTime.toFixed(1)}m</StatValue>
+            <StatValue>{displayStats.avgReviewTime.toFixed(1)}m</StatValue>
             <StatLabel>Avg Review Time</StatLabel>
           </StatItem>
         </StatsBar>

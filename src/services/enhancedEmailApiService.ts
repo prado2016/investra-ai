@@ -70,6 +70,44 @@ export interface HealthCheckResponse {
   lastChecked: string;
 }
 
+export interface ManualReviewItem {
+  id: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'escalated';
+  emailSubject: string;
+  fromEmail: string;
+  flaggedReason: string;
+  confidence: number;
+  similarTransactions: {
+    id: string;
+    date: string;
+    symbol: string;
+    amount: number;
+    type: string;
+  }[];
+  timestamps: {
+    flaggedAt: string;
+    lastUpdatedAt: string;
+    completedAt?: string;
+  };
+  priority: 'low' | 'medium' | 'high' | 'critical';
+  slaTarget: string;
+  extractedData: {
+    symbol: string;
+    amount: number;
+    date: string;
+    type: string;
+  };
+}
+
+export interface ManualReviewStats {
+  pendingReviews: number;
+  completedToday: number;
+  averageReviewTime: number;
+  slaCompliance: number;
+  escalatedItems: number;
+  queueHealth: 'good' | 'warning' | 'critical';
+}
+
 export interface ApiResponse<T> {
   success: boolean;
   data?: T;
@@ -272,6 +310,65 @@ export class EnhancedEmailApiService {
       return {
         success: false,
         message: error instanceof Error ? error.message : 'Connection test failed'
+      };
+    }
+  }
+
+  // Manual Review Queue Management
+  static async getManualReviewQueue(): Promise<ManualReviewItem[]> {
+    try {
+      const response = await ApiClient.get<ApiResponse<ManualReviewItem[]>>('/api/manual-review/queue');
+      
+      if (response.success && response.data) {
+        return response.data;
+      }
+      
+      throw new Error(response.error?.message || 'Failed to fetch manual review queue');
+    } catch (error) {
+      console.error('Failed to fetch manual review queue:', error);
+      return [];
+    }
+  }
+
+  static async processReviewAction(itemId: string, action: string, decision: 'approve' | 'reject' | 'escalate', notes?: string): Promise<{ success: boolean; message: string }> {
+    try {
+      const response = await ApiClient.post<ApiResponse<any>>('/api/manual-review/action', {
+        itemId,
+        action,
+        decision,
+        notes
+      });
+      
+      return {
+        success: response.success,
+        message: response.data?.message || 'Review action processed successfully'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to process review action'
+      };
+    }
+  }
+
+  static async getManualReviewStats(): Promise<ManualReviewStats> {
+    try {
+      const response = await ApiClient.get<ApiResponse<ManualReviewStats>>('/api/manual-review/stats');
+      
+      if (response.success && response.data) {
+        return response.data;
+      }
+      
+      throw new Error(response.error?.message || 'Failed to fetch manual review stats');
+    } catch (error) {
+      console.error('Failed to fetch manual review stats:', error);
+      return {
+        pendingReviews: 0,
+        completedToday: 0,
+        averageReviewTime: 0,
+        slaCompliance: 0,
+        escalatedItems: 0,
+        queueHealth: 'critical'
       };
     }
   }

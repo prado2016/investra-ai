@@ -26,7 +26,7 @@ interface UseEmailProcessingReturn {
   processingStats: EmailProcessingStats | null;
   imapStatus: IMAPServiceStatus | null;
   processingQueue: ProcessingQueueItem[];
-  healthCheck: HealthCheckResponse | null;
+  healthCheck: HealthCheckResponse | EnhancedHealthCheckResponse | null;
   
   // Actions
   refreshData: () => Promise<void>;
@@ -57,7 +57,7 @@ export const useEmailProcessing = (
   const [processingStats, setProcessingStats] = useState<EmailProcessingStats | null>(null);
   const [imapStatus, setImapStatus] = useState<IMAPServiceStatus | null>(null);
   const [processingQueue, setProcessingQueue] = useState<ProcessingQueueItem[]>([]);
-  const [healthCheck, setHealthCheck] = useState<HealthCheckResponse | null>(null);
+  const [healthCheck, setHealthCheck] = useState<HealthCheckResponse | EnhancedHealthCheckResponse | null>(null);
 
   // Helper function to handle API errors
   const handleApiError = useCallback((apiError: unknown, operation: string) => {
