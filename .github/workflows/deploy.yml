@@ -285,48 +285,54 @@ jobs:
         run: |
           echo "📧 Deploying enhanced email server..."
           
-          # Create server directory and set proper ownership
-          sudo mkdir -p /opt/investra-email-server
-          sudo chown -R $USER:$USER /opt/investra-email-server
-          
-          # Ensure directory has proper permissions
-          sudo chmod 755 /opt/investra-email-server
-          
           # Debug: Check what files were built
           echo "📋 Checking built server files:"
           ls -la server/dist/ || echo "No dist directory found"
           ls -la server/package.json || echo "No package.json found"
           ls -la server/.env.production || echo "No .env.production found"
           
-          # Copy server files with error checking
+          # Create temporary staging directory in user space
+          mkdir -p /tmp/investra-email-server-staging
+          
+          # Copy server files to staging directory first
           if [ -d "server/dist" ] && [ "$(ls -A server/dist)" ]; then
-            cp -r server/dist/* /opt/investra-email-server/
-            echo "✅ Server dist files copied"
+            cp -r server/dist/* /tmp/investra-email-server-staging/
+            echo "✅ Server dist files copied to staging"
           else
             echo "❌ No server dist files to copy"
             exit 1
           fi
           
           if [ -f "server/package.json" ]; then
-            cp server/package.json /opt/investra-email-server/
-            echo "✅ package.json copied"
+            cp server/package.json /tmp/investra-email-server-staging/
+            echo "✅ package.json copied to staging"
           else
             echo "❌ server/package.json not found"
             exit 1
           fi
           
           if [ -f "server/.env.production" ]; then
-            cp server/.env.production /opt/investra-email-server/.env
-            echo "✅ .env.production copied"
+            cp server/.env.production /tmp/investra-email-server-staging/.env
+            echo "✅ .env.production copied to staging"
           else
             echo "❌ server/.env.production not found"
             exit 1
           fi
           
-          # Install production dependencies first (while user still owns directory)
-          cd /opt/investra-email-server
+          # Install production dependencies in staging (as user)
+          cd /tmp/investra-email-server-staging
           npm install --omit=dev
-          echo "✅ Node modules installed"
+          echo "✅ Node modules installed in staging"
+          
+          # Now create the final directory and move everything
+          sudo mkdir -p /opt/investra-email-server
+          
+          # Remove any existing content
+          sudo rm -rf /opt/investra-email-server/*
+          
+          # Move from staging to final location
+          sudo cp -r /tmp/investra-email-server-staging/* /opt/investra-email-server/
+          echo "✅ Server files moved to final location"
           
           # Create systemd service file
           sudo tee /etc/systemd/system/investra-email-server.service > /dev/null << 'EOF'
@@ -356,12 +362,16 @@ jobs:
             sudo useradd -r -s /bin/false investra
           fi
           
-          # Set proper ownership and permissions for the service (after npm install)
+          # Set proper ownership and permissions for the service
           sudo chown -R investra:investra /opt/investra-email-server
           sudo chmod -R 755 /opt/investra-email-server
           sudo chmod 644 /opt/investra-email-server/.env
           sudo chmod +x /opt/investra-email-server/*.js
           sudo chmod -R 755 /opt/investra-email-server/node_modules
+          
+          # Clean up staging directory
+          rm -rf /tmp/investra-email-server-staging
+          echo "✅ Staging directory cleaned up"
           
           # Reload systemd and start service
           sudo systemctl daemon-reload
