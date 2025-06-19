@@ -305,6 +305,12 @@ jobs:
         run: |
           echo "📧 Deploying enhanced email server..."
           
+          # CRITICAL: Stop any manually started services first
+          echo "🛑 Stopping any manually started email services..."
+          sudo systemctl stop investra-email-server 2>/dev/null || true
+          sudo pkill -f "standalone-enhanced-server-production.js" || true
+          sudo pkill -f "node.*3001" || true
+          
           # Debug: Check what files were built
           echo "📋 Checking built server files:"
           ls -la server/dist/ || echo "No dist directory found"
@@ -354,7 +360,7 @@ jobs:
           sudo cp -r /tmp/investra-email-server-staging/* /opt/investra-email-server/
           echo "✅ Server files moved to final location"
           
-          # Create systemd service file with enhanced logging
+          # Create systemd service file with enhanced logging and port conflict handling
           sudo tee /etc/systemd/system/investra-email-server.service > /dev/null << 'EOF'
           [Unit]
           Description=Investra Enhanced Email API Server
@@ -368,8 +374,13 @@ jobs:
           Environment=PORT=3001
           Environment=PATH=/usr/bin:/usr/local/bin
           ExecStart=/usr/bin/node standalone-enhanced-server-production.js
+          ExecStop=/bin/kill -TERM $MAINPID
+          ExecStopPost=/bin/bash -c 'fuser -k 3001/tcp || true'
           Restart=on-failure
-          RestartSec=10
+          RestartSec=15
+          KillMode=mixed
+          KillSignal=SIGTERM
+          TimeoutStopSec=30
           StandardOutput=journal
           StandardError=journal
           SyslogIdentifier=investra-email-server
@@ -468,8 +479,12 @@ jobs:
           sudo systemctl daemon-reload
           sudo systemctl enable investra-email-server
           
-          # Stop any existing service first
+          # Stop any existing service first and clean up port conflicts
+          echo "🔍 Stopping any existing email server services..."
           sudo systemctl stop investra-email-server 2>/dev/null || true
+          
+          # Wait for service to fully stop
+          sleep 3
           
           # Check for and stop any PM2 processes that might conflict
           echo "🔍 Checking for PM2 conflicts on port 3001..."
@@ -482,19 +497,65 @@ jobs:
               echo "⚠️ PM2 is using port 3001, stopping conflicting processes..."
               pm2 stop all || true
               pm2 delete all || true
+              pm2 kill || true
               sleep 3
             fi
           fi
           
-          # Verify port 3001 is free before starting service
-          if netstat -tlnp 2>/dev/null | grep :3001 || ss -tlnp 2>/dev/null | grep :3001; then
-            echo "⚠️ Port 3001 is still in use, attempting to clear it..."
-            BLOCKING_PID=$(netstat -tlnp 2>/dev/null | grep :3001 | awk '{print $7}' | cut -d'/' -f1 | head -1)
-            if [ ! -z "$BLOCKING_PID" ] && [ "$BLOCKING_PID" != "-" ]; then
-              echo "🔧 Killing process $BLOCKING_PID that's using port 3001..."
-              sudo kill $BLOCKING_PID 2>/dev/null || true
-              sleep 2
+          # Kill any remaining PM2 processes
+          echo "🔧 Killing any remaining PM2 processes..."
+          sudo pkill -f PM2 || true
+          sudo pkill -f "node.*pm2" || true
+          
+          # Comprehensive port cleanup - check multiple times and use different methods
+          echo "🔍 Comprehensive port 3001 cleanup..."
+          for attempt in {1..5}; do
+            echo "Port cleanup attempt $attempt/5:"
+            
+            # Check what's using port 3001
+            PORT_USERS=$(netstat -tlnp 2>/dev/null | grep :3001 || ss -tlnp 2>/dev/null | grep :3001 || echo "")
+            
+            if [ -z "$PORT_USERS" ]; then
+              echo "✅ Port 3001 is free"
+              break
             fi
+            
+            echo "⚠️ Port 3001 still in use: $PORT_USERS"
+            
+            # Extract PIDs and kill them
+            BLOCKING_PIDS=$(echo "$PORT_USERS" | awk '{print $7}' | cut -d'/' -f1 | grep -v '-' | sort -u)
+            
+            if [ ! -z "$BLOCKING_PIDS" ]; then
+              for PID in $BLOCKING_PIDS; do
+                if [ "$PID" != "" ] && [ "$PID" != "-" ]; then
+                  echo "🔧 Killing process $PID using port 3001..."
+                  sudo kill -TERM $PID 2>/dev/null || true
+                  sleep 1
+                  # Force kill if still running
+                  if kill -0 $PID 2>/dev/null; then
+                    echo "🔧 Force killing process $PID..."
+                    sudo kill -KILL $PID 2>/dev/null || true
+                  fi
+                fi
+              done
+            fi
+            
+            # Use fuser as backup method
+            sudo fuser -k 3001/tcp 2>/dev/null || true
+            
+            sleep 2
+          done
+          
+          # Final verification that port is free
+          if netstat -tlnp 2>/dev/null | grep :3001 || ss -tlnp 2>/dev/null | grep :3001; then
+            echo "❌ Failed to free port 3001 after all attempts"
+            echo "📋 Processes still using port 3001:"
+            netstat -tlnp 2>/dev/null | grep :3001 || ss -tlnp 2>/dev/null | grep :3001
+            echo "📋 All processes containing 'node':"
+            ps aux | grep node | grep -v grep
+            exit 1
+          else
+            echo "✅ Port 3001 is now free and ready for deployment"
           fi
           
           sleep 2
