@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import type { FC } from 'react';
 import { debug } from '../utils/debug';
 
 interface LogEntry {
@@ -17,7 +18,7 @@ interface LogViewerProps {
   autoScroll?: boolean;
 }
 
-export const InlineLogViewer: React.FC<LogViewerProps> = ({
+export const InlineLogViewer: FC<LogViewerProps> = ({
   maxLogs = 500,
   height = '400px',
   showControls = true,
@@ -70,7 +71,7 @@ export const InlineLogViewer: React.FC<LogViewerProps> = ({
       setLogs(formattedLogs);
 
       // Update sources list
-      const uniqueSources = ['all', ...new Set(formattedLogs.map(log => log.source))];
+      const uniqueSources = ['all', ...Array.from(new Set(formattedLogs.map(log => log.source)))];
       setSources(uniqueSources);
     } catch (error) {
       console.error('Failed to load debug logs:', error);
@@ -139,7 +140,7 @@ export const InlineLogViewer: React.FC<LogViewerProps> = ({
     });
   };
 
-  const formatData = (data: unknown) => {
+  const formatData = (data: unknown): string => {
     if (!data) return '';
     try {
       return JSON.stringify(data, null, 2);
@@ -327,7 +328,7 @@ export const InlineLogViewer: React.FC<LogViewerProps> = ({
                   whiteSpace: 'pre-wrap',
                   overflowX: 'auto'
                 }}>
-                  {formatData(log.data) as React.ReactNode}
+                  {formatData(log.data)}
                 </div>
               )}
             </div>
