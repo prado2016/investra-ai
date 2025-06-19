@@ -159,7 +159,17 @@ function base64ToArrayBuffer(base64: string): ArrayBuffer {
  * Generate a cryptographically secure salt
  */
 function generateSalt(): Uint8Array {
-  return crypto.getRandomValues(new Uint8Array(SALT_LENGTH))
+  // Use crypto.getRandomValues if available, otherwise fallback to Math.random
+  if (crypto.getRandomValues) {
+    return crypto.getRandomValues(new Uint8Array(SALT_LENGTH))
+  } else {
+    // Fallback for environments without crypto.getRandomValues
+    const array = new Uint8Array(SALT_LENGTH)
+    for (let i = 0; i < array.length; i++) {
+      array[i] = Math.floor(Math.random() * 256)
+    }
+    return array
+  }
 }
 
 /**
@@ -225,7 +235,7 @@ export class EncryptionService {
         }
       }
 
-      // Check if Web Crypto API is available
+      // Check if Web Crypto API is available before calling any crypto functions
       if (!crypto.subtle) {
         console.warn('Web Crypto API not available, using development fallback (data stored unencrypted)')
         // In development mode without HTTPS, store data unencrypted but marked as such
@@ -244,10 +254,10 @@ export class EncryptionService {
       }
 
       const salt = generateSalt()
-      const iv = crypto.getRandomValues(new Uint8Array(IV_LENGTH))
+      const iv = crypto.getRandomValues ? crypto.getRandomValues(new Uint8Array(IV_LENGTH)) : new Uint8Array(IV_LENGTH).map(() => Math.floor(Math.random() * 256))
       const key = await deriveKey(userId, salt)
       
-      // If key derivation failed (Web Crypto API not available), use fallback
+      // If key derivation failed, use fallback
       if (!key) {
         console.warn('Key derivation failed, using development fallback')
         const fallbackData = {
