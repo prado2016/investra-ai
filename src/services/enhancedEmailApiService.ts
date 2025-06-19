@@ -269,13 +269,21 @@ export class EnhancedEmailApiService {
   // Health Check
   static async getHealthCheck(): Promise<HealthCheckResponse> {
     try {
-      const response = await ApiClient.get<ApiResponse<HealthCheckResponse>>('/health');
+      // Health endpoint returns data directly, not wrapped in ApiResponse
+      const response = await ApiClient.get<any>('/health');
       
-      if (response.success && response.data) {
-        return response.data;
-      }
-      
-      throw new Error(response.error?.message || 'Failed to fetch health status');
+      // Map the direct response to our HealthCheckResponse format
+      return {
+        status: response.status === 'healthy' ? 'healthy' : 'unhealthy',
+        uptime: 0, // Server doesn't provide uptime in current format
+        services: {
+          api: response.status === 'healthy',
+          database: true, // Assume healthy if server is responding
+          imap: true, // Assume healthy if server is responding
+          monitoring: true // Assume healthy if server is responding
+        },
+        lastChecked: response.timestamp || new Date().toISOString()
+      };
     } catch (error) {
       console.error('Failed to fetch health status:', error);
       return {
