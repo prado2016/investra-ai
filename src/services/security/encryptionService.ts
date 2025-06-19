@@ -6,15 +6,63 @@
 
 // Browser-compatible crypto support using Web Crypto API
 const crypto = (() => {
+  // Node.js environment check first
+  if (typeof process !== 'undefined' && process.versions && process.versions.node) {
+    // Node.js environment - use node:crypto
+    try {
+      const nodeCrypto = require('crypto');
+      if (nodeCrypto.webcrypto) {
+        // Node.js 16+ with Web Crypto API
+        return nodeCrypto.webcrypto;
+      } else if (globalThis.crypto && globalThis.crypto.subtle) {
+        // Fallback to global crypto if available
+        return globalThis.crypto;
+      } else {
+        // For older Node.js versions, we'll create a compatible interface
+        console.warn('Web Crypto API not available in Node.js, creating fallback interface');
+        return {
+          subtle: {
+            importKey: () => Promise.reject(new Error('Node.js crypto fallback not implemented')),
+            deriveKey: () => Promise.reject(new Error('Node.js crypto fallback not implemented')),
+            encrypt: () => Promise.reject(new Error('Node.js crypto fallback not implemented')),
+            decrypt: () => Promise.reject(new Error('Node.js crypto fallback not implemented'))
+          },
+          getRandomValues: (array: Uint8Array) => {
+            const nodeBuffer = nodeCrypto.randomBytes(array.length);
+            array.set(nodeBuffer);
+            return array;
+          }
+        };
+      }
+    } catch (error) {
+      console.warn('Node.js crypto module not available:', error);
+    }
+  }
+  
   if (typeof window !== 'undefined' && window.crypto && window.crypto.subtle) {
     // Browser environment
     return window.crypto
   } else if (typeof globalThis !== 'undefined' && globalThis.crypto && globalThis.crypto.subtle) {
-    // Modern Node.js with Web Crypto API
+    // Modern environment with Web Crypto API
     return globalThis.crypto
   } else {
-    // Fallback error for unsupported environments
-    throw new Error('Web Crypto API not available. This service requires a modern browser or Node.js 16+.')
+    // Fallback for unsupported environments - don't throw error during module loading
+    console.warn('Web Crypto API not available. Encryption service will have limited functionality.');
+    return {
+      subtle: {
+        importKey: () => Promise.reject(new Error('Web Crypto API not available')),
+        deriveKey: () => Promise.reject(new Error('Web Crypto API not available')),
+        encrypt: () => Promise.reject(new Error('Web Crypto API not available')),
+        decrypt: () => Promise.reject(new Error('Web Crypto API not available'))
+      },
+      getRandomValues: (array: Uint8Array) => {
+        // Fallback random values
+        for (let i = 0; i < array.length; i++) {
+          array[i] = Math.floor(Math.random() * 256);
+        }
+        return array;
+      }
+    };
   }
 })()
 
