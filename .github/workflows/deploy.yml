@@ -373,6 +373,47 @@ jobs:
           rm -rf /tmp/investra-email-server-staging
           echo "✅ Staging directory cleaned up"
           
+          # Verify installation before starting service
+          echo "🔍 Verifying server installation..."
+          echo "📋 Final directory contents:"
+          sudo ls -la /opt/investra-email-server/
+          
+          echo "📋 Checking main server file:"
+          if [ -f "/opt/investra-email-server/standalone-enhanced-server-production.js" ]; then
+            echo "✅ Main server file exists"
+            echo "File size: $(stat -f%z /opt/investra-email-server/standalone-enhanced-server-production.js 2>/dev/null || stat -c%s /opt/investra-email-server/standalone-enhanced-server-production.js)"
+          else
+            echo "❌ Main server file missing!"
+            exit 1
+          fi
+          
+          echo "📋 Checking environment file:"
+          if [ -f "/opt/investra-email-server/.env" ]; then
+            echo "✅ Environment file exists"
+            echo "First few lines (sanitized):"
+            sudo head -5 /opt/investra-email-server/.env | sed 's/=.*/=***/'
+          else
+            echo "❌ Environment file missing!"
+            exit 1
+          fi
+          
+          echo "📋 Checking node_modules:"
+          if [ -d "/opt/investra-email-server/node_modules" ]; then
+            echo "✅ Node modules directory exists"
+            echo "Module count: $(sudo find /opt/investra-email-server/node_modules -maxdepth 1 -type d | wc -l)"
+          else
+            echo "❌ Node modules missing!"
+            exit 1
+          fi
+          
+          echo "📋 Testing Node.js execution:"
+          sudo -u investra /usr/bin/node --version || {
+            echo "❌ Node.js execution failed for investra user"
+            echo "Trying alternative node paths..."
+            sudo -u investra which node || echo "Node not in PATH for investra user"
+            sudo -u investra /usr/local/bin/node --version 2>/dev/null || echo "Node not at /usr/local/bin/node"
+          }
+          
           # Reload systemd and start service
           sudo systemctl daemon-reload
           sudo systemctl enable investra-email-server
@@ -381,13 +422,27 @@ jobs:
           # Wait for service to start
           sleep 5
           
-          # Check service status
+          # Check service status with detailed debugging
           if sudo systemctl is-active --quiet investra-email-server; then
             echo "✅ Enhanced email server started successfully"
           else
             echo "❌ Enhanced email server failed to start"
+            echo "📋 Service status:"
             sudo systemctl status investra-email-server --no-pager
-            sudo journalctl -u investra-email-server --no-pager -n 20
+            echo "📋 Recent logs:"
+            sudo journalctl -u investra-email-server --no-pager -n 30
+            echo "📋 Directory contents:"
+            sudo ls -la /opt/investra-email-server/
+            echo "📋 Environment file:"
+            sudo head -10 /opt/investra-email-server/.env 2>/dev/null || echo "No .env file found"
+            echo "📋 Node version and path:"
+            /usr/bin/node --version
+            which node
+            echo "📋 Testing file execution directly:"
+            cd /opt/investra-email-server
+            sudo -u investra /usr/bin/node --version 2>&1 || echo "Node execution failed for investra user"
+            echo "📋 Testing server file syntax:"
+            sudo -u investra /usr/bin/node -c standalone-enhanced-server-production.js 2>&1 || echo "Syntax check failed"
             exit 1
           fi
           
