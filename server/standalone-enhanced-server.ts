@@ -20,6 +20,9 @@ import { ManualReviewQueue } from '../src/services/email/manualReviewQueue';
 import { IMAPProcessorService } from '../src/services/email/imapProcessorService';
 import { supabase } from '../src/lib/supabase';
 
+// Import configuration services
+import { ConfigurationService } from '../src/services/configuration/configurationService';
+
 // Server-specific email processing will be implemented with real services
 
 dotenv.config();
@@ -268,15 +271,36 @@ function createResponse<T>(
  */
 async function initializeIMAPService(): Promise<boolean> {
   try {
-    // Get IMAP configuration from environment
-    const config: ServerIMAPConfig = {
-      host: process.env.IMAP_HOST || '',
-      port: parseInt(process.env.IMAP_PORT || '993'),
-      secure: process.env.IMAP_SECURE !== 'false',
-      username: process.env.IMAP_USERNAME || '',
-      password: process.env.IMAP_PASSWORD || '',
-      enabled: process.env.IMAP_ENABLED === 'true'
-    };
+    // Get IMAP configuration from database using ConfigurationService
+    // For system-level configuration, use a system user ID
+    const systemUserId = 'system-user';
+    
+    let config: ServerIMAPConfig;
+    
+    try {
+      const imapConfig = await ConfigurationService.getConfiguration(systemUserId, 'email_server');
+      
+      config = {
+        host: imapConfig.imap_host || process.env.IMAP_HOST || '',
+        port: imapConfig.imap_port || parseInt(process.env.IMAP_PORT || '993'),
+        secure: imapConfig.imap_secure !== undefined ? imapConfig.imap_secure : (process.env.IMAP_SECURE !== 'false'),
+        username: imapConfig.imap_username || process.env.IMAP_USERNAME || '',
+        password: imapConfig.imap_password || process.env.IMAP_PASSWORD || '',
+        enabled: imapConfig.auto_start !== undefined ? imapConfig.auto_start : (process.env.IMAP_ENABLED === 'true')
+      };
+    } catch (configError) {
+      logger.warn('Failed to load IMAP configuration from database, falling back to environment variables', { error: configError });
+      
+      // Fallback to environment variables
+      config = {
+        host: process.env.IMAP_HOST || '',
+        port: parseInt(process.env.IMAP_PORT || '993'),
+        secure: process.env.IMAP_SECURE !== 'false',
+        username: process.env.IMAP_USERNAME || '',
+        password: process.env.IMAP_PASSWORD || '',
+        enabled: process.env.IMAP_ENABLED === 'true'
+      };
+    }
     
     if (!config.enabled || !config.host || !config.username || !config.password) {
       logger.warn('IMAP configuration incomplete, running in email-only mode');

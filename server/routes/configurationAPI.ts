@@ -10,14 +10,10 @@ import express from 'express';
 import rateLimit from 'express-rate-limit';
 import { body, param, query, validationResult } from 'express-validator';
 
-// TODO: Import real services once Tasks 2-4 are complete
-// import { ConfigurationService } from '../../src/services/configuration/configurationService';
-// import { ConfigurationValidationService } from '../../src/services/configuration/validationService';
-// import { EncryptionService } from '../../src/services/security/encryptionService';
-
-// Temporary mock implementations - will be replaced with real services
-import { MockConfigurationService } from '../services/mockConfigurationService';
-import { MockValidationService } from '../services/mockValidationService';
+// Import real services
+import { ConfigurationService } from '../../src/services/configuration/configurationService';
+import { ValidationService } from '../../src/services/configuration/validationService';
+import { EncryptionService } from '../../src/services/security/encryptionService';
 
 // Import authentication and validation middleware
 import {
@@ -181,8 +177,7 @@ router.get(
     try {
       console.log(`📖 Getting ${category} configuration for user ${userId}`);
       
-      // TODO: Use real ConfigurationService
-      const configuration = await MockConfigurationService.getConfiguration(userId, category);
+      const configuration = await ConfigurationService.getConfiguration(userId, category);
       
       const processingTime = Date.now() - startTime;
       console.log(`✅ Retrieved ${category} configuration in ${processingTime}ms`);
@@ -229,8 +224,7 @@ router.post(
       console.log(`💾 Saving ${category} configuration for user ${userId}`);
       
       // Validate configuration before saving
-      // TODO: Use real ConfigurationValidationService
-      const validationResult = await MockValidationService.validateConfiguration(category, configuration);
+      const validationResult = await ValidationService.validateConfiguration(category, configuration);
       
       if (!validationResult.isValid) {
         const processingTime = Date.now() - startTime;
@@ -244,8 +238,7 @@ router.post(
       }
 
       // Save configuration
-      // TODO: Use real ConfigurationService
-      const savedConfiguration = await MockConfigurationService.saveConfiguration(
+      const savedConfiguration = await ConfigurationService.saveConfiguration(
         userId, 
         category, 
         configuration, 
@@ -296,8 +289,7 @@ router.put(
       console.log(`🔧 Updating ${category}.${key} for user ${userId}`);
       
       // Validate individual field
-      // TODO: Use real ConfigurationValidationService
-      const validationResult = await MockValidationService.validateField(category, key, value);
+      const validationResult = await ValidationService.validateField(category, key, value);
       
       if (!validationResult.isValid) {
         const processingTime = Date.now() - startTime;
@@ -311,8 +303,7 @@ router.put(
       }
 
       // Update configuration key
-      // TODO: Use real ConfigurationService
-      const updatedConfiguration = await MockConfigurationService.updateConfigurationKey(
+      const updatedConfiguration = await ConfigurationService.updateConfigurationKey(
         userId, 
         category, 
         key, 
@@ -358,8 +349,7 @@ router.delete(
     try {
       console.log(`🗑️ Deleting ${category}.${key} for user ${userId}`);
       
-      // TODO: Use real ConfigurationService
-      await MockConfigurationService.deleteConfigurationKey(userId, category, key);
+      await ConfigurationService.deleteConfigurationKey(userId, category, key);
       
       const processingTime = Date.now() - startTime;
       console.log(`✅ Deleted ${category}.${key} in ${processingTime}ms`);
@@ -410,8 +400,7 @@ router.post(
     try {
       console.log(`🧪 Testing ${category} configuration for user ${userId}`);
       
-      // TODO: Use real ConfigurationValidationService
-      const testResult = await MockValidationService.testConnection(category, configuration);
+      const testResult = await ValidationService.testConnection(category, configuration);
       
       const processingTime = Date.now() - startTime;
       console.log(`✅ Tested ${category} configuration in ${processingTime}ms - ${testResult.success ? 'SUCCESS' : 'FAILED'}`);
@@ -451,8 +440,7 @@ router.get(
     try {
       console.log(`📋 Getting configuration templates${category ? ` for ${category}` : ''}`);
       
-      // TODO: Use real ConfigurationService
-      const templates = await MockConfigurationService.getConfigurationTemplates(category as string);
+      const templates = await ConfigurationService.getConfigurationTemplates(category as string);
       
       const processingTime = Date.now() - startTime;
       console.log(`✅ Retrieved ${templates.length} templates in ${processingTime}ms`);
@@ -492,8 +480,7 @@ router.post(
     try {
       console.log(`📤 Exporting configurations for user ${userId}`);
       
-      // TODO: Use real ConfigurationService
-      const exportData = await MockConfigurationService.exportConfigurations(
+      const exportData = await ConfigurationService.exportConfigurations(
         userId, 
         categories, 
         includeDefaults
@@ -541,8 +528,7 @@ router.post(
     try {
       console.log(`📥 Importing configurations for user ${userId}`);
       
-      // TODO: Use real ConfigurationService
-      const importResult = await MockConfigurationService.importConfigurations(
+      const importResult = await ConfigurationService.importConfigurations(
         userId, 
         data, 
         overwrite, 
@@ -587,8 +573,7 @@ router.post(
     try {
       console.log(`🔄 Resetting ${category} configuration to defaults for user ${userId}`);
       
-      // TODO: Use real ConfigurationService
-      const defaultConfiguration = await MockConfigurationService.resetToDefaults(userId, category);
+      const defaultConfiguration = await ConfigurationService.resetToDefaults(userId, category);
       
       const processingTime = Date.now() - startTime;
       console.log(`✅ Reset ${category} configuration in ${processingTime}ms`);
