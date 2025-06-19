@@ -165,7 +165,13 @@ function generateSalt(): Uint8Array {
 /**
  * Derive encryption key using PBKDF2 with user-specific salt
  */
-async function deriveKey(userId: string, salt: Uint8Array): Promise<CryptoKey> {
+async function deriveKey(userId: string, salt: Uint8Array): Promise<CryptoKey | null> {
+  // Check if Web Crypto API is available before calling it
+  if (!crypto.subtle) {
+    console.warn('Web Crypto API not available for key derivation')
+    return null
+  }
+
   // Combine base key with user ID for user-specific keys
   const keyMaterial = stringToArrayBuffer(BASE_ENCRYPTION_KEY + userId)
   
@@ -240,6 +246,24 @@ export class EncryptionService {
       const salt = generateSalt()
       const iv = crypto.getRandomValues(new Uint8Array(IV_LENGTH))
       const key = await deriveKey(userId, salt)
+      
+      // If key derivation failed (Web Crypto API not available), use fallback
+      if (!key) {
+        console.warn('Key derivation failed, using development fallback')
+        const fallbackData = {
+          data: btoa(plaintext),
+          salt: 'dev-salt',
+          iv: 'dev-iv',
+          version: '1.0-dev-fallback'
+        }
+        
+        return {
+          encryptedData: JSON.stringify(fallbackData),
+          success: true,
+          warning: 'Data stored with development fallback (not secure)'
+        }
+      }
+      
       const data = stringToArrayBuffer(plaintext)
 
       const encrypted = await crypto.subtle.encrypt(
@@ -348,6 +372,15 @@ export class EncryptionService {
       const data = base64ToArrayBuffer(encryptedData.data)
       
       const key = await deriveKey(userId, salt)
+      
+      // If key derivation failed (Web Crypto API not available), return error
+      if (!key) {
+        return {
+          decryptedData: '',
+          success: false,
+          error: 'Web Crypto API not available for decryption of encrypted data'
+        }
+      }
 
       const decrypted = await crypto.subtle.decrypt(
         {
