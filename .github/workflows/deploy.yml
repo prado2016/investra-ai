@@ -450,6 +450,33 @@ jobs:
           
           # Stop any existing service first
           sudo systemctl stop investra-email-server 2>/dev/null || true
+          
+          # Check for and stop any PM2 processes that might conflict
+          echo "🔍 Checking for PM2 conflicts on port 3001..."
+          if command -v pm2 >/dev/null 2>&1; then
+            echo "📋 Current PM2 processes:"
+            pm2 list || echo "No PM2 processes found"
+            
+            # Stop and delete any processes using port 3001
+            if netstat -tlnp 2>/dev/null | grep :3001 | grep -q PM2; then
+              echo "⚠️ PM2 is using port 3001, stopping conflicting processes..."
+              pm2 stop all || true
+              pm2 delete all || true
+              sleep 3
+            fi
+          fi
+          
+          # Verify port 3001 is free before starting service
+          if netstat -tlnp 2>/dev/null | grep :3001 || ss -tlnp 2>/dev/null | grep :3001; then
+            echo "⚠️ Port 3001 is still in use, attempting to clear it..."
+            BLOCKING_PID=$(netstat -tlnp 2>/dev/null | grep :3001 | awk '{print $7}' | cut -d'/' -f1 | head -1)
+            if [ ! -z "$BLOCKING_PID" ] && [ "$BLOCKING_PID" != "-" ]; then
+              echo "🔧 Killing process $BLOCKING_PID that's using port 3001..."
+              sudo kill $BLOCKING_PID 2>/dev/null || true
+              sleep 2
+            fi
+          fi
+          
           sleep 2
           
           # Start the service
