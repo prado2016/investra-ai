@@ -30,6 +30,20 @@ jobs:
           cp .env.production .env
           npm run build:prod
 
+      - name: Build enhanced email server
+        run: |
+          set -e
+          echo "🔧 Building enhanced email server..."
+          
+          # Install server dependencies
+          cd server
+          npm install
+          
+          # Build the standalone enhanced server
+          npm run build:enhanced-server
+          
+          echo "✅ Enhanced email server built successfully"
+
       - name: Pre-deployment system check
         run: |
           echo "🔍 System Information:"
@@ -267,6 +281,78 @@ jobs:
           echo "🌐 Available at: http://$(hostname -I | awk '{print $1}')"
           echo "📊 Build size: $(du -sh /var/www/investra-ai/current)"
 
+      - name: Deploy enhanced email server
+        run: |
+          echo "📧 Deploying enhanced email server..."
+          
+          # Create server directory
+          sudo mkdir -p /opt/investra-email-server
+          sudo chown $USER:$USER /opt/investra-email-server
+          
+          # Copy server files
+          cp -r server/dist/* /opt/investra-email-server/
+          cp server/package.json /opt/investra-email-server/
+          cp server/.env.production /opt/investra-email-server/.env
+          
+          # Install production dependencies
+          cd /opt/investra-email-server
+          npm install --only=production
+          
+          # Create systemd service file
+          sudo tee /etc/systemd/system/investra-email-server.service > /dev/null << 'EOF'
+          [Unit]
+          Description=Investra Enhanced Email API Server
+          After=network.target
+          
+          [Service]
+          Type=simple
+          User=investra
+          WorkingDirectory=/opt/investra-email-server
+          Environment=NODE_ENV=production
+          Environment=PORT=3001
+          ExecStart=/usr/bin/node standalone-enhanced-server-production.js
+          Restart=on-failure
+          RestartSec=10
+          StandardOutput=syslog
+          StandardError=syslog
+          SyslogIdentifier=investra-email-server
+          
+          [Install]
+          WantedBy=multi-user.target
+          EOF
+          
+          # Create investra user if it doesn't exist
+          if ! id investra >/dev/null 2>&1; then
+            sudo useradd -r -s /bin/false investra
+          fi
+          
+          # Set proper ownership
+          sudo chown -R investra:investra /opt/investra-email-server
+          
+          # Reload systemd and start service
+          sudo systemctl daemon-reload
+          sudo systemctl enable investra-email-server
+          sudo systemctl restart investra-email-server
+          
+          # Wait for service to start
+          sleep 5
+          
+          # Check service status
+          if sudo systemctl is-active --quiet investra-email-server; then
+            echo "✅ Enhanced email server started successfully"
+          else
+            echo "❌ Enhanced email server failed to start"
+            sudo systemctl status investra-email-server --no-pager
+            sudo journalctl -u investra-email-server --no-pager -n 20
+            exit 1
+          fi
+          
+          # Configure firewall for email server port
+          if systemctl is-active --quiet firewalld; then
+            sudo firewall-cmd --permanent --add-port=3001/tcp
+            sudo firewall-cmd --reload
+          fi
+
       - name: Verify deployment
         run: |
           # Wait a moment for Nginx to fully reload
@@ -325,4 +411,21 @@ jobs:
             exit 1
           fi
           
+          # Test enhanced email server
+          echo "🔍 Testing enhanced email server..."
+          EMAIL_SERVER_RESPONSE=$(curl -f -s "http://$SERVER_IP:3001/health" 2>&1 || echo "FAILED")
+          if echo "$EMAIL_SERVER_RESPONSE" | grep -q "healthy"; then
+            echo "✅ Enhanced email server is responding correctly"
+            echo "Email server response: $EMAIL_SERVER_RESPONSE"
+          else
+            echo "❌ Enhanced email server test failed!"
+            echo "Response: $EMAIL_SERVER_RESPONSE"
+            echo "📋 Email server status:"
+            sudo systemctl status investra-email-server --no-pager
+            echo "📋 Email server logs:"
+            sudo journalctl -u investra-email-server --no-pager -n 20
+          fi
+          
           echo "🎉 Deployment verification completed successfully!"
+          echo "🌐 Frontend: http://$SERVER_IP"
+          echo "📧 Email API: http://$SERVER_IP:3001"

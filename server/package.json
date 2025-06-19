@@ -5,6 +5,7 @@
   "main": "dist/standalone-enhanced-server-production.js",
   "scripts": {
     "build": "tsc --project tsconfig.server.json",
+    "build:enhanced-server": "tsc --project tsconfig.server.json",
     "start": "node dist/standalone-enhanced-server-production.js",
     "start:simple": "node dist/simple-production-server.js",
     "start:enhanced": "node dist/standalone-enhanced-server.js",

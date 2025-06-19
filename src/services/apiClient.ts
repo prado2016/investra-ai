@@ -3,17 +3,40 @@
  * Handles HTTP requests to the backend API server
  */
 
-// Use environment variable for API base URL, fallback to current domain for production
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (
-  typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3001'
-);
+// Get API base URL with enhanced server detection
+function getApiBaseUrl(): string {
+  // Check if enhanced server URL is stored (from detection in useEmailProcessing)
+  if (typeof window !== 'undefined' && (window as any).__ENHANCED_SERVER_URL__) {
+    return (window as any).__ENHANCED_SERVER_URL__;
+  }
+  
+  // Use environment variable for API base URL
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL;
+  }
+  
+  // Fallback logic
+  if (typeof window !== 'undefined') {
+    // In production, try enhanced server on port 3001, fallback to current domain
+    const isProduction = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+    if (isProduction) {
+      return `${window.location.protocol}//${window.location.hostname}:3001`;
+    }
+    // Development mode - use current domain
+    return window.location.origin;
+  }
+  
+  // Server-side fallback
+  return 'http://localhost:3001';
+}
 
 export class ApiClient {
   private static async request<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
-    const url = `${API_BASE_URL}${endpoint}`;
+    const apiBaseUrl = getApiBaseUrl();
+    const url = `${apiBaseUrl}${endpoint}`;
     
     // Only log in development
     if (import.meta.env.DEV) {

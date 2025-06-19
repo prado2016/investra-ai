@@ -70,7 +70,32 @@ export const useEmailProcessing = (
   // Detect which server type we're using
   const detectServerType = useCallback(async () => {
     try {
-      // Try enhanced server endpoints first - check health endpoint for enhanced features
+      // In production, try enhanced server on port 3001 first
+      const isProduction = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+      
+      if (isProduction) {
+        // Try enhanced server on port 3001
+        const enhancedServerUrl = `${window.location.protocol}//${window.location.hostname}:3001`;
+        console.log('🔍 Checking for enhanced server at:', enhancedServerUrl);
+        
+        try {
+          const response = await fetch(`${enhancedServerUrl}/health`);
+          if (response.ok) {
+            const data = await response.json();
+            if (data.status === 'healthy' && data.version) {
+              setIsEnhancedServer(true);
+              console.log('✅ Detected enhanced production server with real IMAP capabilities');
+              // Store the enhanced server URL for API calls
+              (window as any).__ENHANCED_SERVER_URL__ = enhancedServerUrl;
+              return;
+            }
+          }
+        } catch (enhancedError) {
+          console.log('⚠️ Enhanced server not available on port 3001:', enhancedError);
+        }
+      }
+      
+      // Try local enhanced server endpoints (development mode)
       const response = await fetch('/health');
       if (response.ok) {
         const data = await response.json();
@@ -78,7 +103,7 @@ export const useEmailProcessing = (
         // Enhanced server returns detailed endpoint information
         if (data.data?.endpoints?.imap || data.data?.services?.emailProcessing) {
           setIsEnhancedServer(true);
-          console.log('✅ Detected enhanced production server with real IMAP capabilities');
+          console.log('✅ Detected enhanced development server with real IMAP capabilities');
           return;
         }
       }
@@ -90,7 +115,7 @@ export const useEmailProcessing = (
         // Enhanced server returns structured IMAP status
         if (imapData.data && typeof imapData.data === 'object') {
           setIsEnhancedServer(true);
-          console.log('✅ Detected enhanced production server via IMAP endpoint');
+          console.log('✅ Detected enhanced server via IMAP endpoint');
           return;
         }
       }
