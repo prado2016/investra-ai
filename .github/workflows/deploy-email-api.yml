@@ -166,7 +166,7 @@ jobs:
           apps: [
             {
               name: '${SERVICE_NAME}',
-              script: 'dist/standalone-enhanced-server.js',  // Enhanced server with real IMAP processing
+              script: 'dist/standalone-enhanced-server-production.js',  // Production standalone server
               cwd: '${SERVER_DIR}',
               instances: '${PM2_INSTANCES}',
               exec_mode: 'cluster',

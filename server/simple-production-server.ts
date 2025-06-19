@@ -141,7 +141,7 @@ app.post('/api/email/process', (req, res) => {
       subject: subject.substring(0, 50)
     });
 
-    res.json({
+    return res.json({
       success: true,
       data: mockResult,
       metadata: {
@@ -152,7 +152,7 @@ app.post('/api/email/process', (req, res) => {
 
   } catch (error) {
     logger.error('Email processing error', { error });
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: {
         code: 'PROCESSING_ERROR',
@@ -195,7 +195,7 @@ app.post('/api/email/test-connection', async (req, res) => {
 
     logger.info('Email connection tested', { username, host, port, secure });
 
-    res.json({
+    return res.json({
       success: true,
       data: mockTest,
       metadata: {
@@ -206,7 +206,7 @@ app.post('/api/email/test-connection', async (req, res) => {
 
   } catch (error) {
     logger.error('Email connection test error', { error });
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: {
         code: 'CONNECTION_TEST_ERROR',

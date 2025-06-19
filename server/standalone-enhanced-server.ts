@@ -455,22 +455,67 @@ app.use((req, res, next) => {
 // Configuration Management API Routes
 app.use('/api/configuration', configurationAPIRoutes);
 
-// Health check endpoint
+// Health check endpoint with comprehensive service checks
 app.get('/health', async (req, res) => {
   const requestId = req.requestId;
-  
+
   try {
+    // Test database connectivity
+    let databaseHealth = 'healthy';
+    try {
+      const { error } = await supabase.from('profiles').select('count', { count: 'exact', head: true });
+      if (error && !error.message.includes('relation "profiles" does not exist')) {
+        databaseHealth = 'unhealthy';
+      }
+    } catch (error) {
+      databaseHealth = 'unhealthy';
+    }
+
+    // Test email processing service
+    let emailProcessingHealth = 'healthy';
+    try {
+      // Simple health check for EmailProcessingService
+      if (!EmailProcessingService) {
+        emailProcessingHealth = 'unavailable';
+      }
+    } catch (error) {
+      emailProcessingHealth = 'unhealthy';
+    }
+
+    // Test manual review queue
+    let reviewQueueHealth = 'healthy';
+    try {
+      const queueStats = ManualReviewQueue.getQueueStats();
+      if (!queueStats) {
+        reviewQueueHealth = 'unhealthy';
+      }
+    } catch (error) {
+      reviewQueueHealth = 'unhealthy';
+    }
+
+    const overallHealthy = databaseHealth === 'healthy' &&
+                          emailProcessingHealth === 'healthy' &&
+                          reviewQueueHealth === 'healthy' &&
+                          (imapStatus.status === 'running' || imapStatus.status === 'stopped');
+
     const health = {
-      status: 'healthy',
+      status: overallHealthy ? 'healthy' : 'degraded',
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
       memory: process.memoryUsage(),
       environment: NODE_ENV,
       services: {
+        database: databaseHealth,
+        emailProcessing: emailProcessingHealth,
+        reviewQueue: reviewQueueHealth,
         imap: imapClient ? 'configured' : 'not_configured',
         imapStatus: imapStatus.status,
-        monitoring: serviceMonitor ? 'active' : 'inactive',
-        emailProcessing: 'available'
+        monitoring: serviceMonitor ? 'active' : 'inactive'
+      },
+      configuration: {
+        lastUpdate: lastConfigUpdate,
+        configCount: configurationCache.size,
+        hotReload: 'enabled'
       },
       endpoints: {
         email: {
@@ -488,12 +533,22 @@ app.get('/health', async (req, res) => {
           'POST /api/imap/stop': 'Stop IMAP service',
           'POST /api/imap/restart': 'Restart IMAP service',
           'POST /api/imap/process-now': 'Process emails manually'
+        },
+        configuration: {
+          'POST /api/configuration/reload': 'Reload configuration',
+          'GET /api/configuration/status': 'Get configuration status'
         }
       }
     };
 
-    logger.info('Health check performed', { requestId, status: 'healthy' });
-    res.json(createResponse(health, true, requestId));
+    logger.info('Health check performed', {
+      requestId,
+      status: health.status,
+      services: health.services
+    });
+
+    const statusCode = overallHealthy ? 200 : 503;
+    res.status(statusCode).json(createResponse(health, overallHealthy, requestId));
   } catch (error) {
     logger.error('Health check failed:', error);
     res.status(500).json(createResponse(null, false, requestId, 'Health check failed'));
@@ -704,35 +759,43 @@ app.post('/api/imap/process-now', async (req, res) => {
         ));
       }
 
-      // Process emails using real IMAP processor
-      const processor = new IMAPProcessorService(imapClient, {
-        folder: config.configuration_data.folder || 'INBOX',
-        batchSize: 10,
-        processingOptions: {
-          markAsRead: config.configuration_data.mark_as_read || false,
-          archiveProcessed: config.configuration_data.archive_processed || false
-        }
-      });
+      // Process emails using real IMAP processor service
+      const serviceConfig = {
+        enabled: true,
+        host: config.configuration_data.host,
+        port: config.configuration_data.port,
+        secure: config.configuration_data.secure,
+        username: config.configuration_data.username,
+        password: config.configuration_data.password,
+        defaultPortfolioId: 'default'
+      };
 
-      const results = await processor.processNewEmails();
-      
+      const processor = IMAPProcessorService.getInstance(serviceConfig);
+      const results = await processor.processEmailsNow();
+
+      // Calculate stats from results array
+      const totalProcessed = results.length;
+      const successful = results.filter(r => r.success).length;
+      const failed = results.filter(r => !r.success).length;
+
       // Update processing stats
-      processingStats.totalProcessed += results.totalProcessed;
-      processingStats.successfullyProcessed += results.successful;
-      processingStats.failed += results.failed;
+      processingStats.totalProcessed += totalProcessed;
+      processingStats.successfullyProcessed += successful;
+      processingStats.failed += failed;
       processingStats.lastProcessedAt = new Date().toISOString();
 
       logger.info('Manual IMAP processing completed', {
         requestId,
-        results,
-        totalProcessed: results.totalProcessed
+        totalProcessed,
+        successful,
+        failed
       });
 
       res.json(createResponse({
-        processed: results.totalProcessed,
-        successful: results.successful,
-        failed: results.failed,
-        message: `Successfully processed ${results.totalProcessed} emails`,
+        processed: totalProcessed,
+        successful,
+        failed,
+        message: `Successfully processed ${totalProcessed} emails`,
         details: results
       }, true, requestId));
     } else {
@@ -1142,68 +1205,10 @@ app.get('/api/configuration/status', async (req, res) => {
   }
 });
 
-// Configuration management endpoints
-app.post('/api/configuration/reload', async (req, res) => {
-  const requestId = req.requestId;
-  
-  try {
-    logger.info('Configuration reload requested via API', { requestId });
-    
-    const success = await reloadConfiguration();
-    
-    if (success) {
-      res.json(createResponse({
-        success: true,
-        message: 'Configuration reloaded successfully',
-        lastUpdate: lastConfigUpdate,
-        configCount: configurationCache.size
-      }, true, requestId));
-    } else {
-      res.status(500).json(createResponse(
-        null,
-        false,
-        requestId,
-        'Failed to reload configuration'
-      ));
-    }
-  } catch (error) {
-    logger.error('Configuration reload endpoint error:', error);
-    res.status(500).json(createResponse(
-      null,
-      false,
-      requestId,
-      'Error reloading configuration'
-    ));
-  }
-});
-
-app.get('/api/configuration/status', async (req, res) => {
-  const requestId = req.requestId;
-  
-  try {
-    res.json(createResponse({
-      lastUpdate: lastConfigUpdate,
-      configCount: configurationCache.size,
-      configurations: Array.from(configurationCache.keys()),
-      imapStatus: imapStatus.status,
-      services: {
-        imap: imapClient ? 'configured' : 'not_configured',
-        monitoring: serviceMonitor ? 'active' : 'inactive'
-      }
-    }, true, requestId));
-  } catch (error) {
-    logger.error('Configuration status endpoint error:', error);
-    res.status(500).json(createResponse(
-      null,
-      false,
-      requestId,
-      'Error retrieving configuration status'
-    ));
-  }
-});
+// Duplicate endpoints removed - already defined above
 
 // Error handling middleware
-app.use((error: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((error: Error, req: express.Request, res: express.Response, _next: express.NextFunction) => {
   const requestId = req.requestId;
   
   logger.error('Unhandled error:', {

@@ -12,22 +12,22 @@ const urlRegex = /^https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9(
 const hostnameRegex = /^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)*$/
 const apiKeyRegex = /^[A-Za-z0-9_\-]{20,}$/
 
-// Common field validators
-const email = z.string().regex(emailRegex, 'Invalid email format')
-const url = z.string().regex(urlRegex, 'Invalid URL format')
-const hostname = z.string().regex(hostnameRegex, 'Invalid hostname format')
+// Common field validators with transformations
+const email = z.string().trim().regex(emailRegex, 'Invalid email format')
+const url = z.string().trim().regex(urlRegex, 'Invalid URL format')
+const hostname = z.string().trim().regex(hostnameRegex, 'Invalid hostname format')
 const port = z.number().int().min(1).max(65535)
-const apiKey = z.string().regex(apiKeyRegex, 'Invalid API key format')
-const password = z.string().min(8, 'Password must be at least 8 characters')
+const apiKey = z.string().trim().regex(apiKeyRegex, 'Invalid API key format')
+const password = z.string().trim().min(8, 'Password must be at least 8 characters')
 
 /**
  * Email Configuration Schema
  */
 const emailFoldersSchema = z.object({
-  inbox: z.string().min(1, 'Inbox folder name required'),
-  sent: z.string().min(1, 'Sent folder name required'),
-  drafts: z.string().min(1, 'Drafts folder name required'),
-  trash: z.string().min(1, 'Trash folder name required')
+  inbox: z.string().trim().min(1, 'Inbox folder name required'),
+  sent: z.string().trim().min(1, 'Sent folder name required'),
+  drafts: z.string().trim().min(1, 'Drafts folder name required'),
+  trash: z.string().trim().min(1, 'Trash folder name required')
 })
 
 const emailSettingsSchema = z.object({
@@ -64,7 +64,7 @@ export const emailConfigurationSchema = z.object({
  */
 const googleAISchema = z.object({
   apiKey: apiKey,
-  model: z.string().min(1, 'Model name required'),
+  model: z.string().trim().min(1, 'Model name required'),
   maxTokens: z.number().min(1).max(100000, 'Max tokens cannot exceed 100,000'),
   temperature: z.number().min(0).max(2, 'Temperature must be between 0 and 2'),
   enabled: z.boolean()
@@ -72,7 +72,7 @@ const googleAISchema = z.object({
 
 const openAISchema = z.object({
   apiKey: apiKey,
-  model: z.string().min(1, 'Model name required'),
+  model: z.string().trim().min(1, 'Model name required'),
   maxTokens: z.number().min(1).max(100000, 'Max tokens cannot exceed 100,000'),
   temperature: z.number().min(0).max(2, 'Temperature must be between 0 and 2'),
   enabled: z.boolean()
@@ -184,6 +184,17 @@ export const securityConfigurationSchema = z.object({
   authentication: authenticationSchema,
   rateLimiting: rateLimitingSchema
 })
+
+/**
+ * Schema Registry - Maps schema names to their corresponding Zod schemas
+ */
+const schemaRegistry = new Map<ValidationSchemaName, z.ZodSchema>([
+  ['email-configuration', emailConfigurationSchema],
+  ['ai-services-configuration', aiServicesConfigurationSchema],
+  ['database-configuration', databaseConfigurationSchema],
+  ['monitoring-configuration', monitoringConfigurationSchema],
+  ['security-configuration', securityConfigurationSchema]
+])
 
 /**
  * Get validation schema by name

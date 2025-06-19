@@ -203,7 +203,7 @@ module.exports = {
   apps: [
     {
       name: '${SERVICE_NAME}',
-      script: 'dist/standalone-enhanced-server.js',
+      script: 'dist/standalone-enhanced-server-production.js',
       cwd: '${SERVER_DIR}',
       instances: ${PM2_INSTANCES},
       exec_mode: 'cluster',

@@ -2,7 +2,7 @@ module.exports = {
   apps: [
     {
       name: 'investra-email-api',
-      script: 'dist/simple-production-server.js',
+      script: 'dist/standalone-enhanced-server-production.js',
       cwd: '/opt/investra/email-api',
       instances: 1,
       exec_mode: 'cluster',

@@ -3,9 +3,8 @@
  * Tests all encryption/decryption scenarios, edge cases, and security features
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { EncryptionService } from './encryptionService'
-import type { EncryptionResult, DecryptionResult, EncryptedData } from './types'
+import type { EncryptionResult, DecryptionResult } from './encryptionService'
 
 describe('EncryptionService', () => {
   const testUserId = 'test-user-123'

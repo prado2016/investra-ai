@@ -27,6 +27,7 @@ import Summary from './pages/Summary';
 import Settings from './pages/Settings';
 import EmailManagement from './pages/EmailManagement';
 import Notifications from './pages/Notifications';
+import EncryptionServiceTest from './components/EncryptionServiceTest';
 import { debug, ErrorTracker, isDev } from './utils/debug';
 import './styles/App.css';
 
@@ -175,6 +176,7 @@ function AppContent() {
               <Route path="/email-management" element={<EmailManagement />} />
               <Route path="/notifications" element={<Notifications />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/encryption-test" element={<EncryptionServiceTest />} />
             </Routes>
           </main>
         </div>
@@ -213,6 +215,7 @@ function AppContent() {
             <Route path="/email-management" element={<EmailManagement />} />
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/encryption-test" element={<EncryptionServiceTest />} />
           </Routes>
         </main>
         <ConditionalDebugComponents />

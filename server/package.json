@@ -1,36 +1,42 @@
 {
   "name": "investra-email-api-server",
-  "version": "1.0.0",
-  "description": "TypeScript API server for Investra email processing",
-  "main": "dist/standalone-enhanced-server.js",
+  "version": "2.0.0",
+  "description": "Standalone Enhanced Email Processing API Server for Investra",
+  "main": "dist/standalone-enhanced-server-production.js",
   "scripts": {
-    "build": "tsc",
-    "start": "node dist/standalone-enhanced-server.js",
+    "build": "tsc --project tsconfig.server.json",
+    "start": "node dist/standalone-enhanced-server-production.js",
     "start:simple": "node dist/simple-production-server.js",
     "start:enhanced": "node dist/standalone-enhanced-server.js",
     "start:dev": "node dist/server-ts.js",
-    "dev": "ts-node standalone-enhanced-server.ts",
+    "dev": "tsx standalone-enhanced-server-production.ts",
     "dev:simple": "ts-node production-server.ts",
     "dev:mock": "ts-node server-ts.ts",
     "dev:watch": "nodemon --exec ts-node production-server.ts",
     "start:js": "node server.js",
-    "test:connection": "ts-node -e \"import('./production-server')\""
+    "test:connection": "ts-node -e \"import('./production-server')\"",
+    "clean": "rm -rf dist",
+    "prebuild": "npm run clean"
   },
   "keywords": [
     "email",
     "processing",
     "api",
-    "investra"
+    "investra",
+    "supabase",
+    "typescript"
   ],
   "author": "Investra AI",
   "license": "ISC",
   "dependencies": {
+    "@supabase/supabase-js": "^2.39.3",
     "@types/jsonwebtoken": "^9.0.10",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "express-rate-limit": "^7.5.0",
     "express-validator": "^7.2.1",
+    "helmet": "^7.2.0",
     "imapflow": "^1.0.188",
     "jsonwebtoken": "^9.0.2",
     "node-fetch": "^3.3.2",
@@ -44,6 +50,11 @@
     "@types/winston": "^2.4.4",
     "nodemon": "^3.0.2",
     "ts-node": "^10.9.0",
+    "tsx": "^4.7.0",
     "typescript": "^5.3.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
   }
 }

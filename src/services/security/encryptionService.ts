@@ -4,34 +4,38 @@
  * Uses user-specific keys with PBKDF2 key derivation and comprehensive security features
  */
 
-// Cross-platform crypto support
-let crypto: any
-if (typeof window !== 'undefined' && window.crypto && window.crypto.subtle) {
-  // Browser environment
-  crypto = window.crypto
-} else if (typeof globalThis !== 'undefined' && globalThis.crypto && globalThis.crypto.subtle) {
-  // Node.js 19+ with Web Crypto API
-  crypto = globalThis.crypto
-} else {
-  // Node.js < 19 - use webcrypto polyfill
-  try {
-    const { webcrypto } = require('node:crypto')
-    crypto = webcrypto
-  } catch {
-    // Fallback for older Node.js versions
-    const { Crypto } = require('@peculiar/webcrypto')
-    crypto = new Crypto()
+// Browser-compatible crypto support using Web Crypto API
+const crypto = (() => {
+  if (typeof window !== 'undefined' && window.crypto && window.crypto.subtle) {
+    // Browser environment
+    return window.crypto
+  } else if (typeof globalThis !== 'undefined' && globalThis.crypto && globalThis.crypto.subtle) {
+    // Modern Node.js with Web Crypto API
+    return globalThis.crypto
+  } else {
+    // Fallback error for unsupported environments
+    throw new Error('Web Crypto API not available. This service requires a modern browser or Node.js 16+.')
   }
+})()
+
+// Base encryption key for key derivation (in production, this should be set via environment config)
+const getBaseEncryptionKey = (): string => {
+  // In browser environment, we'll use a combination of origin and a default key
+  // In production, this should be configured through your app's configuration system
+  if (typeof window !== 'undefined') {
+    const origin = window.location?.origin || 'investra-ai-app'
+    return `investra-ai-config-key-2024-${origin}-secure`
+  }
+  // For server-side rendering or Node.js environments
+  return 'investra-ai-config-key-2024-secure-default'
 }
 
-// Environment variable for base encryption key (must be set in production)
-const BASE_ENCRYPTION_KEY = process.env.ENCRYPTION_MASTER_KEY || 'investra-ai-config-key-2024-secure-default'
+const BASE_ENCRYPTION_KEY = getBaseEncryptionKey()
 
 // Security constants
 const PBKDF2_ITERATIONS = 100000 // OWASP recommended minimum
 const SALT_LENGTH = 32 // 256 bits
 const IV_LENGTH = 12 // 96 bits for AES-GCM
-const TAG_LENGTH = 16 // 128 bits authentication tag
 
 /**
  * Interfaces for encryption operations
@@ -78,39 +82,27 @@ function arrayBufferToString(buffer: ArrayBuffer): string {
 }
 
 /**
- * Convert ArrayBuffer to Base64 string for storage
+ * Convert ArrayBuffer to Base64 string for storage (browser-compatible)
  */
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
-  if (typeof Buffer !== 'undefined') {
-    // Node.js environment
-    return Buffer.from(buffer).toString('base64')
-  } else {
-    // Browser environment
-    const bytes = new Uint8Array(buffer)
-    let binary = ''
-    for (let i = 0; i < bytes.byteLength; i++) {
-      binary += String.fromCharCode(bytes[i])
-    }
-    return btoa(binary)
+  const bytes = new Uint8Array(buffer)
+  let binary = ''
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i])
   }
+  return btoa(binary)
 }
 
 /**
- * Convert Base64 string back to ArrayBuffer
+ * Convert Base64 string back to ArrayBuffer (browser-compatible)
  */
 function base64ToArrayBuffer(base64: string): ArrayBuffer {
-  if (typeof Buffer !== 'undefined') {
-    // Node.js environment
-    return Buffer.from(base64, 'base64')
-  } else {
-    // Browser environment
-    const binaryString = atob(base64)
-    const bytes = new Uint8Array(binaryString.length)
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i)
-    }
-    return bytes.buffer
+  const binaryString = atob(base64)
+  const bytes = new Uint8Array(binaryString.length)
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i)
   }
+  return bytes.buffer
 }
 
 /**
