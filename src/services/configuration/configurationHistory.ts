@@ -143,7 +143,7 @@ export class ConfigurationHistoryService {
     // Start with the current state and apply changes in reverse
     // This is a simplified approach - in production, you'd want to store snapshots
     const targetEntry = history[targetEntryIndex]
-    const laterChanges = history.slice(0, targetEntryIndex)
+    // const laterChanges = history.slice(0, targetEntryIndex) // TODO: Implement full state reconstruction
 
     // For this implementation, we'll return the changes from the target entry
     // In a real system, you'd reconstruct the full state

@@ -86,7 +86,7 @@ export class ConfigurationExportService {
     } = {}
   ): Promise<ImportResult> {
     const {
-      overwriteExisting = false,
+      overwriteExisting: _overwriteExisting = false, // TODO: Implement overwrite logic
       validateOnly = false,
       categories
     } = options
@@ -151,10 +151,10 @@ export class ConfigurationExportService {
         for (const category of categoriesToImport) {
           try {
             const categoryData = importData.configurations[category]
-            const processedData = await this.processCategoryData(category, categoryData)
+            await this.processCategoryData(category, categoryData)
             
             // Here you would save the data to your storage system
-            // For now, we'll just mark it as imported
+            // TODO: Actually store the processed data in the system
             importedCategories.push(category)
           } catch (error) {
             errors.push({
@@ -351,12 +351,12 @@ export class ConfigurationExportService {
 
   /**
    * Validate category data
-   * @param category - Configuration category
+   * @param _category - Configuration category (unused in current implementation)
    * @param data - Category data to validate
    * @returns Validation result
    */
   private static async validateCategoryData(
-    category: ConfigurationCategory,
+    _category: ConfigurationCategory,
     data: ConfigurationData
   ): Promise<{ valid: boolean; error?: string }> {
     try {
@@ -402,12 +402,12 @@ export class ConfigurationExportService {
 
   /**
    * Process category data before import
-   * @param category - Configuration category
+   * @param _category - Configuration category (unused in current implementation)
    * @param data - Category data to process
    * @returns Processed category data
    */
   private static async processCategoryData(
-    category: ConfigurationCategory,
+    _category: ConfigurationCategory,
     data: ConfigurationData
   ): Promise<ConfigurationData> {
     const processedData: ConfigurationData = {}

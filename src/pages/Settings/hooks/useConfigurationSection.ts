@@ -85,97 +85,9 @@ export const useConfigurationSection = (category: string): UseConfigurationSecti
 
     // Update the configuration
     updateConfiguration(category, key, value);
-
-    // Validate the new value
-    const validationError = validateField(key, value);
-    if (validationError) {
-      setErrors(prev => ({
-        ...prev,
-        [key]: validationError
-      }));
-    }
   }, [category, updateConfiguration]);
 
-  // Save configuration for this section
-  const saveConfiguration = useCallback(async () => {
-    try {
-      setLoading(true);
-      
-      // Validate all fields before saving
-      const validationErrors = validateAll();
-      if (Object.keys(validationErrors).length > 0) {
-        setErrors(validationErrors);
-        throw new Error('Please fix validation errors before saving');
-      }
-
-      // Save using global configuration management
-      await saveAllChanges();
-      
-      // Update original values after successful save
-      setOriginalValues({ ...values });
-      
-      console.log(`✅ ${category} configuration saved successfully`);
-    } catch (err) {
-      console.error(`❌ Failed to save ${category} configuration:`, err);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, [category, values, saveAllChanges, validateAll]);
-
-  // Test configuration connection
-  const testConfiguration = useCallback(async (): Promise<TestResult> => {
-    try {
-      setLoading(true);
-      setTestResult(null);
-
-      // Validate all fields before testing
-      const validationErrors = validateAll();
-      if (Object.keys(validationErrors).length > 0) {
-        setErrors(validationErrors);
-        const result: TestResult = {
-          success: false,
-          message: 'Please fix validation errors before testing'
-        };
-        setTestResult(result);
-        return result;
-      }
-
-      // Test using global configuration management
-      const result = await testGlobalConfiguration(category, values);
-      setTestResult(result);
-      
-      return result;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Test failed';
-      const result: TestResult = {
-        success: false,
-        message: errorMessage
-      };
-      setTestResult(result);
-      return result;
-    } finally {
-      setLoading(false);
-    }
-  }, [category, values, testGlobalConfiguration, validateAll]);
-
-  // Reset to default values
-  const resetToDefaults = useCallback(async () => {
-    try {
-      setLoading(true);
-      await resetGlobalDefaults(category);
-      setErrors({});
-      setTestResult(null);
-      console.log(`🔄 ${category} configuration reset to defaults`);
-    } catch (err) {
-      console.error(`❌ Failed to reset ${category} configuration:`, err);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, [category, resetGlobalDefaults]);
-
-  // Validate a single field
+  // Validate a single field - moved before usage
   const validateField = useCallback((key: string, value: any): string | null => {
     // Basic validation rules - these will be enhanced with real validation service
     switch (key) {
@@ -302,7 +214,7 @@ export const useConfigurationSection = (category: string): UseConfigurationSecti
     return null;
   }, []);
 
-  // Validate all fields in the current configuration
+  // Validate all fields in the current configuration - moved before usage
   const validateAll = useCallback((): Record<string, string> => {
     const validationErrors: Record<string, string> = {};
 
@@ -315,6 +227,85 @@ export const useConfigurationSection = (category: string): UseConfigurationSecti
 
     return validationErrors;
   }, [values, validateField]);
+
+  // Save configuration for this section
+  const saveConfiguration = useCallback(async () => {
+    try {
+      setLoading(true);
+      
+      // Validate all fields before saving
+      const validationErrors = validateAll();
+      if (Object.keys(validationErrors).length > 0) {
+        setErrors(validationErrors);
+        throw new Error('Please fix validation errors before saving');
+      }
+
+      // Save using global configuration management
+      await saveAllChanges();
+      
+      // Update original values after successful save
+      setOriginalValues({ ...values });
+      
+      console.log(`✅ ${category} configuration saved successfully`);
+    } catch (err) {
+      console.error(`❌ Failed to save ${category} configuration:`, err);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [category, values, saveAllChanges, validateAll]);
+
+  // Test configuration connection
+  const testConfiguration = useCallback(async (): Promise<TestResult> => {
+    try {
+      setLoading(true);
+      setTestResult(null);
+
+      // Validate all fields before testing
+      const validationErrors = validateAll();
+      if (Object.keys(validationErrors).length > 0) {
+        setErrors(validationErrors);
+        const result: TestResult = {
+          success: false,
+          message: 'Please fix validation errors before testing'
+        };
+        setTestResult(result);
+        return result;
+      }
+
+      // Test using global configuration management
+      const result = await testGlobalConfiguration(category, values);
+      setTestResult(result);
+      
+      return result;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Test failed';
+      const result: TestResult = {
+        success: false,
+        message: errorMessage
+      };
+      setTestResult(result);
+      return result;
+    } finally {
+      setLoading(false);
+    }
+  }, [category, values, testGlobalConfiguration, validateAll]);
+
+  // Reset to default values
+  const resetToDefaults = useCallback(async () => {
+    try {
+      setLoading(true);
+      await resetGlobalDefaults(category);
+      setErrors({});
+      setTestResult(null);
+      console.log(`🔄 ${category} configuration reset to defaults`);
+    } catch (err) {
+      console.error(`❌ Failed to reset ${category} configuration:`, err);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [category, resetGlobalDefaults]);
 
   // Auto-validate when values change
   useEffect(() => {

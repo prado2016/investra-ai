@@ -140,7 +140,7 @@ export const InlineLogViewer: FC<LogViewerProps> = ({
     });
   };
 
-  const formatData = (data: unknown): string => {
+  const formatData = (data: unknown): React.ReactNode => {
     if (!data) return '';
     try {
       return JSON.stringify(data, null, 2);
@@ -328,7 +328,7 @@ export const InlineLogViewer: FC<LogViewerProps> = ({
                   whiteSpace: 'pre-wrap',
                   overflowX: 'auto'
                 }}>
-                  {formatData(log.data)}
+                  {formatData(log.data) as React.ReactNode}
                 </div>
               )}
             </div>
