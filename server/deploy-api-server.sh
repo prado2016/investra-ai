@@ -249,6 +249,10 @@ module.exports = {
         SUPABASE_URL: '${SUPABASE_URL}',
         SUPABASE_ANON_KEY: '${SUPABASE_ANON_KEY}',
         SUPABASE_SERVICE_KEY: '${SUPABASE_SERVICE_KEY}',
+        
+        // WebSocket configuration - disable in production for stability
+        WS_ENABLED: '${WS_ENABLED:-false}',
+        WS_PORT: '${WS_PORT:-3002}',
         VITE_SUPABASE_URL: '${SUPABASE_URL}',
         VITE_SUPABASE_ANON_KEY: '${SUPABASE_ANON_KEY}'
       },

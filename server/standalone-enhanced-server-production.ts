@@ -312,10 +312,38 @@ function estimateTransactions(subject: string): number {
 const app = express();
 const server = createServer(app);
 
-// WebSocket server setup
+// WebSocket server setup - with error handling for production
 const WS_PORT = parseInt(process.env.WS_PORT || '3002', 10);
-const wss = new WebSocketServer({ port: WS_PORT });
+const WS_ENABLED = process.env.WS_ENABLED !== 'false'; // Allow disabling via env var
+let wss: WebSocketServer | null = null;
 const wsClients = new Set<WebSocket>();
+
+// Initialize WebSocket server with error handling
+if (WS_ENABLED) {
+  try {
+    wss = new WebSocketServer({ 
+      port: WS_PORT,
+      // Handle port in use errors gracefully
+      clientTracking: true
+    });
+    
+    wss.on('error', (error: Error) => {
+      logger.error(`WebSocket server error:`, error);
+      if (error.message.includes('EADDRINUSE')) {
+        logger.warn(`Port ${WS_PORT} is already in use, disabling WebSocket functionality`);
+        wss = null;
+      }
+    });
+    
+    logger.info(`WebSocket server initialized on port ${WS_PORT}`);
+  } catch (error) {
+    logger.warn(`Failed to initialize WebSocket server on port ${WS_PORT}:`, error);
+    logger.warn('WebSocket functionality will be disabled');
+    wss = null;
+  }
+} else {
+  logger.info('WebSocket server disabled via WS_ENABLED=false');
+}
 
 // WebSocket message interface
 interface WebSocketMessage {
@@ -327,6 +355,11 @@ interface WebSocketMessage {
 
 // Broadcast message to all connected WebSocket clients
 function broadcastToClients(message: WebSocketMessage) {
+  if (!wss) {
+    logger.debug('WebSocket server not available, skipping broadcast');
+    return;
+  }
+  
   const messageStr = JSON.stringify(message);
   wsClients.forEach(client => {
     if (client.readyState === WebSocket.OPEN) {
@@ -339,8 +372,9 @@ function broadcastToClients(message: WebSocketMessage) {
   });
 }
 
-// WebSocket connection handler
-wss.on('connection', (ws: WebSocket) => {
+// WebSocket connection handler - only if WebSocket server is available
+if (wss) {
+  wss.on('connection', (ws: WebSocket) => {
   wsClients.add(ws);
   logger.info('WebSocket client connected', { totalClients: wsClients.size });
 
@@ -368,6 +402,9 @@ wss.on('connection', (ws: WebSocket) => {
     wsClients.delete(ws);
   });
 });
+} else {
+  logger.warn('WebSocket server disabled - real-time updates will not be available');
+}
 
 // Security middleware
 app.use(helmet({
@@ -802,7 +839,7 @@ app.get('/health', (req, res) => {
     websocket: {
       port: WS_PORT,
       connectedClients: wsClients.size,
-      status: 'operational'
+      status: wss ? 'operational' : 'disabled'
     }
   });
 });
@@ -814,8 +851,8 @@ app.get('/api/websocket/info', (req, res) => {
     data: {
       websocketPort: WS_PORT,
       connectedClients: wsClients.size,
-      status: 'operational',
-      connectionUrl: `ws://localhost:${WS_PORT}`,
+      status: wss ? 'operational' : 'disabled',
+      connectionUrl: wss ? `ws://localhost:${WS_PORT}` : null,
       messageTypes: [
         'email_processing_started',
         'email_processing_completed', 
@@ -1911,7 +1948,8 @@ app.use('*', (req, res) => {
 server.listen(PORT, () => {
   logger.info('🚀 Standalone Enhanced Email Processing API Server started', {
     httpPort: PORT,
-    websocketPort: WS_PORT,
+    websocketPort: wss ? WS_PORT : null,
+    websocketStatus: wss ? 'enabled' : 'disabled',
     environment: NODE_ENV,
     version: '2.0.0',
     timestamp: new Date().toISOString()
@@ -1919,7 +1957,7 @@ server.listen(PORT, () => {
   
   logger.info('📧 Email Processing: Enabled');
   logger.info('📊 Monitoring: Active');
-  logger.info('🔌 WebSocket: Enabled on port ' + WS_PORT);
+  logger.info(wss ? '🔌 WebSocket: Enabled on port ' + WS_PORT : '🔌 WebSocket: Disabled (port unavailable)');
   logger.info(`🌍 Environment: ${NODE_ENV}`);
   
   // Load initial configuration
