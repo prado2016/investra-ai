@@ -27,10 +27,26 @@ import { ConfigurationService } from '../src/services/configuration/configuratio
 
 dotenv.config();
 
-const app = express();
-const PORT = process.env.PORT || 3001;
+// Enforce production database mode - prevent mock services
 const NODE_ENV = process.env.NODE_ENV || 'production';
+const PORT = process.env.PORT || 3001;
 const LOG_LEVEL = process.env.LOG_LEVEL || 'info';
+
+// Force real database usage for email processing
+if (NODE_ENV === 'production' || process.env.FORCE_REAL_DATABASE === 'true') {
+  process.env.VITE_TEST_MODE = 'false';
+  process.env.VITE_MOCK_DATA_MODE = 'false';
+  process.env.VITE_AUTH_BYPASS = 'false';
+  console.log('🔒 Production mode enforced - mock services disabled for database operations');
+  console.log('📊 Environment:', {
+    NODE_ENV,
+    FORCE_REAL_DATABASE: process.env.FORCE_REAL_DATABASE,
+    VITE_TEST_MODE: process.env.VITE_TEST_MODE,
+    VITE_MOCK_DATA_MODE: process.env.VITE_MOCK_DATA_MODE
+  });
+}
+
+const app = express();
 
 // Local type definitions (extracted from frontend types)
 interface APIResponse<T = unknown> {

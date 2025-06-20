@@ -7,6 +7,8 @@ import type { WealthsimpleEmailData } from './wealthsimpleEmailParser';
 import type { EmailIdentification } from './emailIdentificationService';
 import type { DuplicateDetectionResult } from './multiLevelDuplicateDetection';
 import type { TimeWindowAnalysis } from './timeWindowProcessing';
+import type { Transaction } from '../../lib/database/types';
+import { SupabaseService } from '../supabaseService';
 
 export interface ReviewQueueItem {
   id: string;
@@ -29,6 +31,11 @@ export interface ReviewQueueItem {
   reviewedAt?: string;
   reviewNotes?: string;
   reviewDecision?: 'accept' | 'reject' | 'merge' | 'split';
+
+  // Transaction creation (for approved items)
+  transactionCreated?: boolean;
+  transactionId?: string;
+  transactionCreationError?: string;
   
   // Context information
   portfolioId: string;
@@ -308,8 +315,38 @@ export class ManualReviewQueue {
       case 'approve':
         item.status = 'approved';
         item.reviewDecision = 'accept';
+
+        // Create transaction for approved items
+        try {
+          const transactionResult = await this.createTransactionFromQueueItem(item);
+          if (transactionResult.success && transactionResult.data) {
+            item.transactionCreated = true;
+            item.transactionId = transactionResult.data.id;
+
+            // Log successful transaction creation
+            if (process.env.NODE_ENV === 'development') {
+              console.log(`💰 Transaction created for approved queue item ${itemId}: ${transactionResult.data.id}`);
+            }
+          } else {
+            item.transactionCreated = false;
+            item.transactionCreationError = transactionResult.error || 'Unknown transaction creation error';
+
+            // Log transaction creation failure
+            if (process.env.NODE_ENV === 'development') {
+              console.error(`❌ Failed to create transaction for approved queue item ${itemId}: ${item.transactionCreationError}`);
+            }
+          }
+        } catch (error) {
+          item.transactionCreated = false;
+          item.transactionCreationError = error instanceof Error ? error.message : 'Unknown error';
+
+          // Log transaction creation error
+          if (process.env.NODE_ENV === 'development') {
+            console.error(`❌ Error creating transaction for approved queue item ${itemId}:`, error);
+          }
+        }
         break;
-        
+
       case 'reject':
         item.status = 'rejected';
         item.reviewDecision = 'reject';
@@ -757,6 +794,141 @@ export class ManualReviewQueue {
    */
   private static generateQueueId(): string {
     return `queue-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  /**
+   * Create transaction from approved queue item
+   */
+  private static async createTransactionFromQueueItem(
+    item: ReviewQueueItem
+  ): Promise<{ success: boolean; data?: Transaction; error?: string }> {
+    try {
+      const emailData = item.emailData;
+
+      // First, get or create the asset
+      const assetResult = await SupabaseService.asset.getOrCreateAsset(emailData.symbol);
+
+      if (!assetResult.success || !assetResult.data) {
+        return {
+          success: false,
+          error: `Failed to get or create asset: ${assetResult.error}`
+        };
+      }
+
+      // Map transaction types
+      const transactionTypeMap: Record<string, 'buy' | 'sell' | 'dividend' | 'option_expired'> = {
+        'buy': 'buy',
+        'sell': 'sell',
+        'dividend': 'dividend',
+        'option_expired': 'option_expired'
+      };
+
+      const mappedType = transactionTypeMap[emailData.transactionType];
+      if (!mappedType) {
+        return {
+          success: false,
+          error: `Unsupported transaction type: ${emailData.transactionType}`
+        };
+      }
+
+      // Create the transaction
+      const transactionResult = await SupabaseService.transaction.createTransaction(
+        item.portfolioId,
+        assetResult.data.id,
+        mappedType,
+        emailData.quantity,
+        emailData.price,
+        emailData.transactionDate
+      );
+
+      if (!transactionResult.success || !transactionResult.data) {
+        return {
+          success: false,
+          error: `Transaction creation failed: ${transactionResult.error}`
+        };
+      }
+
+      return {
+        success: true,
+        data: transactionResult.data
+      };
+
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
+   * Get approved items with transaction creation status
+   */
+  static getApprovedItemsWithTransactionStatus(): Array<ReviewQueueItem & {
+    transactionCreated: boolean;
+    transactionId?: string;
+    transactionCreationError?: string;
+  }> {
+    return Array.from(this.queue.values())
+      .filter(item => item.status === 'approved')
+      .map(item => ({
+        ...item,
+        transactionCreated: item.transactionCreated || false,
+        transactionId: item.transactionId,
+        transactionCreationError: item.transactionCreationError
+      }));
+  }
+
+  /**
+   * Retry transaction creation for failed approved items
+   */
+  static async retryTransactionCreation(itemId: string): Promise<{ success: boolean; error?: string }> {
+    const item = this.queue.get(itemId);
+
+    if (!item) {
+      return { success: false, error: 'Queue item not found' };
+    }
+
+    if (item.status !== 'approved') {
+      return { success: false, error: 'Item is not approved' };
+    }
+
+    if (item.transactionCreated) {
+      return { success: false, error: 'Transaction already created' };
+    }
+
+    try {
+      const transactionResult = await this.createTransactionFromQueueItem(item);
+
+      if (transactionResult.success && transactionResult.data) {
+        item.transactionCreated = true;
+        item.transactionId = transactionResult.data.id;
+        item.transactionCreationError = undefined;
+
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`💰 Transaction retry successful for queue item ${itemId}: ${transactionResult.data.id}`);
+        }
+
+        return { success: true };
+      } else {
+        item.transactionCreationError = transactionResult.error || 'Unknown transaction creation error';
+
+        if (process.env.NODE_ENV === 'development') {
+          console.error(`❌ Transaction retry failed for queue item ${itemId}: ${item.transactionCreationError}`);
+        }
+
+        return { success: false, error: item.transactionCreationError };
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      item.transactionCreationError = errorMessage;
+
+      if (process.env.NODE_ENV === 'development') {
+        console.error(`❌ Transaction retry error for queue item ${itemId}:`, error);
+      }
+
+      return { success: false, error: errorMessage };
+    }
   }
 
   /**

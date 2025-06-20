@@ -281,6 +281,7 @@ interface StoredEmailServer {
   email: string;
   createdAt: string;
   isActive: boolean;
+  autoInsertEnabled: boolean;
 }
 
 const SimpleEmailServerSettings: React.FC = () => {
@@ -291,6 +292,7 @@ const SimpleEmailServerSettings: React.FC = () => {
   const [host, setHost] = useState('imap.gmail.com');
   const [port, setPort] = useState(993);
   const [secure, setSecure] = useState(true);
+  const [autoInsertEnabled, setAutoInsertEnabled] = useState(true);
 
   const [storedServers, setStoredServers] = useState<StoredEmailServer[]>([]);
   const [saveStatus, setSaveStatus] = useState<{ success: boolean; message: string } | null>(null);
@@ -400,7 +402,8 @@ const SimpleEmailServerSettings: React.FC = () => {
           secure: config.imap_secure,
           email: config.email_address,
           createdAt: config.created_at,
-          isActive: config.is_active
+          isActive: config.is_active,
+          autoInsertEnabled: config.auto_insert_enabled ?? true // Default to true for existing configs
         }));
         setStoredServers(servers);
       }
@@ -448,7 +451,8 @@ const SimpleEmailServerSettings: React.FC = () => {
         imap_secure: secure,
         email_address: email.trim(),
         password: password.trim(),
-        auto_import_enabled: true
+        auto_import_enabled: true,
+        auto_insert_enabled: autoInsertEnabled
       });
 
       if (result.success) {
@@ -458,6 +462,7 @@ const SimpleEmailServerSettings: React.FC = () => {
         setServerName('');
         setEmail('');
         setPassword('');
+        setAutoInsertEnabled(true); // Reset to default
 
         // Reload stored servers
         await loadStoredServers();
@@ -737,6 +742,42 @@ const SimpleEmailServerSettings: React.FC = () => {
           </>
         )}
 
+        {/* Auto-Insert Toggle - Advanced Option */}
+        <FormGroup>
+          <div style={{
+            padding: '1rem',
+            backgroundColor: '#f8fafc',
+            borderRadius: '8px',
+            border: '1px solid #e5e7eb',
+            marginTop: '1rem'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+              <input
+                type="checkbox"
+                id="autoInsertEnabled"
+                checked={autoInsertEnabled}
+                onChange={(e) => setAutoInsertEnabled(e.target.checked)}
+              />
+              <label htmlFor="autoInsertEnabled" style={{ fontWeight: '500', color: '#374151' }}>
+                Auto-insert transactions
+              </label>
+            </div>
+            <div style={{ fontSize: '0.875rem', color: '#6b7280', marginLeft: '1.5rem' }}>
+              {autoInsertEnabled ? (
+                <>
+                  <strong>Enabled:</strong> Successfully processed emails will automatically create transactions in the database.
+                  Transactions appear immediately in the UI after processing.
+                </>
+              ) : (
+                <>
+                  <strong>Disabled:</strong> Successfully processed emails will be sent to the manual review queue.
+                  You must manually approve each transaction before it gets inserted into the database.
+                </>
+              )}
+            </div>
+          </div>
+        </FormGroup>
+
         {saveStatus && (
           <StatusMessage $success={saveStatus.success}>
             {saveStatus.success ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
@@ -835,6 +876,25 @@ const SimpleEmailServerSettings: React.FC = () => {
                 <ServerPreview>
                   <ServerDisplay>{formatServerInfo(server)}</ServerDisplay>
                 </ServerPreview>
+              </FormGroup>
+
+              <FormGroup>
+                <label style={{ fontSize: '0.875rem', fontWeight: '500', color: '#374151' }}>
+                  Transaction Processing
+                </label>
+                <div style={{
+                  padding: '0.5rem',
+                  backgroundColor: server.autoInsertEnabled ? '#dcfce7' : '#fef3c7',
+                  borderRadius: '6px',
+                  fontSize: '0.875rem',
+                  color: server.autoInsertEnabled ? '#166534' : '#92400e'
+                }}>
+                  {server.autoInsertEnabled ? (
+                    <>✅ Auto-insert enabled - Transactions created automatically</>
+                  ) : (
+                    <>⚠️ Manual review required - Transactions queued for approval</>
+                  )}
+                </div>
               </FormGroup>
 
               {testResults[server.id] && (

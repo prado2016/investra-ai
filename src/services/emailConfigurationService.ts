@@ -21,6 +21,7 @@ export interface CreateEmailConfigRequest {
   email_address: string
   password: string // Will be encrypted before storage
   auto_import_enabled?: boolean
+  auto_insert_enabled?: boolean
   default_portfolio_id?: string | null
 }
 
@@ -34,6 +35,7 @@ export interface UpdateEmailConfigRequest {
   password?: string // Will be encrypted before storage
   is_active?: boolean
   auto_import_enabled?: boolean
+  auto_insert_enabled?: boolean
   default_portfolio_id?: string | null
 }
 
@@ -111,6 +113,7 @@ export class EmailConfigurationService {
             email_address: config.email_address,
             encrypted_password: encryptedPassword,
             auto_import_enabled: config.auto_import_enabled ?? true,
+            auto_insert_enabled: config.auto_insert_enabled ?? true,
             default_portfolio_id: config.default_portfolio_id,
             is_active: true
           })
@@ -178,7 +181,7 @@ export class EmailConfigurationService {
       }
 
       // Prepare update data
-      const updateData: any = { ...updates }
+      const updateData: Partial<UpdateEmailConfigRequest> = { ...updates }
       
       // Encrypt password if provided
       if (updates.password) {
@@ -235,6 +238,114 @@ export class EmailConfigurationService {
         data: null, 
         error: error instanceof Error ? error.message : 'Unknown error', 
         success: false 
+      }
+    }
+  }
+
+  /**
+   * Get auto-insert setting for a specific email configuration
+   */
+  static async getAutoInsertSetting(configId: string): Promise<ServiceResponse<boolean>> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+
+      if (!user) {
+        return { data: null, error: 'User not authenticated', success: false }
+      }
+
+      const { data, error } = await supabase
+        .from('email_configurations')
+        .select('auto_insert_enabled')
+        .eq('id', configId)
+        .eq('user_id', user.id)
+        .single()
+
+      if (error) {
+        return { data: null, error: error.message, success: false }
+      }
+
+      return {
+        data: data?.auto_insert_enabled ?? true, // Default to true if not set
+        error: null,
+        success: true
+      }
+    } catch (error) {
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        success: false
+      }
+    }
+  }
+
+  /**
+   * Update auto-insert setting for a specific email configuration
+   */
+  static async updateAutoInsertSetting(configId: string, autoInsertEnabled: boolean): Promise<ServiceResponse<boolean>> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+
+      if (!user) {
+        return { data: null, error: 'User not authenticated', success: false }
+      }
+
+      const { data, error } = await supabase
+        .from('email_configurations')
+        .update({
+          auto_insert_enabled: autoInsertEnabled,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', configId)
+        .eq('user_id', user.id)
+        .select('auto_insert_enabled')
+        .single()
+
+      if (error) {
+        return { data: null, error: error.message, success: false }
+      }
+
+      return {
+        data: data?.auto_insert_enabled ?? autoInsertEnabled,
+        error: null,
+        success: true
+      }
+    } catch (error) {
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        success: false
+      }
+    }
+  }
+
+  /**
+   * Get all email configurations with their auto-insert settings
+   */
+  static async getConfigurationsWithAutoInsert(): Promise<ServiceResponse<Array<EmailConfiguration & { auto_insert_enabled: boolean }>>> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+
+      if (!user) {
+        return { data: null, error: 'User not authenticated', success: false }
+      }
+
+      const { data, error } = await supabase
+        .from('email_configurations')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        return { data: null, error: error.message, success: false }
+      }
+
+      return { data: data || [], error: null, success: true }
+    } catch (error) {
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        success: false
       }
     }
   }

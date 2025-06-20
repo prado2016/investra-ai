@@ -99,6 +99,7 @@ export interface EmailConfiguration {
   last_test_success: boolean | null
   last_test_error: string | null
   auto_import_enabled: boolean
+  auto_insert_enabled: boolean
   default_portfolio_id: string | null
   created_at: string
   updated_at: string

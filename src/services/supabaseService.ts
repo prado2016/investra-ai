@@ -1264,12 +1264,38 @@ export class TransactionService {
     price: number,
     transactionDate: string
   ): Promise<ServiceResponse<Transaction>> {
+    // Production mode validation
+    const isProduction = process.env.NODE_ENV === 'production' ||
+                        import.meta.env.VITE_APP_ENVIRONMENT === 'production';
+    const usingMockServices = shouldUseMockServices();
+
+    // Log service routing decision for debugging
+    console.log(`🔄 Transaction creation routing: ${usingMockServices ? 'MOCK' : 'REAL'} services`);
+    console.log(`📊 Environment: ${isProduction ? 'PRODUCTION' : 'DEVELOPMENT'}`);
+
+    // Critical error if mock services are used in production
+    if (usingMockServices && isProduction) {
+      console.error('🚨 CRITICAL: Mock services enabled in production mode!');
+      console.error('Environment check:', {
+        NODE_ENV: process.env.NODE_ENV,
+        VITE_APP_ENVIRONMENT: import.meta.env.VITE_APP_ENVIRONMENT,
+        VITE_TEST_MODE: import.meta.env.VITE_TEST_MODE,
+        VITE_MOCK_DATA_MODE: import.meta.env.VITE_MOCK_DATA_MODE,
+        localStorage_E2E: typeof localStorage !== 'undefined' ? localStorage?.getItem('__E2E_TEST_MODE__') : 'N/A',
+        window_E2E: typeof window !== 'undefined' ? (window as any).__E2E_TEST_MODE__ : 'N/A'
+      });
+      throw new Error('Mock services cannot be used in production mode - this prevents real database transactions');
+    }
+
     // Use mock service in test mode
-    if (shouldUseMockServices()) {
+    if (usingMockServices) {
+      console.warn('⚠️ Using mock transaction service - transaction will NOT be saved to database');
       return MockServices.TransactionService.createTransaction(
         portfolioId, assetId, transactionType, quantity, price, transactionDate
       );
     }
+
+    console.log('✅ Using real database transaction service');
 
     try {
       const { data, error } = await supabase

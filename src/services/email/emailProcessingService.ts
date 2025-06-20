@@ -7,7 +7,9 @@ import { WealthsimpleEmailParser, type WealthsimpleEmailData } from './wealthsim
 import { PortfolioMappingService, type MappingResult } from './portfolioMappingService';
 import { EnhancedEmailSymbolParser, type EmailSymbolParseResult } from './enhancedEmailSymbolParser';
 import { SupabaseService } from '../supabaseService';
+import { EmailConfigurationService } from '../emailConfigurationService';
 import { emailProcessingMonitor } from '../monitoring/emailProcessingMonitor';
+import { ManualReviewQueue } from './manualReviewQueue';
 import type { Transaction } from '../../lib/database/types';
 import type { ServiceResponse } from '../supabaseService';
 
@@ -24,7 +26,9 @@ export interface EmailProcessingResult {
   symbolProcessed: boolean;
   portfolioMapped: boolean;
   transactionCreated: boolean;
+  queuedForReview: boolean; // New field to track manual review queue
   transaction?: Transaction;
+  reviewQueueId?: string; // ID of the manual review queue item
   emailData?: WealthsimpleEmailData;
   symbolResult?: EmailSymbolParseResult;
   portfolioMapping?: MappingResult;
@@ -38,6 +42,7 @@ export interface ProcessingOptions {
   enhanceSymbols: boolean;
   dryRun: boolean;
   validateOnly: boolean;
+  configId?: string; // Email configuration ID for auto-insert setting
 }
 
 /**
@@ -82,6 +87,7 @@ export class EmailProcessingService {
       symbolProcessed: false,
       portfolioMapped: false,
       transactionCreated: false,
+      queuedForReview: false,
       errors: [],
       warnings: []
     };
@@ -253,43 +259,129 @@ export class EmailProcessingService {
         }
       }
 
-      // Step 5: Create transaction
-      devLog('💰 Creating transaction...');
-      const transactionResult = await this.createTransaction(
-        portfolioResult.data.portfolioId,
-        parseResult.data,
-        symbolResult
-      );
+      // Step 5: Check auto-insert setting and create transaction or queue for review
+      devLog('🔄 Checking auto-insert setting...');
 
-      if (!transactionResult.success || !transactionResult.data) {
-        result.errors.push(`Transaction creation failed: ${transactionResult.error}`);
-        return result;
+      let autoInsertEnabled = true; // Default to true
+
+      // Check auto-insert setting if configId is provided
+      if (opts.configId) {
+        try {
+          const autoInsertResult = await EmailConfigurationService.getAutoInsertSetting(opts.configId);
+          if (autoInsertResult.success && autoInsertResult.data !== null) {
+            autoInsertEnabled = autoInsertResult.data;
+            devLog(`📊 Auto-insert setting: ${autoInsertEnabled ? 'ENABLED' : 'DISABLED'}`);
+          } else {
+            devLog('⚠️ Could not retrieve auto-insert setting, defaulting to enabled');
+          }
+        } catch (error) {
+          devLog(`⚠️ Error checking auto-insert setting: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+      } else {
+        devLog('📊 No configId provided, defaulting to auto-insert enabled');
       }
 
-      result.transactionCreated = true;
-      result.transaction = transactionResult.data;
-      result.success = true;
+      if (autoInsertEnabled) {
+        // Auto-insert enabled: Create transaction directly
+        devLog('💰 Auto-insert enabled - Creating transaction...');
+        const transactionResult = await this.createTransaction(
+          portfolioResult.data.portfolioId,
+          parseResult.data,
+          symbolResult
+        );
 
-      devLog(`✅ Transaction created: ${transactionResult.data.id}`);
-      devLog('🎉 Email processing completed successfully!');
-
-      // Record successful transaction creation
-      emailProcessingMonitor.recordEvent({
-        type: 'transaction_created',
-        email: {
-          subject,
-          fromEmail,
-          messageId
-        },
-        metrics: {
-          processingTime: Date.now() - processingStartTime,
-          stage: 'transaction_creation'
-        },
-        result: {
-          success: true,
-          transactionId: transactionResult.data.id
+        if (!transactionResult.success || !transactionResult.data) {
+          result.errors.push(`Transaction creation failed: ${transactionResult.error}`);
+          return result;
         }
-      });
+
+        result.transactionCreated = true;
+        result.transaction = transactionResult.data;
+        result.success = true;
+
+        devLog(`✅ Transaction created: ${transactionResult.data.id}`);
+        devLog('🎉 Email processing completed successfully with auto-insert!');
+
+        // Record successful transaction creation
+        emailProcessingMonitor.recordEvent({
+          type: 'transaction_created',
+          email: {
+            subject,
+            fromEmail,
+            messageId
+          },
+          metrics: {
+            processingTime: Date.now() - processingStartTime,
+            stage: 'transaction_creation'
+          },
+          result: {
+            success: true,
+            transactionId: transactionResult.data.id
+          }
+        });
+
+      } else {
+        // Auto-insert disabled: Queue for manual review
+        devLog('📋 Auto-insert disabled - Queuing for manual review...');
+
+        try {
+          // Create a mock email identification for the review queue
+          const emailIdentification = {
+            messageId,
+            subject,
+            fromEmail,
+            receivedAt: new Date().toISOString(),
+            source: 'email_processing'
+          };
+
+          // Create a mock duplicate detection result (no duplicates for now)
+          const duplicateDetectionResult = {
+            isDuplicate: false,
+            confidence: 0.0,
+            duplicateCount: 0,
+            potentialDuplicates: [],
+            overallConfidence: parseResult.data.confidence,
+            recommendation: 'review' as const
+          };
+
+          // Add to manual review queue
+          const queueItem = await ManualReviewQueue.addToQueue(
+            parseResult.data,
+            emailIdentification,
+            duplicateDetectionResult,
+            portfolioResult.data.portfolioId
+          );
+
+          result.queuedForReview = true;
+          result.reviewQueueId = queueItem.id;
+          result.success = true;
+
+          devLog(`✅ Email queued for manual review: ${queueItem.id}`);
+          devLog('🎉 Email processing completed - queued for manual review!');
+
+          // Record successful queuing for review
+          emailProcessingMonitor.recordEvent({
+            type: 'queued_for_review',
+            email: {
+              subject,
+              fromEmail,
+              messageId
+            },
+            metrics: {
+              processingTime: Date.now() - processingStartTime,
+              stage: 'manual_review_queue'
+            },
+            result: {
+              success: true,
+              queueId: queueItem.id
+            }
+          });
+
+        } catch (error) {
+          result.errors.push(`Failed to queue for manual review: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          return result;
+        }
+      }
 
       return result;
 
