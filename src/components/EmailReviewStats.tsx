@@ -147,6 +147,14 @@ const EmailReviewStats: React.FC = () => {
     } catch (err) {
       console.error('Failed to load email stats:', err);
       error('Stats Error', err instanceof Error ? err.message : 'Failed to load statistics');
+      
+      // Set fallback stats to prevent undefined errors
+      setStats({
+        total: 0,
+        pending: 0,
+        processed: 0,
+        rejected: 0
+      });
     } finally {
       setLoading(false);
     }
@@ -157,7 +165,7 @@ const EmailReviewStats: React.FC = () => {
   };
 
   const calculateSuccessRate = () => {
-    if (stats.total === 0) return 0;
+    if (!stats || stats.total === 0) return 0;
     return Math.round((stats.processed / stats.total) * 100);
   };
 
@@ -181,7 +189,7 @@ const EmailReviewStats: React.FC = () => {
           <StatIcon $color="#3b82f6">
             <Mail size={24} />
           </StatIcon>
-          <StatValue>{stats.total.toLocaleString()}</StatValue>
+          <StatValue>{(stats?.total || 0).toLocaleString()}</StatValue>
           <StatLabel>Total Emails</StatLabel>
         </StatCard>
 
@@ -189,7 +197,7 @@ const EmailReviewStats: React.FC = () => {
           <StatIcon $color="#f59e0b">
             <Clock size={24} />
           </StatIcon>
-          <StatValue>{stats.pending.toLocaleString()}</StatValue>
+          <StatValue>{(stats?.pending || 0).toLocaleString()}</StatValue>
           <StatLabel>Pending Review</StatLabel>
         </StatCard>
 
@@ -197,7 +205,7 @@ const EmailReviewStats: React.FC = () => {
           <StatIcon $color="#10b981">
             <CheckCircle size={24} />
           </StatIcon>
-          <StatValue>{stats.processed.toLocaleString()}</StatValue>
+          <StatValue>{(stats?.processed || 0).toLocaleString()}</StatValue>
           <StatLabel>Processed</StatLabel>
         </StatCard>
 
@@ -205,7 +213,7 @@ const EmailReviewStats: React.FC = () => {
           <StatIcon $color="#ef4444">
             <XCircle size={24} />
           </StatIcon>
-          <StatValue>{stats.rejected.toLocaleString()}</StatValue>
+          <StatValue>{(stats?.rejected || 0).toLocaleString()}</StatValue>
           <StatLabel>Rejected</StatLabel>
         </StatCard>
 
@@ -218,10 +226,10 @@ const EmailReviewStats: React.FC = () => {
         </StatCard>
 
         <StatCard>
-          <StatIcon $color={stats.pending > 10 ? "#ef4444" : "#10b981"}>
+          <StatIcon $color={(stats?.pending || 0) > 10 ? "#ef4444" : "#10b981"}>
             <AlertTriangle size={24} />
           </StatIcon>
-          <StatValue>{stats.pending > 10 ? 'High' : 'Normal'}</StatValue>
+          <StatValue>{(stats?.pending || 0) > 10 ? 'High' : 'Normal'}</StatValue>
           <StatLabel>Queue Status</StatLabel>
         </StatCard>
       </StatsGrid>
