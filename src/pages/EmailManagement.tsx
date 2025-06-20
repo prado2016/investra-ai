@@ -10,8 +10,6 @@ import {
   Activity, 
   AlertTriangle, 
   CheckCircle,
-  Play,
-  Pause,
   RefreshCw,
   Eye,
   Settings
@@ -23,11 +21,10 @@ import { useEmailProcessing } from '../hooks/useEmailProcessing';
 
 // Import the existing email management components
 import ImportStatusNotifications from '../components/ImportStatusNotifications';
-import ManualReviewQueueManager from '../components/ManualReviewQueueManager';
+import ManualEmailReview from '../components/ManualEmailReview';
 import FailedImportResolutionInterface from '../components/FailedImportResolutionInterface';
 import EmailProcessingStatusDisplay from '../components/EmailProcessingStatusDisplay';
-import SimpleEmailServerSettings from '../components/SimpleEmailServerSettings';
-import RealTimeEmailStatus from '../components/RealTimeEmailStatus';
+import SimpleEmailConfiguration from '../components/SimpleEmailConfiguration';
 import DebugPanel from '../components/DebugPanel';
 
 const PageContainer = styled.div`
@@ -191,8 +188,6 @@ const EmailManagementPage: React.FC = () => {
   const {
     processingStats,
     imapStatus,
-    startService,
-    stopService,
     refreshData
   } = useEmailProcessing();
 
@@ -276,17 +271,9 @@ const EmailManagementPage: React.FC = () => {
             </QuickStatsGrid>
 
             <ActionBar>
-              <Button variant="primary" onClick={startService}>
-                <Play size={16} />
-                Start Email Service
-              </Button>
-              <Button variant="outline" onClick={stopService}>
-                <Pause size={16} />
-                Stop Service
-              </Button>
               <Button variant="outline" onClick={refreshData}>
                 <RefreshCw size={16} />
-                Refresh Stats
+                Refresh Data
               </Button>
             </ActionBar>
 
@@ -317,7 +304,7 @@ const EmailManagementPage: React.FC = () => {
                 </div>
                 <div>
                   <strong>Last Check:</strong> {new Date().toLocaleString()}<br />
-                  <strong>Processing Mode:</strong> Automatic<br />
+                  <strong>Processing Mode:</strong> Manual Review Required<br />
                   <strong>Filter:</strong> Wealthsimple emails only
                 </div>
               </div>
@@ -326,15 +313,10 @@ const EmailManagementPage: React.FC = () => {
         );
 
       case 'status':
-        return (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            <RealTimeEmailStatus />
-            <EmailProcessingStatusDisplay />
-          </div>
-        );
+        return <EmailProcessingStatusDisplay />;
 
       case 'review':
-        return <ManualReviewQueueManager />;
+        return <ManualEmailReview />;
 
       case 'failed':
         return <FailedImportResolutionInterface />;
@@ -343,7 +325,7 @@ const EmailManagementPage: React.FC = () => {
         return <ImportStatusNotifications />;
 
       case 'configuration':
-        return <SimpleEmailServerSettings />;
+        return <SimpleEmailConfiguration />;
 
       default:
         return <div>Select a tab to view content</div>;
@@ -355,7 +337,7 @@ const EmailManagementPage: React.FC = () => {
       <PageHeader>
         <PageTitle>Email Import Management</PageTitle>
         <PageSubtitle>
-          Monitor and manage automated email processing from Wealthsimple
+          Monitor and manually review emails for transaction import from Wealthsimple
         </PageSubtitle>
       </PageHeader>
 
