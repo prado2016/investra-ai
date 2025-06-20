@@ -14,7 +14,8 @@ import {
   AlertCircle,
   Loader,
   Copy,
-  Check
+  Check,
+  Info
 } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Card } from '../../../components/ui/Card';
@@ -617,7 +618,7 @@ const ConfigurationForm: React.FC<ConfigurationFormProps> = ({
                     <FieldLabel $required={field.required}>
                       {field.label}
                       {field.sensitive && (
-                        <Info size={14} title="This field contains sensitive data" />
+                        <Info size={14} />
                       )}
                     </FieldLabel>
                   )}

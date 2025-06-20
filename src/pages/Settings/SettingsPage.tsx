@@ -27,11 +27,9 @@ import {
   Upload,
   RefreshCw,
   AlertCircle,
-  CheckCircle,
-  Info
+  CheckCircle
 } from 'lucide-react';
 
-import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { usePageTitle } from '../../hooks/usePageTitle';
 import { useNotifications } from '../../hooks/useNotifications';
@@ -266,7 +264,6 @@ const SettingsPage: React.FC = () => {
     loading,
     error,
     configurations,
-    updateConfiguration,
     testConfiguration,
     exportConfigurations,
     importConfigurations,
@@ -467,21 +464,22 @@ const SettingsPage: React.FC = () => {
             Export
           </Button>
           
-          <Button
-            variant="outline"
-            size="sm"
-            as="label"
-            disabled={loading}
-          >
-            <Upload size={16} />
-            Import
+          <label>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={loading}
+            >
+              <Upload size={16} />
+              Import
+            </Button>
             <input
               type="file"
               accept=".json"
               onChange={handleImport}
               style={{ display: 'none' }}
             />
-          </Button>
+          </label>
           
           <Button
             variant="primary"
