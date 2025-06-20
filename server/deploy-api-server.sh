@@ -389,7 +389,21 @@ start_application() {
         log "✅ PM2 process started successfully"
     else
         log_error "❌ PM2 process failed to start"
-        pm2 logs "$SERVICE_NAME" --lines 20
+        
+        # Get non-interactive logs for debugging
+        log_error "📋 Recent PM2 logs:"
+        timeout 10 pm2 logs "$SERVICE_NAME" --lines 20 --nostream 2>/dev/null || echo "Could not retrieve PM2 logs (timeout or not available)"
+        
+        # Show PM2 status for additional debugging
+        log_error "📊 PM2 Status:"
+        pm2 status || echo "Could not retrieve PM2 status"
+        
+        # Show recent system logs if available
+        if command -v journalctl &> /dev/null; then
+            log_error "📋 Recent system logs:"
+            journalctl -u pm2-lab --lines 10 --no-pager || echo "Could not retrieve system logs"
+        fi
+        
         exit 1
     fi
     
@@ -713,7 +727,8 @@ case "${1:-deploy}" in
         ;;
     "logs")
         log "📋 Application logs:"
-        pm2 logs "$SERVICE_NAME"
+        log "💡 Use Ctrl+C to exit log viewing"
+        pm2 logs "$SERVICE_NAME" --lines 50
         ;;
     *)
         log "Usage: $0 {deploy|build|start|stop|restart|status|logs}"
