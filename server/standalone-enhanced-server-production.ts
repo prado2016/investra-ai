@@ -96,14 +96,18 @@ const NODE_ENV = process.env.NODE_ENV || 'development';
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 
-// Validate required environment variables
+// Validate required environment variables (but allow server to start without them for initial PM2 setup)
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  logger.error('Missing required environment variables: SUPABASE_URL, SUPABASE_ANON_KEY');
-  process.exit(1);
+  logger.warn('Missing Supabase environment variables: SUPABASE_URL, SUPABASE_ANON_KEY');
+  logger.warn('Database operations will fail until these are configured');
+  logger.warn('Server will continue to start but with limited functionality');
 }
 
-// Initialize Supabase client
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Initialize Supabase client with fallback values
+const supabase = createClient(
+  SUPABASE_URL || 'https://placeholder.supabase.co',
+  SUPABASE_ANON_KEY || 'placeholder_key'
+);
 
 /**
  * Fetch user's IMAP configuration from the database

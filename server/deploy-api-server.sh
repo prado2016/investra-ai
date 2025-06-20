@@ -232,13 +232,11 @@ module.exports = {
         PORT: ${API_PORT},
         LOG_LEVEL: '${LOG_LEVEL:-info}',
         
-        // Email Configuration
         EMAIL_HOST: '${EMAIL_HOST}',
         EMAIL_PORT: '${EMAIL_PORT}',
         EMAIL_USER: '${EMAIL_USER}',
         EMAIL_PASSWORD: '${EMAIL_PASSWORD}',
         
-        // IMAP Configuration
         IMAP_HOST: '${IMAP_HOST}',
         IMAP_PORT: '${IMAP_PORT}',
         IMAP_USER: '${IMAP_USER}',
@@ -246,10 +244,8 @@ module.exports = {
         IMAP_SECURE: '${IMAP_SECURE:-true}',
         IMAP_ENABLED: '${IMAP_ENABLED:-true}',
         
-        // Database Configuration
         DATABASE_URL: '${DATABASE_URL}',
         
-        // Supabase Configuration (Critical for authentication)
         SUPABASE_URL: '${SUPABASE_URL}',
         SUPABASE_ANON_KEY: '${SUPABASE_ANON_KEY}',
         SUPABASE_SERVICE_KEY: '${SUPABASE_SERVICE_KEY}',
