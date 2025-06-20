@@ -19,7 +19,6 @@ import {
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { useNotifications } from '../hooks/useNotifications';
-import { useEmailProcessing } from '../hooks/useEmailProcessing';
 import { manualEmailReviewService, type EmailReviewItem } from '../services/manualEmailReviewService';
 
 const ReviewContainer = styled.div`

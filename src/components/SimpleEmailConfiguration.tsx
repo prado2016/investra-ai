@@ -8,12 +8,6 @@ import styled from 'styled-components';
 import { Mail, Save, TestTube, CheckCircle, AlertCircle, Loader, Eye, EyeOff } from 'lucide-react';
 import { EmailConfigurationService } from '../services/emailConfigurationService';
 import { useNotifications } from '../hooks/useNotifications';
-import type { 
-  CreateEmailConfigRequest, 
-  UpdateEmailConfigRequest, 
-  EmailConnectionTestResult,
-  ServiceResponse
-} from '../services/emailConfigurationService';
 import type { EmailConfiguration, EmailProvider } from '../lib/database/types';
 
 const ConfigContainer = styled.div`
@@ -348,6 +342,12 @@ const EmailProviderPresets: Record<EmailProvider, {
   yahoo: {
     name: 'Yahoo Mail',
     imap_host: 'imap.mail.yahoo.com',
+    imap_port: 993,
+    imap_secure: true
+  },
+  custom: {
+    name: 'Custom IMAP Server',
+    imap_host: '',
     imap_port: 993,
     imap_secure: true
   }

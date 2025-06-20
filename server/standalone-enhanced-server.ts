@@ -469,8 +469,44 @@ function getProcessingStats(): ProcessingStatsResponse {
 
 // Middleware
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || '*',
-  credentials: true
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+
+    // Define allowed origins
+    const allowedOrigins = [
+      'http://localhost:5173',
+      'http://127.0.0.1:5173',
+      'http://10.0.0.89',
+      'http://10.0.0.89:80',
+      'https://investra.com',
+      'https://app.investra.com',
+      'https://www.investra.com'
+    ];
+
+    // Add environment-specific origins if provided
+    if (process.env.CORS_ORIGIN) {
+      allowedOrigins.push(process.env.CORS_ORIGIN);
+    }
+
+    if (process.env.CORS_ORIGINS) {
+      const envOrigins = process.env.CORS_ORIGINS.split(',').map(o => o.trim());
+      allowedOrigins.push(...envOrigins);
+    }
+
+    // Remove duplicates
+    const uniqueOrigins = [...new Set(allowedOrigins)];
+
+    if (uniqueOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.warn(`CORS: Origin ${origin} not allowed`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
 }));
 
 app.use(express.json({ limit: '10mb' }));
