@@ -1,0 +1,162 @@
+name: Enhanced Email API Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_environment:
+        description: 'Target deployment environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+      force_deploy:
+        description: 'Force deployment even if no changes detected'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  PRODUCTION_SERVER_DIR: /opt/investra/email-api-prod
+  PRODUCTION_SERVICE_NAME: investra-email-api-prod
+  ENHANCED_SERVER_FILE: standalone-enhanced-server-production.js
+  API_PORT: 3001
+
+jobs:
+  enhanced-api-deploy:
+    name: Deploy Enhanced Email API
+    runs-on: self-hosted
+    if: github.event.inputs.target_environment == 'production'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 1
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Install dependencies in server directory
+      run: |
+        cd server
+        npm ci --only=production
+
+    - name: Build enhanced server
+      run: |
+        cd server
+        npm run build
+
+    - name: Verify enhanced server build
+      run: |
+        if [ ! -f "server/dist/${{ env.ENHANCED_SERVER_FILE }}" ]; then
+          echo "❌ Enhanced server build failed - file not found"
+          exit 1
+        fi
+        echo "✅ Enhanced server built successfully"
+        ls -la server/dist/${{ env.ENHANCED_SERVER_FILE }}
+
+    - name: Check production directory
+      run: |
+        if [ ! -d "${{ env.PRODUCTION_SERVER_DIR }}" ]; then
+          echo "❌ Production directory not found: ${{ env.PRODUCTION_SERVER_DIR }}"
+          exit 1
+        fi
+        echo "✅ Production directory exists"
+
+    - name: Backup current production server
+      run: |
+        BACKUP_FILE="${{ env.PRODUCTION_SERVER_DIR }}/${{ env.ENHANCED_SERVER_FILE }}.backup.$(date +%Y%m%d_%H%M%S)"
+        if [ -f "${{ env.PRODUCTION_SERVER_DIR }}/${{ env.ENHANCED_SERVER_FILE }}" ]; then
+          cp "${{ env.PRODUCTION_SERVER_DIR }}/${{ env.ENHANCED_SERVER_FILE }}" "$BACKUP_FILE"
+          echo "✅ Backup created: $BACKUP_FILE"
+        fi
+
+    - name: Deploy enhanced server
+      run: |
+        cp "server/dist/${{ env.ENHANCED_SERVER_FILE }}" "${{ env.PRODUCTION_SERVER_DIR }}/"
+        chown investra:investra "${{ env.PRODUCTION_SERVER_DIR }}/${{ env.ENHANCED_SERVER_FILE }}"
+        chmod 644 "${{ env.PRODUCTION_SERVER_DIR }}/${{ env.ENHANCED_SERVER_FILE }}"
+        echo "✅ Enhanced server deployed"
+
+    - name: Verify deployment
+      run: |
+        if [ ! -f "${{ env.PRODUCTION_SERVER_DIR }}/${{ env.ENHANCED_SERVER_FILE }}" ]; then
+          echo "❌ Deployment verification failed"
+          exit 1
+        fi
+        echo "✅ Deployment verified"
+
+    - name: Restart PM2 service
+      run: |
+        cd "${{ env.PRODUCTION_SERVER_DIR }}"
+        
+        # Stop existing service if running
+        pm2 stop ${{ env.PRODUCTION_SERVICE_NAME }} || true
+        pm2 delete ${{ env.PRODUCTION_SERVICE_NAME }} || true
+        
+        # Start enhanced server with environment variables
+        source .env.production
+        pm2 start ${{ env.ENHANCED_SERVER_FILE }} --name "${{ env.PRODUCTION_SERVICE_NAME }}"
+        
+        # Save PM2 configuration
+        pm2 save
+        
+        echo "✅ PM2 service restarted"
+
+    - name: Health check
+      run: |
+        sleep 10
+        
+        # Check if PM2 service is running
+        if ! pm2 list | grep -q "${{ env.PRODUCTION_SERVICE_NAME }}.*online"; then
+          echo "❌ PM2 service not running"
+          pm2 logs ${{ env.PRODUCTION_SERVICE_NAME }} --lines 20
+          exit 1
+        fi
+        
+        # Check if API is responding
+        if ! curl -f -s "http://localhost:${{ env.API_PORT }}/health" > /dev/null; then
+          echo "❌ API health check failed"
+          pm2 logs ${{ env.PRODUCTION_SERVICE_NAME }} --lines 20
+          exit 1
+        fi
+        
+        echo "✅ Health check passed"
+
+    - name: CORS verification
+      run: |
+        # Test CORS headers
+        CORS_TEST=$(curl -s -i -H "Origin: http://10.0.0.89" "http://localhost:${{ env.API_PORT }}/health" | grep "Access-Control-Allow-Origin")
+        
+        if [[ "$CORS_TEST" != *"http://10.0.0.89"* ]]; then
+          echo "❌ CORS verification failed"
+          echo "Expected: Access-Control-Allow-Origin: http://10.0.0.89"
+          echo "Got: $CORS_TEST"
+          exit 1
+        fi
+        
+        echo "✅ CORS verification passed"
+        echo "CORS headers: $CORS_TEST"
+
+    - name: Deployment summary
+      run: |
+        echo "🚀 Enhanced Email API Deployment Summary"
+        echo "========================================"
+        echo "Environment: ${{ github.event.inputs.target_environment }}"
+        echo "Server: ${{ env.ENHANCED_SERVER_FILE }}"
+        echo "Directory: ${{ env.PRODUCTION_SERVER_DIR }}"
+        echo "Service: ${{ env.PRODUCTION_SERVICE_NAME }}"
+        echo "Port: ${{ env.API_PORT }}"
+        echo ""
+        echo "PM2 Status:"
+        pm2 list | grep "${{ env.PRODUCTION_SERVICE_NAME }}" || true
+        echo ""
+        echo "API Health:"
+        curl -s "http://localhost:${{ env.API_PORT }}/health" | jq -r '.status' || echo "Health check response received"
+        echo ""
+        echo "✅ Deployment completed successfully"
