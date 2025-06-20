@@ -27,7 +27,8 @@
   },
   "include": [
     "standalone-enhanced-server-production.ts",
-    "simple-production-server.ts"
+    "simple-production-server.ts",
+    "middleware/**/*.ts"
   ],
   "exclude": [
     "node_modules",

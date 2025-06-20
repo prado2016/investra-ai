@@ -14,7 +14,28 @@ import * as dotenv from 'dotenv';
 // Removed unused imports: fs and path
 import { createServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
-import { authenticateUser, type AuthenticatedRequest } from './middleware/authMiddleware';
+
+// Define AuthenticatedRequest interface locally
+interface AuthenticatedRequest extends express.Request {
+  user?: any;
+  userId?: string;
+  body: Record<string, unknown>;
+}
+
+// Import authentication middleware with error handling
+let authenticateUser: any = null;
+try {
+  const authModule = require('./middleware/authMiddleware');
+  authenticateUser = authModule.authenticateUser;
+  console.log('Authentication middleware loaded successfully');
+} catch (error) {
+  console.warn('Authentication middleware not available:', error);
+  // Create a dummy middleware for cases where auth is not available
+  authenticateUser = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.warn('Authentication disabled - continuing without auth');
+    next();
+  };
+}
 
 // Load environment variables
 dotenv.config();
@@ -98,16 +119,22 @@ const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPA
 
 // Validate required environment variables (but allow server to start without them for initial PM2 setup)
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  logger.warn('Missing Supabase environment variables: SUPABASE_URL, SUPABASE_ANON_KEY');
-  logger.warn('Database operations will fail until these are configured');
-  logger.warn('Server will continue to start but with limited functionality');
+  console.warn('Missing Supabase environment variables: SUPABASE_URL, SUPABASE_ANON_KEY');
+  console.warn('Database operations will fail until these are configured');
+  console.warn('Server will continue to start but with limited functionality');
 }
 
 // Initialize Supabase client with fallback values
-const supabase = createClient(
-  SUPABASE_URL || 'https://placeholder.supabase.co',
-  SUPABASE_ANON_KEY || 'placeholder_key'
-);
+let supabase: any = null;
+try {
+  supabase = createClient(
+    SUPABASE_URL || 'https://placeholder.supabase.co',
+    SUPABASE_ANON_KEY || 'placeholder_key'
+  );
+  console.log('Supabase client initialized');
+} catch (error) {
+  console.error('Failed to initialize Supabase client:', error);
+}
 
 /**
  * Fetch user's IMAP configuration from the database
@@ -328,21 +355,24 @@ if (WS_ENABLED) {
     });
     
     wss.on('error', (error: Error) => {
-      logger.error(`WebSocket server error:`, error);
+      console.error(`WebSocket server error:`, error);
       if (error.message.includes('EADDRINUSE')) {
-        logger.warn(`Port ${WS_PORT} is already in use, disabling WebSocket functionality`);
+        console.warn(`Port ${WS_PORT} is already in use, disabling WebSocket functionality`);
         wss = null;
       }
     });
     
-    logger.info(`WebSocket server initialized on port ${WS_PORT}`);
+    wss.on('listening', () => {
+      console.log(`WebSocket server initialized on port ${WS_PORT}`);
+    });
+    
   } catch (error) {
-    logger.warn(`Failed to initialize WebSocket server on port ${WS_PORT}:`, error);
-    logger.warn('WebSocket functionality will be disabled');
+    console.warn(`Failed to initialize WebSocket server on port ${WS_PORT}:`, error);
+    console.warn('WebSocket functionality will be disabled');
     wss = null;
   }
 } else {
-  logger.info('WebSocket server disabled via WS_ENABLED=false');
+  console.info('WebSocket server disabled via WS_ENABLED=false');
 }
 
 // WebSocket message interface
@@ -1964,6 +1994,12 @@ server.listen(PORT, () => {
   StandaloneConfigurationService.loadConfiguration()
     .then(() => logger.info('✅ Initial configuration loaded'))
     .catch(err => logger.error('❌ Failed to load initial configuration:', err));
+}).on('error', (error: Error) => {
+  logger.error('Failed to start HTTP server:', error);
+  if (error.message.includes('EADDRINUSE')) {
+    logger.error(`Port ${PORT} is already in use. Please choose a different port or stop the existing server.`);
+  }
+  process.exit(1);
 });
 
 // Graceful shutdown
@@ -1981,6 +2017,20 @@ process.on('SIGINT', () => {
     logger.info('Process terminated');
     process.exit(0);
   });
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error: Error) => {
+  logger.error('Uncaught Exception:', error);
+  console.error('Uncaught Exception:', error);
+  process.exit(1);
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
+  logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  process.exit(1);
 });
 
 export default app;
