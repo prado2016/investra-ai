@@ -16,7 +16,7 @@ import { usePageTitle } from '../hooks/usePageTitle';
 // Import the consolidated email management components
 import EmailReviewStats from '../components/EmailReviewStats';
 import ManualEmailReview from '../components/ManualEmailReview';
-import ImportStatusNotifications from '../components/ImportStatusNotifications';
+import SimpleNotificationList from '../components/SimpleNotificationList';
 import SimpleEmailConfiguration from '../components/SimpleEmailConfiguration';
 
 const PageContainer = styled.div`
@@ -145,7 +145,7 @@ const EmailManagementPage: React.FC = () => {
             </SectionTitle>
           </SectionHeader>
           <SectionCard>
-            <ImportStatusNotifications />
+            <SimpleNotificationList />
           </SectionCard>
         </Section>
 

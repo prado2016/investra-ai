@@ -12,6 +12,7 @@ import type {
   Asset 
 } from '../lib/database/types'
 import type { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js'
+import { validateSupabaseConnection } from '../utils/connectionValidator'
 
 // Real-time event types
 export type RealtimeEventType = 'INSERT' | 'UPDATE' | 'DELETE'
@@ -51,6 +52,14 @@ export class RealtimeService {
   private reconnectTimer: NodeJS.Timeout | null = null
   private heartbeatTimer: NodeJS.Timeout | null = null
   
+  // Circuit breaker for preventing excessive retries
+  private circuitBreaker = {
+    failureCount: 0,
+    lastFailureTime: 0,
+    isOpen: false,
+    openUntil: 0
+  }
+  
   // Event listeners
   private portfolioListeners: PortfolioEventListener[] = []
   private positionListeners: PositionEventListener[] = []
@@ -83,14 +92,48 @@ export class RealtimeService {
    */
   public async initialize(): Promise<boolean> {
     try {
+      // Check circuit breaker
+      if (this.isCircuitBreakerOpen()) {
+        console.log('🔴 Circuit breaker is open, skipping connection attempt')
+        return false
+      }
+
       // Don't re-initialize if already connected
       if (this.isConnected && this.channel) {
         console.log('🔌 Realtime service already initialized and connected')
         return true
       }
 
-      // Check if user is authenticated
-      const { data: { user } } = await supabase.auth.getUser()
+      // Check if user is authenticated with error handling
+      let user = null;
+      try {
+        // Validate connection first
+        const connectionValidation = await validateSupabaseConnection()
+        if (!connectionValidation.isValid) {
+          console.error('❌ Supabase connection validation failed:', connectionValidation.error)
+          this.recordFailure()
+          this.updateStatus({ error: `Connection validation failed: ${connectionValidation.error}` })
+          this.scheduleReconnect()
+          return false
+        }
+
+        const { data, error } = await supabase.auth.getUser()
+        if (error) {
+          console.error('❌ Auth error:', error.message);
+          this.recordFailure()
+          this.updateStatus({ error: `Authentication error: ${error.message}` })
+          return false
+        }
+        user = data.user;
+      } catch (fetchError) {
+        console.error('❌ Network error during authentication:', fetchError);
+        this.recordFailure()
+        this.updateStatus({ error: 'Network error during authentication' })
+        // Schedule retry for network errors
+        this.scheduleReconnect()
+        return false
+      }
+
       if (!user) {
         this.updateStatus({ error: 'User not authenticated' })
         return false
@@ -192,10 +235,12 @@ export class RealtimeService {
       })
 
       console.log('🚀 Realtime service initialized')
+      this.recordSuccess() // Record successful connection
       return true
 
     } catch (error) {
       console.error('❌ Failed to initialize realtime service:', error)
+      this.recordFailure()
       this.updateStatus({
         connected: false,
         error: error instanceof Error ? error.message : 'Initialization failed'
@@ -450,6 +495,13 @@ export class RealtimeService {
     const delay = Math.min(1000 * Math.pow(2, this.status.reconnectAttempts), 30000) // Exponential backoff, max 30s
     
     this.reconnectTimer = setTimeout(async () => {
+      // Check if we're online before attempting reconnection
+      if (!navigator.onLine) {
+        console.log('🔄 Skipping reconnection attempt - browser is offline')
+        this.scheduleReconnect() // Try again later
+        return
+      }
+
       console.log(`🔄 Attempting reconnection (attempt ${this.status.reconnectAttempts + 1})`)
       
       this.updateStatus({
@@ -457,7 +509,12 @@ export class RealtimeService {
       })
 
       await this.disconnect()
-      await this.initialize()
+      const success = await this.initialize()
+      
+      // If still failing, schedule another reconnect
+      if (!success && this.status.reconnectAttempts < 10) {
+        this.scheduleReconnect()
+      }
     }, delay)
   }
 
@@ -542,6 +599,41 @@ export class RealtimeService {
     this.statusListeners = []
 
     console.log('🧹 Realtime service cleaned up')
+  }
+
+  /**
+   * Circuit breaker methods
+   */
+  private isCircuitBreakerOpen(): boolean {
+    if (!this.circuitBreaker.isOpen) return false
+    
+    // Check if circuit breaker should be closed (timeout expired)
+    if (Date.now() > this.circuitBreaker.openUntil) {
+      this.circuitBreaker.isOpen = false
+      this.circuitBreaker.failureCount = 0
+      console.log('🟢 Circuit breaker closed - attempting connection')
+      return false
+    }
+    
+    return true
+  }
+
+  private recordFailure(): void {
+    this.circuitBreaker.failureCount++
+    this.circuitBreaker.lastFailureTime = Date.now()
+    
+    // Open circuit breaker after 3 consecutive failures
+    if (this.circuitBreaker.failureCount >= 3) {
+      this.circuitBreaker.isOpen = true
+      this.circuitBreaker.openUntil = Date.now() + (5 * 60 * 1000) // 5 minutes
+      console.log('🔴 Circuit breaker opened - too many failures')
+    }
+  }
+
+  private recordSuccess(): void {
+    this.circuitBreaker.failureCount = 0
+    this.circuitBreaker.isOpen = false
+    this.circuitBreaker.openUntil = 0
   }
 }
 

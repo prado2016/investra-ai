@@ -56,6 +56,20 @@ export const supabase = (() => {
         headers: {
           'Connection': 'keep-alive',
           'Keep-Alive': 'timeout=30, max=100'
+        },
+        fetch: (url: RequestInfo | URL, options: RequestInit = {}) => {
+          // Add timeout to all Supabase requests
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+          
+          const modifiedOptions = {
+            ...options,
+            signal: controller.signal
+          };
+          
+          return fetch(url, modifiedOptions).finally(() => {
+            clearTimeout(timeoutId);
+          });
         }
       },
       db: {

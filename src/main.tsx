@@ -3,6 +3,8 @@ import { createRoot } from 'react-dom/client'
 import './styles/index.css'
 import App from './App.tsx'
 import { runProductionValidation, logValidationResults } from './utils/productionValidation'
+import './utils/envValidator' // Import for auto-validation
+import './utils/realtimeDiagnostics' // Import for debug helpers
 
 // Run production validation in development and production
 if (import.meta.env.NODE_ENV === 'production' || import.meta.env.DEV) {

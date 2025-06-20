@@ -43,15 +43,21 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({
     }
 
     console.log('🚀 Connecting to realtime service...')
-    const success = await realtimeService.initialize()
     
-    if (success) {
-      console.log('✅ Successfully connected to realtime service')
-    } else {
-      console.log('❌ Failed to connect to realtime service')
+    try {
+      const success = await realtimeService.initialize()
+      
+      if (success) {
+        console.log('✅ Successfully connected to realtime service')
+      } else {
+        console.log('❌ Failed to connect to realtime service')
+      }
+      
+      return success
+    } catch (error) {
+      console.error('❌ Error during realtime connection:', error)
+      return false
     }
-    
-    return success
   }, [user, isConnected])
 
   const disconnect = useCallback(async (): Promise<void> => {

@@ -181,7 +181,7 @@ export class EmailConfigurationService {
       }
 
       // Prepare update data
-      const updateData: Partial<UpdateEmailConfigRequest> = { ...updates }
+      const updateData: any = { ...updates }
       
       // Encrypt password if provided
       if (updates.password) {

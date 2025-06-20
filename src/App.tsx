@@ -29,6 +29,7 @@ import EmailManagement from './pages/EmailManagement';
 import Notifications from './pages/Notifications';
 import DebugLogs from './pages/DebugLogs';
 import EncryptionServiceTest from './components/EncryptionServiceTest';
+import RealtimeConnectionTest from './components/RealtimeConnectionTest';
 import { debug, ErrorTracker, isDev } from './utils/debug';
 import './styles/App.css';
 
@@ -179,6 +180,7 @@ function AppContent() {
               <Route path="/settings" element={<Settings />} />
               <Route path="/debug-logs" element={<DebugLogs />} />
               <Route path="/encryption-test" element={<EncryptionServiceTest />} />
+              <Route path="/realtime-test" element={<RealtimeConnectionTest />} />
             </Routes>
           </main>
         </div>
@@ -219,6 +221,7 @@ function AppContent() {
             <Route path="/settings" element={<Settings />} />
             <Route path="/debug-logs" element={<DebugLogs />} />
             <Route path="/encryption-test" element={<EncryptionServiceTest />} />
+            <Route path="/realtime-test" element={<RealtimeConnectionTest />} />
           </Routes>
         </main>
         <ConditionalDebugComponents />

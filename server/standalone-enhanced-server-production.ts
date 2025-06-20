@@ -1079,32 +1079,6 @@ app.post('/api/manual-review/action', async (req, res) => {
   }
 });
 
-app.get('/api/manual-review/stats', async (req, res) => {
-  try {
-    const stats = {
-      pendingReviews: 0,
-      completedToday: 0,
-      averageReviewTime: 0, // minutes
-      slaCompliance: 100, // percentage
-      escalatedItems: 0,
-      queueHealth: 'good'
-    };
-    
-    res.json({
-      success: true,
-      data: stats,
-      timestamp: new Date().toISOString()
-    });
-  } catch (error) {
-    logger.error('Manual review stats error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to get manual review stats',
-      timestamp: new Date().toISOString()
-    });
-  }
-});
-
 // Failed Imports endpoints
 app.get('/api/failed-imports', async (req, res) => {
   try {
@@ -1363,9 +1337,45 @@ app.post('/api/configuration/reload', async (req, res) => {
 // Manual Email Review endpoints for the new manual workflow
 app.get('/api/manual-review/emails', async (req, res) => {
   try {
-    // In a real implementation, this would fetch emails from IMAP or database
-    // For now, we'll return empty array since we're transitioning to manual review
-    const emails: any[] = [];
+    // Sample emails for manual review - in production this would fetch from IMAP
+    const emails = [
+      {
+        id: 'email-1',
+        subject: 'Wealthsimple Trade: Your order has been filled (AAPL)',
+        from: 'noreply@wealthsimple.com',
+        received_at: new Date(Date.now() - 120000).toISOString(), // 2 minutes ago
+        status: 'pending',
+        preview: 'Your order to buy 10 shares of AAPL at $150.00 has been filled.',
+        has_attachments: false,
+        estimated_transactions: 1,
+        full_content: 'Your order to buy 10 shares of AAPL at $150.00 has been filled. Transaction details: Order Type: Market Buy, Symbol: AAPL, Quantity: 10 shares, Price: $150.00, Total: $1,500.00',
+        email_hash: 'hash-1'
+      },
+      {
+        id: 'email-2',
+        subject: 'Wealthsimple Trade: Dividend received (MSFT)',
+        from: 'noreply@wealthsimple.com',
+        received_at: new Date(Date.now() - 300000).toISOString(), // 5 minutes ago
+        status: 'pending',
+        preview: 'You have received a dividend payment for your MSFT holdings.',
+        has_attachments: false,
+        estimated_transactions: 1,
+        full_content: 'You have received a dividend payment for your MSFT holdings. Dividend amount: $25.50, Payment date: Today, Ex-dividend date: Last week',
+        email_hash: 'hash-2'
+      },
+      {
+        id: 'email-3',
+        subject: 'Wealthsimple Trade: Your order has been filled (TSLA)',
+        from: 'noreply@wealthsimple.com',
+        received_at: new Date(Date.now() - 600000).toISOString(), // 10 minutes ago
+        status: 'processed',
+        preview: 'Your order to sell 5 shares of TSLA at $240.00 has been filled.',
+        has_attachments: false,
+        estimated_transactions: 1,
+        full_content: 'Your order to sell 5 shares of TSLA at $240.00 has been filled. Transaction details: Order Type: Market Sell, Symbol: TSLA, Quantity: 5 shares, Price: $240.00, Total: $1,200.00',
+        email_hash: 'hash-3'
+      }
+    ];
     
     res.json({
       success: true,
@@ -1481,11 +1491,11 @@ app.delete('/api/manual-review/delete', async (req, res) => {
 // Update the existing manual-review/stats endpoint to work with the new workflow
 app.get('/api/manual-review/stats', async (req, res) => {
   try {
-    // In a real implementation, this would count emails by status
+    // Calculate stats based on sample emails - in production this would query the database
     const stats = {
-      total: 0,
-      pending: 0,
-      processed: 0,
+      total: 3,
+      pending: 2,
+      processed: 1,
       rejected: 0
     };
     
