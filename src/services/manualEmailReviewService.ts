@@ -43,8 +43,9 @@ class ManualEmailReviewService {
     const isProduction = process.env.NODE_ENV === 'production';
     
     if (isProduction) {
-      // In production, use direct connection
-      return 'http://localhost:3001';
+      // In production, use environment variable for backend URL
+      // For lab@10.0.0.89 deployment, use VITE_API_BASE_URL or VITE_BACKEND_URL
+      return import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_BACKEND_URL || 'http://10.0.0.89:3001';
     } else {
       // In development, use Vite proxy to avoid Chrome security warnings
       return ''; // Empty string means same origin (proxied through Vite)

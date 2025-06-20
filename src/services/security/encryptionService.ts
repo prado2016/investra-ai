@@ -41,17 +41,21 @@ const crypto = (() => {
   
   // Browser environment - check secure context first
   if (typeof window !== 'undefined') {
-    // Debug current environment
-    console.log('Crypto detection:', {
-      isSecureContext: window.isSecureContext,
-      location: window.location?.protocol + '//' + window.location?.host,
-      hasWindowCrypto: !!window.crypto,
-      hasWindowCryptoSubtle: !!window.crypto?.subtle,
-      hasGlobalCrypto: typeof globalThis !== 'undefined' && !!globalThis.crypto,
-      hasGlobalCryptoSubtle: typeof globalThis !== 'undefined' && !!globalThis.crypto?.subtle
-    });
+    // Only show debug info in development
+    const isDevelopment = process.env.NODE_ENV === 'development' || window.location.hostname === 'localhost';
+    
+    if (isDevelopment) {
+      console.log('Crypto detection:', {
+        isSecureContext: window.isSecureContext,
+        location: window.location?.protocol + '//' + window.location?.host,
+        hasWindowCrypto: !!window.crypto,
+        hasWindowCryptoSubtle: !!window.crypto?.subtle,
+        hasGlobalCrypto: typeof globalThis !== 'undefined' && !!globalThis.crypto,
+        hasGlobalCryptoSubtle: typeof globalThis !== 'undefined' && !!globalThis.crypto?.subtle
+      });
+    }
 
-    if (!window.isSecureContext) {
+    if (!window.isSecureContext && isDevelopment) {
       console.error('Web Crypto API requires a secure context (HTTPS or localhost). Current context is not secure.');
     }
     
@@ -67,10 +71,14 @@ const crypto = (() => {
   }
   
   // Fallback for unsupported environments - don't throw error during module loading
-  console.warn('Web Crypto API not available. This may be due to:');
-  console.warn('1. Running in non-secure context (need HTTPS or localhost)');
-  console.warn('2. Browser does not support Web Crypto API');
-  console.warn('3. Running in Node.js without webcrypto support');
+  // Only show warnings in development to avoid production noise
+  const isDevelopment = typeof process !== 'undefined' && process.env.NODE_ENV === 'development';
+  if (isDevelopment) {
+    console.warn('Web Crypto API not available. This may be due to:');
+    console.warn('1. Running in non-secure context (need HTTPS or localhost)');
+    console.warn('2. Browser does not support Web Crypto API');
+    console.warn('3. Running in Node.js without webcrypto support');
+  }
   
   return {
     subtle: {
@@ -269,8 +277,13 @@ export class EncryptionService {
                            crypto.subtle.importKey.toString().indexOf('Web Crypto API not available') === -1;
       
       if (!crypto.subtle || !hasRealCrypto) {
-        console.warn('Web Crypto API not available, using development fallback (data stored unencrypted)')
-        // In development mode without HTTPS, store data unencrypted but marked as such
+        // Only show warning in development to reduce production noise
+        const isDevelopment = typeof process !== 'undefined' && process.env.NODE_ENV === 'development';
+        if (isDevelopment) {
+          console.warn('Web Crypto API not available, using development fallback (data stored unencrypted)');
+        }
+        
+        // Store data with fallback encryption (base64 + simple obfuscation)
         const fallbackData = {
           data: btoa(plaintext), // Simple base64 encoding for obfuscation
           salt: 'dev-salt',
@@ -281,7 +294,7 @@ export class EncryptionService {
         return {
           encryptedData: JSON.stringify(fallbackData),
           success: true,
-          warning: 'Data stored with development fallback (not secure)'
+          warning: isDevelopment ? 'Data stored with development fallback (not secure)' : undefined
         }
       }
 

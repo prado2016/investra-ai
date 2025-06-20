@@ -160,7 +160,7 @@ create_environment_config() {
     cat > "$ENV_FILE" << EOF
 NODE_ENV=${ENVIRONMENT}
 PORT=${API_PORT}
-LOG_LEVEL=info
+LOG_LEVEL=${LOG_LEVEL:-info}
 LOG_DIR=${LOG_DIR}
 
 # Email configuration
@@ -176,17 +176,35 @@ IMAP_PORT=${IMAP_PORT:-993}
 IMAP_USER=${IMAP_USER:-}
 IMAP_PASSWORD=${IMAP_PASSWORD:-}
 IMAP_SECURE=${IMAP_SECURE:-true}
+IMAP_ENABLED=${IMAP_ENABLED:-true}
 
 # Database configuration
 DATABASE_URL=${DATABASE_URL:-}
 
-# API Keys
+# Supabase Configuration (Critical for API authentication)
 SUPABASE_URL=${SUPABASE_URL:-}
 SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY:-}
 SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY:-}
+
+# VITE prefixed variables (required by auth middleware)
+VITE_SUPABASE_URL=${SUPABASE_URL:-}
+VITE_SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY:-}
 EOF
     
     log "✅ Environment configuration created: $ENV_FILE"
+    
+    # Validate critical environment variables
+    if [[ -z "$SUPABASE_URL" || -z "$SUPABASE_ANON_KEY" ]]; then
+        log_error "❌ Critical Supabase environment variables are missing!"
+        log_error "   SUPABASE_URL: ${SUPABASE_URL:-'NOT SET'}"
+        log_error "   SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:0:20}... (truncated)"
+        log_error "   These are required for API authentication to work."
+        exit 1
+    else
+        log "✅ Supabase environment variables validated"
+        log "   SUPABASE_URL: ${SUPABASE_URL}"
+        log "   SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:0:20}... (truncated)"
+    fi
 }
 
 # Function to create PM2 ecosystem configuration
@@ -198,6 +216,7 @@ create_pm2_config() {
     # Create environment-specific ecosystem config
     PM2_CONFIG="ecosystem.${ENVIRONMENT}.config.js"
     
+    # Build environment variables object with all required Supabase credentials
     cat > "$PM2_CONFIG" << EOF
 module.exports = {
   apps: [
@@ -211,8 +230,34 @@ module.exports = {
       env: {
         NODE_ENV: '${ENVIRONMENT}',
         PORT: ${API_PORT},
-        LOG_LEVEL: 'info'
+        LOG_LEVEL: '${LOG_LEVEL:-info}',
+        
+        // Email Configuration
+        EMAIL_HOST: '${EMAIL_HOST}',
+        EMAIL_PORT: '${EMAIL_PORT}',
+        EMAIL_USER: '${EMAIL_USER}',
+        EMAIL_PASSWORD: '${EMAIL_PASSWORD}',
+        
+        // IMAP Configuration
+        IMAP_HOST: '${IMAP_HOST}',
+        IMAP_PORT: '${IMAP_PORT}',
+        IMAP_USER: '${IMAP_USER}',
+        IMAP_PASSWORD: '${IMAP_PASSWORD}',
+        IMAP_SECURE: '${IMAP_SECURE:-true}',
+        IMAP_ENABLED: '${IMAP_ENABLED:-true}',
+        
+        // Database Configuration
+        DATABASE_URL: '${DATABASE_URL}',
+        
+        // Supabase Configuration (Critical for authentication)
+        SUPABASE_URL: '${SUPABASE_URL}',
+        SUPABASE_ANON_KEY: '${SUPABASE_ANON_KEY}',
+        SUPABASE_SERVICE_KEY: '${SUPABASE_SERVICE_KEY}',
+        VITE_SUPABASE_URL: '${SUPABASE_URL}',
+        VITE_SUPABASE_ANON_KEY: '${SUPABASE_ANON_KEY}'
       },
+      
+      env_file: '.env.${ENVIRONMENT}',
       
       max_memory_restart: '1G',
       min_uptime: '10s',
@@ -237,6 +282,7 @@ module.exports = {
 EOF
     
     log "✅ PM2 ecosystem configuration created: $PM2_CONFIG"
+    log "🔧 Environment variables included: NODE_ENV, PORT, SUPABASE_URL, SUPABASE_ANON_KEY, EMAIL_*, IMAP_*"
 }
 
 # Function to setup directories and permissions
@@ -314,8 +360,38 @@ start_application() {
     
     cd "$SERVER_DIR"
     
-    # Start the application
-    pm2 start "ecosystem.${ENVIRONMENT}.config.js"
+    # Validate that critical environment variables are set
+    if [[ -z "$SUPABASE_URL" || -z "$SUPABASE_ANON_KEY" ]]; then
+        log_error "Critical environment variables missing:"
+        log_error "SUPABASE_URL: ${SUPABASE_URL:-'NOT SET'}"
+        log_error "SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:0:20}... (truncated)"
+        exit 1
+    fi
+    
+    # Log environment status for debugging
+    log "🔧 Environment validation:"
+    log "   ENVIRONMENT: $ENVIRONMENT"
+    log "   SERVICE_NAME: $SERVICE_NAME"
+    log "   API_PORT: $API_PORT"
+    log "   SUPABASE_URL: ${SUPABASE_URL}"
+    log "   SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:0:20}... (truncated)"
+    
+    # Start the application with environment variables explicitly passed
+    SUPABASE_URL="$SUPABASE_URL" \
+    SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
+    VITE_SUPABASE_URL="$SUPABASE_URL" \
+    VITE_SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
+    pm2 start "ecosystem.${ENVIRONMENT}.config.js" --update-env
+    
+    # Verify the process started successfully
+    sleep 5
+    if pm2 list | grep -q "$SERVICE_NAME.*online"; then
+        log "✅ PM2 process started successfully"
+    else
+        log_error "❌ PM2 process failed to start"
+        pm2 logs "$SERVICE_NAME" --lines 20
+        exit 1
+    fi
     
     # Save PM2 configuration
     pm2 save
@@ -325,7 +401,7 @@ start_application() {
         pm2 startup systemd -u investra --hp /home/investra
     fi
     
-    log "✅ Application started with PM2"
+    log "✅ Application started with PM2 and environment variables validated"
 }
 
 # Function to configure Nginx reverse proxy

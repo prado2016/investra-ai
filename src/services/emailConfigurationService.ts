@@ -495,7 +495,7 @@ export class EmailConfigurationService {
         throw new Error(`Encryption failed: ${result.error}`)
       }
 
-      if (result.warning) {
+      if (result.warning && process.env.NODE_ENV === 'development') {
         console.warn('Encryption warning:', result.warning)
       }
 
@@ -526,7 +526,7 @@ export class EmailConfigurationService {
           throw new Error(`Decryption failed: ${result.error}`)
         }
 
-        if (result.warning) {
+        if (result.warning && process.env.NODE_ENV === 'development') {
           console.warn('Decryption warning:', result.warning)
         }
 

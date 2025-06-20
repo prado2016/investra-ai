@@ -13,6 +13,7 @@ export default defineConfig({
   define: {
     global: 'globalThis',
     'process.env': {},
+    'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV),
     __DEV__: JSON.stringify(process.env.NODE_ENV === 'development'),
     __DEBUG__: JSON.stringify(true)
   },

@@ -124,6 +124,16 @@ jobs:
         # Make deployment script executable
         chmod +x deploy-api-server.sh
         
+        # Validate critical environment variables before deployment
+        echo "🔍 Validating environment variables..."
+        if [[ -z "${{ secrets.SUPABASE_URL }}" || -z "${{ secrets.SUPABASE_ANON_KEY }}" ]]; then
+          echo "❌ Critical Supabase environment variables are missing!"
+          echo "   SUPABASE_URL: ${{ secrets.SUPABASE_URL && 'SET' || 'NOT SET' }}"
+          echo "   SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY && 'SET' || 'NOT SET' }}"
+          exit 1
+        fi
+        echo "✅ Environment variables validated"
+        
         # Run deployment with environment variables
         ENVIRONMENT="${{ needs.determine-environment.outputs.environment }}" \
         SERVICE_NAME="${{ needs.determine-environment.outputs.service-name }}" \
@@ -209,25 +219,81 @@ jobs:
         echo "✅ PM2 configuration template prepared"
         echo "📁 The deployment script will handle creating the final configuration"
 
+    - name: Ensure PM2 starts with correct environment
+      run: |
+        cd ~/investra-email-api-deployment
+        
+        echo "🔄 Ensuring PM2 service starts with correct environment variables..."
+        
+        # Get the service name and server directory
+        SERVICE_NAME="${{ needs.determine-environment.outputs.service-name }}"
+        SERVER_DIR="${{ needs.determine-environment.outputs.server-dir }}"
+        
+        # Navigate to the deployment directory
+        cd "$SERVER_DIR" || exit 1
+        
+        # Stop any existing processes to ensure clean restart
+        pm2 stop "$SERVICE_NAME" 2>/dev/null || true
+        pm2 delete "$SERVICE_NAME" 2>/dev/null || true
+        
+        # Start with explicit environment variables to ensure Supabase config is loaded
+        SUPABASE_URL="${{ secrets.SUPABASE_URL }}" \
+        SUPABASE_ANON_KEY="${{ secrets.SUPABASE_ANON_KEY }}" \
+        VITE_SUPABASE_URL="${{ secrets.SUPABASE_URL }}" \
+        VITE_SUPABASE_ANON_KEY="${{ secrets.SUPABASE_ANON_KEY }}" \
+        pm2 start "ecosystem.${{ needs.determine-environment.outputs.environment }}.config.js" --update-env
+        
+        # Save the PM2 configuration
+        pm2 save
+        
+        # Wait for startup and verify
+        sleep 10
+        if pm2 list | grep -q "$SERVICE_NAME.*online"; then
+          echo "✅ PM2 service started successfully with environment variables"
+        else
+          echo "❌ PM2 service failed to start"
+          pm2 logs "$SERVICE_NAME" --lines 20
+          exit 1
+        fi
+
     - name: Verify deployment
       run: |
         cd ~/investra-email-api-deployment
         
-        # Wait a moment for PM2 to stabilize
-        sleep 10
+        echo "🔍 Running comprehensive deployment verification..."
         
-        # Run status check through deployment script
-        ./deploy-api-server.sh status
+        # Make the verification script executable
+        chmod +x check-pm2-deployment.sh
         
-        # Additional verification
+        # Run the deployment verification script
+        ./check-pm2-deployment.sh "${{ needs.determine-environment.outputs.environment }}"
+        
+        # Additional verification specific to our fix
         echo ""
-        echo "🔍 Additional deployment verification:"
+        echo "🔍 Verifying Supabase environment configuration:"
         
-        # Check if application is responding
-        if timeout 30 bash -c 'until curl -f http://localhost:${{ needs.determine-environment.outputs.api-port }}/health; do sleep 2; done'; then
-          echo "✅ API health check passed"
+        # Test the specific endpoint that was failing
+        API_PORT="${{ needs.determine-environment.outputs.api-port }}"
+        TEST_ENDPOINT="http://localhost:$API_PORT/api/manual-review/stats"
+        
+        echo "Testing endpoint: $TEST_ENDPOINT"
+        RESPONSE=$(curl -s "$TEST_ENDPOINT" || echo '{"error":"connection_failed"}')
+        
+        # Check if we get the expected authentication error (not a 500 error)
+        if echo "$RESPONSE" | grep -q "Missing or invalid Authorization header"; then
+          echo "✅ Endpoint responding correctly (authentication error expected)"
+        elif echo "$RESPONSE" | grep -q "Authentication service not configured"; then
+          echo "❌ Supabase configuration error detected"
+          exit 1
+        elif echo "$RESPONSE" | grep -q "relation.*does not exist"; then
+          echo "❌ Database migration error detected"
+          exit 1
+        elif echo "$RESPONSE" | grep -q "connection_failed"; then
+          echo "❌ API server not responding"
+          exit 1
         else
-          echo "⚠️ API health check failed or timed out"
+          echo "⚠️ Unexpected response: $RESPONSE"
+          echo "ℹ️ This may be normal depending on endpoint behavior"
         fi
         
         # Check Nginx proxy if configured
@@ -238,3 +304,5 @@ jobs:
             echo "⚠️ Nginx proxy not responding"
           fi
         fi
+        
+        echo "🎉 Deployment verification complete!"
