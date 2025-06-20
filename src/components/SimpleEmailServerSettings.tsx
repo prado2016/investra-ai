@@ -5,8 +5,8 @@
 
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
-import { Mail, Save, Eye, EyeOff, TestTube, CheckCircle, AlertCircle, Loader, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
-import { InputField, PasswordField, SelectField } from './FormFields';
+import { Mail, Save, TestTube, CheckCircle, AlertCircle, Loader, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { InputField, PasswordField } from './FormFields';
 import { EmailConfigurationService } from '../services/emailConfigurationService';
 import type { EmailProvider } from '../lib/database/types';
 
@@ -113,7 +113,7 @@ const SectionHeader = styled.div`
   }
 `;
 
-const SectionTitle = styled.h3`
+const SectionTitleText = styled.h3`
   margin: 0;
   color: #374151;
   display: flex;
@@ -293,7 +293,6 @@ const SimpleEmailServerSettings: React.FC = () => {
   const [secure, setSecure] = useState(true);
 
   const [storedServers, setStoredServers] = useState<StoredEmailServer[]>([]);
-  const [revealedPasswords, setRevealedPasswords] = useState<Set<string>>(new Set());
   const [saveStatus, setSaveStatus] = useState<{ success: boolean; message: string } | null>(null);
   const [testingServer, setTestingServer] = useState<string | null>(null);
   const [testResults, setTestResults] = useState<Record<string, { success: boolean; message: string }>>({});
@@ -306,7 +305,7 @@ const SimpleEmailServerSettings: React.FC = () => {
   useEffect(() => {
     loadStoredServers();
     initializeCollapseStates();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Initialize collapse states from localStorage with smart defaults
   const initializeCollapseStates = () => {
@@ -784,10 +783,10 @@ const SimpleEmailServerSettings: React.FC = () => {
             aria-expanded={isServerListExpanded}
             aria-controls="configured-servers-content"
           >
-            <SectionTitle>
+            <SectionTitleText>
               <Mail size={20} />
               Configured Email Servers ({storedServers.length})
-            </SectionTitle>
+            </SectionTitleText>
             <CollapseButton
               onClick={(e) => {
                 e.stopPropagation();
