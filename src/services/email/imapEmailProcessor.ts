@@ -540,6 +540,133 @@ export class IMAPEmailProcessor {
     this.processedUIDs.clear();
     console.log('📧 IMAP: Cleared processed UIDs cache');
   }
+
+  /**
+   * Fetch emails for manual review (without processing them)
+   */
+  async fetchEmailsForReview(limit = 50): Promise<{
+    success: boolean;
+    emails?: Array<{
+      id: string;
+      subject: string;
+      from: string;
+      received_at: string;
+      status: string;
+      preview: string;
+      has_attachments: boolean;
+      estimated_transactions: number;
+      full_content: string;
+      email_hash: string;
+    }>;
+    error?: string;
+  }> {
+    try {
+      if (!this.client || !this.isConnected) {
+        await this.connect();
+      }
+
+      if (!this.client || !this.isConnected) {
+        return {
+          success: false,
+          error: 'IMAP client not connected'
+        };
+      }
+
+      console.log('📧 IMAP: Fetching emails for manual review...');
+
+      // Select INBOX
+      await this.client.mailboxOpen('INBOX');
+
+      // Search for recent emails from Wealthsimple (both read and unread)
+      const lastWeek = new Date();
+      lastWeek.setDate(lastWeek.getDate() - 7);
+
+      const searchQuery = {
+        since: lastWeek,
+        from: 'wealthsimple'
+      };
+
+      const messages = this.client.fetch(searchQuery, {
+        uid: true,
+        envelope: true,
+        bodyStructure: true,
+        source: true
+      });
+
+      const emails = [];
+      let count = 0;
+
+      for await (const message of messages) {
+        if (count >= limit) break;
+
+        try {
+          // Extract email data
+          const emailMessage = this.extractEmailMessage(message);
+          
+          // Convert to manual review format
+          const reviewEmail = {
+            id: `imap-${emailMessage.uid}`,
+            subject: emailMessage.subject,
+            from: emailMessage.from,
+            received_at: emailMessage.date.toISOString(),
+            status: 'pending',
+            preview: this.extractPreview(emailMessage.text || emailMessage.html || ''),
+            has_attachments: false, // TODO: Check for attachments
+            estimated_transactions: this.estimateTransactions(emailMessage.subject),
+            full_content: emailMessage.html || emailMessage.text || '',
+            email_hash: `hash-${emailMessage.uid}`
+          };
+
+          emails.push(reviewEmail);
+          count++;
+
+        } catch (error) {
+          console.warn(`⚠️ IMAP: Failed to extract email UID ${message.uid}:`, error);
+          continue;
+        }
+      }
+
+      console.log(`✅ IMAP: Fetched ${emails.length} emails for manual review`);
+
+      return {
+        success: true,
+        emails: emails.sort((a, b) => 
+          new Date(b.received_at).getTime() - new Date(a.received_at).getTime()
+        )
+      };
+
+    } catch (error) {
+      console.error('❌ IMAP: Error fetching emails for review:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
+   * Extract preview text from email content
+   */
+  private extractPreview(content: string): string {
+    // Remove HTML tags and get first 150 characters
+    const text = content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    return text.length > 150 ? text.substring(0, 147) + '...' : text;
+  }
+
+  /**
+   * Estimate number of transactions from subject
+   */
+  private estimateTransactions(subject: string): number {
+    const lowerSubject = subject.toLowerCase();
+    if (lowerSubject.includes('order') || 
+        lowerSubject.includes('trade') || 
+        lowerSubject.includes('dividend') ||
+        lowerSubject.includes('purchase') ||
+        lowerSubject.includes('sale')) {
+      return 1;
+    }
+    return 0;
+  }
 }
 
 export default IMAPEmailProcessor;

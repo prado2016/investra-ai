@@ -1,3 +1,5 @@
+import { supabase } from '../lib/supabase';
+
 /**
  * Manual Email Review Service
  * Connects to enhanced email server for manual email review workflow
@@ -50,15 +52,34 @@ class ManualEmailReviewService {
   }
 
   /**
+   * Get authentication headers with Supabase JWT token
+   */
+  private async getAuthHeaders(): Promise<HeadersInit> {
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+    } catch (error) {
+      console.warn('Failed to get authentication token:', error);
+    }
+
+    return headers;
+  }
+
+  /**
    * Get all emails for manual review
    */
   async getEmailsForReview(): Promise<{ success: boolean; data?: EmailReviewItem[]; error?: string }> {
     try {
+      const headers = await this.getAuthHeaders();
       const response = await fetch(`${this.baseUrl}/api/manual-review/emails`, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
       });
 
       if (!response.ok) {
@@ -96,11 +117,10 @@ class ManualEmailReviewService {
    */
   async processEmail(emailId: string): Promise<ProcessEmailResponse> {
     try {
+      const headers = await this.getAuthHeaders();
       const response = await fetch(`${this.baseUrl}/api/manual-review/process`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({ emailId }),
       });
 
@@ -128,11 +148,10 @@ class ManualEmailReviewService {
    */
   async rejectEmail(emailId: string): Promise<{ success: boolean; error?: string }> {
     try {
+      const headers = await this.getAuthHeaders();
       const response = await fetch(`${this.baseUrl}/api/manual-review/reject`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({ emailId }),
       });
 
@@ -156,11 +175,10 @@ class ManualEmailReviewService {
    */
   async deleteEmail(emailId: string): Promise<{ success: boolean; error?: string }> {
     try {
+      const headers = await this.getAuthHeaders();
       const response = await fetch(`${this.baseUrl}/api/manual-review/delete`, {
         method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({ emailId }),
       });
 
@@ -184,11 +202,10 @@ class ManualEmailReviewService {
    */
   async getEmailStats(): Promise<{ success: boolean; data?: EmailReviewStats; error?: string }> {
     try {
+      const headers = await this.getAuthHeaders();
       const response = await fetch(`${this.baseUrl}/api/manual-review/stats`, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
       });
 
       if (!response.ok) {
@@ -214,11 +231,10 @@ class ManualEmailReviewService {
    */
   async testConnection(): Promise<{ success: boolean; error?: string }> {
     try {
+      const headers = await this.getAuthHeaders();
       const response = await fetch(`${this.baseUrl}/health`, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
       });
 
       if (!response.ok) {

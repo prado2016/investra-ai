@@ -15,9 +15,18 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { createServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
+import { authenticateUser, type AuthenticatedRequest } from './middleware/authMiddleware';
 
 // Load environment variables
 dotenv.config();
+
+// Ensure Supabase environment variables are available for the auth middleware
+if (!process.env.SUPABASE_URL && process.env.VITE_SUPABASE_URL) {
+  process.env.SUPABASE_URL = process.env.VITE_SUPABASE_URL;
+}
+if (!process.env.SUPABASE_ANON_KEY && process.env.VITE_SUPABASE_ANON_KEY) {
+  process.env.SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY;
+}
 
 // Types for standalone server
 interface EmailProcessingResult {
@@ -104,6 +113,205 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
 
 // Initialize Supabase client
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+/**
+ * Fetch user's IMAP configuration from the database
+ */
+async function getUserImapConfig(userId: string): Promise<IMAPConfig | null> {
+  try {
+    const { data, error } = await supabase
+      .from('email_configurations')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('provider', 'gmail')
+      .single();
+
+    if (error || !data) {
+      logger.warn(`No IMAP configuration found for user ${userId}:`, error?.message);
+      return null;
+    }
+
+    return {
+      host: data.imap_host,
+      port: data.imap_port,
+      secure: data.imap_secure,
+      username: data.email,
+      password: data.password
+    };
+  } catch (error) {
+    logger.error(`Error fetching IMAP config for user ${userId}:`, error);
+    return null;
+  }
+}
+
+/**
+ * Simplified IMAP email fetcher for manual review
+ * Uses the same logic as the full IMAP processor but simplified for server use
+ */
+async function fetchEmailsForManualReview(config: IMAPConfig, limit = 50): Promise<{
+  success: boolean;
+  emails?: Array<{
+    id: string;
+    subject: string;
+    from: string;
+    received_at: string;
+    status: string;
+    preview: string;
+    has_attachments: boolean;
+    estimated_transactions: number;
+    full_content: string;
+    email_hash: string;
+  }>;
+  error?: string;
+}> {
+  let client: any = null;
+  
+  try {
+    // Import the IMAP library dynamically
+    const { ImapFlow } = await import('imapflow');
+    
+    client = new ImapFlow({
+      host: config.host,
+      port: config.port,
+      secure: config.secure,
+      auth: {
+        user: config.username,
+        pass: config.password
+      },
+      logger: false
+    });
+
+    await client.connect();
+
+    // Get mailbox lock to open INBOX 
+    const lock = await client.getMailboxLock('INBOX');
+    
+    try {
+      // Search for recent emails from Wealthsimple (both read and unread)
+      const lastWeek = new Date();
+      lastWeek.setDate(lastWeek.getDate() - 7);
+
+      const searchQuery = {
+        since: lastWeek,
+        from: 'wealthsimple'
+      };
+
+      const messages = client.fetch(searchQuery, {
+        uid: true,
+        envelope: true,
+        bodyStructure: true,
+        source: true
+      });
+
+      const emails: Array<{
+        id: string;
+        subject: string;
+        from: string;
+        received_at: string;
+        status: string;
+        preview: string;
+        has_attachments: boolean;
+        estimated_transactions: number;
+        full_content: string;
+        email_hash: string;
+      }> = [];
+
+      let count = 0;
+      for await (const message of messages) {
+        if (count >= limit) break;
+
+        try {
+          // Extract basic email data
+          const subject = message.envelope?.subject || 'No Subject';
+          const from = message.envelope?.from?.[0]?.address || 'Unknown';
+          const date = message.envelope?.date || new Date();
+          
+          // Get email content
+          let content = '';
+          if (message.source) {
+            content = message.source.toString();
+          }
+
+          // Extract preview text
+          const preview = extractPreview(content);
+          
+          const reviewEmail = {
+            id: `imap-${message.uid}`,
+            subject,
+            from,
+            received_at: date.toISOString(),
+            status: 'pending',
+            preview,
+            has_attachments: false,
+            estimated_transactions: estimateTransactions(subject),
+            full_content: content,
+            email_hash: `hash-${message.uid}`
+          };
+
+          emails.push(reviewEmail);
+          count++;
+
+        } catch (error) {
+          logger.warn(`Failed to extract email UID ${message.uid}:`, error);
+          continue;
+        }
+      }
+
+      logger.info(`Fetched ${emails.length} emails for manual review`);
+
+      return {
+        success: true,
+        emails: emails.sort((a, b) => 
+          new Date(b.received_at).getTime() - new Date(a.received_at).getTime()
+        )
+      };
+
+    } finally {
+      // Release the mailbox lock
+      lock.release();
+    }
+
+  } catch (error) {
+    logger.error('Error fetching emails for review:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  } finally {
+    // Ensure we close the client
+    if (client) {
+      try {
+        await client.logout();
+      } catch (closeError) {
+        logger.warn('Error closing IMAP client:', closeError);
+      }
+    }
+  }
+}
+
+/**
+ * Extract preview text from email content
+ */
+function extractPreview(content: string): string {
+  // Remove HTML tags and get first 150 characters
+  const text = content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  return text.length > 150 ? text.substring(0, 147) + '...' : text;
+}
+
+/**
+ * Estimate number of transactions from subject
+ */
+function estimateTransactions(subject: string): number {
+  const lowerSubject = subject.toLowerCase();
+  if (lowerSubject.includes('order') || 
+      lowerSubject.includes('trade') || 
+      lowerSubject.includes('dividend') ||
+      lowerSubject.includes('purchase') ||
+      lowerSubject.includes('sale')) {
+    return 1;
+  }
+  return 0;
+}
 
 // Initialize Express app
 const app = express();
@@ -1335,52 +1543,52 @@ app.post('/api/configuration/reload', async (req, res) => {
 });
 
 // Manual Email Review endpoints for the new manual workflow
-app.get('/api/manual-review/emails', async (req, res) => {
+app.get('/api/manual-review/emails', authenticateUser, async (req: AuthenticatedRequest, res) => {
   try {
-    // Sample emails for manual review - in production this would fetch from IMAP
-    const emails = [
-      {
-        id: 'email-1',
-        subject: 'Wealthsimple Trade: Your order has been filled (AAPL)',
-        from: 'noreply@wealthsimple.com',
-        received_at: new Date(Date.now() - 120000).toISOString(), // 2 minutes ago
-        status: 'pending',
-        preview: 'Your order to buy 10 shares of AAPL at $150.00 has been filled.',
-        has_attachments: false,
-        estimated_transactions: 1,
-        full_content: 'Your order to buy 10 shares of AAPL at $150.00 has been filled. Transaction details: Order Type: Market Buy, Symbol: AAPL, Quantity: 10 shares, Price: $150.00, Total: $1,500.00',
-        email_hash: 'hash-1'
-      },
-      {
-        id: 'email-2',
-        subject: 'Wealthsimple Trade: Dividend received (MSFT)',
-        from: 'noreply@wealthsimple.com',
-        received_at: new Date(Date.now() - 300000).toISOString(), // 5 minutes ago
-        status: 'pending',
-        preview: 'You have received a dividend payment for your MSFT holdings.',
-        has_attachments: false,
-        estimated_transactions: 1,
-        full_content: 'You have received a dividend payment for your MSFT holdings. Dividend amount: $25.50, Payment date: Today, Ex-dividend date: Last week',
-        email_hash: 'hash-2'
-      },
-      {
-        id: 'email-3',
-        subject: 'Wealthsimple Trade: Your order has been filled (TSLA)',
-        from: 'noreply@wealthsimple.com',
-        received_at: new Date(Date.now() - 600000).toISOString(), // 10 minutes ago
-        status: 'processed',
-        preview: 'Your order to sell 5 shares of TSLA at $240.00 has been filled.',
-        has_attachments: false,
-        estimated_transactions: 1,
-        full_content: 'Your order to sell 5 shares of TSLA at $240.00 has been filled. Transaction details: Order Type: Market Sell, Symbol: TSLA, Quantity: 5 shares, Price: $240.00, Total: $1,200.00',
-        email_hash: 'hash-3'
-      }
-    ];
+    const userId = req.userId;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'User authentication required',
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    logger.info('Fetching emails for manual review', { userId });
+
+    // Get user's IMAP configuration
+    const imapConfig = await getUserImapConfig(userId);
     
+    if (!imapConfig) {
+      logger.warn('No IMAP configuration found for user', { userId });
+      return res.status(404).json({
+        success: false,
+        error: 'Email configuration not found. Please configure your email settings first.',
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Fetch real emails from IMAP
+    const result = await fetchEmailsForManualReview(imapConfig, 50);
+    
+    if (!result.success) {
+      logger.error('Failed to fetch emails from IMAP', { userId, error: result.error });
+      return res.status(500).json({
+        success: false,
+        error: result.error || 'Failed to fetch emails from server',
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    logger.info('Successfully fetched emails for manual review', { 
+      userId, 
+      emailCount: result.emails?.length || 0 
+    });
+
     res.json({
       success: true,
-      data: emails,
-      total: emails.length,
+      data: result.emails || [],
+      total: result.emails?.length || 0,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
@@ -1393,9 +1601,10 @@ app.get('/api/manual-review/emails', async (req, res) => {
   }
 });
 
-app.post('/api/manual-review/process', async (req, res) => {
+app.post('/api/manual-review/process', authenticateUser, async (req: AuthenticatedRequest, res) => {
   try {
     const { emailId } = req.body;
+    const userId = req.userId;
     
     if (!emailId) {
       return res.status(400).json({
@@ -1404,11 +1613,19 @@ app.post('/api/manual-review/process', async (req, res) => {
         timestamp: new Date().toISOString()
       });
     }
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'User authentication required',
+        timestamp: new Date().toISOString()
+      });
+    }
     
-    logger.info('Manual email processing requested', { emailId });
+    logger.info('Manual email processing requested', { emailId, userId });
     
     // In a real implementation, this would:
-    // 1. Fetch the email by ID
+    // 1. Fetch the email by ID from IMAP
     // 2. Parse the email content
     // 3. Create transactions using StandaloneEmailProcessingService
     // For now, simulate success
@@ -1430,9 +1647,10 @@ app.post('/api/manual-review/process', async (req, res) => {
   }
 });
 
-app.post('/api/manual-review/reject', async (req, res) => {
+app.post('/api/manual-review/reject', authenticateUser, async (req: AuthenticatedRequest, res) => {
   try {
     const { emailId } = req.body;
+    const userId = req.userId;
     
     if (!emailId) {
       return res.status(400).json({
@@ -1441,8 +1659,16 @@ app.post('/api/manual-review/reject', async (req, res) => {
         timestamp: new Date().toISOString()
       });
     }
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'User authentication required',
+        timestamp: new Date().toISOString()
+      });
+    }
     
-    logger.info('Manual email rejection requested', { emailId });
+    logger.info('Manual email rejection requested', { emailId, userId });
     
     // In a real implementation, this would mark the email as rejected
     return res.json({
@@ -1459,9 +1685,10 @@ app.post('/api/manual-review/reject', async (req, res) => {
   }
 });
 
-app.delete('/api/manual-review/delete', async (req, res) => {
+app.delete('/api/manual-review/delete', authenticateUser, async (req: AuthenticatedRequest, res) => {
   try {
     const { emailId } = req.body;
+    const userId = req.userId;
     
     if (!emailId) {
       return res.status(400).json({
@@ -1470,8 +1697,16 @@ app.delete('/api/manual-review/delete', async (req, res) => {
         timestamp: new Date().toISOString()
       });
     }
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'User authentication required',
+        timestamp: new Date().toISOString()
+      });
+    }
     
-    logger.info('Manual email deletion requested', { emailId });
+    logger.info('Manual email deletion requested', { emailId, userId });
     
     // In a real implementation, this would permanently delete the email
     return res.json({
@@ -1489,16 +1724,64 @@ app.delete('/api/manual-review/delete', async (req, res) => {
 });
 
 // Update the existing manual-review/stats endpoint to work with the new workflow
-app.get('/api/manual-review/stats', async (req, res) => {
+app.get('/api/manual-review/stats', authenticateUser, async (req: AuthenticatedRequest, res) => {
   try {
-    // Calculate stats based on sample emails - in production this would query the database
+    const userId = req.userId;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'User authentication required',
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    logger.info('Fetching manual review stats', { userId });
+
+    // Get user's IMAP configuration
+    const imapConfig = await getUserImapConfig(userId);
+    
+    if (!imapConfig) {
+      return res.json({
+        success: true,
+        data: {
+          total: 0,
+          pending: 0,
+          processed: 0,
+          rejected: 0,
+          message: 'Email configuration required'
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Fetch emails to calculate real stats
+    const result = await fetchEmailsForManualReview(imapConfig, 100);
+    
+    if (!result.success) {
+      logger.warn('Failed to fetch emails for stats', { userId, error: result.error });
+      return res.json({
+        success: true,
+        data: {
+          total: 0,
+          pending: 0,
+          processed: 0,
+          rejected: 0,
+          error: result.error
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    const emails = result.emails || [];
     const stats = {
-      total: 3,
-      pending: 2,
-      processed: 1,
-      rejected: 0
+      total: emails.length,
+      pending: emails.filter(e => e.status === 'pending').length,
+      processed: emails.filter(e => e.status === 'processed').length,
+      rejected: emails.filter(e => e.status === 'rejected').length
     };
     
+    logger.info('Manual review stats calculated', { userId, stats });
+
     res.json({
       success: true,
       data: stats,
