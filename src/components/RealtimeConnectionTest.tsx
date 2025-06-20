@@ -6,10 +6,12 @@
 import React, { useEffect, useState } from 'react';
 import { useRealtime } from '../hooks/useRealtime';
 import { runRealtimeDiagnostics, logDiagnosticReport } from '../utils/realtimeDiagnostics';
+import { runRealtimeConnectionFixTest } from '../utils/realtimeConnectionFixTest';
 
 const RealtimeConnectionTest: React.FC = () => {
   const { isConnected, status, connect, reconnect } = useRealtime();
   const [diagnostics, setDiagnostics] = useState<any>(null);
+  const [testResults, setTestResults] = useState<any>(null);
   const [testing, setTesting] = useState(false);
 
   const runDiagnostics = async () => {
@@ -20,6 +22,19 @@ const RealtimeConnectionTest: React.FC = () => {
       logDiagnosticReport(report);
     } catch (error) {
       console.error('Diagnostics failed:', error);
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const runComprehensiveTest = async () => {
+    setTesting(true);
+    try {
+      console.log('🧪 Running comprehensive fix tests...');
+      const results = await runRealtimeConnectionFixTest();
+      setTestResults(results);
+    } catch (error) {
+      console.error('Comprehensive test failed:', error);
     } finally {
       setTesting(false);
     }
@@ -100,6 +115,7 @@ const RealtimeConnectionTest: React.FC = () => {
           disabled={testing}
           style={{
             padding: '8px 16px',
+            marginRight: '10px',
             backgroundColor: '#ffc107',
             color: 'black',
             border: 'none',
@@ -109,7 +125,47 @@ const RealtimeConnectionTest: React.FC = () => {
         >
           {testing ? 'Running...' : 'Run Diagnostics'}
         </button>
+        
+        <button 
+          onClick={runComprehensiveTest}
+          disabled={testing}
+          style={{
+            padding: '8px 16px',
+            backgroundColor: '#dc3545',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer'
+          }}
+        >
+          {testing ? 'Testing...' : 'Test All Fixes'}
+        </button>
       </div>
+
+      {testResults && (
+        <div style={{
+          padding: '16px',
+          border: '1px solid #ddd',
+          borderRadius: '8px',
+          backgroundColor: '#f0f8ff',
+          marginBottom: '20px'
+        }}>
+          <h3>Fix Test Results</h3>
+          {testResults.map((result: any, index: number) => (
+            <div key={index} style={{
+              padding: '8px',
+              margin: '4px 0',
+              backgroundColor: result.passed ? '#d4edda' : '#f8d7da',
+              border: `1px solid ${result.passed ? '#c3e6cb' : '#f5c6cb'}`,
+              borderRadius: '4px'
+            }}>
+              <strong>{result.passed ? '✅' : '❌'} {result.testName}</strong>
+              <br />
+              <small>{result.message}</small>
+            </div>
+          ))}
+        </div>
+      )}
 
       {diagnostics && (
         <div style={{
@@ -139,6 +195,7 @@ const RealtimeConnectionTest: React.FC = () => {
         <p>Open the browser console and try these commands:</p>
         <ul>
           <li><code>window.debugRealtime()</code> - Run diagnostics</li>
+          <li><code>window.testRealtimeFixes()</code> - Test all fixes</li>
           <li><code>realtimeService.getStatus()</code> - Get current status</li>
           <li><code>realtimeService.reconnect()</code> - Manual reconnect</li>
         </ul>

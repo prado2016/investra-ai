@@ -39,31 +39,54 @@ const crypto = (() => {
     }
   }
   
-  if (typeof window !== 'undefined' && window.crypto && window.crypto.subtle) {
-    // Browser environment
-    return window.crypto
-  } else if (typeof globalThis !== 'undefined' && globalThis.crypto && globalThis.crypto.subtle) {
-    // Modern environment with Web Crypto API
-    return globalThis.crypto
-  } else {
-    // Fallback for unsupported environments - don't throw error during module loading
-    console.warn('Web Crypto API not available. Encryption service will have limited functionality.');
-    return {
-      subtle: {
-        importKey: () => Promise.reject(new Error('Web Crypto API not available')),
-        deriveKey: () => Promise.reject(new Error('Web Crypto API not available')),
-        encrypt: () => Promise.reject(new Error('Web Crypto API not available')),
-        decrypt: () => Promise.reject(new Error('Web Crypto API not available'))
-      },
-      getRandomValues: (array: Uint8Array) => {
-        // Fallback random values
-        for (let i = 0; i < array.length; i++) {
-          array[i] = Math.floor(Math.random() * 256);
-        }
-        return array;
-      }
-    };
+  // Browser environment - check secure context first
+  if (typeof window !== 'undefined') {
+    // Debug current environment
+    console.log('Crypto detection:', {
+      isSecureContext: window.isSecureContext,
+      location: window.location?.protocol + '//' + window.location?.host,
+      hasWindowCrypto: !!window.crypto,
+      hasWindowCryptoSubtle: !!window.crypto?.subtle,
+      hasGlobalCrypto: typeof globalThis !== 'undefined' && !!globalThis.crypto,
+      hasGlobalCryptoSubtle: typeof globalThis !== 'undefined' && !!globalThis.crypto?.subtle
+    });
+
+    if (!window.isSecureContext) {
+      console.error('Web Crypto API requires a secure context (HTTPS or localhost). Current context is not secure.');
+    }
+    
+    if (window.crypto && window.crypto.subtle) {
+      // Browser environment with Web Crypto API
+      return window.crypto;
+    }
   }
+  
+  if (typeof globalThis !== 'undefined' && globalThis.crypto && globalThis.crypto.subtle) {
+    // Modern environment with Web Crypto API
+    return globalThis.crypto;
+  }
+  
+  // Fallback for unsupported environments - don't throw error during module loading
+  console.warn('Web Crypto API not available. This may be due to:');
+  console.warn('1. Running in non-secure context (need HTTPS or localhost)');
+  console.warn('2. Browser does not support Web Crypto API');
+  console.warn('3. Running in Node.js without webcrypto support');
+  
+  return {
+    subtle: {
+      importKey: () => Promise.reject(new Error('Web Crypto API not available')),
+      deriveKey: () => Promise.reject(new Error('Web Crypto API not available')),
+      encrypt: () => Promise.reject(new Error('Web Crypto API not available')),
+      decrypt: () => Promise.reject(new Error('Web Crypto API not available'))
+    },
+    getRandomValues: (array: Uint8Array) => {
+      // Fallback random values
+      for (let i = 0; i < array.length; i++) {
+        array[i] = Math.floor(Math.random() * 256);
+      }
+      return array;
+    }
+  };
 })()
 
 // Base encryption key for key derivation (in production, this should be set via environment config)

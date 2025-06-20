@@ -5,6 +5,7 @@ import App from './App.tsx'
 import { runProductionValidation, logValidationResults } from './utils/productionValidation'
 import './utils/envValidator' // Import for auto-validation
 import './utils/realtimeDiagnostics' // Import for debug helpers
+import './utils/realtimeConnectionFixTest' // Import for fix testing
 
 // Run production validation in development and production
 if (import.meta.env.NODE_ENV === 'production' || import.meta.env.DEV) {
