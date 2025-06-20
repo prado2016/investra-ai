@@ -609,12 +609,54 @@ show_status() {
     log "✅ Deployment successful!"
 }
 
+# Function to validate and set environment variable defaults
+validate_environment_variables() {
+    log "🔍 Validating environment variables..."
+    
+    # Set defaults for critical Supabase variables if not provided
+    export SUPABASE_URL="${SUPABASE_URL:-https://ecbuwhpipphdssqjwgfm.supabase.co}"
+    export SUPABASE_ANON_KEY="${SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjYnV3aHBpcHBoZHNycWp3Z2ZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg4NzU4NjEsImV4cCI6MjA2NDQ1MTg2MX0.QMWhB6lpgO3YRGg5kGKz7347DZzRcDiQ6QLupznZi1E}"
+    
+    # Set VITE_ prefixed variables (required by auth middleware)
+    export VITE_SUPABASE_URL="${VITE_SUPABASE_URL:-$SUPABASE_URL}"
+    export VITE_SUPABASE_ANON_KEY="${VITE_SUPABASE_ANON_KEY:-$SUPABASE_ANON_KEY}"
+    
+    # Email configuration defaults
+    export EMAIL_HOST="${EMAIL_HOST:-localhost}"
+    export EMAIL_PORT="${EMAIL_PORT:-587}"
+    export EMAIL_USER="${EMAIL_USER:-test@investra.com}"
+    export EMAIL_PASSWORD="${EMAIL_PASSWORD:-placeholder}"
+    
+    # IMAP configuration defaults
+    export IMAP_HOST="${IMAP_HOST:-localhost}"
+    export IMAP_PORT="${IMAP_PORT:-993}"
+    export IMAP_USER="${IMAP_USER:-test@investra.com}"
+    export IMAP_PASSWORD="${IMAP_PASSWORD:-placeholder}"
+    export IMAP_SECURE="${IMAP_SECURE:-true}"
+    export IMAP_ENABLED="${IMAP_ENABLED:-true}"
+    
+    # Database configuration defaults
+    export DATABASE_URL="${DATABASE_URL:-postgresql://localhost:5432/investra}"
+    export SUPABASE_SERVICE_KEY="${SUPABASE_SERVICE_KEY:-placeholder}"
+    
+    # Logging configuration
+    export LOG_LEVEL="${LOG_LEVEL:-info}"
+    
+    log "✅ Environment variables validated and defaults set"
+    log "   SUPABASE_URL: ${SUPABASE_URL}"
+    log "   SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:0:20}... (truncated)"
+    log "   VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}"
+    log "   EMAIL_HOST: ${EMAIL_HOST}"
+    log "   IMAP_HOST: ${IMAP_HOST}"
+}
+
 # Main execution function
 main() {
     log "🚀 Starting Investra Email API Server Deployment"
     log "Environment: $ENVIRONMENT"
     
     detect_environment
+    validate_environment_variables
     check_prerequisites
     install_dependencies
     build_application

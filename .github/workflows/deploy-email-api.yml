@@ -117,7 +117,7 @@ jobs:
         
         echo "✅ Deployment preparation complete"
 
-    - name: Deploy application
+    - name: Prepare deployment
       run: |
         cd ~/investra-email-api-deployment
         
@@ -125,36 +125,62 @@ jobs:
         chmod +x deploy-api-server.sh
         
         # Validate critical environment variables before deployment
-        echo "🔍 Validating environment variables..."
+        echo "🔍 Validating GitHub secrets..."
+        
         if [[ -z "${{ secrets.SUPABASE_URL }}" || -z "${{ secrets.SUPABASE_ANON_KEY }}" ]]; then
-          echo "❌ Critical Supabase environment variables are missing!"
-          echo "   SUPABASE_URL: ${{ secrets.SUPABASE_URL && 'SET' || 'NOT SET' }}"
-          echo "   SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY && 'SET' || 'NOT SET' }}"
+          echo "❌ Critical Supabase secrets are missing from GitHub repository!"
+          echo "🔧 Please add these secrets in GitHub Settings → Secrets and variables → Actions:"
+          echo "   - SUPABASE_URL"
+          echo "   - SUPABASE_ANON_KEY"
+          echo ""
+          echo "📖 See GITHUB_SECRETS_CONFIGURATION.md for detailed instructions"
           exit 1
         fi
-        echo "✅ Environment variables validated"
+        echo "✅ GitHub secrets validated - deployment can proceed"
+
+    - name: Deploy application with environment variables
+      run: |
+        cd ~/investra-email-api-deployment
         
-        # Run deployment with environment variables
-        ENVIRONMENT="${{ needs.determine-environment.outputs.environment }}" \
-        SERVICE_NAME="${{ needs.determine-environment.outputs.service-name }}" \
-        API_PORT="${{ needs.determine-environment.outputs.api-port }}" \
-        SERVER_DIR="${{ needs.determine-environment.outputs.server-dir }}" \
-        EMAIL_HOST="${{ secrets.EMAIL_HOST }}" \
-        EMAIL_PORT="${{ secrets.EMAIL_PORT }}" \
-        EMAIL_USER="${{ secrets.EMAIL_USER }}" \
-        EMAIL_PASSWORD="${{ secrets.EMAIL_PASSWORD }}" \
-        IMAP_HOST="${{ secrets.IMAP_HOST }}" \
-        IMAP_PORT="${{ secrets.IMAP_PORT }}" \
-        IMAP_USER="${{ secrets.IMAP_USER }}" \
-        IMAP_PASSWORD="${{ secrets.IMAP_PASSWORD }}" \
-        IMAP_SECURE="${{ secrets.IMAP_SECURE || 'true' }}" \
-        IMAP_ENABLED="${{ secrets.IMAP_ENABLED || 'true' }}" \
-        DATABASE_URL="${{ secrets.DATABASE_URL }}" \
-        SUPABASE_URL="${{ secrets.SUPABASE_URL }}" \
-        SUPABASE_ANON_KEY="${{ secrets.SUPABASE_ANON_KEY }}" \
-        SUPABASE_SERVICE_KEY="${{ secrets.SUPABASE_SERVICE_KEY }}" \
-        NODE_ENV="${{ needs.determine-environment.outputs.environment }}" \
-        LOG_LEVEL="${{ secrets.LOG_LEVEL || 'info' }}" \
+        echo "🚀 Starting deployment with comprehensive environment configuration..."
+        
+        # Create environment file for the deployment script
+        cat > .deployment-env << EOF
+        export ENVIRONMENT="${{ needs.determine-environment.outputs.environment }}"
+        export SERVICE_NAME="${{ needs.determine-environment.outputs.service-name }}"
+        export API_PORT="${{ needs.determine-environment.outputs.api-port }}"
+        export SERVER_DIR="${{ needs.determine-environment.outputs.server-dir }}"
+        export EMAIL_HOST="${{ secrets.EMAIL_HOST || 'localhost' }}"
+        export EMAIL_PORT="${{ secrets.EMAIL_PORT || '587' }}"
+        export EMAIL_USER="${{ secrets.EMAIL_USER || 'test@investra.com' }}"
+        export EMAIL_PASSWORD="${{ secrets.EMAIL_PASSWORD || 'placeholder' }}"
+        export IMAP_HOST="${{ secrets.IMAP_HOST || 'localhost' }}"
+        export IMAP_PORT="${{ secrets.IMAP_PORT || '993' }}"
+        export IMAP_USER="${{ secrets.IMAP_USER || 'test@investra.com' }}"
+        export IMAP_PASSWORD="${{ secrets.IMAP_PASSWORD || 'placeholder' }}"
+        export IMAP_SECURE="${{ secrets.IMAP_SECURE || 'true' }}"
+        export IMAP_ENABLED="${{ secrets.IMAP_ENABLED || 'true' }}"
+        export DATABASE_URL="${{ secrets.DATABASE_URL || 'postgresql://localhost:5432/investra' }}"
+        export SUPABASE_URL="${{ secrets.SUPABASE_URL || 'https://ecbuwhpipphdssqjwgfm.supabase.co' }}"
+        export SUPABASE_ANON_KEY="${{ secrets.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjYnV3aHBpcHBoZHNycWp3Z2ZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg4NzU4NjEsImV4cCI6MjA2NDQ1MTg2MX0.QMWhB6lpgO3YRGg5kGKz7347DZzRcDiQ6QLupznZi1E' }}"
+        export SUPABASE_SERVICE_KEY="${{ secrets.SUPABASE_SERVICE_KEY || 'placeholder' }}"
+        export VITE_SUPABASE_URL="${{ secrets.SUPABASE_URL || 'https://ecbuwhpipphdssqjwgfm.supabase.co' }}"
+        export VITE_SUPABASE_ANON_KEY="${{ secrets.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjYnV3aHBpcHBoZHNycWp3Z2ZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg4NzU4NjEsImV4cCI6MjA2NDQ1MTg2MX0.QMWhB6lpgO3YRGg5kGKz7347DZzRcDiQ6QLupznZi1E' }}"
+        export NODE_ENV="${{ needs.determine-environment.outputs.environment }}"
+        export LOG_LEVEL="${{ secrets.LOG_LEVEL || 'info' }}"
+        EOF
+        
+        echo "✅ Environment variables exported to .deployment-env"
+        echo "🔍 Verifying critical variables:"
+        source .deployment-env
+        echo "   SUPABASE_URL: ${SUPABASE_URL}"
+        echo "   SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:0:20}... (truncated)"
+        
+        # Run deployment with environment variables from the file
+        set -a
+        source .deployment-env
+        set +a
+        
         ./deploy-api-server.sh deploy
 
     - name: Fix PM2 configuration
