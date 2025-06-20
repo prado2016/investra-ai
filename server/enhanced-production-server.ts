@@ -7,7 +7,6 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import path from 'path';
 import winston from 'winston';
 import 'winston-daily-rotate-file';
 
@@ -19,13 +18,7 @@ import { ServiceMonitor } from './monitoring-service';
 import type {
   APIResponse,
   EmailProcessRequest,
-  BatchEmailProcessRequest,
   EmailProcessResponse,
-  ProcessingStatus,
-  ProcessingHistoryItem,
-  ProcessingStatsResponse,
-  ImportJob,
-  ReviewQueueItem,
   IMAPServiceStatus
 } from './src/types/emailTypes';
 
@@ -39,7 +32,7 @@ const LOG_LEVEL = process.env.LOG_LEVEL || 'info';
 // Global services
 let imapService: IMAPProcessorService | null = null;
 let serviceMonitor: ServiceMonitor | null = null;
-let logger: winston.Logger;
+const logger: winston.Logger = initializeLogger();
 
 /**
  * Initialize Winston logger with production configuration
@@ -120,16 +113,13 @@ function initializeLogger(): winston.Logger {
   });
 }
 
-// Initialize logger
-logger = initializeLogger();
-
 // Enhanced request logging middleware
 const requestLogger = (req: express.Request, res: express.Response, next: express.NextFunction) => {
   const startTime = Date.now();
   const requestId = Math.random().toString(36).substring(7);
   
   // Add request ID to request object
-  (req as any).requestId = requestId;
+  (req as express.Request & { requestId: string }).requestId = requestId;
   
   logger.info('Request started', {
     requestId,
@@ -142,7 +132,7 @@ const requestLogger = (req: express.Request, res: express.Response, next: expres
 
   // Override res.json to log responses
   const originalJson = res.json;
-  res.json = function(body: any) {
+  res.json = function(body: unknown) {
     const duration = Date.now() - startTime;
     
     logger.info('Request completed', {
@@ -169,6 +159,11 @@ const requestLogger = (req: express.Request, res: express.Response, next: expres
   next();
 };
 
+// Helper function to get request ID from request
+function getRequestId(req: express.Request): string {
+  return (req as express.Request & { requestId?: string }).requestId || 'unknown';
+}
+
 // Middleware
 app.use(cors({
   origin: [
@@ -184,7 +179,7 @@ app.use(cors({
 
 app.use(express.json({ 
   limit: '50mb',
-  verify: (req, res, buf, encoding) => {
+  verify: (req, res, buf) => {
     // Log large payloads
     if (buf.length > 1024 * 1024) { // 1MB
       logger.warn('Large request payload', {
@@ -211,8 +206,8 @@ app.use((req, res, next) => {
 });
 
 // Enhanced error handling middleware
-const errorHandler = (err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  const requestId = (req as any).requestId || 'unknown';
+const errorHandler = (err: Error, req: express.Request, res: express.Response) => {
+  const requestId = getRequestId(req);
   
   // Log the error with context
   logger.error('Request error', {
@@ -282,7 +277,7 @@ const createErrorResponse = (message: string, code: string = 'ERROR', requestId?
 app.get('/health', async (req, res) => {
   try {
     const startTime = Date.now();
-    const requestId = (req as any).requestId;
+    const requestId = getRequestId(req);
     
     // Get monitoring metrics
     const monitoringHealth = serviceMonitor ? await serviceMonitor.performHealthCheck() : null;
@@ -325,15 +320,15 @@ app.get('/health', async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('Health check failed', { error, requestId: (req as any).requestId });
-    res.status(503).json(createErrorResponse('Health check failed', 'HEALTH_CHECK_ERROR', (req as any).requestId));
+    logger.error('Health check failed', { error, requestId: getRequestId(req) });
+    res.status(503).json(createErrorResponse('Health check failed', 'HEALTH_CHECK_ERROR', getRequestId(req)));
   }
 });
 
 // Enhanced monitoring endpoint
 app.get('/api/monitoring', async (req, res) => {
   try {
-    const requestId = (req as any).requestId;
+    const requestId = getRequestId(req);
     
     if (!serviceMonitor) {
       return res.status(503).json(createErrorResponse('Monitoring not enabled', 'MONITORING_DISABLED', requestId));
@@ -355,15 +350,15 @@ app.get('/api/monitoring', async (req, res) => {
     }, true, requestId));
 
   } catch (error) {
-    logger.error('Monitoring endpoint error', { error, requestId: (req as any).requestId });
-    res.status(500).json(createErrorResponse('Monitoring data unavailable', 'MONITORING_ERROR', (req as any).requestId));
+    logger.error('Monitoring endpoint error', { error, requestId: getRequestId(req) });
+    res.status(500).json(createErrorResponse('Monitoring data unavailable', 'MONITORING_ERROR', getRequestId(req)));
   }
 });
 
 // Enhanced email processing endpoint with better error handling
 app.post('/api/email/process', async (req, res, next) => {
   const startTime = Date.now();
-  const requestId = (req as any).requestId;
+  const requestId = getRequestId(req);
   
   try {
     const request = req.body as EmailProcessRequest;
@@ -443,7 +438,7 @@ app.post('/api/email/process', async (req, res, next) => {
 // IMAP service endpoints with enhanced error handling
 app.get('/api/imap/status', async (req, res, next) => {
   try {
-    const requestId = (req as any).requestId;
+    const requestId = getRequestId(req);
     
     if (!imapService) {
       logger.warn('IMAP service not initialized', { requestId });
@@ -476,14 +471,14 @@ app.get('/api/imap/status', async (req, res, next) => {
     res.json(createResponse(response, true, requestId));
     
   } catch (error) {
-    logger.error('IMAP status error', { error, requestId: (req as any).requestId });
+    logger.error('IMAP status error', { error, requestId: getRequestId(req) });
     next(error);
   }
 });
 
 // 404 handler
 app.use('*', (req, res) => {
-  const requestId = (req as any).requestId;
+  const requestId = getRequestId(req);
   
   logger.warn('Route not found', {
     requestId,

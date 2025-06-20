@@ -27,11 +27,14 @@
     "server-ts.ts",
     "simple-production-server.ts",
     "standalone-enhanced-server.ts",
+    "standalone-enhanced-server-production.ts",
+    "enhanced-production-server.ts",
     "simple-email-server.ts",
     "monitoring-service.ts",
     "routes/**/*.ts",
     "types/**/*.ts",
-    "src/types/*.ts"
+    "src/types/*.ts",
+    "middleware/**/*.ts"
   ],
   "exclude": [
     "node_modules",
@@ -45,8 +48,6 @@
     "../src/utils",
     "../src/pages",
     "../src/services",
-    "enhanced-production-server.ts",
-    "production-server.ts",
     "**/*.test.ts",
     "**/*.spec.ts"
   ]

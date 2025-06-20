@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import ConfigurationForm, { ConfigurationField } from '../components/ConfigurationForm';
+import ConfigurationForm, { type ConfigurationField } from '../components/ConfigurationForm';
 import { useConfigurationSection } from '../hooks/useConfigurationSection';
 
 const EmailIntegrationSettings: React.FC = () => {

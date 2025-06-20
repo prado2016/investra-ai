@@ -10,9 +10,8 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { createClient } from '@supabase/supabase-js';
 import winston from 'winston';
-import dotenv from 'dotenv';
-import * as fs from 'fs';
-import * as path from 'path';
+import * as dotenv from 'dotenv';
+// Removed unused imports: fs and path
 import { createServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import { authenticateUser, type AuthenticatedRequest } from './middleware/authMiddleware';
@@ -35,7 +34,7 @@ interface EmailProcessingResult {
   error?: string;
   requiresManualReview?: boolean;
   confidence?: number;
-  extractedData?: any;
+  extractedData?: Record<string, unknown>;
 }
 
 interface ProcessingStats {
@@ -47,15 +46,7 @@ interface ProcessingStats {
   processingTimes: number[];
 }
 
-interface QueueItem {
-  id: string;
-  email_content: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
-  created_at: string;
-  user_id: string;
-  priority: number;
-  retry_count: number;
-}
+// Removed unused QueueItem interface
 
 interface IMAPConfig {
   host: string;
@@ -164,7 +155,7 @@ async function fetchEmailsForManualReview(config: IMAPConfig, limit = 50): Promi
   }>;
   error?: string;
 }> {
-  let client: any = null;
+  let client: import('imapflow').ImapFlow | null = null;
   
   try {
     // Import the IMAP library dynamically
@@ -325,7 +316,7 @@ const wsClients = new Set<WebSocket>();
 // WebSocket message interface
 interface WebSocketMessage {
   type: 'email_processing_started' | 'email_processing_completed' | 'email_processing_failed' | 'system_status' | 'connection_test';
-  data: any;
+  data: Record<string, unknown>;
   timestamp: string;
   id: string;
 }
@@ -609,7 +600,7 @@ class StandaloneEmailProcessingService {
   private static async getOrCreateAsset(symbol: string, currency: string = 'CAD') {
     try {
       // First try to get existing asset
-      const { data: existingAsset, error: fetchError } = await supabase
+      const { data: existingAsset } = await supabase
         .from('assets')
         .select('*')
         .eq('symbol', symbol)
@@ -1230,7 +1221,7 @@ app.get('/api/email/processing/queue', async (req, res) => {
 app.get('/api/manual-review/queue', async (req, res) => {
   try {
     // Return empty manual review queue - real items will be added when emails are actually flagged by duplicate detection
-    const reviewItems: any[] = [];
+    const reviewItems: Record<string, unknown>[] = [];
     
     res.json({
       success: true,
@@ -1888,7 +1879,7 @@ app.post('/api/email/test-connection', async (req, res) => {
 });
 
 // Error handling middleware
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((err: Error, req: express.Request, res: express.Response) => {
   logger.error('Unhandled error:', {
     error: err.message,
     stack: err.stack,

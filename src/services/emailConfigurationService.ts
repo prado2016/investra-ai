@@ -181,7 +181,7 @@ export class EmailConfigurationService {
       }
 
       // Prepare update data
-      const updateData: any = { ...updates }
+      const updateData: Record<string, unknown> = { ...updates }
       
       // Encrypt password if provided
       if (updates.password) {

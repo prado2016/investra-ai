@@ -3,7 +3,7 @@
  * Reusable form component for configuration management with validation and testing
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 import {
   Save,
@@ -13,9 +13,6 @@ import {
   CheckCircle,
   AlertCircle,
   Loader,
-  RefreshCw,
-  Info,
-  X,
   Copy,
   Check
 } from 'lucide-react';

@@ -23,6 +23,8 @@ const supabaseAuth = SUPABASE_URL && SUPABASE_ANON_KEY ? createClient(SUPABASE_U
 export interface AuthenticatedRequest extends express.Request {
   user?: User;
   userId?: string;
+  body: Record<string, unknown>; // Explicitly include body property
+  headers: Record<string, string | string[]>; // Explicitly include headers property
 }
 
 /**
@@ -44,8 +46,9 @@ export const authenticateUser = async (
     }
 
     const authHeader = req.headers.authorization;
+    const authHeaderStr = Array.isArray(authHeader) ? authHeader[0] : authHeader;
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (!authHeaderStr || !authHeaderStr.startsWith('Bearer ')) {
       res.status(401).json({
         success: false,
         error: 'Missing or invalid Authorization header. Please provide a Bearer token.',
@@ -54,7 +57,7 @@ export const authenticateUser = async (
       return;
     }
 
-    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+    const token = authHeaderStr.substring(7); // Remove 'Bearer ' prefix
 
     // Validate the JWT token with Supabase
     const { data: { user }, error } = await supabaseAuth!.auth.getUser(token);
@@ -103,9 +106,10 @@ export const optionalAuth = async (
     }
 
     const authHeader = req.headers.authorization;
+    const authHeaderStr = Array.isArray(authHeader) ? authHeader[0] : authHeader;
 
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.substring(7);
+    if (authHeaderStr && authHeaderStr.startsWith('Bearer ')) {
+      const token = authHeaderStr.substring(7);
       
       try {
         const { data: { user }, error } = await supabaseAuth.auth.getUser(token);
