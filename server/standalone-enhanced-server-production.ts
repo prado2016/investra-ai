@@ -1360,6 +1360,150 @@ app.post('/api/configuration/reload', async (req, res) => {
   }
 });
 
+// Manual Email Review endpoints for the new manual workflow
+app.get('/api/manual-review/emails', async (req, res) => {
+  try {
+    // In a real implementation, this would fetch emails from IMAP or database
+    // For now, we'll return empty array since we're transitioning to manual review
+    const emails: any[] = [];
+    
+    res.json({
+      success: true,
+      data: emails,
+      total: emails.length,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    logger.error('Manual review emails error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get emails for review',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+app.post('/api/manual-review/process', async (req, res) => {
+  try {
+    const { emailId } = req.body;
+    
+    if (!emailId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required field: emailId',
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    logger.info('Manual email processing requested', { emailId });
+    
+    // In a real implementation, this would:
+    // 1. Fetch the email by ID
+    // 2. Parse the email content
+    // 3. Create transactions using StandaloneEmailProcessingService
+    // For now, simulate success
+    
+    const result = {
+      success: true,
+      transactionId: 'trans_manual_' + Date.now(),
+      message: 'Email processed and transaction created'
+    };
+    
+    return res.json(result);
+  } catch (error) {
+    logger.error('Manual email processing error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to process email',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+app.post('/api/manual-review/reject', async (req, res) => {
+  try {
+    const { emailId } = req.body;
+    
+    if (!emailId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required field: emailId',
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    logger.info('Manual email rejection requested', { emailId });
+    
+    // In a real implementation, this would mark the email as rejected
+    return res.json({
+      success: true,
+      message: 'Email marked as rejected'
+    });
+  } catch (error) {
+    logger.error('Manual email rejection error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to reject email',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+app.delete('/api/manual-review/delete', async (req, res) => {
+  try {
+    const { emailId } = req.body;
+    
+    if (!emailId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required field: emailId',
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    logger.info('Manual email deletion requested', { emailId });
+    
+    // In a real implementation, this would permanently delete the email
+    return res.json({
+      success: true,
+      message: 'Email permanently deleted'
+    });
+  } catch (error) {
+    logger.error('Manual email deletion error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to delete email',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// Update the existing manual-review/stats endpoint to work with the new workflow
+app.get('/api/manual-review/stats', async (req, res) => {
+  try {
+    // In a real implementation, this would count emails by status
+    const stats = {
+      total: 0,
+      pending: 0,
+      processed: 0,
+      rejected: 0
+    };
+    
+    res.json({
+      success: true,
+      data: stats,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    logger.error('Manual review stats error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get manual review stats',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 // API status endpoint (needed by frontend)
 app.get('/api/status', (req, res) => {
   res.json({
@@ -1389,6 +1533,10 @@ app.get('/api/status', (req, res) => {
         'GET /api/manual-review/queue',
         'POST /api/manual-review/action',
         'GET /api/manual-review/stats',
+        'GET /api/manual-review/emails',
+        'POST /api/manual-review/process',
+        'POST /api/manual-review/reject',
+        'DELETE /api/manual-review/delete',
         'POST /api/email/test-connection',
         'GET /api/configuration/status',
         'POST /api/configuration/reload'

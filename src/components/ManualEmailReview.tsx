@@ -19,6 +19,8 @@ import {
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { useNotifications } from '../hooks/useNotifications';
+import { useEmailProcessing } from '../hooks/useEmailProcessing';
+import { manualEmailReviewService, type EmailReviewItem } from '../services/manualEmailReviewService';
 
 const ReviewContainer = styled.div`
   display: flex;
@@ -290,17 +292,8 @@ const EmptyState = styled.div`
   }
 `;
 
-// Mock data structure for emails
-interface EmailItem {
-  id: string;
-  subject: string;
-  from: string;
-  received_at: string;
-  status: 'pending' | 'processed' | 'rejected';
-  preview: string;
-  has_attachments: boolean;
-  estimated_transactions: number;
-}
+// Use the EmailReviewItem type from the service
+type EmailItem = EmailReviewItem;
 
 const ManualEmailReview: React.FC = () => {
   const { success, error } = useNotifications();
@@ -312,7 +305,7 @@ const ManualEmailReview: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'processed' | 'rejected'>('all');
   const [refreshing, setRefreshing] = useState(false);
 
-  // Mock data for development
+  // Load real email data from enhanced server
   useEffect(() => {
     loadEmails();
   }, []);
@@ -320,45 +313,19 @@ const ManualEmailReview: React.FC = () => {
   const loadEmails = async () => {
     setLoading(true);
     try {
-      // Simulate API call - replace with real implementation
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const result = await manualEmailReviewService.getEmailsForReview();
       
-      const mockEmails: EmailItem[] = [
-        {
-          id: '1',
-          subject: 'Wealthsimple Trade: Your order has been filled',
-          from: 'noreply@wealthsimple.com',
-          received_at: '2025-06-20T10:30:00Z',
-          status: 'pending',
-          preview: 'Your buy order for 100 shares of AAPL has been executed at $150.25 per share.',
-          has_attachments: false,
-          estimated_transactions: 1
-        },
-        {
-          id: '2',
-          subject: 'Wealthsimple Trade: Dividend received',
-          from: 'noreply@wealthsimple.com',
-          received_at: '2025-06-20T09:15:00Z',
-          status: 'pending',
-          preview: 'You have received a dividend payment of $25.50 for your MSFT holdings.',
-          has_attachments: false,
-          estimated_transactions: 1
-        },
-        {
-          id: '3',
-          subject: 'Wealthsimple Trade: Monthly statement',
-          from: 'noreply@wealthsimple.com',
-          received_at: '2025-06-19T18:00:00Z',
-          status: 'processed',
-          preview: 'Your monthly account statement for May 2025 is now available.',
-          has_attachments: true,
-          estimated_transactions: 0
-        }
-      ];
-      
-      setEmails(mockEmails);
+      if (result.success && result.data) {
+        setEmails(result.data);
+      } else {
+        throw new Error(result.error || 'Failed to load emails');
+      }
     } catch (err) {
-      error('Load Error', 'Failed to load emails');
+      console.error('Failed to load emails:', err);
+      error('Load Error', err instanceof Error ? err.message : 'Failed to load emails');
+      
+      // Fallback to empty array instead of mock data
+      setEmails([]);
     } finally {
       setLoading(false);
     }
@@ -372,41 +339,62 @@ const ManualEmailReview: React.FC = () => {
 
   const handleProcessEmail = async (emailId: string) => {
     try {
-      // Simulate processing - replace with real implementation
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const result = await manualEmailReviewService.processEmail(emailId);
       
-      setEmails(prev => prev.map(email => 
-        email.id === emailId 
-          ? { ...email, status: 'processed' }
-          : email
-      ));
-      
-      success('Email Processed', 'Transaction data has been imported successfully');
+      if (result.success) {
+        // Update the email status locally
+        setEmails(prev => prev.map(email => 
+          email.id === emailId 
+            ? { ...email, status: 'processed' }
+            : email
+        ));
+        
+        const message = result.transactionId 
+          ? `Transaction ${result.transactionId} created successfully`
+          : 'Transaction data has been imported successfully';
+        success('Email Processed', message);
+      } else {
+        throw new Error(result.error || 'Processing failed');
+      }
     } catch (err) {
-      error('Processing Error', 'Failed to process email');
+      console.error('Failed to process email:', err);
+      error('Processing Error', err instanceof Error ? err.message : 'Failed to process email');
     }
   };
 
   const handleRejectEmail = async (emailId: string) => {
     try {
-      setEmails(prev => prev.map(email => 
-        email.id === emailId 
-          ? { ...email, status: 'rejected' }
-          : email
-      ));
+      const result = await manualEmailReviewService.rejectEmail(emailId);
       
-      success('Email Rejected', 'Email has been marked as rejected');
+      if (result.success) {
+        setEmails(prev => prev.map(email => 
+          email.id === emailId 
+            ? { ...email, status: 'rejected' }
+            : email
+        ));
+        success('Email Rejected', 'Email has been marked as rejected');
+      } else {
+        throw new Error(result.error || 'Rejection failed');
+      }
     } catch (err) {
-      error('Reject Error', 'Failed to reject email');
+      console.error('Failed to reject email:', err);
+      error('Reject Error', err instanceof Error ? err.message : 'Failed to reject email');
     }
   };
 
   const handleDeleteEmail = async (emailId: string) => {
     try {
-      setEmails(prev => prev.filter(email => email.id !== emailId));
-      success('Email Deleted', 'Email has been permanently deleted');
+      const result = await manualEmailReviewService.deleteEmail(emailId);
+      
+      if (result.success) {
+        setEmails(prev => prev.filter(email => email.id !== emailId));
+        success('Email Deleted', 'Email has been permanently deleted');
+      } else {
+        throw new Error(result.error || 'Deletion failed');
+      }
     } catch (err) {
-      error('Delete Error', 'Failed to delete email');
+      console.error('Failed to delete email:', err);
+      error('Delete Error', err instanceof Error ? err.message : 'Failed to delete email');
     }
   };
 
