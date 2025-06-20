@@ -40,6 +40,23 @@ export default defineConfig({
     port: 5173,
     strictPort: true, // Fail if port is busy
     proxy: {
+      // Proxy backend API requests to avoid Chrome security warnings
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        secure: false,
+        configure: (proxy) => {
+          proxy.on('error', (err) => {
+            console.error('🔴 API Proxy error:', err);
+          });
+          proxy.on('proxyReq', (_proxyReq, req) => {
+            console.log('🔵 Proxying API Request:', req.method, req.url);
+          });
+          proxy.on('proxyRes', (proxyRes, req) => {
+            console.log('🟢 API Response:', proxyRes.statusCode, req.url);
+          });
+        },
+      },
       // Proxy Yahoo Finance API requests through a CORS proxy
       '/api/yahoo': {
         target: 'https://query1.finance.yahoo.com',

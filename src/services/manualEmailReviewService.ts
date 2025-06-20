@@ -41,11 +41,11 @@ class ManualEmailReviewService {
     const isProduction = process.env.NODE_ENV === 'production';
     
     if (isProduction) {
-      // In production, try enhanced server first, then fallback
+      // In production, use direct connection
       return 'http://localhost:3001';
     } else {
-      // In development, use the Vite dev proxy or direct connection
-      return 'http://localhost:3001';
+      // In development, use Vite proxy to avoid Chrome security warnings
+      return ''; // Empty string means same origin (proxied through Vite)
     }
   }
 
