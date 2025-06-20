@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
-import { Mail, Save, Eye, EyeOff, TestTube, CheckCircle, AlertCircle, Loader, Trash2 } from 'lucide-react';
+import { Mail, Save, Eye, EyeOff, TestTube, CheckCircle, AlertCircle, Loader, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { InputField, PasswordField, SelectField } from './FormFields';
 import { EmailConfigurationService } from '../services/emailConfigurationService';
 import type { EmailProvider } from '../lib/database/types';
@@ -29,10 +29,104 @@ const SectionTitle = styled.h2`
 const EmailServerCard = styled.div`
   border: 1px solid #e5e7eb;
   border-radius: 12px;
-  padding: 1.5rem;
   margin-bottom: 1.5rem;
   background: white;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+`;
+
+const CardHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.5rem 1.5rem 0 1.5rem;
+  cursor: pointer;
+  user-select: none;
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.02);
+  }
+`;
+
+const CardTitle = styled.h3`
+  margin: 0;
+  color: #374151;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+`;
+
+const CollapseButton = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  border: none;
+  background: none;
+  color: #6b7280;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  font-size: 0.875rem;
+
+  &:hover {
+    background: #f3f4f6;
+    color: #374151;
+  }
+
+  &:focus {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+  }
+`;
+
+const CollapsedPreview = styled.div`
+  padding: 0.5rem 1.5rem 1rem;
+  color: #6b7280;
+  font-size: 0.875rem;
+  font-style: italic;
+  border-top: 1px solid #f3f4f6;
+`;
+
+const CardContent = styled.div<{ $isExpanded: boolean }>`
+  padding: ${({ $isExpanded }) => $isExpanded ? '1.5rem' : '0 1.5rem'};
+  max-height: ${({ $isExpanded }) => $isExpanded ? '2000px' : '0'};
+  opacity: ${({ $isExpanded }) => $isExpanded ? '1' : '0'};
+  overflow: hidden;
+  transition: max-height 0.3s ease-in-out, opacity 0.2s ease-in-out, padding 0.3s ease-in-out;
+  transform: ${({ $isExpanded }) => $isExpanded ? 'translateY(0)' : 'translateY(-10px)'};
+`;
+
+const SectionHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 2rem 0 1rem 0;
+  cursor: pointer;
+  user-select: none;
+  padding: 0.5rem;
+  border-radius: 8px;
+  transition: background-color 0.2s ease;
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.02);
+  }
+`;
+
+const SectionTitle = styled.h3`
+  margin: 0;
+  color: #374151;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+`;
+
+const SectionContent = styled.div<{ $isExpanded: boolean }>`
+  max-height: ${({ $isExpanded }) => $isExpanded ? '5000px' : '0'};
+  opacity: ${({ $isExpanded }) => $isExpanded ? '1' : '0'};
+  overflow: hidden;
+  transition: max-height 0.3s ease-in-out, opacity 0.2s ease-in-out;
+  transform: ${({ $isExpanded }) => $isExpanded ? 'translateY(0)' : 'translateY(-10px)'};
 `;
 
 const FormGroup = styled.div`
@@ -197,17 +291,102 @@ const SimpleEmailServerSettings: React.FC = () => {
   const [host, setHost] = useState('imap.gmail.com');
   const [port, setPort] = useState(993);
   const [secure, setSecure] = useState(true);
-  
+
   const [storedServers, setStoredServers] = useState<StoredEmailServer[]>([]);
   const [revealedPasswords, setRevealedPasswords] = useState<Set<string>>(new Set());
   const [saveStatus, setSaveStatus] = useState<{ success: boolean; message: string } | null>(null);
   const [testingServer, setTestingServer] = useState<string | null>(null);
   const [testResults, setTestResults] = useState<Record<string, { success: boolean; message: string }>>({});
 
-  // Load stored servers on component mount
+  // Collapsible state management
+  const [isAddFormExpanded, setIsAddFormExpanded] = useState(true);
+  const [isServerListExpanded, setIsServerListExpanded] = useState(true);
+
+  // Load stored servers and initialize collapse states on component mount
   useEffect(() => {
     loadStoredServers();
+    initializeCollapseStates();
   }, []);
+
+  // Initialize collapse states from localStorage with smart defaults
+  const initializeCollapseStates = () => {
+    try {
+      const savedAddFormState = localStorage.getItem('email-settings-add-form-expanded');
+      const savedServerListState = localStorage.getItem('email-settings-server-list-expanded');
+
+      // Smart defaults: if no servers exist, expand add form; if servers exist, expand server list
+      const hasStoredServers = storedServers.length > 0;
+
+      setIsAddFormExpanded(
+        savedAddFormState !== null
+          ? JSON.parse(savedAddFormState)
+          : !hasStoredServers // Expand add form if no servers exist
+      );
+
+      setIsServerListExpanded(
+        savedServerListState !== null
+          ? JSON.parse(savedServerListState)
+          : hasStoredServers // Expand server list if servers exist
+      );
+    } catch (error) {
+      console.warn('Failed to load collapse states from localStorage:', error);
+      // Use smart defaults on error
+      const hasStoredServers = storedServers.length > 0;
+      setIsAddFormExpanded(!hasStoredServers);
+      setIsServerListExpanded(hasStoredServers);
+    }
+  };
+
+  // Update collapse states when servers change (smart defaults)
+  useEffect(() => {
+    // Only update defaults if user hasn't explicitly set preferences
+    const savedAddFormState = localStorage.getItem('email-settings-add-form-expanded');
+    const savedServerListState = localStorage.getItem('email-settings-server-list-expanded');
+
+    if (savedAddFormState === null || savedServerListState === null) {
+      const hasStoredServers = storedServers.length > 0;
+
+      if (savedAddFormState === null) {
+        setIsAddFormExpanded(!hasStoredServers);
+      }
+
+      if (savedServerListState === null) {
+        setIsServerListExpanded(hasStoredServers);
+      }
+    }
+  }, [storedServers.length]);
+
+  // Auto-expand add form when all servers are deleted
+  useEffect(() => {
+    if (storedServers.length === 0 && !isAddFormExpanded) {
+      // Small delay to make the transition feel natural
+      setTimeout(() => {
+        setIsAddFormExpanded(true);
+        saveCollapseState('email-settings-add-form-expanded', true);
+      }, 300);
+    }
+  }, [storedServers.length, isAddFormExpanded]);
+
+  // Save collapse states to localStorage
+  const saveCollapseState = (key: string, value: boolean) => {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch (error) {
+      console.warn('Failed to save collapse state to localStorage:', error);
+    }
+  };
+
+  const toggleAddForm = () => {
+    const newState = !isAddFormExpanded;
+    setIsAddFormExpanded(newState);
+    saveCollapseState('email-settings-add-form-expanded', newState);
+  };
+
+  const toggleServerList = () => {
+    const newState = !isServerListExpanded;
+    setIsServerListExpanded(newState);
+    saveCollapseState('email-settings-server-list-expanded', newState);
+  };
 
   const loadStoredServers = async () => {
     try {
@@ -275,15 +454,21 @@ const SimpleEmailServerSettings: React.FC = () => {
 
       if (result.success) {
         setSaveStatus({ success: true, message: 'Email server configuration saved successfully!' });
-        
+
         // Clear form
         setServerName('');
         setEmail('');
         setPassword('');
-        
+
         // Reload stored servers
         await loadStoredServers();
-        
+
+        // Auto-expand server list to show the newly added server
+        if (!isServerListExpanded) {
+          setIsServerListExpanded(true);
+          saveCollapseState('email-settings-server-list-expanded', true);
+        }
+
         // Clear status after 3 seconds
         setTimeout(() => setSaveStatus(null), 3000);
       } else {
@@ -433,7 +618,40 @@ const SimpleEmailServerSettings: React.FC = () => {
 
       {/* Add New Email Server Form */}
       <EmailServerCard>
-        <h3 style={{ margin: '0 0 1rem 0', color: '#374151' }}>Add New Email Server</h3>
+        <CardHeader
+          onClick={toggleAddForm}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              toggleAddForm();
+            }
+          }}
+          aria-expanded={isAddFormExpanded}
+          aria-controls="add-email-server-content"
+        >
+          <CardTitle>
+            <Mail size={20} />
+            Add New Email Server
+          </CardTitle>
+          <CollapseButton
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleAddForm();
+            }}
+            aria-label={isAddFormExpanded ? 'Collapse add server form' : 'Expand add server form'}
+          >
+            {isAddFormExpanded ? 'Collapse' : 'Expand'}
+            {isAddFormExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          </CollapseButton>
+        </CardHeader>
+
+        <CardContent
+          $isExpanded={isAddFormExpanded}
+          id="add-email-server-content"
+          aria-hidden={!isAddFormExpanded}
+        >
 
         <FormGroup>
           <label style={{ fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem', display: 'block' }}>
@@ -541,12 +759,52 @@ const SimpleEmailServerSettings: React.FC = () => {
             Save Email Server
           </Button>
         </ActionButtons>
+        </CardContent>
+
+        {!isAddFormExpanded && (
+          <CollapsedPreview>
+            Click to expand and add a new email server configuration
+          </CollapsedPreview>
+        )}
       </EmailServerCard>
 
       {/* Stored Email Servers */}
       {storedServers.length > 0 && (
         <div>
-          <h3 style={{ margin: '2rem 0 1rem 0', color: '#374151' }}>Configured Email Servers</h3>
+          <SectionHeader
+            onClick={toggleServerList}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                toggleServerList();
+              }
+            }}
+            aria-expanded={isServerListExpanded}
+            aria-controls="configured-servers-content"
+          >
+            <SectionTitle>
+              <Mail size={20} />
+              Configured Email Servers ({storedServers.length})
+            </SectionTitle>
+            <CollapseButton
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleServerList();
+              }}
+              aria-label={isServerListExpanded ? 'Collapse server list' : 'Expand server list'}
+            >
+              {isServerListExpanded ? 'Collapse' : 'Expand'}
+              {isServerListExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            </CollapseButton>
+          </SectionHeader>
+
+          <SectionContent
+            $isExpanded={isServerListExpanded}
+            id="configured-servers-content"
+            aria-hidden={!isServerListExpanded}
+          >
           {storedServers.map((server) => (
             <EmailServerCard key={server.id}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
@@ -611,29 +869,62 @@ const SimpleEmailServerSettings: React.FC = () => {
               </div>
             </EmailServerCard>
           ))}
+          </SectionContent>
+
+          {!isServerListExpanded && (
+            <CollapsedPreview>
+              {storedServers.length} email server{storedServers.length !== 1 ? 's' : ''} configured. Click to expand and manage.
+            </CollapsedPreview>
+          )}
         </div>
       )}
 
       {storedServers.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '2rem', color: '#6b7280' }}>
-          <Mail size={48} style={{ marginBottom: '1rem', opacity: 0.5 }} />
-          <p>No email servers configured yet. Add your first email server above to get started.</p>
-          <div style={{
-            marginTop: '1rem',
-            padding: '1rem',
-            backgroundColor: '#f8fafc',
-            borderRadius: '0.375rem',
-            fontSize: '0.875rem',
-            textAlign: 'left'
-          }}>
-            <strong>💡 Quick Setup Tips:</strong>
-            <ul style={{ margin: '0.5rem 0', paddingLeft: '1.25rem' }}>
-              <li>For Gmail: Enable 2FA and create an App Password</li>
-              <li>For Outlook: Use your Microsoft account password or App Password</li>
-              <li>For Yahoo: Enable "Less secure app access" or use App Password</li>
-            </ul>
-          </div>
-        </div>
+        <EmailServerCard>
+          <CardContent $isExpanded={true}>
+            <div style={{ textAlign: 'center', padding: '2rem', color: '#6b7280' }}>
+              <Mail size={48} style={{ marginBottom: '1rem', opacity: 0.5 }} />
+              <p>No email servers configured yet. {!isAddFormExpanded && 'Expand the "Add New Email Server" section above to get started.'}</p>
+              {!isAddFormExpanded && (
+                <button
+                  onClick={toggleAddForm}
+                  style={{
+                    marginTop: '1rem',
+                    padding: '0.5rem 1rem',
+                    backgroundColor: '#3b82f6',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '0.875rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    margin: '1rem auto 0'
+                  }}
+                >
+                  <ChevronDown size={16} />
+                  Add Your First Email Server
+                </button>
+              )}
+              <div style={{
+                marginTop: '1rem',
+                padding: '1rem',
+                backgroundColor: '#f8fafc',
+                borderRadius: '0.375rem',
+                fontSize: '0.875rem',
+                textAlign: 'left'
+              }}>
+                <strong>💡 Quick Setup Tips:</strong>
+                <ul style={{ margin: '0.5rem 0', paddingLeft: '1.25rem' }}>
+                  <li>For Gmail: Enable 2FA and create an App Password</li>
+                  <li>For Outlook: Use your Microsoft account password or App Password</li>
+                  <li>For Yahoo: Enable "Less secure app access" or use App Password</li>
+                </ul>
+              </div>
+            </div>
+          </CardContent>
+        </EmailServerCard>
       )}
     </SettingsContainer>
   );
