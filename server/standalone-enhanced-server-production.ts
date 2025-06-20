@@ -22,17 +22,58 @@ interface AuthenticatedRequest extends express.Request {
   body: Record<string, unknown>;
 }
 
-// Import authentication middleware with error handling
+// Import authentication middleware with robust error handling
 let authenticateUser: any = null;
-try {
-  const authModule = require('./middleware/authMiddleware');
-  authenticateUser = authModule.authenticateUser;
-  console.log('Authentication middleware loaded successfully');
-} catch (error) {
-  console.warn('Authentication middleware not available:', error);
-  // Create a dummy middleware for cases where auth is not available
+let optionalAuth: any = null;
+
+// Try multiple paths for the authentication middleware
+const authPaths = [
+  './middleware/authMiddleware',
+  './authMiddleware',
+  '../middleware/authMiddleware',
+  'authMiddleware'
+];
+
+let authLoaded = false;
+for (const authPath of authPaths) {
+  try {
+    const authModule = require(authPath);
+    authenticateUser = authModule.authenticateUser;
+    optionalAuth = authModule.optionalAuth;
+    console.log(`✅ Authentication middleware loaded successfully from: ${authPath}`);
+    authLoaded = true;
+    break;
+  } catch (error) {
+    // Continue trying other paths
+  }
+}
+
+if (!authLoaded) {
+  console.warn('⚠️  Authentication middleware not found in any expected location');
+  console.warn('   Searched paths:', authPaths.join(', '));
+  console.warn('   Creating fallback authentication handlers...');
+
+  // Create fallback middleware that properly handles authentication requirements
   authenticateUser = (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    console.warn('Authentication disabled - continuing without auth');
+    // Check if Supabase is configured
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+      return res.status(500).json({
+        success: false,
+        error: 'Authentication service not configured. Please set SUPABASE_URL and SUPABASE_ANON_KEY environment variables.',
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // If Supabase is configured but middleware is missing, this is a deployment issue
+    return res.status(500).json({
+      success: false,
+      error: 'Authentication middleware not available. Please check server deployment.',
+      timestamp: new Date().toISOString()
+    });
+  };
+
+  optionalAuth = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.warn('Optional authentication disabled - continuing without auth');
     next();
   };
 }
@@ -213,17 +254,8 @@ async function fetchEmailsForManualReview(config: IMAPConfig, limit = 50): Promi
       const lastWeek = new Date();
       lastWeek.setDate(lastWeek.getDate() - 7);
 
-      const searchQuery = {
-        since: lastWeek,
-        from: 'wealthsimple'
-      };
-
-      const messages = client.fetch(searchQuery, {
-        uid: true,
-        envelope: true,
-        bodyStructure: true,
-        source: true
-      });
+      // Use ImapFlow search string format
+      const searchQuery = `SINCE ${lastWeek.toISOString().split('T')[0].replace(/-/g, '-')} FROM "wealthsimple"`;
 
       const emails: Array<{
         id: string;
@@ -239,7 +271,12 @@ async function fetchEmailsForManualReview(config: IMAPConfig, limit = 50): Promi
       }> = [];
 
       let count = 0;
-      for await (const message of messages) {
+      for await (const message of client.fetch(searchQuery, {
+        uid: true,
+        envelope: true,
+        bodyStructure: true,
+        source: true
+      })) {
         if (count >= limit) break;
 
         try {

@@ -1,0 +1,489 @@
+name: Deploy Investra Platform (Unified)
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+          - development
+      deployment_mode:
+        description: 'Deployment mode for email API'
+        required: true
+        default: 'systemd'
+        type: choice
+        options:
+          - systemd
+          - pm2
+      skip_frontend:
+        description: 'Skip frontend deployment'
+        required: false
+        default: false
+        type: boolean
+      skip_email_api:
+        description: 'Skip email API deployment'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  NODE_VERSION: '18'
+  DEPLOYMENT_TIMEOUT: 600
+
+jobs:
+  determine-environment:
+    name: Determine Environment Configuration
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.config.outputs.environment }}
+      deployment_mode: ${{ steps.config.outputs.deployment_mode }}
+      api_port: ${{ steps.config.outputs.api_port }}
+      ws_port: ${{ steps.config.outputs.ws_port }}
+      service_name: ${{ steps.config.outputs.service_name }}
+      server_dir: ${{ steps.config.outputs.server_dir }}
+      skip_frontend: ${{ steps.config.outputs.skip_frontend }}
+      skip_email_api: ${{ steps.config.outputs.skip_email_api }}
+    
+    steps:
+    - name: Determine deployment configuration
+      id: config
+      run: |
+        # Determine environment
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          ENVIRONMENT="${{ github.event.inputs.environment }}"
+          DEPLOYMENT_MODE="${{ github.event.inputs.deployment_mode }}"
+          SKIP_FRONTEND="${{ github.event.inputs.skip_frontend }}"
+          SKIP_EMAIL_API="${{ github.event.inputs.skip_email_api }}"
+        else
+          case "${{ github.ref_name }}" in
+            main) ENVIRONMENT="production" ;;
+            staging) ENVIRONMENT="staging" ;;
+            develop|development) ENVIRONMENT="development" ;;
+            *) ENVIRONMENT="development" ;;
+          esac
+          DEPLOYMENT_MODE="systemd"
+          SKIP_FRONTEND="false"
+          SKIP_EMAIL_API="false"
+        fi
+        
+        # Set environment-specific configuration
+        case "$ENVIRONMENT" in
+          production)
+            API_PORT="3001"
+            WS_PORT="3002"
+            SERVICE_NAME="investra-email-api-prod"
+            SERVER_DIR="/opt/investra/email-api/production"
+            ;;
+          staging)
+            API_PORT="3002"
+            WS_PORT="3003"
+            SERVICE_NAME="investra-email-api-staging"
+            SERVER_DIR="/opt/investra/email-api/staging"
+            ;;
+          development)
+            API_PORT="3003"
+            WS_PORT="3004"
+            SERVICE_NAME="investra-email-api-dev"
+            SERVER_DIR="/opt/investra/email-api/development"
+            ;;
+        esac
+        
+        # Output configuration
+        echo "environment=$ENVIRONMENT" >> $GITHUB_OUTPUT
+        echo "deployment_mode=$DEPLOYMENT_MODE" >> $GITHUB_OUTPUT
+        echo "api_port=$API_PORT" >> $GITHUB_OUTPUT
+        echo "ws_port=$WS_PORT" >> $GITHUB_OUTPUT
+        echo "service_name=$SERVICE_NAME" >> $GITHUB_OUTPUT
+        echo "server_dir=$SERVER_DIR" >> $GITHUB_OUTPUT
+        echo "skip_frontend=$SKIP_FRONTEND" >> $GITHUB_OUTPUT
+        echo "skip_email_api=$SKIP_EMAIL_API" >> $GITHUB_OUTPUT
+        
+        echo "🔧 Deployment Configuration:"
+        echo "   Environment: $ENVIRONMENT"
+        echo "   Deployment Mode: $DEPLOYMENT_MODE"
+        echo "   API Port: $API_PORT"
+        echo "   WebSocket Port: $WS_PORT"
+        echo "   Service Name: $SERVICE_NAME"
+        echo "   Server Directory: $SERVER_DIR"
+        echo "   Skip Frontend: $SKIP_FRONTEND"
+        echo "   Skip Email API: $SKIP_EMAIL_API"
+
+  validate-configuration:
+    name: Validate Configuration and Secrets
+    runs-on: self-hosted
+    needs: determine-environment
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: 'server/package-lock.json'
+
+    - name: Install jq for configuration parsing
+      run: |
+        if ! command -v jq &> /dev/null; then
+          if command -v dnf &> /dev/null; then
+            sudo dnf install -y jq
+          elif command -v apt &> /dev/null; then
+            sudo apt update && sudo apt install -y jq
+          else
+            echo "❌ Cannot install jq - package manager not found"
+            exit 1
+          fi
+        fi
+        echo "✅ jq is available"
+
+    - name: Validate deployment configuration
+      run: |
+        cd server
+        chmod +x validate-deployment-config.sh
+        
+        # Export environment variables for validation
+        export SUPABASE_URL="${{ secrets.SUPABASE_URL || 'https://ecbuwhpipphdssqjwgfm.supabase.co' }}"
+        export SUPABASE_ANON_KEY="${{ secrets.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjYnV3aHBpcHBoZHNzcWp3Z2ZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg4NzU4NjEsImV4cCI6MjA2NDQ1MTg2MX0.QMWhB6lpgO3YRGg5kGKz7347DZzRcDiQ6QLupznZi1E' }}"
+        export EMAIL_HOST="${{ secrets.EMAIL_HOST || 'localhost' }}"
+        export EMAIL_PORT="${{ secrets.EMAIL_PORT || '587' }}"
+        export EMAIL_USER="${{ secrets.EMAIL_USER || 'test@investra.com' }}"
+        export EMAIL_PASSWORD="${{ secrets.EMAIL_PASSWORD || 'placeholder' }}"
+        export IMAP_HOST="${{ secrets.IMAP_HOST || 'localhost' }}"
+        export IMAP_PORT="${{ secrets.IMAP_PORT || '993' }}"
+        export IMAP_USER="${{ secrets.IMAP_USER || 'test@investra.com' }}"
+        export IMAP_PASSWORD="${{ secrets.IMAP_PASSWORD || 'placeholder' }}"
+        
+        # Validate configuration
+        ./validate-deployment-config.sh validate "${{ needs.determine-environment.outputs.environment }}"
+        
+        # Generate environment file for deployment
+        ./validate-deployment-config.sh generate "${{ needs.determine-environment.outputs.environment }}"
+        
+        echo "✅ Configuration validation completed"
+
+  stop-conflicting-services:
+    name: Stop Conflicting Services
+    runs-on: self-hosted
+    needs: [determine-environment, validate-configuration]
+    
+    steps:
+    - name: Stop conflicting services and free ports
+      run: |
+        echo "🛑 Stopping conflicting services for ${{ needs.determine-environment.outputs.environment }} deployment..."
+        
+        API_PORT="${{ needs.determine-environment.outputs.api_port }}"
+        SERVICE_NAME="${{ needs.determine-environment.outputs.service_name }}"
+        
+        # Stop systemd services
+        echo "🔧 Stopping systemd services..."
+        sudo systemctl stop investra-email-server 2>/dev/null || true
+        sudo systemctl stop investra-email-api-prod 2>/dev/null || true
+        sudo systemctl stop investra-email-api-staging 2>/dev/null || true
+        sudo systemctl stop investra-email-api-dev 2>/dev/null || true
+        
+        # Stop PM2 processes
+        echo "🔧 Stopping PM2 processes..."
+        if command -v pm2 >/dev/null 2>&1; then
+          pm2 stop all 2>/dev/null || true
+          pm2 delete all 2>/dev/null || true
+          pm2 kill 2>/dev/null || true
+        fi
+        
+        # Kill processes using target port
+        echo "🔧 Freeing port $API_PORT..."
+        sudo fuser -k "$API_PORT/tcp" 2>/dev/null || true
+        
+        # Wait for services to stop
+        sleep 5
+        
+        # Verify port is free
+        if netstat -tlnp 2>/dev/null | grep ":$API_PORT " || ss -tlnp 2>/dev/null | grep ":$API_PORT "; then
+          echo "⚠️ Port $API_PORT still in use, attempting force cleanup..."
+          sudo fuser -k -9 "$API_PORT/tcp" 2>/dev/null || true
+          sleep 3
+        fi
+        
+        echo "✅ Conflicting services stopped and ports freed"
+
+  deploy-frontend:
+    name: Deploy Frontend Application
+    runs-on: self-hosted
+    needs: [determine-environment, validate-configuration, stop-conflicting-services]
+    if: needs.determine-environment.outputs.skip_frontend != 'true'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+
+    - name: Install dependencies and build frontend
+      run: |
+        echo "🔧 Building frontend application..."
+        npm ci
+        cp .env.production .env
+        npm run build:prod
+        
+        if [ ! -d "dist" ] || [ ! -f "dist/index.html" ]; then
+          echo "❌ Frontend build failed"
+          exit 1
+        fi
+        
+        echo "✅ Frontend built successfully"
+
+    - name: Deploy frontend to web server
+      run: |
+        echo "🚀 Deploying frontend..."
+        
+        # Setup web server directories
+        sudo mkdir -p /var/www/investra-ai
+        
+        # Backup existing deployment
+        if [ -d "/var/www/investra-ai/current" ]; then
+          sudo mv /var/www/investra-ai/current /var/www/investra-ai/backup-$(date +%Y%m%d-%H%M%S)
+        fi
+        
+        # Deploy new version
+        sudo cp -r dist /var/www/investra-ai/current
+        
+        # Set permissions
+        WEB_USER="nginx"
+        if ! id nginx >/dev/null 2>&1; then
+          WEB_USER="www-data"
+        fi
+        sudo chown -R "$WEB_USER:$WEB_USER" /var/www/investra-ai/current
+        sudo chmod -R 755 /var/www/investra-ai/current
+        
+        echo "✅ Frontend deployed successfully"
+
+    - name: Configure and restart Nginx
+      run: |
+        echo "🌐 Configuring Nginx..."
+        
+        # Create Nginx configuration
+        sudo tee /etc/nginx/conf.d/investra-ai.conf > /dev/null << 'EOF'
+        server {
+            listen 80 default_server;
+            listen [::]:80 default_server;
+            server_name _;
+            root /var/www/investra-ai/current;
+            index index.html;
+            
+            # Security headers
+            add_header X-Frame-Options "SAMEORIGIN" always;
+            add_header X-Content-Type-Options "nosniff" always;
+            add_header X-XSS-Protection "1; mode=block" always;
+            
+            # Health check
+            location = /health {
+                access_log off;
+                return 200 "healthy\n";
+                add_header Content-Type text/plain;
+            }
+            
+            # Static assets
+            location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+                expires 1y;
+                add_header Cache-Control "public, immutable";
+                access_log off;
+            }
+            
+            # SPA routing
+            location / {
+                try_files $uri $uri/ /index.html;
+            }
+        }
+        EOF
+        
+        # Test and restart Nginx
+        sudo nginx -t
+        sudo systemctl restart nginx
+        
+        echo "✅ Nginx configured and restarted"
+
+  deploy-email-api:
+    name: Deploy Email API Server
+    runs-on: self-hosted
+    needs: [determine-environment, validate-configuration, stop-conflicting-services]
+    if: needs.determine-environment.outputs.skip_email_api != 'true'
+    environment: ${{ needs.determine-environment.outputs.environment }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: 'server/package-lock.json'
+
+    - name: Fix authentication middleware
+      run: |
+        cd server
+        chmod +x fix-auth-middleware.sh
+
+        echo "🔧 Fixing authentication middleware..."
+        ./fix-auth-middleware.sh fix
+
+        echo "✅ Authentication middleware fixed"
+
+    - name: Deploy email API with unified script
+      run: |
+        cd server
+        chmod +x unified-deployment.sh
+
+        # Export all required environment variables
+        export ENVIRONMENT="${{ needs.determine-environment.outputs.environment }}"
+        export DEPLOYMENT_MODE="${{ needs.determine-environment.outputs.deployment_mode }}"
+        export SUPABASE_URL="${{ secrets.SUPABASE_URL || 'https://ecbuwhpipphdssqjwgfm.supabase.co' }}"
+        export SUPABASE_ANON_KEY="${{ secrets.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjYnV3aHBpcHBoZHNzcWp3Z2ZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg4NzU4NjEsImV4cCI6MjA2NDQ1MTg2MX0.QMWhB6lpgO3YRGg5kGKz7347DZzRcDiQ6QLupznZi1E' }}"
+        export SUPABASE_SERVICE_KEY="${{ secrets.SUPABASE_SERVICE_KEY || '' }}"
+        export EMAIL_HOST="${{ secrets.EMAIL_HOST || 'localhost' }}"
+        export EMAIL_PORT="${{ secrets.EMAIL_PORT || '587' }}"
+        export EMAIL_USER="${{ secrets.EMAIL_USER || 'test@investra.com' }}"
+        export EMAIL_PASSWORD="${{ secrets.EMAIL_PASSWORD || 'placeholder' }}"
+        export IMAP_HOST="${{ secrets.IMAP_HOST || 'localhost' }}"
+        export IMAP_PORT="${{ secrets.IMAP_PORT || '993' }}"
+        export IMAP_USER="${{ secrets.IMAP_USER || 'test@investra.com' }}"
+        export IMAP_PASSWORD="${{ secrets.IMAP_PASSWORD || 'placeholder' }}"
+        export IMAP_SECURE="${{ secrets.IMAP_SECURE || 'true' }}"
+        export IMAP_ENABLED="${{ secrets.IMAP_ENABLED || 'true' }}"
+        export DATABASE_URL="${{ secrets.DATABASE_URL || '' }}"
+        export LOG_LEVEL="${{ secrets.LOG_LEVEL || 'info' }}"
+        export WS_ENABLED="${{ secrets.WS_ENABLED || 'false' }}"
+
+        echo "🚀 Starting unified email API deployment..."
+        echo "   Environment: $ENVIRONMENT"
+        echo "   Deployment Mode: $DEPLOYMENT_MODE"
+        echo "   API Port: ${{ needs.determine-environment.outputs.api_port }}"
+        echo "   Service Name: ${{ needs.determine-environment.outputs.service_name }}"
+
+        # Deploy using unified script
+        ./unified-deployment.sh deploy --env="$ENVIRONMENT" --mode="$DEPLOYMENT_MODE"
+
+        echo "✅ Email API deployment completed"
+
+  verify-deployment:
+    name: Verify Deployment
+    runs-on: self-hosted
+    needs: [determine-environment, deploy-frontend, deploy-email-api]
+    if: always() && (needs.deploy-frontend.result == 'success' || needs.deploy-email-api.result == 'success')
+
+    steps:
+    - name: Verify frontend deployment
+      if: needs.determine-environment.outputs.skip_frontend != 'true' && needs.deploy-frontend.result == 'success'
+      run: |
+        echo "🔍 Verifying frontend deployment..."
+
+        SERVER_IP=$(hostname -I | awk '{print $1}')
+
+        # Test health endpoint
+        if curl -f -s "http://$SERVER_IP/health" | grep -q "healthy"; then
+          echo "✅ Frontend health check passed"
+        else
+          echo "❌ Frontend health check failed"
+          exit 1
+        fi
+
+        # Test main application
+        if curl -f -s "http://$SERVER_IP/" | grep -qi "investra\|html\|<!DOCTYPE"; then
+          echo "✅ Frontend application responding correctly"
+        else
+          echo "❌ Frontend application not responding correctly"
+          exit 1
+        fi
+
+    - name: Verify email API deployment
+      if: needs.determine-environment.outputs.skip_email_api != 'true' && needs.deploy-email-api.result == 'success'
+      run: |
+        echo "🔍 Verifying email API deployment..."
+
+        API_PORT="${{ needs.determine-environment.outputs.api_port }}"
+        SERVER_IP=$(hostname -I | awk '{print $1}')
+
+        # Test API health endpoint
+        for i in {1..10}; do
+          if curl -f -s "http://$SERVER_IP:$API_PORT/health" | grep -q "healthy"; then
+            echo "✅ Email API health check passed"
+            break
+          elif [ $i -eq 10 ]; then
+            echo "❌ Email API health check failed after 10 attempts"
+            exit 1
+          else
+            echo "⏳ Waiting for API to be ready... ($i/10)"
+            sleep 3
+          fi
+        done
+
+        # Test API authentication endpoint (should return auth error, not 500)
+        AUTH_RESPONSE=$(curl -s "http://$SERVER_IP:$API_PORT/api/manual-review/stats" || echo "connection_failed")
+        if echo "$AUTH_RESPONSE" | grep -q "Missing or invalid Authorization header"; then
+          echo "✅ API authentication working correctly"
+        elif echo "$AUTH_RESPONSE" | grep -q "Authentication service not configured"; then
+          echo "❌ API authentication configuration error"
+          exit 1
+        else
+          echo "⚠️ Unexpected API response: $AUTH_RESPONSE"
+        fi
+
+    - name: Display deployment summary
+      run: |
+        echo ""
+        echo "🎉 Deployment Summary:"
+        echo "======================================"
+        echo "Environment: ${{ needs.determine-environment.outputs.environment }}"
+        echo "Deployment Mode: ${{ needs.determine-environment.outputs.deployment_mode }}"
+        echo ""
+
+        # Frontend status
+        if [ "${{ needs.determine-environment.outputs.skip_frontend }}" != "true" ]; then
+          if [ "${{ needs.deploy-frontend.result }}" = "success" ]; then
+            echo "Frontend: ✅ Deployed Successfully"
+          else
+            echo "Frontend: ❌ Deployment Failed"
+          fi
+        else
+          echo "Frontend: ⏭️ Skipped"
+        fi
+
+        # Email API status
+        if [ "${{ needs.determine-environment.outputs.skip_email_api }}" != "true" ]; then
+          if [ "${{ needs.deploy-email-api.result }}" = "success" ]; then
+            echo "Email API: ✅ Deployed Successfully"
+          else
+            echo "Email API: ❌ Deployment Failed"
+          fi
+        else
+          echo "Email API: ⏭️ Skipped"
+        fi
+
+        echo ""
+        echo "🌐 Access URLs:"
+        SERVER_IP=$(hostname -I | awk '{print $1}')
+
+        if [ "${{ needs.determine-environment.outputs.skip_frontend }}" != "true" ] && [ "${{ needs.deploy-frontend.result }}" = "success" ]; then
+          echo "   Frontend: http://$SERVER_IP"
+        fi
+
+        if [ "${{ needs.determine-environment.outputs.skip_email_api }}" != "true" ] && [ "${{ needs.deploy-email-api.result }}" = "success" ]; then
+          echo "   Email API: http://$SERVER_IP:${{ needs.determine-environment.outputs.api_port }}"
+          echo "   API Health: http://$SERVER_IP:${{ needs.determine-environment.outputs.api_port }}/health"
+        fi
+
+        echo ""
+        echo "✅ Unified deployment completed successfully!"
