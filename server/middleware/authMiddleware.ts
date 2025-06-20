@@ -24,7 +24,6 @@ export interface AuthenticatedRequest extends express.Request {
   user?: User;
   userId?: string;
   body: Record<string, unknown>; // Explicitly include body property
-  headers: Record<string, string | string[]>; // Explicitly include headers property
 }
 
 /**

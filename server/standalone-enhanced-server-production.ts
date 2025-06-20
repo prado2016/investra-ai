@@ -1534,7 +1534,7 @@ app.post('/api/configuration/reload', async (req, res) => {
 });
 
 // Manual Email Review endpoints for the new manual workflow
-app.get('/api/manual-review/emails', authenticateUser, async (req: AuthenticatedRequest, res) => {
+app.get('/api/manual-review/emails', authenticateUser, async (req: AuthenticatedRequest, res: express.Response) => {
   try {
     const userId = req.userId;
     if (!userId) {
@@ -1576,7 +1576,7 @@ app.get('/api/manual-review/emails', authenticateUser, async (req: Authenticated
       emailCount: result.emails?.length || 0 
     });
 
-    res.json({
+    return res.json({
       success: true,
       data: result.emails || [],
       total: result.emails?.length || 0,
@@ -1584,7 +1584,7 @@ app.get('/api/manual-review/emails', authenticateUser, async (req: Authenticated
     });
   } catch (error) {
     logger.error('Manual review emails error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: 'Failed to get emails for review',
       timestamp: new Date().toISOString()
@@ -1592,7 +1592,7 @@ app.get('/api/manual-review/emails', authenticateUser, async (req: Authenticated
   }
 });
 
-app.post('/api/manual-review/process', authenticateUser, async (req: AuthenticatedRequest, res) => {
+app.post('/api/manual-review/process', authenticateUser, async (req: AuthenticatedRequest, res: express.Response) => {
   try {
     const { emailId } = req.body;
     const userId = req.userId;
@@ -1638,7 +1638,7 @@ app.post('/api/manual-review/process', authenticateUser, async (req: Authenticat
   }
 });
 
-app.post('/api/manual-review/reject', authenticateUser, async (req: AuthenticatedRequest, res) => {
+app.post('/api/manual-review/reject', authenticateUser, async (req: AuthenticatedRequest, res: express.Response) => {
   try {
     const { emailId } = req.body;
     const userId = req.userId;
@@ -1715,7 +1715,7 @@ app.delete('/api/manual-review/delete', authenticateUser, async (req: Authentica
 });
 
 // Update the existing manual-review/stats endpoint to work with the new workflow
-app.get('/api/manual-review/stats', authenticateUser, async (req: AuthenticatedRequest, res) => {
+app.get('/api/manual-review/stats', authenticateUser, async (req: AuthenticatedRequest, res: express.Response) => {
   try {
     const userId = req.userId;
     if (!userId) {
@@ -1773,14 +1773,14 @@ app.get('/api/manual-review/stats', authenticateUser, async (req: AuthenticatedR
     
     logger.info('Manual review stats calculated', { userId, stats });
 
-    res.json({
+    return res.json({
       success: true,
       data: stats,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
     logger.error('Manual review stats error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: 'Failed to get manual review stats',
       timestamp: new Date().toISOString()
