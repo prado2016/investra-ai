@@ -205,29 +205,34 @@ async function deriveKey(userId: string, salt: Uint8Array): Promise<CryptoKey | 
     return null
   }
 
-  // Combine base key with user ID for user-specific keys
-  const keyMaterial = stringToArrayBuffer(BASE_ENCRYPTION_KEY + userId)
-  
-  const baseKey = await crypto.subtle.importKey(
-    'raw',
-    keyMaterial,
-    { name: 'PBKDF2' },
-    false,
-    ['deriveKey']
-  )
+  try {
+    // Combine base key with user ID for user-specific keys
+    const keyMaterial = stringToArrayBuffer(BASE_ENCRYPTION_KEY + userId)
+    
+    const baseKey = await crypto.subtle.importKey(
+      'raw',
+      keyMaterial,
+      { name: 'PBKDF2' },
+      false,
+      ['deriveKey']
+    )
 
-  return crypto.subtle.deriveKey(
-    {
-      name: 'PBKDF2',
-      salt: salt,
-      iterations: PBKDF2_ITERATIONS,
-      hash: 'SHA-256'
-    },
-    baseKey,
-    { name: 'AES-GCM', length: 256 },
-    false,
-    ['encrypt', 'decrypt']
-  )
+    return crypto.subtle.deriveKey(
+      {
+        name: 'PBKDF2',
+        salt: salt,
+        iterations: PBKDF2_ITERATIONS,
+        hash: 'SHA-256'
+      },
+      baseKey,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      ['encrypt', 'decrypt']
+    )
+  } catch (error) {
+    console.warn('Key derivation failed:', error)
+    return null
+  }
 }
 
 /**
@@ -259,7 +264,11 @@ export class EncryptionService {
       }
 
       // Check if Web Crypto API is available before calling any crypto functions
-      if (!crypto.subtle) {
+      // Also check if we have a real subtle implementation, not our fallback
+      const hasRealCrypto = crypto.subtle && typeof crypto.subtle.importKey === 'function' && 
+                           crypto.subtle.importKey.toString().indexOf('Web Crypto API not available') === -1;
+      
+      if (!crypto.subtle || !hasRealCrypto) {
         console.warn('Web Crypto API not available, using development fallback (data stored unencrypted)')
         // In development mode without HTTPS, store data unencrypted but marked as such
         const fallbackData = {
