@@ -87,6 +87,32 @@ jobs:
     - name: Build frontend for staging
       run: npm run build:staging
 
+    - name: Check system users for deployment
+      run: |
+        echo "=== System User Detection ==="
+        echo "Current user: $USER ($(id -u))"
+        echo "Current group: $(id -gn) ($(id -g))"
+        echo "All groups: $(id -Gn)"
+        echo ""
+        echo "Checking for web server users..."
+        
+        # Check using getent (more reliable)
+        echo "Using getent to check users:"
+        getent passwd www-data >/dev/null 2>&1 && echo "✅ www-data user exists ($(getent passwd www-data))" || echo "❌ www-data user not found"
+        getent passwd nginx >/dev/null 2>&1 && echo "✅ nginx user exists ($(getent passwd nginx))" || echo "❌ nginx user not found"
+        getent passwd apache >/dev/null 2>&1 && echo "✅ apache user exists ($(getent passwd apache))" || echo "❌ apache user not found"
+        getent passwd httpd >/dev/null 2>&1 && echo "✅ httpd user exists ($(getent passwd httpd))" || echo "❌ httpd user not found"
+        getent passwd investra >/dev/null 2>&1 && echo "✅ investra user exists ($(getent passwd investra))" || echo "❌ investra user not found"
+        
+        echo ""
+        echo "Available system directories:"
+        ls -la /var/www/ 2>/dev/null || echo "❌ /var/www/ directory not found"
+        ls -la /opt/ 2>/dev/null || echo "❌ /opt/ directory not found"
+        
+        echo ""
+        echo "Sudo capabilities:"
+        sudo whoami && echo "✅ Sudo access confirmed" || echo "❌ Sudo access failed"
+
     - name: Create backup of current staging
       run: |
         BACKUP_DIR="/var/www/investra-staging.backup.$(date +%Y%m%d_%H%M%S)"
@@ -99,7 +125,46 @@ jobs:
       run: |
         sudo mkdir -p /var/www/investra-staging
         sudo rsync -av --delete dist/ /var/www/investra-staging/
-        sudo chown -R www-data:www-data /var/www/investra-staging
+        
+        # Determine appropriate user/group for web server
+        WEB_USER=""
+        WEB_GROUP=""
+        
+        # Check for common web server users in order of preference
+        if getent passwd www-data >/dev/null 2>&1; then
+          WEB_USER="www-data"
+          WEB_GROUP="www-data"
+          echo "Using www-data user for web server"
+        elif getent passwd nginx >/dev/null 2>&1; then
+          WEB_USER="nginx"
+          WEB_GROUP="nginx"
+          echo "Using nginx user for web server"
+        elif getent passwd apache >/dev/null 2>&1; then
+          WEB_USER="apache"
+          WEB_GROUP="apache"
+          echo "Using apache user for web server"
+        elif getent passwd httpd >/dev/null 2>&1; then
+          WEB_USER="httpd"
+          WEB_GROUP="httpd"
+          echo "Using httpd user for web server"
+        else
+          # Fallback to current user
+          WEB_USER="$USER"
+          WEB_GROUP="$(id -gn)"
+          echo "No web server user found, using current user: $WEB_USER:$WEB_GROUP"
+        fi
+        
+        # Set ownership with error handling
+        if sudo chown -R "$WEB_USER:$WEB_GROUP" /var/www/investra-staging 2>/dev/null; then
+          echo "✅ Successfully set ownership to $WEB_USER:$WEB_GROUP"
+        else
+          echo "⚠️ Failed to set ownership to $WEB_USER:$WEB_GROUP, trying with current user"
+          sudo chown -R "$USER:$(id -gn)" /var/www/investra-staging
+        fi
+        
+        # Set appropriate permissions
+        sudo chmod -R 755 /var/www/investra-staging
+        echo "✅ Deployment permissions set successfully"
 
     - name: Build and deploy email-puller
       run: |
@@ -112,7 +177,37 @@ jobs:
           sudo mkdir -p /opt/investra/email-puller-staging
           sudo cp dist/imap-puller.js /opt/investra/email-puller-staging/
           sudo cp package.json /opt/investra/email-puller-staging/
-          sudo chown -R investra:investra /opt/investra/email-puller-staging
+          
+          # Determine appropriate user for service
+          SERVICE_USER=""
+          SERVICE_GROUP=""
+          
+          # Check for service users in order of preference
+          if getent passwd investra >/dev/null 2>&1; then
+            SERVICE_USER="investra"
+            SERVICE_GROUP="investra"
+            echo "Using investra user for email service"
+          elif getent passwd www-data >/dev/null 2>&1; then
+            SERVICE_USER="www-data"
+            SERVICE_GROUP="www-data"
+            echo "Using www-data user for email service"
+          else
+            # Fallback to current user
+            SERVICE_USER="$USER"
+            SERVICE_GROUP="$(id -gn)"
+            echo "No service user found, using current user: $SERVICE_USER:$SERVICE_GROUP"
+          fi
+          
+          # Set ownership with error handling
+          if sudo chown -R "$SERVICE_USER:$SERVICE_GROUP" /opt/investra/email-puller-staging 2>/dev/null; then
+            echo "✅ Successfully set email service ownership to $SERVICE_USER:$SERVICE_GROUP"
+          else
+            echo "⚠️ Failed to set ownership to $SERVICE_USER:$SERVICE_GROUP, trying with current user"
+            sudo chown -R "$USER:$(id -gn)" /opt/investra/email-puller-staging
+          fi
+          
+          # Set appropriate permissions
+          sudo chmod -R 755 /opt/investra/email-puller-staging
           
           # Restart staging service
           sudo pm2 stop investra-email-puller-staging || true
@@ -120,6 +215,7 @@ jobs:
           cd /opt/investra/email-puller-staging
           sudo pm2 start imap-puller.js --name investra-email-puller-staging
           sudo pm2 save
+          echo "✅ Email puller service deployed and started"
         fi
 
   integration-tests:
