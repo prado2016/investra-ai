@@ -91,15 +91,15 @@ jobs:
       run: |
         BACKUP_DIR="/var/www/investra-staging.backup.$(date +%Y%m%d_%H%M%S)"
         if [ -d "/var/www/investra-staging" ]; then
-          cp -r "/var/www/investra-staging" "$BACKUP_DIR"
+          sudo cp -r "/var/www/investra-staging" "$BACKUP_DIR"
           echo "BACKUP_DIR=$BACKUP_DIR" >> $GITHUB_ENV
         fi
 
     - name: Deploy frontend to staging
       run: |
-        mkdir -p /var/www/investra-staging
-        rsync -av --delete dist/ /var/www/investra-staging/
-        chown -R www-data:www-data /var/www/investra-staging
+        sudo mkdir -p /var/www/investra-staging
+        sudo rsync -av --delete dist/ /var/www/investra-staging/
+        sudo chown -R www-data:www-data /var/www/investra-staging
 
     - name: Build and deploy email-puller
       run: |
@@ -109,17 +109,17 @@ jobs:
           npm run build
           
           # Deploy to staging location
-          mkdir -p /opt/investra/email-puller-staging
-          cp dist/imap-puller.js /opt/investra/email-puller-staging/
-          cp package.json /opt/investra/email-puller-staging/
-          chown -R investra:investra /opt/investra/email-puller-staging
+          sudo mkdir -p /opt/investra/email-puller-staging
+          sudo cp dist/imap-puller.js /opt/investra/email-puller-staging/
+          sudo cp package.json /opt/investra/email-puller-staging/
+          sudo chown -R investra:investra /opt/investra/email-puller-staging
           
           # Restart staging service
-          pm2 stop investra-email-puller-staging || true
-          pm2 delete investra-email-puller-staging || true
+          sudo pm2 stop investra-email-puller-staging || true
+          sudo pm2 delete investra-email-puller-staging || true
           cd /opt/investra/email-puller-staging
-          pm2 start imap-puller.js --name investra-email-puller-staging
-          pm2 save
+          sudo pm2 start imap-puller.js --name investra-email-puller-staging
+          sudo pm2 save
         fi
 
   integration-tests:
