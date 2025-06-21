@@ -16,7 +16,8 @@ import {
   Calendar,
   Trash2,
   Eye,
-  FileText
+  FileText,
+  X
 } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -410,6 +411,125 @@ const ActionButtons = styled.div`
   margin-top: 1rem;
 `;
 
+const ModalOverlay = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 2rem;
+`;
+
+const ModalContent = styled.div`
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  max-width: 800px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+
+  [data-theme="dark"] & {
+    background: #1f2937;
+    color: #f3f4f6;
+  }
+`;
+
+const ModalHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+  gap: 1rem;
+`;
+
+const ModalTitle = styled.h2`
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+  line-height: 1.3;
+
+  [data-theme="dark"] & {
+    color: #f3f4f6;
+  }
+`;
+
+const CloseButton = styled.button`
+  background: none;
+  border: none;
+  padding: 0.5rem;
+  cursor: pointer;
+  border-radius: 6px;
+  color: #6b7280;
+  
+  &:hover {
+    background: #f3f4f6;
+    color: #374151;
+  }
+
+  [data-theme="dark"] & {
+    color: #9ca3af;
+    
+    &:hover {
+      background: #374151;
+      color: #d1d5db;
+    }
+  }
+`;
+
+const EmailDetail = styled.div`
+  margin-bottom: 1.5rem;
+`;
+
+const DetailLabel = styled.div`
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+
+  [data-theme="dark"] & {
+    color: #d1d5db;
+  }
+`;
+
+const DetailValue = styled.div`
+  color: #111827;
+  line-height: 1.5;
+  word-break: break-word;
+
+  [data-theme="dark"] & {
+    color: #f3f4f6;
+  }
+`;
+
+const EmailContent = styled.div`
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 1.5rem;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 400px;
+  overflow-y: auto;
+
+  [data-theme="dark"] & {
+    background: #111827;
+    border-color: #374151;
+    color: #d1d5db;
+  }
+`;
+
 const SimpleEmailManagement: React.FC = () => {
   usePageTitle('Email Import', { subtitle: 'Simple Email Database Viewer' });
   
@@ -424,6 +544,7 @@ const SimpleEmailManagement: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'processing' | 'error'>('all');
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedEmail, setSelectedEmail] = useState<EmailItem | null>(null);
 
   // Load data on mount and when user changes
   useEffect(() => {
@@ -805,7 +926,7 @@ const SimpleEmailManagement: React.FC = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => console.log('View email:', email)}
+                  onClick={() => setSelectedEmail(email)}
                 >
                   <Eye size={14} />
                   View Details
@@ -815,6 +936,84 @@ const SimpleEmailManagement: React.FC = () => {
           ))
         )}
       </EmailList>
+
+      {/* Email Detail Modal */}
+      {selectedEmail && (
+        <ModalOverlay onClick={() => setSelectedEmail(null)}>
+          <ModalContent onClick={(e) => e.stopPropagation()}>
+            <ModalHeader>
+              <ModalTitle>{selectedEmail.subject || 'No Subject'}</ModalTitle>
+              <CloseButton onClick={() => setSelectedEmail(null)}>
+                <X size={20} />
+              </CloseButton>
+            </ModalHeader>
+
+            <EmailDetail>
+              <DetailLabel>From</DetailLabel>
+              <DetailValue>
+                {selectedEmail.from_name 
+                  ? `${selectedEmail.from_name} <${selectedEmail.from_email}>` 
+                  : selectedEmail.from_email
+                }
+              </DetailValue>
+            </EmailDetail>
+
+            {selectedEmail.to_email && (
+              <EmailDetail>
+                <DetailLabel>To</DetailLabel>
+                <DetailValue>{selectedEmail.to_email}</DetailValue>
+              </EmailDetail>
+            )}
+
+            <EmailDetail>
+              <DetailLabel>Received</DetailLabel>
+              <DetailValue>{formatDate(selectedEmail.received_at)}</DetailValue>
+            </EmailDetail>
+
+            <EmailDetail>
+              <DetailLabel>Message ID</DetailLabel>
+              <DetailValue style={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
+                {selectedEmail.message_id}
+              </DetailValue>
+            </EmailDetail>
+
+            {selectedEmail.email_size && (
+              <EmailDetail>
+                <DetailLabel>Size</DetailLabel>
+                <DetailValue>{formatFileSize(selectedEmail.email_size)}</DetailValue>
+              </EmailDetail>
+            )}
+
+            <EmailDetail>
+              <DetailLabel>Status</DetailLabel>
+              <DetailValue>
+                <StatusBadge $status={selectedEmail.status}>
+                  {selectedEmail.status === 'pending' && <Clock size={12} />}
+                  {selectedEmail.status === 'processing' && <RefreshCw size={12} />}
+                  {selectedEmail.status === 'error' && <AlertCircle size={12} />}
+                  {selectedEmail.status.charAt(0).toUpperCase() + selectedEmail.status.slice(1)}
+                </StatusBadge>
+              </DetailValue>
+            </EmailDetail>
+
+            {selectedEmail.error_message && (
+              <EmailDetail>
+                <DetailLabel>Error Message</DetailLabel>
+                <DetailValue style={{ color: '#ef4444' }}>
+                  {selectedEmail.error_message}
+                </DetailValue>
+              </EmailDetail>
+            )}
+
+            <EmailDetail>
+              <DetailLabel>Content</DetailLabel>
+              <EmailContent>
+                {selectedEmail.text_content || selectedEmail.html_content || 'No content available'}
+              </EmailContent>
+            </EmailDetail>
+          </ModalContent>
+        </ModalOverlay>
+      )}
     </PageContainer>
   );
 };
