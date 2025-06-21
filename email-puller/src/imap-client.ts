@@ -39,8 +39,22 @@ export class ImapClient {
    */
   async connect(): Promise<void> {
     try {
-      // Decrypt the Gmail app password
-      const password = decrypt(this.config.encrypted_app_password);
+      // Try to decrypt the Gmail app password, fallback to environment variable
+      let password: string;
+      try {
+        password = decrypt(this.config.encrypted_app_password);
+        logger.debug(`Using decrypted password for ${this.config.gmail_email}`);
+      } catch (decryptError) {
+        // Fallback to environment variable for development/setup
+        const envPassword = process.env.IMAP_PASSWORD;
+        if (envPassword && this.config.gmail_email === process.env.IMAP_USERNAME) {
+          password = envPassword;
+          logger.warn(`Decryption failed for ${this.config.gmail_email}, using environment variable`);
+        } else {
+          logger.error(`Decryption failed and no fallback available for ${this.config.gmail_email}`);
+          throw decryptError;
+        }
+      }
 
       this.client = new ImapFlow({
         host: this.config.imap_host,
