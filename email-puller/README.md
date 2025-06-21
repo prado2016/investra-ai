@@ -290,6 +290,12 @@ IMAP_USERNAME=test@gmail.com IMAP_PASSWORD=apppassword npm run dev
 npm run build
 ```
 
+## Recent Updates
+
+- **2025-06-21**: Successfully configured production email sync with service role authentication
+- IMAP connection established and 12 emails synced successfully
+- Service now runs with proper Gmail app password and Supabase service role key
+
 ## License
 
 MIT License - see main Investra project for details.
