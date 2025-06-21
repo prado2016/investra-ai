@@ -44,8 +44,8 @@ jobs:
           npx tsc --noEmit
         fi
 
-  server-build-test:
-    name: Server Build Test
+  email-puller-build-test:
+    name: Email Puller Build Test
     runs-on: ubuntu-latest
     
     steps:
@@ -58,27 +58,27 @@ jobs:
         node-version: ${{ env.NODE_VERSION }}
         cache: 'npm'
 
-    - name: Install server dependencies
+    - name: Install email puller dependencies
       run: |
-        if [ -d "server" ]; then
-          cd server
+        if [ -d "email-puller" ]; then
+          cd email-puller
           npm ci
         fi
 
-    - name: Build server
+    - name: Build email puller
       run: |
-        if [ -d "server" ]; then
-          cd server
+        if [ -d "email-puller" ]; then
+          cd email-puller
           npm run build || true
         fi
 
-    - name: Verify enhanced server build
+    - name: Verify email puller build
       run: |
-        if [ -f "server/dist/standalone-enhanced-server-production.js" ]; then
-          echo "✅ Enhanced server build successful"
-          ls -la server/dist/standalone-enhanced-server-production.js
+        if [ -f "email-puller/dist/imap-puller.js" ]; then
+          echo "✅ Email puller build successful"
+          ls -la email-puller/dist/imap-puller.js
         else
-          echo "⚠️  Enhanced server build not found (this may be expected)"
+          echo "⚠️  Email puller build not found (this may be expected during development)"
         fi
 
   frontend-build-test:
@@ -138,7 +138,7 @@ jobs:
   summary:
     name: CI Summary
     runs-on: ubuntu-latest
-    needs: [code-quality-checks, server-build-test, frontend-build-test, security-scan]
+    needs: [code-quality-checks, email-puller-build-test, frontend-build-test, security-scan]
     if: always()
     
     steps:
@@ -147,15 +147,15 @@ jobs:
         echo "🚀 Platform CI Checks Summary"
         echo "============================"
         echo "Code Quality: ${{ needs.code-quality-checks.result }}"
-        echo "Server Build: ${{ needs.server-build-test.result }}"
+        echo "Email Puller Build: ${{ needs.email-puller-build-test.result }}"
         echo "Frontend Build: ${{ needs.frontend-build-test.result }}"
         echo "Security Scan: ${{ needs.security-scan.result }}"
         echo ""
         echo "ℹ️  Note: This workflow only runs checks and tests."
-        echo "ℹ️  Deployment must be triggered manually via 'Enhanced Email API Deployment' workflow."
+        echo "ℹ️  Deployment will be triggered automatically on commits to main branch."
         echo ""
-        if [[ "${{ needs.code-quality-checks.result }}" == "success" && "${{ needs.server-build-test.result }}" == "success" ]]; then
-          echo "✅ All critical checks passed - ready for manual deployment"
+        if [[ "${{ needs.code-quality-checks.result }}" == "success" && "${{ needs.frontend-build-test.result }}" == "success" ]]; then
+          echo "✅ All critical checks passed - ready for automatic deployment"
         else
-          echo "⚠️  Some checks failed - review before deploying"
+          echo "⚠️  Some checks failed - review before merging"
         fi

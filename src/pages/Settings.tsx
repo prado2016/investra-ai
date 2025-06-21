@@ -12,7 +12,7 @@ import ApiKeySettings from '../components/SimpleApiKeySettings';
 import GeminiTestComponent from '../components/GeminiTestComponent';
 import AccountDestinationManager from '../components/AccountDestinationManager';
 import PortfolioManagementModal from '../components/PortfolioManagementModal';
-import EmailDatabaseTest from '../components/EmailDatabaseTest';
+// EmailDatabaseTest removed - email system redesigned
 // import AIServicesTest from '../components/AIServicesTest';
 // import AISymbolLookupAPITest from '../components/AISymbolLookupAPITest';
 // import AISymbolInputTest from '../components/AISymbolInputTest';
@@ -632,7 +632,7 @@ const Settings: React.FC = () => {
 
       {/* Email Database Test */}
       <Section>
-        <EmailDatabaseTest />
+        {/* EmailDatabaseTest removed - email system redesigned */}
       </Section>
 
       {/* AI Services Test - Commented out due to import issues
@@ -825,7 +825,7 @@ const Settings: React.FC = () => {
           This verifies that the email configuration tables have been successfully deployed to Supabase.
         </Description>
         
-        <EmailDatabaseTest />
+        {/* EmailDatabaseTest removed - email system redesigned */}
       </Section>
 
       {/* Portfolio Management Modal */}

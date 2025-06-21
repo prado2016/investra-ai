@@ -1,100 +1,33 @@
 /**
  * Email Services Export Index
- * Central export point for all email processing services
+ * Centralized exports for all email-related services
  */
 
-// Core parsing service
-export { 
-  WealthsimpleEmailParser,
-  type WealthsimpleEmailData,
-  type EmailParseResult 
-} from './wealthsimpleEmailParser';
+// Service exports
+export { imapConfigurationService } from './imapConfigurationService';
+export { emailInboxService } from './emailInboxService';
+export { emailImportService } from './emailImportService';
 
-// Enhanced AI symbol processing
-export { 
-  EnhancedEmailSymbolParser,
-  type EmailSymbolParseResult 
-} from './enhancedEmailSymbolParser';
+// Type exports from IMAP Configuration Service
+export type {
+  ImapConfiguration,
+  ImapConfigurationInput,
+  TestConnectionRequest
+} from './imapConfigurationService';
 
-// Portfolio mapping service
-export { 
-  PortfolioMappingService,
-  type AccountPortfolioMapping,
-  type MappingResult 
-} from './portfolioMappingService';
+// Type exports from Email Inbox Service
+export type {
+  EmailInboxItem,
+  EmailProcessResult
+} from './emailInboxService';
 
-// Integration service
-export { 
-  EmailProcessingService,
-  type EmailProcessingResult,
-  type ProcessingOptions 
-} from './emailProcessingService';
+// Type exports from Email Import Service
+export type {
+  SyncStatus,
+  SyncResult
+} from './emailImportService';
 
-// Email identification service (Task 5.1)
-export { 
-  EmailIdentificationService,
-  type EmailIdentification,
-  type DuplicateDetectionData 
-} from './emailIdentificationService';
-
-// Multi-level duplicate detection service (Task 5.2)
-export { 
-  MultiLevelDuplicateDetection,
-  type DuplicateDetectionResult,
-  type DuplicateMatch,
-  type StoredEmailRecord 
-} from './multiLevelDuplicateDetection';
-
-// Time window processing service (Task 5.3)
-export { 
-  TimeWindowProcessing,
-  type TimeWindowAnalysis,
-  type TimeWindowConfig,
-  type RapidTradingPattern,
-  type PartialFillAnalysis,
-  type SplitOrderAnalysis 
-} from './timeWindowProcessing';
-
-// Manual review queue service (Task 5.4)
-export { 
-  ManualReviewQueue,
-  type ReviewQueueItem,
-  type ReviewQueueFilter,
-  type ReviewQueueStats,
-  type ReviewAction,
-  type QueueConfiguration 
-} from './manualReviewQueue';
-
-// IMAP email processor service (Task 7)
-export { 
-  IMAPEmailProcessor,
-  type IMAPConfig,
-  type EmailMessage,
-  type ProcessingResult,
-  type IMAPProcessorStats 
-} from './imapEmailProcessor';
-
-export { 
-  IMAPProcessorService,
-  type IMAPServiceConfig,
-  type ServiceStatus 
-} from './imapProcessorService';
-
-// Test utilities (for development)
-export { 
-  EmailParserTestSuite,
-  type TestResult 
-} from './tests/emailParserTests';
-
-// Re-export defaults with different names to avoid conflicts
-export { default as WealthsimpleEmailParserDefault } from './wealthsimpleEmailParser';
-export { default as EnhancedEmailSymbolParserDefault } from './enhancedEmailSymbolParser';
-export { default as PortfolioMappingServiceDefault } from './portfolioMappingService';
-export { default as EmailProcessingServiceDefault } from './emailProcessingService';
-export { default as EmailIdentificationServiceDefault } from './emailIdentificationService';
-export { default as MultiLevelDuplicateDetectionDefault } from './multiLevelDuplicateDetection';
-export { default as TimeWindowProcessingDefault } from './timeWindowProcessing';
-export { default as ManualReviewQueueDefault } from './manualReviewQueue';
-export { default as IMAPEmailProcessorDefault } from './imapEmailProcessor';
-export { default as IMAPProcessorServiceDefault } from './imapProcessorService';
-export { default as EmailParserTestSuiteDefault } from './tests/emailParserTests';
+// Common service response type
+export type {
+  ServiceResponse
+} from './imapConfigurationService';

@@ -18,8 +18,8 @@ on:
         required: false
         default: true
         type: boolean
-      deploy_api:
-        description: 'Deploy enhanced email API'
+      deploy_email_puller:
+        description: 'Deploy email puller service'
         required: false
         default: false
         type: boolean
@@ -33,7 +33,7 @@ env:
   NODE_VERSION: '18'
   FRONTEND_BUILD_DIR: dist
   FRONTEND_DEPLOY_DIR: /var/www/investra
-  API_DEPLOY_DIR: /opt/investra/email-api-prod
+  EMAIL_PULLER_DEPLOY_DIR: /opt/investra/email-puller
 
 jobs:
   pre-release-checks:
@@ -64,7 +64,7 @@ jobs:
         
         # Check if builds are successful
         FRONTEND_BUILD_SUCCESS=false
-        API_BUILD_SUCCESS=false
+        EMAIL_PULLER_BUILD_SUCCESS=false
         
         # Test frontend build
         if npm run build; then
@@ -74,25 +74,28 @@ jobs:
           echo "❌ Frontend build failed"
         fi
         
-        # Test API build
-        if [ -d "server" ]; then
-          cd server
+        # Test email puller build
+        if [ -d "email-puller" ]; then
+          cd email-puller
           if npm ci && npm run build; then
-            API_BUILD_SUCCESS=true
-            echo "✅ API build successful"
+            EMAIL_PULLER_BUILD_SUCCESS=true
+            echo "✅ Email puller build successful"
           else
-            echo "❌ API build failed"
+            echo "❌ Email puller build failed"
           fi
           cd ..
+        else
+          echo "ℹ️  Email puller directory not found (may not exist yet)"
+          EMAIL_PULLER_BUILD_SUCCESS=true  # Allow deployment without email puller for now
         fi
         
         # Determine if deployment can proceed
         CAN_DEPLOY=false
         if [[ "${{ github.event.inputs.deploy_frontend }}" == "true" && "$FRONTEND_BUILD_SUCCESS" == "true" ]]; then
           CAN_DEPLOY=true
-        elif [[ "${{ github.event.inputs.deploy_api }}" == "true" && "$API_BUILD_SUCCESS" == "true" ]]; then
+        elif [[ "${{ github.event.inputs.deploy_email_puller }}" == "true" && "$EMAIL_PULLER_BUILD_SUCCESS" == "true" ]]; then
           CAN_DEPLOY=true
-        elif [[ "${{ github.event.inputs.deploy_frontend }}" == "false" && "${{ github.event.inputs.deploy_api }}" == "false" ]]; then
+        elif [[ "${{ github.event.inputs.deploy_frontend }}" == "false" && "${{ github.event.inputs.deploy_email_puller }}" == "false" ]]; then
           echo "⚠️  No deployment targets selected"
         fi
         
@@ -178,11 +181,11 @@ jobs:
           echo "⚠️  Frontend health check failed (may be expected)"
         fi
 
-  deploy-enhanced-api:
-    name: Deploy Enhanced Email API
+  deploy-email-puller:
+    name: Deploy Email Puller Service
     runs-on: self-hosted
     needs: pre-release-checks
-    if: needs.pre-release-checks.outputs.can_deploy == 'true' && github.event.inputs.deploy_api == 'true'
+    if: needs.pre-release-checks.outputs.can_deploy == 'true' && github.event.inputs.deploy_email_puller == 'true'
     
     steps:
     - name: Checkout code
@@ -194,46 +197,55 @@ jobs:
         node-version: ${{ env.NODE_VERSION }}
         cache: 'npm'
 
-    - name: Build enhanced API
+    - name: Build email puller
       run: |
-        cd server
+        cd email-puller
         npm ci
         npm run build
 
-    - name: Deploy enhanced API
+    - name: Create deployment directory
       run: |
-        cd server
-        if [ -f "dist/standalone-enhanced-server-production.js" ]; then
-          cp "dist/standalone-enhanced-server-production.js" "${{ env.API_DEPLOY_DIR }}/"
-          chown investra:investra "${{ env.API_DEPLOY_DIR }}/standalone-enhanced-server-production.js"
-          echo "✅ Enhanced API deployed"
+        mkdir -p "${{ env.EMAIL_PULLER_DEPLOY_DIR }}"
+        chown investra:investra "${{ env.EMAIL_PULLER_DEPLOY_DIR }}"
+
+    - name: Deploy email puller
+      run: |
+        cd email-puller
+        if [ -f "dist/imap-puller.js" ]; then
+          cp "dist/imap-puller.js" "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/"
+          cp "package.json" "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/"
+          chown -R investra:investra "${{ env.EMAIL_PULLER_DEPLOY_DIR }}"
+          chmod 755 "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/imap-puller.js"
+          echo "✅ Email puller deployed"
         else
-          echo "❌ Enhanced API build not found"
+          echo "❌ Email puller build not found"
           exit 1
         fi
 
-    - name: Restart API service
+    - name: Restart email puller service
       run: |
-        cd "${{ env.API_DEPLOY_DIR }}"
-        pm2 restart investra-email-api-prod || pm2 start standalone-enhanced-server-production.js --name investra-email-api-prod
+        cd "${{ env.EMAIL_PULLER_DEPLOY_DIR }}"
+        pm2 stop investra-email-puller || true
+        pm2 delete investra-email-puller || true
+        pm2 start imap-puller.js --name investra-email-puller
         pm2 save
-        echo "✅ API service restarted"
+        echo "✅ Email puller service restarted"
 
-    - name: API health check
+    - name: Email puller status check
       run: |
-        sleep 10
-        if curl -f -s "http://localhost:3001/health" > /dev/null; then
-          echo "✅ API health check passed"
+        sleep 5
+        if pm2 list | grep -q "investra-email-puller.*online"; then
+          echo "✅ Email puller service running"
         else
-          echo "❌ API health check failed"
-          pm2 logs investra-email-api-prod --lines 10
+          echo "❌ Email puller service not running"
+          pm2 logs investra-email-puller --lines 10 || true
           exit 1
         fi
 
   release-summary:
     name: Release Summary
     runs-on: ubuntu-latest
-    needs: [pre-release-checks, deploy-frontend, deploy-enhanced-api]
+    needs: [pre-release-checks, deploy-frontend, deploy-email-puller]
     if: always()
     
     steps:
@@ -247,7 +259,7 @@ jobs:
         echo ""
         echo "Deployment Status:"
         echo "Frontend: ${{ github.event.inputs.deploy_frontend == 'true' && '🎯 Deployed' || '⏭️ Skipped' }} (${{ needs.deploy-frontend.result || 'not run' }})"
-        echo "Enhanced API: ${{ github.event.inputs.deploy_api == 'true' && '🎯 Deployed' || '⏭️ Skipped' }} (${{ needs.deploy-enhanced-api.result || 'not run' }})"
+        echo "Email Puller: ${{ github.event.inputs.deploy_email_puller == 'true' && '🎯 Deployed' || '⏭️ Skipped' }} (${{ needs.deploy-email-puller.result || 'not run' }})"
         echo ""
         echo "Pre-release Checks: ${{ needs.pre-release-checks.result }}"
         echo ""

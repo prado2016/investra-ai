@@ -1,0 +1,44 @@
+{
+  "name": "investra-email-puller",
+  "version": "1.0.0",
+  "description": "Standalone IMAP email puller for Investra AI",
+  "main": "dist/imap-puller.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc && node dist/imap-puller.js",
+    "start": "node dist/imap-puller.js",
+    "watch": "tsc --watch",
+    "clean": "rm -rf dist",
+    "lint": "eslint src/ --ext .ts",
+    "test": "echo \"No tests yet\" && exit 0"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.9",
+    "imapflow": "^1.0.188",
+    "mailparser": "^3.7.3",
+    "dotenv": "^16.5.0",
+    "crypto": "^1.0.1",
+    "node-cron": "^3.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/node-cron": "^3.0.11",
+    "typescript": "^5.0.0",
+    "eslint": "^8.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0"
+  },
+  "keywords": [
+    "email",
+    "imap",
+    "gmail",
+    "supabase",
+    "typescript"
+  ],
+  "author": "Investra AI",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
