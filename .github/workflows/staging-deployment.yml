@@ -130,8 +130,8 @@ jobs:
 
     - name: Deploy frontend to staging
       run: |
-        sudo mkdir -p /var/www/investra-staging
-        sudo rsync -av --delete dist/ /var/www/investra-staging/
+        sudo mkdir -p /var/www/investra-ai-staging
+        sudo rsync -av --delete dist/ /var/www/investra-ai-staging/current/
         
         # Determine appropriate user/group for web server
         WEB_USER=""
@@ -162,15 +162,15 @@ jobs:
         fi
         
         # Set ownership with error handling
-        if sudo chown -R "$WEB_USER:$WEB_GROUP" /var/www/investra-staging 2>/dev/null; then
+        if sudo chown -R "$WEB_USER:$WEB_GROUP" /var/www/investra-ai-staging 2>/dev/null; then
           echo "✅ Successfully set ownership to $WEB_USER:$WEB_GROUP"
         else
           echo "⚠️ Failed to set ownership to $WEB_USER:$WEB_GROUP, trying with current user"
-          sudo chown -R "$USER:$(id -gn)" /var/www/investra-staging
+          sudo chown -R "$USER:$(id -gn)" /var/www/investra-ai-staging
         fi
         
         # Set appropriate permissions
-        sudo chmod -R 755 /var/www/investra-staging
+        sudo chmod -R 755 /var/www/investra-ai-staging
         echo "✅ Deployment permissions set successfully"
 
     - name: Build and deploy email-puller
@@ -328,9 +328,9 @@ jobs:
         echo "=== Staging Deployment Verification ==="
         
         # Check if local staging deployment exists
-        if [ -d "/var/www/investra-staging" ]; then
-          echo "✅ Frontend deployed to /var/www/investra-staging"
-          ls -la /var/www/investra-staging/ | head -5
+        if [ -d "/var/www/investra-ai-staging/current" ]; then
+          echo "✅ Frontend deployed to /var/www/investra-ai-staging/current"
+          ls -la /var/www/investra-ai-staging/current/ | head -5
         else
           echo "❌ Frontend deployment directory not found"
         fi
@@ -392,7 +392,7 @@ jobs:
         else
           echo "⚠️ Staging URL not accessible, skipping health check"
           echo "📋 Deployment summary:"
-          echo "   • Frontend: /var/www/investra-staging/"
+          echo "   • Frontend: /var/www/investra-ai-staging/current/"
           echo "   • Email puller: /opt/investra/email-puller-staging/"
           echo "   • Manual test: Check if web server is configured for staging.investra.ai"
         fi
