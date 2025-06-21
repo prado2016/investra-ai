@@ -215,6 +215,40 @@ class SimpleEmailService {
 
       console.log('Checking email puller status for user:', user.id);
 
+      // Check if there's an IMAP configuration for this user
+      const { data: imapConfig, error: configError } = await supabase
+        .from('imap_configurations')
+        .select('id, is_active, sync_status, last_error')
+        .eq('user_id', user.id)
+        .limit(1);
+
+      if (configError) {
+        console.error('Error checking IMAP configuration:', configError);
+        return { 
+          data: { 
+            isConnected: false, 
+            emailCount: 0, 
+            error: `Configuration error: ${configError.message}` 
+          }, 
+          error: null 
+        };
+      }
+
+      if (!imapConfig || imapConfig.length === 0) {
+        console.log('No IMAP configuration found for user');
+        return { 
+          data: { 
+            isConnected: false, 
+            emailCount: 0, 
+            error: 'No IMAP configuration found. Please set up email pulling configuration.' 
+          }, 
+          error: null 
+        };
+      }
+
+      const config = imapConfig[0];
+      console.log('IMAP config found:', { id: config.id, active: config.is_active, status: config.sync_status });
+
       // Check for recent emails (within last hour) to determine if puller is active
       const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
       
@@ -254,19 +288,21 @@ class SimpleEmailService {
         };
       }
 
-      // Get latest email timestamp
-      const { data: latestEmail, error: latestError } = await supabase
+      // Get latest email timestamp (don't use .single() as it may return no rows)
+      const { data: latestEmails, error: latestError } = await supabase
         .from('imap_inbox')
         .select('created_at')
         .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
+        .limit(1);
+
+      const latestEmail = latestEmails && latestEmails.length > 0 ? latestEmails[0] : null;
 
       const status: EmailPullerStatus = {
         isConnected: (recentEmails && recentEmails.length > 0) || (count || 0) > 0,
         lastSync: latestEmail?.created_at,
         emailCount: count || 0,
-        error: latestError && !latestEmail ? latestError.message : undefined
+        // Only report database errors, not "no rows found" errors
+        error: latestError && latestError.code !== 'PGRST116' ? latestError.message : undefined
       };
 
       return { data: status, error: null };
