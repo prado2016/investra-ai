@@ -1,53 +1,149 @@
 /**
- * Email Process Queue Component
- * Manual review interface for emails from the IMAP inbox
+ * Simple Email Management Page
+ * Shows emails from database with email-puller status indicator
  */
-
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { 
   Mail, 
-  CheckCircle, 
-  XCircle, 
-  Trash2, 
-  RefreshCw,
+  RefreshCw, 
+  Search, 
+  Filter,
+  CheckCircle,
+  AlertCircle,
   Clock,
   User,
   Calendar,
-  Search,
-  Filter,
+  Trash2,
   Eye,
   FileText
 } from 'lucide-react';
-import { Card } from '../ui/Card';
-import { Button } from '../ui/Button';
-import { useNotifications } from '../../hooks/useNotifications';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { useNotifications } from '../hooks/useNotifications';
+import { simpleEmailService } from '../services/simpleEmailService';
+import type { EmailItem, EmailStats, EmailPullerStatus } from '../services/simpleEmailService';
+import { usePageTitle } from '../hooks/usePageTitle';
 
-const QueueContainer = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
+const PageContainer = styled.div`
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
 `;
 
-const Header = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 1rem;
+const PageHeader = styled.div`
+  margin-bottom: 2rem;
 `;
 
-const Title = styled.h2`
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: #111827;
-  margin: 0;
+const PageTitle = styled.h1`
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 0.5rem 0;
   display: flex;
   align-items: center;
   gap: 0.75rem;
 
   [data-theme="dark"] & {
-    color: #f3f4f6;
+    color: #f1f5f9;
+  }
+`;
+
+const PageSubtitle = styled.p`
+  font-size: 1.125rem;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.5;
+
+  [data-theme="dark"] & {
+    color: #94a3b8;
+  }
+`;
+
+const StatusCard = styled(Card)<{ $status: 'connected' | 'disconnected' | 'loading' }>`
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  border-left: 4px solid ${props => {
+    switch (props.$status) {
+      case 'connected': return '#10b981';
+      case 'disconnected': return '#ef4444';
+      case 'loading': return '#f59e0b';
+      default: return '#6b7280';
+    }
+  }};
+  background: ${props => {
+    switch (props.$status) {
+      case 'connected': return 'linear-gradient(135deg, #f0fdf9 0%, #ecfdf5 100%)';
+      case 'disconnected': return 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)';
+      case 'loading': return 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)';
+      default: return 'linear-gradient(135deg, #f8fafc 0%, #ffffff 100%)';
+    }
+  }};
+
+  [data-theme="dark"] & {
+    background: ${props => {
+      switch (props.$status) {
+        case 'connected': return 'linear-gradient(135deg, #064e3b 0%, #065f46 100%)';
+        case 'disconnected': return 'linear-gradient(135deg, #7f1d1d 0%, #991b1b 100%)';
+        case 'loading': return 'linear-gradient(135deg, #78350f 0%, #92400e 100%)';
+        default: return 'linear-gradient(135deg, #374151 0%, #4b5563 100%)';
+      }
+    }};
+  }
+`;
+
+const StatusHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+`;
+
+const StatusInfo = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+`;
+
+const StatusIcon = styled.div<{ $status: 'connected' | 'disconnected' | 'loading' }>`
+  color: ${props => {
+    switch (props.$status) {
+      case 'connected': return '#10b981';
+      case 'disconnected': return '#ef4444';
+      case 'loading': return '#f59e0b';
+      default: return '#6b7280';
+    }
+  }};
+
+  [data-theme="dark"] & {
+    color: ${props => {
+      switch (props.$status) {
+        case 'connected': return '#34d399';
+        case 'disconnected': return '#f87171';
+        case 'loading': return '#fbbf24';
+        default: return '#9ca3af';
+      }
+    }};
+  }
+`;
+
+const StatusText = styled.div`
+  font-weight: 600;
+  color: #111827;
+
+  [data-theme="dark"] & {
+    color: #f9fafb;
+  }
+`;
+
+const StatusDetails = styled.div`
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin-top: 0.5rem;
+
+  [data-theme="dark"] & {
+    color: #9ca3af;
   }
 `;
 
@@ -55,11 +151,11 @@ const StatsRow = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 1rem;
-  margin-bottom: 1.5rem;
+  margin-bottom: 2rem;
 `;
 
 const StatCard = styled(Card)`
-  padding: 1rem;
+  padding: 1.5rem;
   text-align: center;
   background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
   border: 1px solid #e2e8f0;
@@ -71,10 +167,10 @@ const StatCard = styled(Card)`
 `;
 
 const StatValue = styled.div`
-  font-size: 1.25rem;
+  font-size: 1.5rem;
   font-weight: 700;
   color: #111827;
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.5rem;
 
   [data-theme="dark"] & {
     color: #f3f4f6;
@@ -82,7 +178,7 @@ const StatValue = styled.div`
 `;
 
 const StatLabel = styled.div`
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   color: #6b7280;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -97,14 +193,15 @@ const ControlsRow = styled.div`
   gap: 1rem;
   align-items: center;
   flex-wrap: wrap;
+  margin-bottom: 2rem;
 `;
 
 const SearchInput = styled.input`
-  padding: 0.5rem 0.75rem;
+  padding: 0.75rem;
   border: 1px solid #d1d5db;
   border-radius: 8px;
   font-size: 0.875rem;
-  min-width: 250px;
+  min-width: 300px;
   
   &:focus {
     outline: none;
@@ -125,7 +222,7 @@ const SearchInput = styled.input`
 `;
 
 const FilterSelect = styled.select`
-  padding: 0.5rem 0.75rem;
+  padding: 0.75rem;
   border: 1px solid #d1d5db;
   border-radius: 8px;
   font-size: 0.875rem;
@@ -164,14 +261,6 @@ const EmailCard = styled(Card)<{ $priority: 'pending' | 'processing' | 'error' }
 
   [data-theme="dark"] & {
     background: #374151;
-    border-color: ${props => {
-      switch (props.$priority) {
-        case 'pending': return '#f59e0b';
-        case 'processing': return '#3b82f6';
-        case 'error': return '#ef4444';
-        default: return '#6b7280';
-      }
-    }};
   }
 `;
 
@@ -236,18 +325,11 @@ const EmailPreview = styled.div`
   }
 `;
 
-const ActionButtons = styled.div`
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  align-items: center;
-`;
-
 const StatusBadge = styled.span<{ $status: 'pending' | 'processing' | 'error' }>`
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  padding: 0.25rem 0.5rem;
+  padding: 0.25rem 0.75rem;
   border-radius: 12px;
   font-size: 0.75rem;
   font-weight: 500;
@@ -320,158 +402,125 @@ const EmptyIcon = styled.div`
   opacity: 0.5;
 `;
 
-// Types
-interface EmailItem {
-  id: string;
-  message_id: string;
-  subject: string;
-  from_email: string;
-  from_name?: string;
-  received_at: string;
-  status: 'pending' | 'processing' | 'error';
-  text_content?: string;
-  html_content?: string;
-  email_size?: number;
-  error_message?: string;
-}
+const ActionButtons = styled.div`
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-top: 1rem;
+`;
 
-interface EmailProcessQueueProps {
-  className?: string;
-}
-
-const EmailProcessQueue: React.FC<EmailProcessQueueProps> = ({ className }) => {
+const SimpleEmailManagement: React.FC = () => {
+  usePageTitle('Email Import', { subtitle: 'Simple Email Database Viewer' });
+  
   const { success, error } = useNotifications();
   
   // State management
   const [emails, setEmails] = useState<EmailItem[]>([]);
+  const [stats, setStats] = useState<EmailStats>({ total: 0, pending: 0, processing: 0, error: 0 });
+  const [pullerStatus, setPullerStatus] = useState<EmailPullerStatus>({ isConnected: false, emailCount: 0 });
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'processing' | 'error'>('all');
   const [refreshing, setRefreshing] = useState(false);
 
-  // Load emails on mount
+  // Load data on mount
   useEffect(() => {
-    loadEmails();
+    loadData();
   }, []);
 
-  const loadEmails = async () => {
+  const loadData = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/imap/inbox');
-      if (response.ok) {
-        const result = await response.json();
-        setEmails(result.data || []);
-      } else {
-        throw new Error('Failed to load emails');
-      }
-    } catch (err) {
-      console.error('Failed to load emails:', err);
-      error('Load Error', 'Failed to load emails from inbox');
-      setEmails([]); // Fallback to empty array
+      await Promise.all([
+        loadEmails(),
+        loadStats(),
+        loadPullerStatus()
+      ]);
     } finally {
       setLoading(false);
     }
   };
 
+  const loadEmails = async () => {
+    const statusFilterValue = statusFilter === 'all' ? undefined : statusFilter;
+    const result = await simpleEmailService.getEmails(statusFilterValue, 100);
+    
+    if (result.error) {
+      error('Load Error', result.error);
+      setEmails([]);
+    } else {
+      setEmails(result.data || []);
+    }
+  };
+
+  const loadStats = async () => {
+    const result = await simpleEmailService.getEmailStats();
+    
+    if (result.error) {
+      console.error('Failed to load stats:', result.error);
+    } else {
+      setStats(result.data || { total: 0, pending: 0, processing: 0, error: 0 });
+    }
+  };
+
+  const loadPullerStatus = async () => {
+    const result = await simpleEmailService.getEmailPullerStatus();
+    
+    if (result.error) {
+      console.error('Failed to load puller status:', result.error);
+    } else {
+      setPullerStatus(result.data || { isConnected: false, emailCount: 0 });
+    }
+  };
+
   const handleRefresh = async () => {
     setRefreshing(true);
-    await loadEmails();
+    await loadData();
     setRefreshing(false);
+    success('Refreshed', 'Email data has been refreshed');
   };
 
-  const approveEmail = async (emailId: string) => {
-    try {
-      const response = await fetch('/api/imap/approve', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ emailId })
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        
-        // Remove email from list (it's been moved to processed)
-        setEmails(prev => prev.filter(email => email.id !== emailId));
-        
-        const message = result.transactionId 
-          ? `Transaction created: ${result.transactionId}`
-          : 'Email approved and processed';
-        success('Email Approved', message);
-      } else {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Approval failed');
-      }
-    } catch (err) {
-      console.error('Failed to approve email:', err);
-      error('Approval Error', err instanceof Error ? err.message : 'Failed to approve email');
-    }
-  };
-
-  const rejectEmail = async (emailId: string) => {
-    try {
-      const response = await fetch('/api/imap/reject', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ emailId })
-      });
-
-      if (response.ok) {
-        // Remove email from list (it's been moved to processed)
-        setEmails(prev => prev.filter(email => email.id !== emailId));
-        success('Email Rejected', 'Email has been marked as rejected');
-      } else {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Rejection failed');
-      }
-    } catch (err) {
-      console.error('Failed to reject email:', err);
-      error('Rejection Error', err instanceof Error ? err.message : 'Failed to reject email');
-    }
-  };
-
-  const deleteEmail = async (emailId: string) => {
-    if (!confirm('Are you sure you want to permanently delete this email?')) {
+  const handleSearch = async () => {
+    if (!searchTerm.trim()) {
+      await loadEmails();
       return;
     }
 
-    try {
-      const response = await fetch(`/api/imap/inbox/${emailId}`, {
-        method: 'DELETE'
-      });
+    const statusFilterValue = statusFilter === 'all' ? undefined : statusFilter;
+    const result = await simpleEmailService.searchEmails(searchTerm, statusFilterValue);
+    
+    if (result.error) {
+      error('Search Error', result.error);
+    } else {
+      setEmails(result.data || []);
+    }
+  };
 
-      if (response.ok) {
-        setEmails(prev => prev.filter(email => email.id !== emailId));
-        success('Email Deleted', 'Email has been permanently deleted');
-      } else {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Deletion failed');
-      }
-    } catch (err) {
-      console.error('Failed to delete email:', err);
-      error('Delete Error', err instanceof Error ? err.message : 'Failed to delete email');
+  const handleDelete = async (emailId: string) => {
+    if (!confirm('Are you sure you want to delete this email?')) {
+      return;
+    }
+
+    const result = await simpleEmailService.deleteEmail(emailId);
+    
+    if (result.error) {
+      error('Delete Error', result.error);
+    } else {
+      success('Email Deleted', 'Email has been removed from the inbox');
+      setEmails(prev => prev.filter(email => email.id !== emailId));
+      await loadStats(); // Refresh stats
     }
   };
 
   // Filter emails based on search and status
   const filteredEmails = emails.filter(email => {
-    const matchesSearch = email.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         email.from_email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (email.from_name && email.from_name.toLowerCase().includes(searchTerm.toLowerCase()));
-    const matchesStatus = statusFilter === 'all' || email.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesSearch = !searchTerm || 
+      email.subject?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      email.from_email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      email.from_name?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    return matchesSearch;
   });
-
-  // Calculate stats
-  const stats = {
-    total: emails.length,
-    pending: emails.filter(e => e.status === 'pending').length,
-    processing: emails.filter(e => e.status === 'processing').length,
-    error: emails.filter(e => e.status === 'error').length
-  };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -493,23 +542,67 @@ const EmailProcessQueue: React.FC<EmailProcessQueueProps> = ({ className }) => {
     return content.substring(0, 200) + (content.length > 200 ? '...' : '');
   };
 
-  return (
-    <QueueContainer className={className}>
-      <Header>
-        <Title>
-          <Eye size={24} />
-          Email Process Queue
-        </Title>
-        <Button 
-          variant="outline" 
-          onClick={handleRefresh}
-          disabled={refreshing}
-        >
-          <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
-          Refresh
-        </Button>
-      </Header>
+  const getStatusIcon = () => {
+    if (loading) return <RefreshCw size={20} className="animate-spin" />;
+    if (pullerStatus.isConnected) return <CheckCircle size={20} />;
+    return <AlertCircle size={20} />;
+  };
 
+  const getStatusText = () => {
+    if (loading) return 'Checking...';
+    if (pullerStatus.isConnected) return 'Email Puller Connected';
+    return 'Email Puller Disconnected';
+  };
+
+  const getStatusType = (): 'connected' | 'disconnected' | 'loading' => {
+    if (loading) return 'loading';
+    return pullerStatus.isConnected ? 'connected' : 'disconnected';
+  };
+
+  return (
+    <PageContainer>
+      <PageHeader>
+        <PageTitle>
+          <Mail size={32} />
+          Email Import
+        </PageTitle>
+        <PageSubtitle>
+          Simple email database viewer with email-puller status
+        </PageSubtitle>
+      </PageHeader>
+
+      {/* Email Puller Status */}
+      <StatusCard $status={getStatusType()}>
+        <StatusHeader>
+          <StatusInfo>
+            <StatusIcon $status={getStatusType()}>
+              {getStatusIcon()}
+            </StatusIcon>
+            <div>
+              <StatusText>{getStatusText()}</StatusText>
+              <StatusDetails>
+                {pullerStatus.lastSync && (
+                  <>Last sync: {formatDate(pullerStatus.lastSync)} • </>
+                )}
+                {stats.total} emails in database
+                {pullerStatus.error && (
+                  <> • Error: {pullerStatus.error}</>
+                )}
+              </StatusDetails>
+            </div>
+          </StatusInfo>
+          <Button 
+            variant="outline" 
+            onClick={handleRefresh}
+            disabled={refreshing}
+          >
+            <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
+            Refresh
+          </Button>
+        </StatusHeader>
+      </StatusCard>
+
+      {/* Statistics */}
       <StatsRow>
         <StatCard>
           <StatValue>{stats.total}</StatValue>
@@ -517,7 +610,7 @@ const EmailProcessQueue: React.FC<EmailProcessQueueProps> = ({ className }) => {
         </StatCard>
         <StatCard>
           <StatValue>{stats.pending}</StatValue>
-          <StatLabel>Pending Review</StatLabel>
+          <StatLabel>Pending</StatLabel>
         </StatCard>
         <StatCard>
           <StatValue>{stats.processing}</StatValue>
@@ -529,8 +622,9 @@ const EmailProcessQueue: React.FC<EmailProcessQueueProps> = ({ className }) => {
         </StatCard>
       </StatsRow>
 
+      {/* Search and Filter Controls */}
       <ControlsRow>
-        <div style={{ position: 'relative' }}>
+        <div style={{ position: 'relative', flex: 1, maxWidth: '400px' }}>
           <Search size={16} style={{ 
             position: 'absolute', 
             left: '0.75rem', 
@@ -540,9 +634,10 @@ const EmailProcessQueue: React.FC<EmailProcessQueueProps> = ({ className }) => {
           }} />
           <SearchInput
             type="text"
-            placeholder="Search emails..."
+            placeholder="Search emails by subject or sender..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
             style={{ paddingLeft: '2.5rem' }}
           />
         </div>
@@ -559,8 +654,14 @@ const EmailProcessQueue: React.FC<EmailProcessQueueProps> = ({ className }) => {
             <option value="error">Error</option>
           </FilterSelect>
         </div>
+
+        <Button variant="primary" onClick={handleSearch}>
+          <Search size={16} />
+          Search
+        </Button>
       </ControlsRow>
 
+      {/* Email List */}
       <EmailList>
         {loading ? (
           <EmptyState>
@@ -575,12 +676,12 @@ const EmailProcessQueue: React.FC<EmailProcessQueueProps> = ({ className }) => {
               <Mail size={48} />
             </EmptyIcon>
             <div style={{ fontSize: '1.125rem', marginBottom: '0.5rem' }}>
-              {emails.length === 0 ? 'No emails in queue' : 'No emails match your filters'}
+              {emails.length === 0 ? 'No emails found' : 'No emails match your search'}
             </div>
             <div style={{ fontSize: '0.875rem' }}>
               {emails.length === 0 
-                ? 'Use "Start Email Pull" to import emails from Gmail'
-                : 'Try adjusting your search or filter criteria'
+                ? 'The email-puller hasn\'t imported any emails yet'
+                : 'Try adjusting your search criteria'
               }
             </div>
           </EmptyState>
@@ -611,7 +712,7 @@ const EmailProcessQueue: React.FC<EmailProcessQueueProps> = ({ className }) => {
                 <StatusBadge $status={email.status}>
                   {email.status === 'pending' && <Clock size={12} />}
                   {email.status === 'processing' && <RefreshCw size={12} />}
-                  {email.status === 'error' && <XCircle size={12} />}
+                  {email.status === 'error' && <AlertCircle size={12} />}
                   {email.status.charAt(0).toUpperCase() + email.status.slice(1)}
                 </StatusBadge>
               </EmailHeader>
@@ -626,40 +727,30 @@ const EmailProcessQueue: React.FC<EmailProcessQueueProps> = ({ className }) => {
                 </EmailPreview>
               )}
 
-              {email.status === 'pending' && (
-                <ActionButtons>
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={() => approveEmail(email.id)}
-                  >
-                    <CheckCircle size={14} />
-                    Approve & Process
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => rejectEmail(email.id)}
-                  >
-                    <XCircle size={14} />
-                    Reject
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => deleteEmail(email.id)}
-                  >
-                    <Trash2 size={14} />
-                    Delete
-                  </Button>
-                </ActionButtons>
-              )}
+              <ActionButtons>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleDelete(email.id)}
+                >
+                  <Trash2 size={14} />
+                  Delete
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => console.log('View email:', email)}
+                >
+                  <Eye size={14} />
+                  View Details
+                </Button>
+              </ActionButtons>
             </EmailCard>
           ))
         )}
       </EmailList>
-    </QueueContainer>
+    </PageContainer>
   );
 };
 
-export default EmailProcessQueue;
+export default SimpleEmailManagement;

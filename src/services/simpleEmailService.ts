@@ -1,0 +1,321 @@
+/**
+ * Simple Email Service
+ * Direct Supabase queries for email inbox viewing
+ */
+
+import { supabase } from '../lib/supabase';
+
+export interface EmailItem {
+  id: string;
+  user_id: string;
+  message_id: string;
+  thread_id?: string;
+  subject: string;
+  from_email: string;
+  from_name?: string;
+  to_email?: string;
+  reply_to?: string;
+  received_at: string;
+  raw_content?: string;
+  text_content?: string;
+  html_content?: string;
+  attachments_info?: any[];
+  email_size?: number;
+  priority: 'low' | 'normal' | 'high';
+  status: 'pending' | 'processing' | 'error';
+  error_message?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EmailStats {
+  total: number;
+  pending: number;
+  processing: number;
+  error: number;
+  latest_email?: string;
+}
+
+export interface EmailPullerStatus {
+  isConnected: boolean;
+  lastSync?: string;
+  emailCount: number;
+  error?: string;
+}
+
+class SimpleEmailService {
+  /**
+   * Get all emails from inbox for current user
+   */
+  async getEmails(
+    status?: 'pending' | 'processing' | 'error',
+    limit: number = 100
+  ): Promise<{ data: EmailItem[] | null; error: string | null }> {
+    try {
+      let query = supabase
+        .from('imap_inbox')
+        .select('*')
+        .order('received_at', { ascending: false })
+        .limit(limit);
+
+      if (status) {
+        query = query.eq('status', status);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error('Error fetching emails:', error);
+        return { data: null, error: error.message };
+      }
+
+      return { data: data || [], error: null };
+    } catch (err) {
+      console.error('Failed to fetch emails:', err);
+      return { 
+        data: null, 
+        error: err instanceof Error ? err.message : 'Failed to fetch emails' 
+      };
+    }
+  }
+
+  /**
+   * Get email statistics
+   */
+  async getEmailStats(): Promise<{ data: EmailStats | null; error: string | null }> {
+    try {
+      const { data, error } = await supabase
+        .from('imap_inbox')
+        .select('status, received_at');
+
+      if (error) {
+        console.error('Error fetching email stats:', error);
+        return { data: null, error: error.message };
+      }
+
+      if (!data) {
+        return { 
+          data: { 
+            total: 0, 
+            pending: 0, 
+            processing: 0, 
+            error: 0 
+          }, 
+          error: null 
+        };
+      }
+
+      const stats: EmailStats = {
+        total: data.length,
+        pending: data.filter(email => email.status === 'pending').length,
+        processing: data.filter(email => email.status === 'processing').length,
+        error: data.filter(email => email.status === 'error').length,
+        latest_email: data.length > 0 ? data[0].received_at : undefined
+      };
+
+      return { data: stats, error: null };
+    } catch (err) {
+      console.error('Failed to fetch email stats:', err);
+      return { 
+        data: null, 
+        error: err instanceof Error ? err.message : 'Failed to fetch email stats' 
+      };
+    }
+  }
+
+  /**
+   * Search emails by subject or sender
+   */
+  async searchEmails(
+    searchTerm: string,
+    status?: 'pending' | 'processing' | 'error'
+  ): Promise<{ data: EmailItem[] | null; error: string | null }> {
+    try {
+      let query = supabase
+        .from('imap_inbox')
+        .select('*')
+        .or(`subject.ilike.%${searchTerm}%,from_email.ilike.%${searchTerm}%,from_name.ilike.%${searchTerm}%`)
+        .order('received_at', { ascending: false })
+        .limit(50);
+
+      if (status) {
+        query = query.eq('status', status);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error('Error searching emails:', error);
+        return { data: null, error: error.message };
+      }
+
+      return { data: data || [], error: null };
+    } catch (err) {
+      console.error('Failed to search emails:', err);
+      return { 
+        data: null, 
+        error: err instanceof Error ? err.message : 'Failed to search emails' 
+      };
+    }
+  }
+
+  /**
+   * Get email puller status by checking recent activity
+   */
+  async getEmailPullerStatus(): Promise<{ data: EmailPullerStatus | null; error: string | null }> {
+    try {
+      // Check for recent emails (within last hour) to determine if puller is active
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+      
+      const { data: recentEmails, error: recentError } = await supabase
+        .from('imap_inbox')
+        .select('created_at')
+        .gte('created_at', oneHourAgo)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (recentError) {
+        console.error('Error checking recent emails:', recentError);
+        return { 
+          data: { 
+            isConnected: false, 
+            emailCount: 0, 
+            error: recentError.message 
+          }, 
+          error: null 
+        };
+      }
+
+      // Get total email count
+      const { count, error: countError } = await supabase
+        .from('imap_inbox')
+        .select('*', { count: 'exact', head: true });
+
+      if (countError) {
+        console.error('Error getting email count:', countError);
+        return { 
+          data: { 
+            isConnected: false, 
+            emailCount: 0, 
+            error: countError.message 
+          }, 
+          error: null 
+        };
+      }
+
+      // Get latest email timestamp
+      const { data: latestEmail, error: latestError } = await supabase
+        .from('imap_inbox')
+        .select('created_at')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      const status: EmailPullerStatus = {
+        isConnected: (recentEmails && recentEmails.length > 0) || (count || 0) > 0,
+        lastSync: latestEmail?.created_at,
+        emailCount: count || 0,
+        error: latestError && !latestEmail ? latestError.message : undefined
+      };
+
+      return { data: status, error: null };
+    } catch (err) {
+      console.error('Failed to get email puller status:', err);
+      return { 
+        data: { 
+          isConnected: false, 
+          emailCount: 0, 
+          error: err instanceof Error ? err.message : 'Failed to check status' 
+        }, 
+        error: null 
+      };
+    }
+  }
+
+  /**
+   * Get a single email by ID
+   */
+  async getEmailById(id: string): Promise<{ data: EmailItem | null; error: string | null }> {
+    try {
+      const { data, error } = await supabase
+        .from('imap_inbox')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error) {
+        console.error('Error fetching email:', error);
+        return { data: null, error: error.message };
+      }
+
+      return { data, error: null };
+    } catch (err) {
+      console.error('Failed to fetch email:', err);
+      return { 
+        data: null, 
+        error: err instanceof Error ? err.message : 'Failed to fetch email' 
+      };
+    }
+  }
+
+  /**
+   * Delete an email from inbox
+   */
+  async deleteEmail(id: string): Promise<{ success: boolean; error: string | null }> {
+    try {
+      const { error } = await supabase
+        .from('imap_inbox')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        console.error('Error deleting email:', error);
+        return { success: false, error: error.message };
+      }
+
+      return { success: true, error: null };
+    } catch (err) {
+      console.error('Failed to delete email:', err);
+      return { 
+        success: false, 
+        error: err instanceof Error ? err.message : 'Failed to delete email' 
+      };
+    }
+  }
+
+  /**
+   * Update email status
+   */
+  async updateEmailStatus(
+    id: string, 
+    status: 'pending' | 'processing' | 'error',
+    errorMessage?: string
+  ): Promise<{ success: boolean; error: string | null }> {
+    try {
+      const updateData: any = { status };
+      if (errorMessage !== undefined) {
+        updateData.error_message = errorMessage;
+      }
+
+      const { error } = await supabase
+        .from('imap_inbox')
+        .update(updateData)
+        .eq('id', id);
+
+      if (error) {
+        console.error('Error updating email status:', error);
+        return { success: false, error: error.message };
+      }
+
+      return { success: true, error: null };
+    } catch (err) {
+      console.error('Failed to update email status:', err);
+      return { 
+        success: false, 
+        error: err instanceof Error ? err.message : 'Failed to update email status' 
+      };
+    }
+  }
+}
+
+export const simpleEmailService = new SimpleEmailService();

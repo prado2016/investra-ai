@@ -25,7 +25,7 @@ import Positions from './pages/Positions';
 import Transactions from './pages/Transactions';
 import Summary from './pages/Summary';
 import Settings from './pages/Settings';
-import EmailManagement from './pages/EmailManagement';
+import SimpleEmailManagement from './pages/SimpleEmailManagement';
 import Notifications from './pages/Notifications';
 import DebugLogs from './pages/DebugLogs';
 import EncryptionServiceTest from './components/EncryptionServiceTest';
@@ -175,7 +175,7 @@ function AppContent() {
               <Route path="/transactions" element={<Transactions />} />
               <Route path="/summary" element={<Summary />} />
               <Route path="/daily-summary" element={<Navigate to="/summary" replace />} />
-              <Route path="/email-management" element={<EmailManagement />} />
+              <Route path="/email-management" element={<SimpleEmailManagement />} />
               <Route path="/notifications" element={<Notifications />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/debug-logs" element={<DebugLogs />} />
@@ -216,7 +216,7 @@ function AppContent() {
             <Route path="/transactions" element={<Transactions />} />
             <Route path="/summary" element={<Summary />} />
             <Route path="/daily-summary" element={<Navigate to="/summary" replace />} />
-            <Route path="/email-management" element={<EmailManagement />} />
+            <Route path="/email-management" element={<SimpleEmailManagement />} />
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/debug-logs" element={<DebugLogs />} />
