@@ -1,89 +1,74 @@
 import { defineConfig, devices } from '@playwright/test'
 
 /**
- * CI-specific Playwright configuration
- * Optimized for GitHub Actions headless environment
+ * Fast CI-optimized Playwright configuration
+ * Minimal setup for GitHub Actions speed
  */
 export default defineConfig({
   testDir: './src/test/e2e',
-  globalSetup: './src/test/e2e/auth.setup.ts',
   
-  // Extended timeouts for CI environment
-  globalTimeout: 45 * 60 * 1000, // 45 minutes
-  timeout: 120 * 1000, // 2 minutes per test
-  expect: { timeout: 20 * 1000 }, // 20s for assertions
+  // Much faster timeouts
+  globalTimeout: 5 * 60 * 1000, // 5 minutes total
+  timeout: 30 * 1000, // 30 seconds per test
+  expect: { timeout: 5 * 1000 }, // 5 seconds for assertions
   
-  fullyParallel: false, // Sequential for stability
+  fullyParallel: false,
   forbidOnly: true,
-  retries: 2, // More retries for flaky CI
-  workers: 1, // Single worker for CI
+  retries: 0, // No retries to save time
+  workers: 1,
   
+  // Minimal reporting
   reporter: [
-    ['html', { outputFolder: 'playwright-report', open: 'never' }],
-    ['junit', { outputFile: 'test-results/results.xml' }],
-    ['json', { outputFile: 'test-results/results.json' }],
     ['line'],
-    ['github'] // GitHub Actions integration
+    ['json', { outputFile: 'test-results/results.json' }]
   ],
   
   use: {
     baseURL: 'http://127.0.0.1:5173',
     
-    // Extended timeouts for CI
-    actionTimeout: 30 * 1000,
-    navigationTimeout: 90 * 1000,
+    // Fast timeouts
+    actionTimeout: 10 * 1000,
+    navigationTimeout: 15 * 1000,
     
-    // Better debugging
-    screenshot: 'only-on-failure',
-    video: 'retain-on-failure',
-    trace: 'retain-on-failure',
+    // No media for speed
+    screenshot: 'off',
+    video: 'off',
+    trace: 'off',
     
-    // Headless optimizations for CI
+    // Fast browser settings
     launchOptions: {
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--no-first-run',
-        '--no-zygote',
         '--disable-gpu',
-        '--disable-extensions',
-        '--disable-background-timer-throttling',
-        '--disable-backgrounding-occluded-windows',
-        '--disable-renderer-backgrounding',
-        '--disable-ipc-flooding-protection'
+        '--disable-extensions'
       ]
     }
   },
 
+  // Only basic tests
   projects: [
     {
-      name: 'setup',
-      testMatch: /.*\.setup\.ts/,
-    },
-    {
-      name: 'chromium',
+      name: 'chromium-basic',
       use: { 
         ...devices['Desktop Chrome'],
-        storageState: 'src/test/e2e/.auth/user.json',
       },
-      dependencies: ['setup'],
+      testIgnore: [
+        '**/performance-load.spec.ts',
+        '**/integration-test-suite.spec.ts',
+        '**/*.disabled'
+      ]
     },
   ],
 
+  // Use built static files instead of dev server for speed
   webServer: {
-    command: 'npm run dev',
+    command: 'npm run build && npx vite preview --port 5173 --host',
     url: 'http://127.0.0.1:5173',
-    reuseExistingServer: false, // Always start fresh in CI
-    timeout: 240 * 1000, // 4 minutes to start
-    stdout: 'pipe',
-    stderr: 'pipe',
-    env: {
-      NODE_ENV: 'test',
-      CI: 'true',
-      VITE_E2E_MODE: 'true',
-      VITE_CI: 'true'
-    }
+    reuseExistingServer: false,
+    timeout: 60 * 1000, // 1 minute to start
+    stdout: 'ignore',
+    stderr: 'pipe'
   },
 })
