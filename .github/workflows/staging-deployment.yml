@@ -112,6 +112,12 @@ jobs:
         echo ""
         echo "Sudo capabilities:"
         sudo whoami && echo "✅ Sudo access confirmed" || echo "❌ Sudo access failed"
+        
+        echo ""
+        echo "Process management tools:"
+        command -v pm2 >/dev/null 2>&1 && echo "✅ PM2 available: $(which pm2)" || echo "❌ PM2 not found"
+        command -v systemctl >/dev/null 2>&1 && echo "✅ systemctl available: $(which systemctl)" || echo "❌ systemctl not found"
+        command -v service >/dev/null 2>&1 && echo "✅ service available: $(which service)" || echo "❌ service not found"
 
     - name: Create backup of current staging
       run: |
@@ -227,13 +233,39 @@ jobs:
           # Set appropriate permissions
           sudo chmod -R 755 /opt/investra/email-puller-staging
           
-          # Restart staging service
-          sudo pm2 stop investra-email-puller-staging || true
-          sudo pm2 delete investra-email-puller-staging || true
-          cd /opt/investra/email-puller-staging
-          sudo pm2 start imap-puller.js --name investra-email-puller-staging
-          sudo pm2 save
-          echo "✅ Email puller service deployed and started"
+          # Check if pm2 is available and manage service accordingly
+          if command -v pm2 >/dev/null 2>&1; then
+            echo "✅ PM2 found, managing service with PM2"
+            # Restart staging service with PM2
+            sudo pm2 stop investra-email-puller-staging || true
+            sudo pm2 delete investra-email-puller-staging || true
+            cd /opt/investra/email-puller-staging
+            sudo pm2 start imap-puller.js --name investra-email-puller-staging
+            sudo pm2 save
+            echo "✅ Email puller service deployed and started with PM2"
+          else
+            echo "⚠️ PM2 not found, installing PM2 globally"
+            # Install PM2 globally
+            sudo npm install -g pm2
+            
+            # Verify PM2 installation
+            if command -v pm2 >/dev/null 2>&1; then
+              echo "✅ PM2 installed successfully, starting service"
+              # Initialize PM2 and start service
+              cd /opt/investra/email-puller-staging
+              sudo pm2 stop investra-email-puller-staging || true
+              sudo pm2 delete investra-email-puller-staging || true
+              sudo pm2 start imap-puller.js --name investra-email-puller-staging
+              sudo pm2 save
+              sudo pm2 startup || true  # Setup PM2 to start on boot (may fail in CI, that's ok)
+              echo "✅ Email puller service deployed and started with newly installed PM2"
+            else
+              echo "⚠️ PM2 installation failed, deploying without process management"
+              echo "📁 Email puller artifacts copied to /opt/investra/email-puller-staging/"
+              echo "📋 Manual start command: cd /opt/investra/email-puller-staging && node imap-puller.js"
+              echo "✅ Email puller deployment completed (manual start required)"
+            fi
+          fi
         fi
 
   integration-tests:

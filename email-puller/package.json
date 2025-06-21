@@ -18,7 +18,6 @@
     "imapflow": "^1.0.188",
     "mailparser": "^3.7.3",
     "dotenv": "^16.5.0",
-    "crypto": "^1.0.1",
     "node-cron": "^3.0.3"
   },
   "devDependencies": {
