@@ -115,10 +115,12 @@ jobs:
 
     - name: Check email-puller exists
       id: check-email-puller
-      uses: andstor/file-existence-action@v3
-      with:
-        files: "email-puller"
-        fail: false
+      run: |
+        if [ -d "email-puller" ]; then
+          echo "files_exists=true" >> $GITHUB_OUTPUT
+        else
+          echo "files_exists=false" >> $GITHUB_OUTPUT
+        fi
 
     - name: Install email-puller dependencies
       if: steps.check-email-puller.outputs.files_exists == 'true'

@@ -166,11 +166,24 @@ jobs:
           curl -f -s "${{ env.PRODUCTION_URL }}" > /dev/null
 
     - name: Production health check
-      uses: jtalk/url-health-check-action@v4
-      with:
-        url: ${{ env.PRODUCTION_URL }}
-        max-attempts: 5
-        retry-delay: 30s
+      run: |
+        echo "🔍 Running production health checks..."
+        
+        # Frontend health check with retries
+        for i in {1..5}; do
+          response=$(curl -s -o /dev/null -w "%{http_code}" "${{ env.PRODUCTION_URL }}")
+          if [ "$response" = "200" ]; then
+            echo "✅ Frontend production health check passed (HTTP $response)"
+            break
+          else
+            echo "⚠️ Attempt $i failed (HTTP $response), retrying in 30s..."
+            if [ $i -eq 5 ]; then
+              echo "❌ Frontend production health check failed after 5 attempts"
+              exit 1
+            fi
+            sleep 30
+          fi
+        done
         
     - name: Performance check
       uses: actions/github-script@v7
