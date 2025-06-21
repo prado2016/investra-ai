@@ -170,8 +170,26 @@ jobs:
       run: |
         if [ -d "email-puller" ]; then
           cd email-puller
-          npm ci
+          echo "=== Email Puller Build Process ==="
+          
+          # Check if package-lock.json exists and install dependencies accordingly
+          if [ -f "package-lock.json" ]; then
+            echo "✅ package-lock.json found, using npm ci"
+            npm ci
+          else
+            echo "⚠️ package-lock.json not found, using npm install"
+            npm install
+          fi
+          
+          echo "Building email-puller..."
           npm run build
+          
+          # Verify build artifacts exist
+          if [ ! -f "dist/imap-puller.js" ]; then
+            echo "❌ Build failed: dist/imap-puller.js not found"
+            exit 1
+          fi
+          echo "✅ Email puller build completed successfully"
           
           # Deploy to staging location
           sudo mkdir -p /opt/investra/email-puller-staging
