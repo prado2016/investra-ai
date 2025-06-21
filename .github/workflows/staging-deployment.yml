@@ -115,7 +115,8 @@ jobs:
         
         echo ""
         echo "Process management tools:"
-        command -v pm2 >/dev/null 2>&1 && echo "✅ PM2 available: $(which pm2)" || echo "❌ PM2 not found"
+        command -v pm2 >/dev/null 2>&1 && echo "✅ PM2 available for user: $(which pm2)" || echo "❌ PM2 not found for user"
+        sudo which pm2 >/dev/null 2>&1 && echo "✅ PM2 available with sudo: $(sudo which pm2)" || echo "❌ PM2 not available with sudo"
         command -v systemctl >/dev/null 2>&1 && echo "✅ systemctl available: $(which systemctl)" || echo "❌ systemctl not found"
         command -v service >/dev/null 2>&1 && echo "✅ service available: $(which service)" || echo "❌ service not found"
 
@@ -235,21 +236,56 @@ jobs:
           
           # Check if pm2 is available and manage service accordingly
           if command -v pm2 >/dev/null 2>&1; then
-            echo "✅ PM2 found, managing service with PM2"
-            # Restart staging service with PM2
-            sudo pm2 stop investra-email-puller-staging || true
-            sudo pm2 delete investra-email-puller-staging || true
-            cd /opt/investra/email-puller-staging
-            sudo pm2 start imap-puller.js --name investra-email-puller-staging
-            sudo pm2 save
-            echo "✅ Email puller service deployed and started with PM2"
+            echo "✅ PM2 found, checking sudo access to PM2"
+            
+            # Check if PM2 is available with sudo
+            if sudo which pm2 >/dev/null 2>&1; then
+              echo "✅ PM2 available with sudo, managing service with PM2"
+              # Restart staging service with PM2
+              sudo pm2 stop investra-email-puller-staging || true
+              sudo pm2 delete investra-email-puller-staging || true
+              cd /opt/investra/email-puller-staging
+              sudo pm2 start imap-puller.js --name investra-email-puller-staging
+              sudo pm2 save
+              echo "✅ Email puller service deployed and started with PM2"
+            else
+              echo "⚠️ PM2 found for user but not available with sudo, installing globally"
+              # Install PM2 globally so it's available with sudo
+              sudo npm install -g pm2
+              
+              # Verify PM2 installation with sudo
+              if sudo which pm2 >/dev/null 2>&1; then
+                echo "✅ PM2 installed globally, starting service"
+                cd /opt/investra/email-puller-staging
+                sudo pm2 stop investra-email-puller-staging || true
+                sudo pm2 delete investra-email-puller-staging || true
+                sudo pm2 start imap-puller.js --name investra-email-puller-staging
+                sudo pm2 save
+                sudo pm2 startup || true  # Setup PM2 to start on boot (may fail in CI, that's ok)
+                echo "✅ Email puller service deployed and started with globally installed PM2"
+              else
+                echo "⚠️ Global PM2 installation failed, trying user PM2 without sudo"
+                # Try to use user PM2 without sudo and change ownership afterwards
+                cd /opt/investra/email-puller-staging
+                # Change ownership to current user temporarily
+                sudo chown -R "$USER:$(id -gn)" /opt/investra/email-puller-staging
+                # Use user PM2
+                pm2 stop investra-email-puller-staging || true
+                pm2 delete investra-email-puller-staging || true
+                pm2 start imap-puller.js --name investra-email-puller-staging
+                pm2 save
+                # Change ownership back to service user
+                sudo chown -R "$SERVICE_USER:$SERVICE_GROUP" /opt/investra/email-puller-staging
+                echo "✅ Email puller service deployed with user PM2 (ownership corrected)"
+              fi
+            fi
           else
             echo "⚠️ PM2 not found, installing PM2 globally"
             # Install PM2 globally
             sudo npm install -g pm2
             
             # Verify PM2 installation
-            if command -v pm2 >/dev/null 2>&1; then
+            if sudo which pm2 >/dev/null 2>&1; then
               echo "✅ PM2 installed successfully, starting service"
               # Initialize PM2 and start service
               cd /opt/investra/email-puller-staging
