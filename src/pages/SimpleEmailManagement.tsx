@@ -24,6 +24,7 @@ import { useNotifications } from '../hooks/useNotifications';
 import { simpleEmailService } from '../services/simpleEmailService';
 import type { EmailItem, EmailStats, EmailPullerStatus } from '../services/simpleEmailService';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { useAuth } from '../contexts/AuthProvider';
 
 const PageContainer = styled.div`
   padding: 2rem;
@@ -413,6 +414,7 @@ const SimpleEmailManagement: React.FC = () => {
   usePageTitle('Email Import', { subtitle: 'Simple Email Database Viewer' });
   
   const { success, error } = useNotifications();
+  const { user, loading: authLoading } = useAuth();
   
   // State management
   const [emails, setEmails] = useState<EmailItem[]>([]);
@@ -423,10 +425,12 @@ const SimpleEmailManagement: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'processing' | 'error'>('all');
   const [refreshing, setRefreshing] = useState(false);
 
-  // Load data on mount
+  // Load data on mount and when user changes
   useEffect(() => {
-    loadData();
-  }, []);
+    if (!authLoading && user) {
+      loadData();
+    }
+  }, [authLoading, user]);
 
   const loadData = async () => {
     setLoading(true);
@@ -558,6 +562,65 @@ const SimpleEmailManagement: React.FC = () => {
     if (loading) return 'loading';
     return pullerStatus.isConnected ? 'connected' : 'disconnected';
   };
+
+  // Show loading state while checking authentication
+  if (authLoading) {
+    return (
+      <PageContainer>
+        <EmptyState>
+          <EmptyIcon>
+            <RefreshCw size={48} className="animate-spin" />
+          </EmptyIcon>
+          <div>Loading authentication...</div>
+        </EmptyState>
+      </PageContainer>
+    );
+  }
+
+  // Show authentication required message
+  if (!user) {
+    return (
+      <PageContainer>
+        <PageHeader>
+          <PageTitle>
+            <Mail size={32} />
+            Email Import
+          </PageTitle>
+          <PageSubtitle>
+            Simple email database viewer with email-puller status
+          </PageSubtitle>
+        </PageHeader>
+
+        <StatusCard $status="disconnected">
+          <StatusHeader>
+            <StatusInfo>
+              <StatusIcon $status="disconnected">
+                <AlertCircle size={20} />
+              </StatusIcon>
+              <div>
+                <StatusText>Authentication Required</StatusText>
+                <StatusDetails>
+                  Please log in to view email data. The email system requires authentication to access your inbox.
+                </StatusDetails>
+              </div>
+            </StatusInfo>
+          </StatusHeader>
+        </StatusCard>
+
+        <EmptyState>
+          <EmptyIcon>
+            <Mail size={48} />
+          </EmptyIcon>
+          <div style={{ fontSize: '1.125rem', marginBottom: '0.5rem' }}>
+            Authentication Required
+          </div>
+          <div style={{ fontSize: '0.875rem' }}>
+            Please log in to access your email inbox and view email-puller status
+          </div>
+        </EmptyState>
+      </PageContainer>
+    );
+  }
 
   return (
     <PageContainer>
