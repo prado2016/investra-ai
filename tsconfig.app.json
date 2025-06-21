@@ -17,6 +17,9 @@
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
 
+    /* Type declarations */
+    "typeRoots": ["./node_modules/@types", "./src/types", "./@types"],
+
     /* Linting */
     "strict": true,
     "noUnusedLocals": true,
@@ -25,6 +28,6 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["src"],
+  "include": ["src", "src/types", "*.d.ts", "@types"],
   "exclude": ["src/**/*.test.*", "src/**/*.spec.*", "src/test/"]
 }

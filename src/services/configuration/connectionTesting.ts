@@ -4,6 +4,7 @@
  * Includes IMAP, Database (Supabase), and AI services testing
  */
 
+/// <reference path="../../types/imapflow.d.ts" />
 import ImapFlow from 'imapflow'
 import { createClient } from '@supabase/supabase-js'
 import { GoogleGenerativeAI } from '@google/generative-ai'
