@@ -644,6 +644,9 @@ const SimpleEmailManagement: React.FC = () => {
             <div>
               <StatusText>{getStatusText()}</StatusText>
               <StatusDetails>
+                {user && (
+                  <>User ID: {user.id} • </>
+                )}
                 {pullerStatus.lastSync && (
                   <>Last sync: {formatDate(pullerStatus.lastSync)} • </>
                 )}

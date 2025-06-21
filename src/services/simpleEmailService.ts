@@ -52,6 +52,17 @@ class SimpleEmailService {
     limit: number = 100
   ): Promise<{ data: EmailItem[] | null; error: string | null }> {
     try {
+      // Check authentication first
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError || !user) {
+        console.error('Authentication required for getEmails:', authError?.message);
+        return { 
+          data: null, 
+          error: authError?.message || 'Authentication required' 
+        };
+      }
+
       let query = supabase
         .from('imap_inbox')
         .select('*')
@@ -84,6 +95,17 @@ class SimpleEmailService {
    */
   async getEmailStats(): Promise<{ data: EmailStats | null; error: string | null }> {
     try {
+      // Check authentication first
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError || !user) {
+        console.error('Authentication required for getEmailStats:', authError?.message);
+        return { 
+          data: { total: 0, pending: 0, processing: 0, error: 0 }, 
+          error: authError?.message || 'Authentication required' 
+        };
+      }
+
       const { data, error } = await supabase
         .from('imap_inbox')
         .select('status, received_at');
@@ -164,6 +186,35 @@ class SimpleEmailService {
    */
   async getEmailPullerStatus(): Promise<{ data: EmailPullerStatus | null; error: string | null }> {
     try {
+      // First check if user is authenticated
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError) {
+        console.error('Auth error in getEmailPullerStatus:', authError);
+        return { 
+          data: { 
+            isConnected: false, 
+            emailCount: 0, 
+            error: `Authentication error: ${authError.message}` 
+          }, 
+          error: null 
+        };
+      }
+
+      if (!user) {
+        console.log('No authenticated user for email puller status check');
+        return { 
+          data: { 
+            isConnected: false, 
+            emailCount: 0, 
+            error: 'No authenticated user' 
+          }, 
+          error: null 
+        };
+      }
+
+      console.log('Checking email puller status for user:', user.id);
+
       // Check for recent emails (within last hour) to determine if puller is active
       const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
       
@@ -180,7 +231,7 @@ class SimpleEmailService {
           data: { 
             isConnected: false, 
             emailCount: 0, 
-            error: recentError.message 
+            error: `Database error: ${recentError.message}` 
           }, 
           error: null 
         };
@@ -197,7 +248,7 @@ class SimpleEmailService {
           data: { 
             isConnected: false, 
             emailCount: 0, 
-            error: countError.message 
+            error: `Count error: ${countError.message}` 
           }, 
           error: null 
         };
