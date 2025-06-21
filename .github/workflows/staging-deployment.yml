@@ -7,6 +7,12 @@ on:
       - '**.md'
       - 'docs/**'
       - '.github/workflows-archive-*/**'
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Reason for manual trigger'
+        required: false
+        default: 'Manual staging deployment'
 
 env:
   NODE_VERSION: '18'
