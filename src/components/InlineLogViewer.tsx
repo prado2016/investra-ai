@@ -316,7 +316,7 @@ export const InlineLogViewer: FC<LogViewerProps> = ({
                   {log.message}
                 </span>
               </div>
-              {log.data && (
+              {log.data ? (
                 <div style={{
                   marginTop: '4px',
                   padding: '6px',
@@ -328,9 +328,9 @@ export const InlineLogViewer: FC<LogViewerProps> = ({
                   whiteSpace: 'pre-wrap',
                   overflowX: 'auto'
                 }}>
-                  {formatData(log.data) as React.ReactNode}
+                  {formatData(log.data)}
                 </div>
-              )}
+              ) : null}
             </div>
           ))
         )}

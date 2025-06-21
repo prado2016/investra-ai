@@ -31,7 +31,7 @@ export class ConfigurationExportService {
    */
   static async exportConfiguration(
     userId: string,
-    configurations: Record<ConfigurationCategory, ConfigurationData>,
+    configurations: Partial<Record<ConfigurationCategory, ConfigurationData>>,
     categories?: ConfigurationCategory[]
   ): Promise<ExportData> {
     try {
@@ -284,10 +284,10 @@ export class ConfigurationExportService {
    * @returns Filtered configurations
    */
   private static filterConfigurationsByCategories(
-    configurations: Record<ConfigurationCategory, ConfigurationData>,
+    configurations: Partial<Record<ConfigurationCategory, ConfigurationData>>,
     categories: ConfigurationCategory[]
-  ): Record<ConfigurationCategory, ConfigurationData> {
-    const filtered: Record<string, ConfigurationData> = {}
+  ): Partial<Record<ConfigurationCategory, ConfigurationData>> {
+    const filtered: Partial<Record<ConfigurationCategory, ConfigurationData>> = {}
     
     for (const category of categories) {
       if (configurations[category]) {
@@ -295,7 +295,7 @@ export class ConfigurationExportService {
       }
     }
     
-    return filtered as Record<ConfigurationCategory, ConfigurationData>
+    return filtered
   }
 
   /**
@@ -304,12 +304,14 @@ export class ConfigurationExportService {
    * @returns True if sensitive data is found
    */
   private static checkForSensitiveData(
-    configurations: Record<ConfigurationCategory, ConfigurationData>
+    configurations: Partial<Record<ConfigurationCategory, ConfigurationData>>
   ): boolean {
     for (const categoryData of Object.values(configurations)) {
-      for (const configValue of Object.values(categoryData)) {
-        if (configValue.isSensitive || configValue.isEncrypted) {
-          return true
+      if (categoryData) {
+        for (const configValue of Object.values(categoryData)) {
+          if (configValue.isSensitive || configValue.isEncrypted) {
+            return true
+          }
         }
       }
     }

@@ -41,13 +41,13 @@ export async function testEncryptionService(): Promise<void> {
   // Test 2: Empty data handling
   await runTest('Empty data handling', async () => {
     const encryptResult = await EncryptionService.encryptValue('', testUserId);
-    return !encryptResult.success && encryptResult.error?.includes('No data provided');
+    return !encryptResult.success && !!encryptResult.error?.includes('No data provided');
   });
 
   // Test 3: Missing user ID handling
   await runTest('Missing user ID handling', async () => {
     const encryptResult = await EncryptionService.encryptValue(testData, '');
-    return !encryptResult.success && encryptResult.error?.includes('User ID required');
+    return !encryptResult.success && !!encryptResult.error?.includes('User ID required');
   });
 
   // Test 4: Encrypted data detection
@@ -86,13 +86,13 @@ export async function testEncryptionService(): Promise<void> {
     if (!encryptResult.success) return false;
     
     const decryptResult = await EncryptionService.decryptValue(encryptResult.encryptedData, 'wrong-user-id');
-    return !decryptResult.success && decryptResult.error?.includes('Decryption failed');
+    return !decryptResult.success && !!decryptResult.error?.includes('Decryption failed');
   });
 
   // Test 7: Malformed data handling
   await runTest('Malformed data handling', async () => {
     const decryptResult = await EncryptionService.decryptValue('not-valid-json', testUserId);
-    return !decryptResult.success && decryptResult.error?.includes('Invalid encrypted data format');
+    return !decryptResult.success && !!decryptResult.error?.includes('Invalid encrypted data format');
   });
 
   // Test 8: Configuration retrieval
