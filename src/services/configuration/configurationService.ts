@@ -38,7 +38,7 @@ export class ConfigurationService {
       ConfigurationHistoryService.initialize()
       
       // Set up real-time subscriptions
-      await this.setupRealtimeSubscriptions()
+      // await this.setupRealtimeSubscriptions() // TODO: Implement realtime subscriptions
       
       console.debug('ConfigurationService initialized successfully')
     } catch (error) {
@@ -385,8 +385,8 @@ export class ConfigurationService {
    * @returns Promise with success status
    */
   static async restoreConfiguration(
-    userId: string,
-    historyId: string
+    _userId: string,
+    _historyId: string
   ): Promise<ServiceResponse<void>> {
     try {
       // This would need to be implemented based on how you want to handle restoration
@@ -425,7 +425,7 @@ export class ConfigurationService {
 
       if (error) throw error
 
-      const configurationsData: Record<ConfigurationCategory, ConfigurationData> = {}
+      const configurationsData: Partial<Record<ConfigurationCategory, ConfigurationData>> = {}
 
       for (const config of configs) {
         const category = config.category as ConfigurationCategory
