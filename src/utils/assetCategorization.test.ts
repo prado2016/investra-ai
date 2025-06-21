@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'vitest';
 import { detectAssetType } from './assetCategorization';
 
 describe('detectAssetType', () => {
