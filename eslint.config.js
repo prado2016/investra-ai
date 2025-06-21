@@ -41,6 +41,9 @@ export default [
       '.github/',
       'email-puller/', // Skip email-puller for now as it has many issues
       'tools/', // Skip tools directory
+      'server/', // Skip server directory (CommonJS Node.js files)
+      'public/', // Skip public directory (browser scripts)
+      'tests/debug/', // Skip debug test scripts
     ],
   },
 ];

@@ -163,9 +163,15 @@ function arrayBufferToString(buffer: ArrayBuffer): string {
 }
 
 /**
- * Convert ArrayBuffer to Base64 string for storage (browser-compatible)
+ * Convert ArrayBuffer to Base64 string for storage (Node.js and browser compatible)
  */
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  // Use Buffer.from in Node.js environment for better performance
+  if (typeof Buffer !== 'undefined') {
+    return Buffer.from(buffer).toString('base64')
+  }
+  
+  // Fallback for browser environments
   const bytes = new Uint8Array(buffer)
   let binary = ''
   for (let i = 0; i < bytes.byteLength; i++) {
@@ -175,9 +181,16 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
 }
 
 /**
- * Convert Base64 string back to ArrayBuffer (browser-compatible)
+ * Convert Base64 string back to ArrayBuffer (Node.js and browser compatible)
  */
 function base64ToArrayBuffer(base64: string): ArrayBuffer {
+  // Use Buffer.from in Node.js environment for better compatibility
+  if (typeof Buffer !== 'undefined') {
+    const buffer = Buffer.from(base64, 'base64')
+    return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
+  }
+  
+  // Fallback for browser environments
   const binaryString = atob(base64)
   const bytes = new Uint8Array(binaryString.length)
   for (let i = 0; i < binaryString.length; i++) {
