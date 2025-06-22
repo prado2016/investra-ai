@@ -1385,6 +1385,63 @@ const SimpleEmailManagement: React.FC = () => {
               </DetailValue>
             </EmailDetail>
 
+            {/* AI Parsing Status */}
+            {parsedData && (
+              <div style={{
+                background: parsedData.aiParsed 
+                  ? (parsedData.confidence && parsedData.confidence > 0.7 ? '#dcfce7' : '#fef3c7')
+                  : '#f3f4f6',
+                border: `1px solid ${parsedData.aiParsed 
+                  ? (parsedData.confidence && parsedData.confidence > 0.7 ? '#16a34a' : '#eab308')
+                  : '#9ca3af'}`,
+                borderRadius: '8px',
+                padding: '0.75rem',
+                marginBottom: '1rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem'
+              }}>
+                {parsedData.aiParsed ? (
+                  <>
+                    <span style={{ fontSize: '1.2rem' }}>🤖</span>
+                    <div>
+                      <DetailLabel style={{ 
+                        margin: 0, 
+                        color: parsedData.confidence && parsedData.confidence > 0.7 ? '#15803d' : '#a16207',
+                        fontWeight: 600
+                      }}>
+                        AI Extracted {parsedData.parsingType === 'trading' ? 'Trading' : 'Basic'} Transaction
+                      </DetailLabel>
+                      {parsedData.confidence && (
+                        <div style={{ 
+                          fontSize: '0.875rem', 
+                          color: parsedData.confidence > 0.7 ? '#15803d' : '#a16207',
+                          marginTop: '0.25rem'
+                        }}>
+                          Confidence: {Math.round(parsedData.confidence * 100)}%
+                          {parsedData.confidence > 0.8 && ' (High)'}
+                          {parsedData.confidence > 0.5 && parsedData.confidence <= 0.8 && ' (Medium)'}
+                          {parsedData.confidence <= 0.5 && ' (Low)'}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <span style={{ fontSize: '1.2rem' }}>📝</span>
+                    <div>
+                      <DetailLabel style={{ margin: 0, color: '#6b7280', fontWeight: 600 }}>
+                        Manual Entry Required
+                      </DetailLabel>
+                      <div style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}>
+                        AI parsing failed - using basic pattern matching
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
             {parsedData ? (
               <>
                 {/* Show extracted information */}
@@ -1495,7 +1552,19 @@ const SimpleEmailManagement: React.FC = () => {
               /* Trading Transaction Form */
               <>
                 <FormGroup>
-                  <FormLabel>Portfolio *</FormLabel>
+                  <FormLabel>
+                    Portfolio * 
+                    {parsedData && parsedData.portfolioName && parsedData.aiParsed && (
+                      <span style={{ 
+                        marginLeft: '0.5rem', 
+                        fontSize: '0.75rem', 
+                        color: '#16a34a',
+                        fontWeight: 'normal'
+                      }}>
+                        🤖 AI
+                      </span>
+                    )}
+                  </FormLabel>
                   <FormSelect
                     value={transactionForm.portfolioId}
                     onChange={(e) => setTransactionForm(prev => ({ ...prev, portfolioId: e.target.value }))}
@@ -1511,7 +1580,19 @@ const SimpleEmailManagement: React.FC = () => {
                 </FormGroup>
 
                 <FormGroup>
-                  <FormLabel>Symbol *</FormLabel>
+                  <FormLabel>
+                    Symbol * 
+                    {parsedData && parsedData.symbol && parsedData.aiParsed && (
+                      <span style={{ 
+                        marginLeft: '0.5rem', 
+                        fontSize: '0.75rem', 
+                        color: '#16a34a',
+                        fontWeight: 'normal'
+                      }}>
+                        🤖 AI
+                      </span>
+                    )}
+                  </FormLabel>
                   <FormInput
                     type="text"
                     placeholder="e.g., NVDA"
@@ -1546,7 +1627,19 @@ const SimpleEmailManagement: React.FC = () => {
                 </FormGroup>
 
                 <FormGroup>
-                  <FormLabel>{transactionForm.assetType === 'option' ? 'Contracts' : 'Quantity'} *</FormLabel>
+                  <FormLabel>
+                    {transactionForm.assetType === 'option' ? 'Contracts' : 'Quantity'} *
+                    {parsedData && parsedData.quantity && parsedData.aiParsed && (
+                      <span style={{ 
+                        marginLeft: '0.5rem', 
+                        fontSize: '0.75rem', 
+                        color: '#16a34a',
+                        fontWeight: 'normal'
+                      }}>
+                        🤖 AI
+                      </span>
+                    )}
+                  </FormLabel>
                   <FormInput
                     type="number"
                     step="0.0001"
@@ -1558,7 +1651,19 @@ const SimpleEmailManagement: React.FC = () => {
                 </FormGroup>
 
                 <FormGroup>
-                  <FormLabel>Price *</FormLabel>
+                  <FormLabel>
+                    Price *
+                    {parsedData && parsedData.price && parsedData.aiParsed && (
+                      <span style={{ 
+                        marginLeft: '0.5rem', 
+                        fontSize: '0.75rem', 
+                        color: '#16a34a',
+                        fontWeight: 'normal'
+                      }}>
+                        🤖 AI
+                      </span>
+                    )}
+                  </FormLabel>
                   <FormInput
                     type="number"
                     step="0.0001"
