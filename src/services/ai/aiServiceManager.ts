@@ -38,10 +38,18 @@ export class AIServiceManager {
       // Get API key from storage if not provided in config
       let apiKey = config?.apiKey;
       if (!apiKey) {
-        const activeKey = await ApiKeyService.getActiveKeyForProvider(provider);
-        if (activeKey) {
-          // Use the service method to get decrypted key
-          apiKey = await ApiKeyService.getDecryptedApiKey(activeKey.id);
+        try {
+          // Try database first
+          const activeKey = await ApiKeyService.getActiveKeyForProvider(provider);
+          if (activeKey) {
+            // Use the service method to get decrypted key
+            apiKey = await ApiKeyService.getDecryptedApiKey(activeKey.id);
+          }
+        } catch (dbError) {
+          console.warn(`Database API key lookup failed for ${provider}, using fallback:`, dbError);
+          // Fallback to ApiKeyStorage utility (localStorage + env vars)
+          const { ApiKeyStorage } = await import('../../utils/apiKeyStorage');
+          apiKey = ApiKeyStorage.getApiKeyWithFallback(provider) || undefined;
         }
       }
 
