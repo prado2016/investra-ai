@@ -221,7 +221,16 @@ export class AIServiceManager {
     preferredProvider?: AIProvider
   ): Promise<EmailParsingResponse> {
     const provider = preferredProvider || this.getBestProviderForEmailParsing();
-    const service = this.getService(provider);
+    let service = this.getService(provider);
+
+    // If service is not available, try to initialize it
+    if (!service) {
+      console.log(`AI service not initialized for ${provider}, attempting to initialize...`);
+      const initialized = await this.initializeService(provider);
+      if (initialized) {
+        service = this.getService(provider);
+      }
+    }
 
     if (!service) {
       return {
