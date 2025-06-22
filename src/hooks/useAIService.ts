@@ -10,7 +10,9 @@ import type {
   SymbolLookupRequest,
   SymbolLookupResponse,
   FinancialAnalysisRequest,
-  FinancialAnalysisResponse
+  FinancialAnalysisResponse,
+  EmailParsingRequest,
+  EmailParsingResponse
 } from '../types/ai';
 
 interface UseAIServiceReturn {
@@ -28,6 +30,11 @@ interface UseAIServiceReturn {
   isAnalyzing: boolean;
   analysisError: string | null;
   
+  // Email parsing
+  parseEmailForTransaction: (request: EmailParsingRequest, provider?: AIProvider) => Promise<EmailParsingResponse>;
+  isParsing: boolean;
+  parsingError: string | null;
+  
   // Service health
   testConnection: (provider: AIProvider) => Promise<{ success: boolean; error?: string; latency?: number }>;
   getHealthStatus: () => Promise<Record<string, { available: boolean; latency?: number; error?: string }>>;
@@ -42,6 +49,8 @@ export function useAIService(): UseAIServiceReturn {
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [isParsing, setIsParsing] = useState(false);
+  const [parsingError, setParsingError] = useState<string | null>(null);
 
   // Check initialization status
   useEffect(() => {
@@ -125,6 +134,37 @@ export function useAIService(): UseAIServiceReturn {
     }
   }, []);
 
+  const parseEmailForTransaction = useCallback(async (
+    request: EmailParsingRequest,
+    provider?: AIProvider
+  ): Promise<EmailParsingResponse> => {
+    setIsParsing(true);
+    setParsingError(null);
+    
+    try {
+      const response = await aiServiceManager.parseEmailForTransaction(request, provider);
+      
+      if (!response.success && response.error) {
+        setParsingError(response.error);
+      }
+      
+      return response;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      setParsingError(errorMessage);
+      
+      return {
+        success: false,
+        confidence: 0,
+        parsingType: 'unknown',
+        error: errorMessage,
+        timestamp: new Date()
+      };
+    } finally {
+      setIsParsing(false);
+    }
+  }, []);
+
   const testConnection = useCallback(async (provider: AIProvider) => {
     const service = aiServiceManager.getService(provider);
     if (!service) {
@@ -156,6 +196,9 @@ export function useAIService(): UseAIServiceReturn {
     analyzeFinancialData,
     isAnalyzing,
     analysisError,
+    parseEmailForTransaction,
+    isParsing,
+    parsingError,
     testConnection,
     getHealthStatus,
     clearCache

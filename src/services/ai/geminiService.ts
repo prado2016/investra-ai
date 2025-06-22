@@ -15,7 +15,10 @@ import type {
   SymbolLookupResult,
   FinancialAnalysisRequest,
   FinancialAnalysisResponse,
-  FinancialAnalysisResult
+  FinancialAnalysisResult,
+  EmailParsingRequest,
+  EmailParsingResponse,
+  EmailParsingExtractedData
 } from '../../types/ai';
 
 export class GeminiAIService extends BaseAIService {
@@ -137,6 +140,67 @@ export class GeminiAIService extends BaseAIService {
       
       return {
         success: false,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        timestamp: new Date(),
+        processingTime: Date.now() - startTime
+      };
+    }
+  }
+
+  // Email parsing implementation
+  async parseEmailForTransaction(request: EmailParsingRequest): Promise<EmailParsingResponse> {
+    const startTime = Date.now();
+    
+    try {
+      await this.checkRateLimit();
+      
+      // Check cache first
+      const cacheKey = this.generateCacheKey('email_parsing', request);
+      const cachedResult = this.getCacheEntry<EmailParsingResponse>(cacheKey);
+      if (cachedResult) {
+        return cachedResult;
+      }
+
+      if (!this.model) {
+        throw this.createError(
+          'MODEL_NOT_INITIALIZED',
+          'Gemini model is not properly initialized',
+          'api_error'
+        );
+      }
+
+      const prompt = this.buildEmailParsingPrompt(request);
+      const result = await this.model.generateContent(prompt);
+      const response = await result.response;
+      const text = response.text();
+
+      const parsedResult = this.parseEmailParsingResponse(text, request);
+      const emailResponse: EmailParsingResponse = {
+        success: true,
+        extractedData: parsedResult.extractedData,
+        confidence: parsedResult.confidence,
+        parsingType: parsedResult.parsingType,
+        timestamp: new Date(),
+        tokensUsed: this.estimateTokens(prompt + text),
+        processingTime: Date.now() - startTime,
+        rawData: parsedResult.rawData
+      };
+
+      // Cache the result
+      this.setCacheEntry(cacheKey, emailResponse, 120); // Cache for 2 hours
+      
+      // Track usage
+      this.trackUsage('email_parsing', emailResponse.tokensUsed || 0, emailResponse.processingTime || 0);
+
+      return emailResponse;
+
+    } catch (error) {
+      this.trackUsage('email_parsing', 0, Date.now() - startTime, true);
+      
+      return {
+        success: false,
+        confidence: 0,
+        parsingType: 'unknown',
         error: error instanceof Error ? error.message : 'Unknown error occurred',
         timestamp: new Date(),
         processingTime: Date.now() - startTime
@@ -275,6 +339,68 @@ ${includeAnalysis ? '6. Include brief investment insights if requested' : ''}
 Return only valid JSON, no additional text.`;
   }
 
+  private buildEmailParsingPrompt(request: EmailParsingRequest): string {
+    return `You are an expert financial data extraction specialist. I need you to analyze an email and extract trading/transaction information.
+
+Email Details:
+Subject: "${request.emailSubject}"
+From: ${request.emailFrom || 'Unknown'}
+Received: ${request.receivedAt || 'Unknown'}
+
+Email Content:
+${request.emailContent}
+
+${request.context ? `Additional Context: ${request.context}` : ''}
+
+Your task is to extract trading transaction data from this email. Please analyze the content and return a JSON response with the following structure:
+
+{
+  "success": true,
+  "extractedData": {
+    "portfolioName": "string (e.g., TFSA, RRSP, Margin, etc.)",
+    "symbol": "string (stock symbol like AAPL, NVDA, etc.)",
+    "assetType": "stock" | "option",
+    "transactionType": "buy" | "sell", 
+    "quantity": number,
+    "price": number,
+    "totalAmount": number,
+    "fees": number,
+    "currency": "string (USD, CAD, etc.)",
+    "transactionDate": "YYYY-MM-DD",
+    "notes": "string (any additional relevant info)"
+  },
+  "confidence": 0.95,
+  "parsingType": "trading" | "basic" | "unknown",
+  "rawData": {
+    "emailSubject": "${request.emailSubject}",
+    "extractedText": "relevant portions of email used for extraction"
+  }
+}
+
+Rules for extraction:
+1. Portfolio names: Look for account types like TFSA, RRSP, RSP, Margin, Cash, Investment Account
+2. Symbols: Look for 1-6 letter stock symbols (AAPL, NVDA, TD.TO, etc.)
+3. Asset types: Determine if it's a stock or option based on keywords
+4. Transaction types: Identify buy/sell from words like bought, sold, purchase, sale, order filled
+5. Quantities: Extract number of shares or contracts
+6. Price: Extract price per share/contract 
+7. Total amount: Calculate or extract total transaction value
+8. Fees: Extract commission, trading fees, regulatory fees
+9. Currency: Default to USD unless specified (CAD, EUR, etc.)
+10. Date: Convert any date format to YYYY-MM-DD
+11. Confidence: Rate 0-1 based on how certain you are about the extracted data
+12. Parsing type: "trading" for stock/option trades, "basic" for simple transactions, "unknown" if unclear
+
+Important notes:
+- If this doesn't appear to be a trading/financial email, set confidence to 0 and parsingType to "unknown"
+- Only include fields where you have high confidence in the extracted value
+- For options, quantity represents number of contracts (may need conversion from shares)
+- Include relevant context in notes field
+- Be conservative with confidence scores - only use >0.8 if you're very certain
+
+Return only valid JSON, no additional text.`;
+  }
+
   private buildFinancialAnalysisPrompt(request: FinancialAnalysisRequest): string {
     const { symbol, data, analysisType, timeframe } = request;
     
@@ -355,6 +481,122 @@ Return only valid JSON, no additional text.`;
       console.error('Failed to parse symbol lookup response:', error);
       console.error('Response text:', text);
       return [];
+    }
+  }
+
+  private parseEmailParsingResponse(text: string, request: EmailParsingRequest): {
+    extractedData?: EmailParsingExtractedData;
+    confidence: number;
+    parsingType: 'trading' | 'basic' | 'unknown';
+    rawData?: any;
+  } {
+    try {
+      // Clean up the response text
+      const cleanText = text.replace(/```json\n?|\n?```/g, '').trim();
+      const parsed = JSON.parse(cleanText);
+      
+      // Validate and normalize extracted data
+      const extractedData: EmailParsingExtractedData = {};
+      
+      if (parsed.extractedData) {
+        const data = parsed.extractedData;
+        
+        // Validate and assign each field
+        if (data.portfolioName && typeof data.portfolioName === 'string') {
+          extractedData.portfolioName = data.portfolioName.trim();
+        }
+        
+        if (data.symbol && typeof data.symbol === 'string') {
+          extractedData.symbol = data.symbol.toUpperCase().trim();
+        }
+        
+        if (data.assetType && ['stock', 'option'].includes(data.assetType)) {
+          extractedData.assetType = data.assetType;
+        }
+        
+        if (data.transactionType && ['buy', 'sell'].includes(data.transactionType)) {
+          extractedData.transactionType = data.transactionType;
+        }
+        
+        if (data.quantity && typeof data.quantity === 'number' && data.quantity > 0) {
+          extractedData.quantity = data.quantity;
+        }
+        
+        if (data.price && typeof data.price === 'number' && data.price > 0) {
+          extractedData.price = data.price;
+        }
+        
+        if (data.totalAmount && typeof data.totalAmount === 'number') {
+          extractedData.totalAmount = data.totalAmount;
+        }
+        
+        if (data.fees && typeof data.fees === 'number' && data.fees >= 0) {
+          extractedData.fees = data.fees;
+        }
+        
+        if (data.currency && typeof data.currency === 'string') {
+          extractedData.currency = data.currency.toUpperCase().trim();
+        }
+        
+        // Validate date format (YYYY-MM-DD)
+        if (data.transactionDate && typeof data.transactionDate === 'string') {
+          const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+          if (dateRegex.test(data.transactionDate)) {
+            extractedData.transactionDate = data.transactionDate;
+          }
+        }
+        
+        if (data.notes && typeof data.notes === 'string') {
+          extractedData.notes = data.notes.trim();
+        }
+      }
+      
+      // Validate confidence (0-1)
+      let confidence = 0;
+      if (parsed.confidence && typeof parsed.confidence === 'number') {
+        confidence = Math.max(0, Math.min(1, parsed.confidence));
+      }
+      
+      // Validate parsing type
+      let parsingType: 'trading' | 'basic' | 'unknown' = 'unknown';
+      if (parsed.parsingType && ['trading', 'basic', 'unknown'].includes(parsed.parsingType)) {
+        parsingType = parsed.parsingType;
+      }
+      
+      // Determine parsing type based on extracted data if not explicitly set
+      if (parsingType === 'unknown' && Object.keys(extractedData).length > 0) {
+        if (extractedData.symbol && extractedData.transactionType && extractedData.quantity) {
+          parsingType = 'trading';
+        } else {
+          parsingType = 'basic';
+        }
+      }
+      
+      return {
+        extractedData: Object.keys(extractedData).length > 0 ? extractedData : undefined,
+        confidence,
+        parsingType,
+        rawData: {
+          emailSubject: request.emailSubject,
+          aiResponse: parsed,
+          extractedText: request.emailContent.substring(0, 500) // First 500 chars for audit
+        }
+      };
+      
+    } catch (error) {
+      console.error('Failed to parse email parsing response:', error);
+      console.error('Response text:', text);
+      
+      // Return fallback response
+      return {
+        confidence: 0,
+        parsingType: 'unknown',
+        rawData: {
+          emailSubject: request.emailSubject,
+          parseError: error instanceof Error ? error.message : 'Unknown parsing error',
+          originalResponse: text
+        }
+      };
     }
   }
 

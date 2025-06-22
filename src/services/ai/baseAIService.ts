@@ -15,7 +15,9 @@ import type {
   SymbolLookupRequest,
   SymbolLookupResponse,
   FinancialAnalysisRequest,
-  FinancialAnalysisResponse
+  FinancialAnalysisResponse,
+  EmailParsingRequest,
+  EmailParsingResponse
 } from '../../types/ai';
 
 export abstract class BaseAIService implements IAIService {
@@ -44,6 +46,7 @@ export abstract class BaseAIService implements IAIService {
   // Abstract methods to be implemented by concrete classes
   abstract lookupSymbols(request: SymbolLookupRequest): Promise<SymbolLookupResponse>;
   abstract analyzeFinancialData(request: FinancialAnalysisRequest): Promise<FinancialAnalysisResponse>;
+  abstract parseEmailForTransaction(request: EmailParsingRequest): Promise<EmailParsingResponse>;
   abstract testConnection(): Promise<{ success: boolean; error?: string; latency?: number }>;
 
   // Rate limiting implementation

@@ -10,7 +10,9 @@ import type {
   SymbolLookupRequest,
   SymbolLookupResponse,
   FinancialAnalysisRequest,
-  FinancialAnalysisResponse
+  FinancialAnalysisResponse,
+  EmailParsingRequest,
+  EmailParsingResponse
 } from '../../types/ai';
 import { GeminiAIService } from './geminiService';
 import { ApiKeyService } from '../apiKeyService';
@@ -199,6 +201,52 @@ export class AIServiceManager {
   }
 
   /**
+   * Email parsing using the best available AI service
+   */
+  async parseEmailForTransaction(
+    request: EmailParsingRequest,
+    preferredProvider?: AIProvider
+  ): Promise<EmailParsingResponse> {
+    const provider = preferredProvider || this.getBestProviderForEmailParsing();
+    const service = this.getService(provider);
+
+    if (!service) {
+      return {
+        success: false,
+        confidence: 0,
+        parsingType: 'unknown',
+        error: `No AI service available for provider: ${provider}`,
+        timestamp: new Date()
+      };
+    }
+
+    try {
+      return await service.parseEmailForTransaction(request);
+    } catch (error) {
+      // Try fallback provider if available
+      const fallbackProvider = this.getFallbackProvider(provider);
+      if (fallbackProvider) {
+        const fallbackService = this.getService(fallbackProvider);
+        if (fallbackService) {
+          try {
+            return await fallbackService.parseEmailForTransaction(request);
+          } catch (fallbackError) {
+            console.error('Fallback service also failed:', fallbackError);
+          }
+        }
+      }
+
+      return {
+        success: false,
+        confidence: 0,
+        parsingType: 'unknown',
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        timestamp: new Date()
+      };
+    }
+  }
+
+  /**
    * Test connection for a specific provider
    */
   async testConnection(provider: AIProvider): Promise<{ success: boolean; error?: string; latency?: number }> {
@@ -327,6 +375,29 @@ export class AIServiceManager {
 
   private getBestProviderForAnalysis(): AIProvider {
     // Priority order for financial analysis
+    const priorities: AIProvider[] = ['gemini', 'openai', 'perplexity'];
+    
+    for (const provider of priorities) {
+      if (this.services.has(provider)) {
+        const service = this.services.get(provider)!;
+        if (service.isConfigured) {
+          return provider;
+        }
+      }
+    }
+
+    // Return first available if none match priorities
+    for (const [provider, service] of this.services) {
+      if (service.isConfigured) {
+        return provider;
+      }
+    }
+
+    return 'gemini'; // Default fallback
+  }
+
+  private getBestProviderForEmailParsing(): AIProvider {
+    // Priority order for email parsing
     const priorities: AIProvider[] = ['gemini', 'openai', 'perplexity'];
     
     for (const provider of priorities) {

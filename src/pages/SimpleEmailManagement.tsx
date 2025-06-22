@@ -885,11 +885,11 @@ const SimpleEmailManagement: React.FC = () => {
     }
   };
 
-  const openProcessModal = (email: EmailItem) => {
+  const openProcessModal = async (email: EmailItem) => {
     setProcessingEmail(email);
     
     // Parse email content to extract transaction information
-    const extracted = parseEmailForTransaction(email);
+    const extracted = await parseEmailForTransaction(email);
     setParsedData(extracted);
     
     // Get today's date in YYYY-MM-DD format
