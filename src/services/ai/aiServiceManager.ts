@@ -39,19 +39,25 @@ export class AIServiceManager {
       // Get API key from storage if not provided in config
       let apiKey = config?.apiKey;
       if (!apiKey) {
-        try {
-          // Try database first
-          const activeKey = await ApiKeyService.getActiveKeyForProvider(provider);
-          if (activeKey) {
-            // Use the service method to get decrypted key
-            apiKey = await ApiKeyService.getDecryptedApiKey(activeKey.id);
-          }
-        } catch (dbError) {
-          console.warn(`Database API key lookup failed for ${provider}, using fallback:`, dbError);
-          // Fallback to ApiKeyStorage utility (localStorage + env vars)
-          apiKey = ApiKeyStorage.getApiKeyWithFallback(provider) || undefined;
-          console.log(`Fallback API key lookup for ${provider}:`, apiKey ? 'Found' : 'Not found');
-        }
+        // For now, use direct environment variable access (same as EnhancedSymbolInput)
+        // This bypasses the database requirement until proper API key management is set up
+        console.log(`Getting API key for ${provider} using environment fallback`);
+        apiKey = ApiKeyStorage.getApiKeyWithFallback(provider) || undefined;
+        console.log(`Direct API key lookup for ${provider}:`, apiKey ? `Found: ${apiKey.substring(0, 10)}...` : 'Not found');
+        
+        // TODO: Uncomment this when api_keys table is properly set up in database
+        // try {
+        //   // Try database first
+        //   const activeKey = await ApiKeyService.getActiveKeyForProvider(provider);
+        //   if (activeKey) {
+        //     // Use the service method to get decrypted key
+        //     apiKey = await ApiKeyService.getDecryptedApiKey(activeKey.id);
+        //   }
+        // } catch (dbError) {
+        //   console.warn(`Database API key lookup failed for ${provider}, using fallback:`, dbError);
+        //   // Fallback to ApiKeyStorage utility (localStorage + env vars)
+        //   apiKey = ApiKeyStorage.getApiKeyWithFallback(provider) || undefined;
+        // }
       }
 
       if (!apiKey) {
