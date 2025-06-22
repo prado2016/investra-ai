@@ -727,8 +727,8 @@ const SimpleEmailManagement: React.FC = () => {
   const handleProcessEmail = async () => {
     if (!processingEmail) return;
 
-    // Check if this is a trading transaction
-    const isTradingTransaction = parsedData && (parsedData.symbol || parsedData.assetType || parsedData.transactionType || parsedData.portfolioName);
+    // Check if this is a trading transaction - if we have parsed data, treat as trading
+    const isTradingTransaction = parsedData;
 
     if (isTradingTransaction) {
       // Validate trading transaction form
@@ -897,8 +897,8 @@ const SimpleEmailManagement: React.FC = () => {
     const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
     
     if (extracted) {
-      // Check if this is a trading transaction
-      const isTradingTransaction = extracted.symbol || extracted.assetType || extracted.transactionType || extracted.portfolioName;
+      // Check if this is a trading transaction - if we have extracted data, treat as trading
+      const isTradingTransaction = true; // Always treat parsed emails as trading transactions
       
       if (isTradingTransaction) {
         // Auto-fill form with trading data
@@ -1490,8 +1490,8 @@ const SimpleEmailManagement: React.FC = () => {
               </div>
             )}
 
-            {/* Check if this is a trading transaction */}
-            {parsedData && (parsedData.symbol || parsedData.assetType || parsedData.transactionType || parsedData.portfolioName) ? (
+            {/* Check if this is a trading transaction - show trading form if we have ANY trading-related data */}
+            {parsedData ? (
               /* Trading Transaction Form */
               <>
                 <FormGroup>
