@@ -28,6 +28,7 @@ import { simpleEmailService, parseEmailForTransaction } from '../services/simple
 import type { EmailItem, EmailStats, EmailPullerStatus } from '../services/simpleEmailService';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useAuth } from '../contexts/AuthProvider';
+import { useAIServices } from '../hooks/useAIServices';
 
 const PageContainer = styled.div`
   padding: 2rem;
@@ -602,6 +603,7 @@ const SimpleEmailManagement: React.FC = () => {
   const { success, error } = useNotifications();
   const { user, loading: authLoading } = useAuth();
   const { portfolios } = useSupabasePortfolios();
+  const { isInitialized: aiInitialized, initializeProvider, availableProviders } = useAIServices();
   
   // State management
   const [emails, setEmails] = useState<EmailItem[]>([]);
@@ -632,6 +634,21 @@ const SimpleEmailManagement: React.FC = () => {
     description: '',
     category: ''
   });
+
+  // Initialize AI services if needed
+  useEffect(() => {
+    const initAI = async () => {
+      if (!aiInitialized && availableProviders.length === 0) {
+        try {
+          console.log('Initializing Gemini AI service for email parsing...');
+          await initializeProvider('gemini');
+        } catch (error) {
+          console.warn('Failed to initialize AI service:', error);
+        }
+      }
+    };
+    initAI();
+  }, [aiInitialized, availableProviders, initializeProvider]);
 
   // Load data on mount and when user changes
   useEffect(() => {
@@ -1088,6 +1105,25 @@ const SimpleEmailManagement: React.FC = () => {
         </PageTitle>
         <PageSubtitle>
           Simple email database viewer with email-puller status
+          {/* AI Status Indicator */}
+          <div style={{ 
+            marginTop: '0.5rem', 
+            fontSize: '0.75rem', 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '0.5rem',
+            color: aiInitialized ? '#059669' : '#dc2626'
+          }}>
+            <span style={{ fontSize: '1rem' }}>
+              {aiInitialized ? '🤖' : '⚠️'}
+            </span>
+            AI Parsing: {aiInitialized ? 'Ready' : 'Initializing...'}
+            {availableProviders.length > 0 && (
+              <span style={{ color: '#6b7280' }}>
+                ({availableProviders.join(', ')})
+              </span>
+            )}
+          </div>
         </PageSubtitle>
       </PageHeader>
 
