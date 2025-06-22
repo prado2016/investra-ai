@@ -814,7 +814,14 @@ export function parseEmailForTransaction(email: EmailItem): {
       /symbol[:\s]*([A-Z]{1,6})/gi,            // Symbol: NVDA
       /ticker[:\s]*([A-Z]{1,6})/gi,            // Ticker: TSLA
       /([A-Z]{2,6})\s+(?:shares?|contracts?)/gi, // NVDA shares
-      /([A-Z]{2,6})\s+(?:stock|option)/gi      // NVDA stock
+      /([A-Z]{2,6})\s+(?:stock|option)/gi,     // NVDA stock
+      /order.*?([A-Z]{2,6})\s/gi,              // order filled NVDA
+      /filled.*?([A-Z]{2,6})\s/gi,             // filled NVDA
+      /bought.*?([A-Z]{2,6})\s/gi,             // bought NVDA
+      /sold.*?([A-Z]{2,6})\s/gi,               // sold NVDA
+      /security[:\s]*([A-Z]{2,6})/gi,          // Security: NVDA
+      /instrument[:\s]*([A-Z]{2,6})/gi,        // Instrument: NVDA
+      /\b([A-Z]{2,6})\s+(?:has|was|is)/gi      // NVDA has been filled
     ];
     
     let symbol = '';

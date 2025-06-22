@@ -728,7 +728,7 @@ const SimpleEmailManagement: React.FC = () => {
     if (!processingEmail) return;
 
     // Check if this is a trading transaction
-    const isTradingTransaction = parsedData && parsedData.symbol;
+    const isTradingTransaction = parsedData && (parsedData.symbol || parsedData.assetType || parsedData.transactionType || parsedData.portfolioName);
 
     if (isTradingTransaction) {
       // Validate trading transaction form
@@ -898,7 +898,7 @@ const SimpleEmailManagement: React.FC = () => {
     
     if (extracted) {
       // Check if this is a trading transaction
-      const isTradingTransaction = extracted.symbol && extracted.assetType && extracted.transactionType;
+      const isTradingTransaction = extracted.symbol || extracted.assetType || extracted.transactionType || extracted.portfolioName;
       
       if (isTradingTransaction) {
         // Auto-fill form with trading data
@@ -1491,7 +1491,7 @@ const SimpleEmailManagement: React.FC = () => {
             )}
 
             {/* Check if this is a trading transaction */}
-            {parsedData && parsedData.symbol ? (
+            {parsedData && (parsedData.symbol || parsedData.assetType || parsedData.transactionType || parsedData.portfolioName) ? (
               /* Trading Transaction Form */
               <>
                 <FormGroup>
