@@ -1396,7 +1396,7 @@ const SimpleEmailManagement: React.FC = () => {
                   marginBottom: '1.5rem' 
                 }}>
                   <DetailLabel style={{ color: '#166534', marginBottom: '1rem' }}>
-                    📊 Automatically Extracted Information
+                    📊 Automatically Extracted Trading Information
                   </DetailLabel>
                   
                   {/* Trading transaction data */}
