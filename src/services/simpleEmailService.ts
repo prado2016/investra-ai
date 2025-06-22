@@ -403,6 +403,108 @@ class SimpleEmailService {
       };
     }
   }
+
+  /**
+   * Process email - create transaction and move to processed table
+   */
+  async processEmail(
+    emailId: string, 
+    transactionData: {
+      type: 'income' | 'expense';
+      amount: number;
+      description: string;
+      category?: string;
+      date?: string;
+    }
+  ): Promise<{ success: boolean; transactionId?: string; error: string | null }> {
+    try {
+      // Check authentication first
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError || !user) {
+        console.error('Authentication required for processEmail:', authError?.message);
+        return { 
+          success: false, 
+          error: authError?.message || 'Authentication required' 
+        };
+      }
+
+      // Get the email first
+      const emailResult = await this.getEmailById(emailId);
+      if (emailResult.error || !emailResult.data) {
+        return { success: false, error: emailResult.error || 'Email not found' };
+      }
+
+      const email = emailResult.data;
+
+      // Create transaction
+      const { data: transaction, error: transactionError } = await supabase
+        .from('transactions')
+        .insert([{
+          user_id: user.id,
+          type: transactionData.type,
+          amount: transactionData.amount,
+          description: transactionData.description,
+          category: transactionData.category || 'Email Import',
+          date: transactionData.date || email.received_at,
+          source: 'email',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }])
+        .select('id')
+        .single();
+
+      if (transactionError) {
+        console.error('Error creating transaction:', transactionError);
+        return { success: false, error: transactionError.message };
+      }
+
+      // Move email to processed table
+      const { error: processedError } = await supabase
+        .from('imap_processed')
+        .insert([{
+          user_id: user.id,
+          original_inbox_id: email.id,
+          message_id: email.message_id,
+          subject: email.subject,
+          from_email: email.from_email,
+          received_at: email.received_at,
+          processing_result: 'approved',
+          transaction_id: transaction.id,
+          processed_at: new Date().toISOString(),
+          processed_by_user_id: user.id,
+          processing_notes: `Processed as ${transactionData.type}: ${transactionData.description}`,
+          created_at: new Date().toISOString()
+        }]);
+
+      if (processedError) {
+        console.error('Error moving to processed:', processedError);
+        // Try to delete the transaction we just created
+        await supabase.from('transactions').delete().eq('id', transaction.id);
+        return { success: false, error: processedError.message };
+      }
+
+      // Delete from inbox
+      const { error: deleteError } = await supabase
+        .from('imap_inbox')
+        .delete()
+        .eq('id', emailId);
+
+      if (deleteError) {
+        console.error('Error deleting from inbox:', deleteError);
+        // Don't fail the whole operation if delete fails - email is already processed
+        console.warn('Email processed but not removed from inbox');
+      }
+
+      return { success: true, transactionId: transaction.id, error: null };
+    } catch (err) {
+      console.error('Failed to process email:', err);
+      return { 
+        success: false, 
+        error: err instanceof Error ? err.message : 'Failed to process email' 
+      };
+    }
+  }
 }
 
 export const simpleEmailService = new SimpleEmailService();

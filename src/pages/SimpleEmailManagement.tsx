@@ -17,7 +17,8 @@ import {
   Trash2,
   Eye,
   FileText,
-  X
+  X,
+  DollarSign
 } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -530,6 +531,70 @@ const EmailContent = styled.div`
   }
 `;
 
+const FormGroup = styled.div`
+  margin-bottom: 1.5rem;
+`;
+
+const FormLabel = styled.label`
+  display: block;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+
+  [data-theme="dark"] & {
+    color: #d1d5db;
+  }
+`;
+
+const FormInput = styled.input`
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  
+  &:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
+
+  [data-theme="dark"] & {
+    background: #374151;
+    border-color: #4b5563;
+    color: #f3f4f6;
+
+    &:focus {
+      border-color: #60a5fa;
+      box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.1);
+    }
+  }
+`;
+
+const FormSelect = styled.select`
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  background: white;
+  cursor: pointer;
+
+  [data-theme="dark"] & {
+    background: #374151;
+    border-color: #4b5563;
+    color: #f3f4f6;
+  }
+`;
+
+const FormActions = styled.div`
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  margin-top: 2rem;
+`;
+
 const SimpleEmailManagement: React.FC = () => {
   usePageTitle('Email Import', { subtitle: 'Simple Email Database Viewer' });
   
@@ -545,6 +610,13 @@ const SimpleEmailManagement: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'processing' | 'error'>('all');
   const [refreshing, setRefreshing] = useState(false);
   const [selectedEmail, setSelectedEmail] = useState<EmailItem | null>(null);
+  const [processingEmail, setProcessingEmail] = useState<EmailItem | null>(null);
+  const [transactionForm, setTransactionForm] = useState({
+    type: 'expense' as 'income' | 'expense',
+    amount: '',
+    description: '',
+    category: ''
+  });
 
   // Load data on mount and when user changes
   useEffect(() => {
@@ -635,6 +707,50 @@ const SimpleEmailManagement: React.FC = () => {
       setEmails(prev => prev.filter(email => email.id !== emailId));
       await loadStats(); // Refresh stats
     }
+  };
+
+  const handleProcessEmail = async () => {
+    if (!processingEmail) return;
+
+    // Validate form
+    if (!transactionForm.amount || !transactionForm.description) {
+      error('Validation Error', 'Please fill in amount and description');
+      return;
+    }
+
+    const amount = parseFloat(transactionForm.amount);
+    if (isNaN(amount) || amount <= 0) {
+      error('Validation Error', 'Please enter a valid amount');
+      return;
+    }
+
+    const result = await simpleEmailService.processEmail(processingEmail.id, {
+      type: transactionForm.type,
+      amount,
+      description: transactionForm.description,
+      category: transactionForm.category || undefined
+    });
+
+    if (result.error) {
+      error('Process Error', result.error);
+    } else {
+      success('Email Processed', `Transaction created and email archived`);
+      setEmails(prev => prev.filter(email => email.id !== processingEmail.id));
+      setProcessingEmail(null);
+      setTransactionForm({ type: 'expense', amount: '', description: '', category: '' });
+      await loadStats(); // Refresh stats
+    }
+  };
+
+  const openProcessModal = (email: EmailItem) => {
+    setProcessingEmail(email);
+    // Pre-fill description from email subject
+    setTransactionForm(prev => ({
+      ...prev,
+      description: email.subject || 'Email transaction',
+      amount: '', // Let user enter amount
+      category: '' // Let user choose category
+    }));
   };
 
   // Filter emails based on search and status
@@ -916,12 +1032,12 @@ const SimpleEmailManagement: React.FC = () => {
 
               <ActionButtons>
                 <Button
-                  variant="outline"
+                  variant="primary"
                   size="sm"
-                  onClick={() => handleDelete(email.id)}
+                  onClick={() => openProcessModal(email)}
                 >
-                  <Trash2 size={14} />
-                  Delete
+                  <DollarSign size={14} />
+                  Process Email
                 </Button>
                 <Button
                   variant="outline"
@@ -930,6 +1046,14 @@ const SimpleEmailManagement: React.FC = () => {
                 >
                   <Eye size={14} />
                   View Details
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleDelete(email.id)}
+                >
+                  <Trash2 size={14} />
+                  Delete
                 </Button>
               </ActionButtons>
             </EmailCard>
@@ -1011,6 +1135,100 @@ const SimpleEmailManagement: React.FC = () => {
                 {selectedEmail.text_content || selectedEmail.html_content || 'No content available'}
               </EmailContent>
             </EmailDetail>
+          </ModalContent>
+        </ModalOverlay>
+      )}
+
+      {/* Process Email Modal */}
+      {processingEmail && (
+        <ModalOverlay onClick={() => setProcessingEmail(null)}>
+          <ModalContent onClick={(e) => e.stopPropagation()}>
+            <ModalHeader>
+              <ModalTitle>Process Email as Transaction</ModalTitle>
+              <CloseButton onClick={() => setProcessingEmail(null)}>
+                <X size={20} />
+              </CloseButton>
+            </ModalHeader>
+
+            <EmailDetail>
+              <DetailLabel>Email Subject</DetailLabel>
+              <DetailValue>{processingEmail.subject || 'No Subject'}</DetailValue>
+            </EmailDetail>
+
+            <EmailDetail>
+              <DetailLabel>From</DetailLabel>
+              <DetailValue>
+                {processingEmail.from_name 
+                  ? `${processingEmail.from_name} <${processingEmail.from_email}>` 
+                  : processingEmail.from_email
+                }
+              </DetailValue>
+            </EmailDetail>
+
+            <FormGroup>
+              <FormLabel>Transaction Type</FormLabel>
+              <FormSelect
+                value={transactionForm.type}
+                onChange={(e) => setTransactionForm(prev => ({ ...prev, type: e.target.value as 'income' | 'expense' }))}
+              >
+                <option value="expense">Expense</option>
+                <option value="income">Income</option>
+              </FormSelect>
+            </FormGroup>
+
+            <FormGroup>
+              <FormLabel>Amount *</FormLabel>
+              <FormInput
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                value={transactionForm.amount}
+                onChange={(e) => setTransactionForm(prev => ({ ...prev, amount: e.target.value }))}
+              />
+            </FormGroup>
+
+            <FormGroup>
+              <FormLabel>Description *</FormLabel>
+              <FormInput
+                type="text"
+                placeholder="Transaction description"
+                value={transactionForm.description}
+                onChange={(e) => setTransactionForm(prev => ({ ...prev, description: e.target.value }))}
+              />
+            </FormGroup>
+
+            <FormGroup>
+              <FormLabel>Category</FormLabel>
+              <FormSelect
+                value={transactionForm.category}
+                onChange={(e) => setTransactionForm(prev => ({ ...prev, category: e.target.value }))}
+              >
+                <option value="">Select category (optional)</option>
+                <option value="Banking">Banking</option>
+                <option value="Investment">Investment</option>
+                <option value="Trading">Trading</option>
+                <option value="Income">Income</option>
+                <option value="Expense">Expense</option>
+                <option value="Fee">Fee</option>
+                <option value="Other">Other</option>
+              </FormSelect>
+            </FormGroup>
+
+            <FormActions>
+              <Button
+                variant="outline"
+                onClick={() => setProcessingEmail(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                onClick={handleProcessEmail}
+              >
+                <DollarSign size={16} />
+                Create Transaction & Archive Email
+              </Button>
+            </FormActions>
           </ModalContent>
         </ModalOverlay>
       )}
