@@ -23,7 +23,7 @@ import {
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { useNotifications } from '../hooks/useNotifications';
-import { simpleEmailService } from '../services/simpleEmailService';
+import { simpleEmailService, parseEmailForTransaction } from '../services/simpleEmailService';
 import type { EmailItem, EmailStats, EmailPullerStatus } from '../services/simpleEmailService';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useAuth } from '../contexts/AuthProvider';
@@ -611,6 +611,7 @@ const SimpleEmailManagement: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedEmail, setSelectedEmail] = useState<EmailItem | null>(null);
   const [processingEmail, setProcessingEmail] = useState<EmailItem | null>(null);
+  const [parsedData, setParsedData] = useState<any>(null);
   const [transactionForm, setTransactionForm] = useState({
     type: 'expense' as 'income' | 'expense',
     amount: '',
@@ -744,13 +745,28 @@ const SimpleEmailManagement: React.FC = () => {
 
   const openProcessModal = (email: EmailItem) => {
     setProcessingEmail(email);
-    // Pre-fill description from email subject
-    setTransactionForm(prev => ({
-      ...prev,
-      description: email.subject || 'Email transaction',
-      amount: '', // Let user enter amount
-      category: '' // Let user choose category
-    }));
+    
+    // Parse email content to extract transaction information
+    const extracted = parseEmailForTransaction(email);
+    setParsedData(extracted);
+    
+    if (extracted) {
+      // Auto-fill form with extracted data
+      setTransactionForm({
+        type: extracted.type,
+        amount: extracted.amount.toString(),
+        description: extracted.description,
+        category: extracted.category
+      });
+    } else {
+      // Fallback to manual entry
+      setTransactionForm({
+        type: 'expense',
+        amount: '',
+        description: email.subject || 'Email transaction',
+        category: 'Email Import'
+      });
+    }
   };
 
   // Filter emails based on search and status
@@ -1165,6 +1181,82 @@ const SimpleEmailManagement: React.FC = () => {
               </DetailValue>
             </EmailDetail>
 
+            {parsedData ? (
+              <>
+                {/* Show extracted information */}
+                <div style={{ 
+                  background: '#f0fdf4', 
+                  border: '1px solid #bbf7d0', 
+                  borderRadius: '8px', 
+                  padding: '1rem', 
+                  marginBottom: '1.5rem' 
+                }}>
+                  <DetailLabel style={{ color: '#166534', marginBottom: '1rem' }}>
+                    📊 Automatically Extracted Information
+                  </DetailLabel>
+                  
+                  {parsedData.portfolio && (
+                    <EmailDetail>
+                      <DetailLabel>Portfolio</DetailLabel>
+                      <DetailValue>{parsedData.portfolio}</DetailValue>
+                    </EmailDetail>
+                  )}
+                  
+                  {parsedData.movementType && (
+                    <EmailDetail>
+                      <DetailLabel>Movement Type</DetailLabel>
+                      <DetailValue>{parsedData.movementType}</DetailValue>
+                    </EmailDetail>
+                  )}
+                  
+                  {parsedData.status && (
+                    <EmailDetail>
+                      <DetailLabel>Status</DetailLabel>
+                      <DetailValue>{parsedData.status}</DetailValue>
+                    </EmailDetail>
+                  )}
+                  
+                  {parsedData.to && (
+                    <EmailDetail>
+                      <DetailLabel>To</DetailLabel>
+                      <DetailValue>{parsedData.to}</DetailValue>
+                    </EmailDetail>
+                  )}
+                  
+                  {parsedData.currency && (
+                    <EmailDetail>
+                      <DetailLabel>Currency</DetailLabel>
+                      <DetailValue>{parsedData.currency}</DetailValue>
+                    </EmailDetail>
+                  )}
+                  
+                  {parsedData.notes && (
+                    <EmailDetail>
+                      <DetailLabel>Notes</DetailLabel>
+                      <DetailValue>{parsedData.notes}</DetailValue>
+                    </EmailDetail>
+                  )}
+                </div>
+
+                {/* Editable transaction form with pre-filled data */}
+                <DetailLabel style={{ color: '#374151', marginBottom: '1rem' }}>
+                  ✏️ Review & Edit Transaction Details
+                </DetailLabel>
+              </>
+            ) : (
+              <div style={{ 
+                background: '#fef3c7', 
+                border: '1px solid #fbbf24', 
+                borderRadius: '8px', 
+                padding: '1rem', 
+                marginBottom: '1.5rem' 
+              }}>
+                <DetailLabel style={{ color: '#92400e' }}>
+                  ⚠️ Could not automatically extract transaction data. Please enter manually.
+                </DetailLabel>
+              </div>
+            )}
+
             <FormGroup>
               <FormLabel>Transaction Type</FormLabel>
               <FormSelect
@@ -1184,6 +1276,7 @@ const SimpleEmailManagement: React.FC = () => {
                 placeholder="0.00"
                 value={transactionForm.amount}
                 onChange={(e) => setTransactionForm(prev => ({ ...prev, amount: e.target.value }))}
+                style={parsedData ? { background: '#f0fdf4' } : {}}
               />
             </FormGroup>
 
@@ -1194,6 +1287,7 @@ const SimpleEmailManagement: React.FC = () => {
                 placeholder="Transaction description"
                 value={transactionForm.description}
                 onChange={(e) => setTransactionForm(prev => ({ ...prev, description: e.target.value }))}
+                style={parsedData ? { background: '#f0fdf4' } : {}}
               />
             </FormGroup>
 
@@ -1202,6 +1296,7 @@ const SimpleEmailManagement: React.FC = () => {
               <FormSelect
                 value={transactionForm.category}
                 onChange={(e) => setTransactionForm(prev => ({ ...prev, category: e.target.value }))}
+                style={parsedData ? { background: '#f0fdf4' } : {}}
               >
                 <option value="">Select category (optional)</option>
                 <option value="Banking">Banking</option>
