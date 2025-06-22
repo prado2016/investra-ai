@@ -16,6 +16,7 @@ import type {
 } from '../../types/ai';
 import { GeminiAIService } from './geminiService';
 import { ApiKeyService } from '../apiKeyService';
+import { ApiKeyStorage } from '../../utils/apiKeyStorage';
 
 export class AIServiceManager {
   private services: Map<AIProvider, IAIService> = new Map();
@@ -48,8 +49,8 @@ export class AIServiceManager {
         } catch (dbError) {
           console.warn(`Database API key lookup failed for ${provider}, using fallback:`, dbError);
           // Fallback to ApiKeyStorage utility (localStorage + env vars)
-          const { ApiKeyStorage } = await import('../../utils/apiKeyStorage');
           apiKey = ApiKeyStorage.getApiKeyWithFallback(provider) || undefined;
+          console.log(`Fallback API key lookup for ${provider}:`, apiKey ? 'Found' : 'Not found');
         }
       }
 

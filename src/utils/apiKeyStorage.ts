@@ -49,12 +49,17 @@ export class ApiKeyStorage {
     const envKey = `VITE_${provider.toUpperCase()}_API_KEY`;
     const envValue = import.meta.env[envKey];
     
+    console.log(`Looking for API key: ${envKey} = ${envValue ? '[HIDDEN]' : 'undefined'}`);
+    
     if (envValue && envValue !== 'your_gemini_api_key_here') {
+      console.log(`Found valid API key for ${provider} in environment`);
       return envValue;
     }
 
     // Fallback to localStorage
-    return this.getApiKey(provider);
+    const localStorageKey = this.getApiKey(provider);
+    console.log(`Fallback to localStorage for ${provider}:`, localStorageKey ? '[HIDDEN]' : 'not found');
+    return localStorageKey;
   }
 
   /**
