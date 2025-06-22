@@ -11,6 +11,8 @@ import type {
   SymbolLookupResponse,
   FinancialAnalysisRequest,
   FinancialAnalysisResponse,
+  EmailParsingRequest,
+  EmailParsingResponse,
   UsageMetrics
 } from '../types/ai';
 
@@ -27,6 +29,10 @@ interface UseAIServicesReturn {
   // Financial analysis
   analyzeFinancialData: (request: FinancialAnalysisRequest, provider?: AIProvider) => Promise<FinancialAnalysisResponse>;
   isAnalyzing: boolean;
+  
+  // Email parsing
+  parseEmailForTransaction: (request: EmailParsingRequest, provider?: AIProvider) => Promise<EmailParsingResponse>;
+  isParsing: boolean;
   
   // Service management
   initializeProvider: (provider: AIProvider) => Promise<boolean>;
@@ -49,6 +55,7 @@ export const useAIServices = (): UseAIServicesReturn => {
   const [activeProvider, setActiveProvider] = useState<AIProvider | null>(null);
   const [isLookingUp, setIsLookingUp] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isParsing, setIsParsing] = useState(false);
   const [healthStatus, setHealthStatus] = useState<Record<string, { available: boolean; latency?: number; error?: string }>>({});
   const [lastError, setLastError] = useState<string | null>(null);
 
@@ -56,8 +63,8 @@ export const useAIServices = (): UseAIServicesReturn => {
   useEffect(() => {
     const initializeServices = async () => {
       try {
-        // Try to initialize Gemini service first (highest priority)
-        const providers: AIProvider[] = ['gemini', 'openai', 'perplexity'];
+        // Only initialize Gemini for now since it has the API key
+        const providers: AIProvider[] = ['gemini'];
         const initializedProviders: AIProvider[] = [];
         let firstProvider: AIProvider | null = null;
 
@@ -149,6 +156,38 @@ export const useAIServices = (): UseAIServicesReturn => {
       };
     } finally {
       setIsAnalyzing(false);
+    }
+  }, []);
+
+  // Email parsing function
+  const parseEmailForTransaction = useCallback(async (
+    request: EmailParsingRequest,
+    provider?: AIProvider
+  ): Promise<EmailParsingResponse> => {
+    setIsParsing(true);
+    setLastError(null);
+
+    try {
+      const response = await aiServiceManager.parseEmailForTransaction(request, provider);
+      
+      if (!response.success && response.error) {
+        setLastError(response.error);
+      }
+      
+      return response;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      setLastError(errorMessage);
+      
+      return {
+        success: false,
+        confidence: 0,
+        parsingType: 'unknown',
+        error: errorMessage,
+        timestamp: new Date()
+      };
+    } finally {
+      setIsParsing(false);
     }
   }, []);
 
@@ -251,6 +290,10 @@ export const useAIServices = (): UseAIServicesReturn => {
     // Financial analysis
     analyzeFinancialData,
     isAnalyzing,
+    
+    // Email parsing
+    parseEmailForTransaction,
+    isParsing,
     
     // Service management
     initializeProvider,
