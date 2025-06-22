@@ -943,11 +943,35 @@ const SimpleEmailManagement: React.FC = () => {
           console.log('🤖 AI extracted portfolioName:', extracted.portfolioName);
           console.log('📋 Available portfolios:', portfolios.map(p => ({ id: p.id, name: p.name })));
           
-          const matchingPortfolio = portfolios.find(p => 
-            p.name.toUpperCase() === extracted.portfolioName?.toUpperCase() ||
-            p.name.toUpperCase().includes(extracted.portfolioName?.toUpperCase() || '') ||
-            (extracted.portfolioName?.toUpperCase() || '').includes(p.name.toUpperCase())
-          );
+          // Enhanced matching logic for portfolio names
+          const extractedName = extracted.portfolioName?.toUpperCase() || '';
+          
+          const matchingPortfolio = portfolios.find(p => {
+            const portfolioName = p.name.toUpperCase();
+            
+            // Direct matches
+            if (portfolioName === extractedName) return true;
+            if (portfolioName.includes(extractedName)) return true;
+            if (extractedName.includes(portfolioName)) return true;
+            
+            // Common portfolio type mappings
+            const mappings = [
+              { ai: 'MARGIN', portfolio: ['NON-REGISTERED', 'TRADING', 'MARGIN', 'CASH'] },
+              { ai: 'TFSA', portfolio: ['TFSA', 'TAX-FREE'] },
+              { ai: 'RRSP', portfolio: ['RRSP', 'RSP'] },
+              { ai: 'CASH', portfolio: ['CASH', 'NON-REGISTERED', 'TRADING'] },
+              { ai: 'TRADING', portfolio: ['TRADING', 'NON-REGISTERED', 'MARGIN'] }
+            ];
+            
+            // Check if AI extracted name matches any mapping
+            for (const mapping of mappings) {
+              if (extractedName === mapping.ai) {
+                return mapping.portfolio.some(keyword => portfolioName.includes(keyword));
+              }
+            }
+            
+            return false;
+          });
           
           console.log('🎯 Matching portfolio found:', matchingPortfolio ? { id: matchingPortfolio.id, name: matchingPortfolio.name } : 'None');
           
