@@ -23,6 +23,7 @@ import {
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { useNotifications } from '../hooks/useNotifications';
+import { useSupabasePortfolios } from '../hooks/useSupabasePortfolios';
 import { simpleEmailService, parseEmailForTransaction } from '../services/simpleEmailService';
 import type { EmailItem, EmailStats, EmailPullerStatus } from '../services/simpleEmailService';
 import { usePageTitle } from '../hooks/usePageTitle';
@@ -600,6 +601,7 @@ const SimpleEmailManagement: React.FC = () => {
   
   const { success, error } = useNotifications();
   const { user, loading: authLoading } = useAuth();
+  const { portfolios } = useSupabasePortfolios();
   
   // State management
   const [emails, setEmails] = useState<EmailItem[]>([]);
@@ -613,6 +615,18 @@ const SimpleEmailManagement: React.FC = () => {
   const [processingEmail, setProcessingEmail] = useState<EmailItem | null>(null);
   const [parsedData, setParsedData] = useState<any>(null);
   const [transactionForm, setTransactionForm] = useState({
+    // Trading transaction fields
+    portfolioId: '',
+    symbol: '',
+    assetType: 'stock' as 'stock' | 'option',
+    transactionType: 'buy' as 'buy' | 'sell',
+    quantity: '',
+    price: '',
+    totalAmount: '',
+    fees: '',
+    currency: 'USD',
+    date: '',
+    // Legacy fields for backward compatibility
     type: 'expense' as 'income' | 'expense',
     amount: '',
     description: '',
@@ -713,33 +727,161 @@ const SimpleEmailManagement: React.FC = () => {
   const handleProcessEmail = async () => {
     if (!processingEmail) return;
 
-    // Validate form
-    if (!transactionForm.amount || !transactionForm.description) {
-      error('Validation Error', 'Please fill in amount and description');
-      return;
-    }
+    // Check if this is a trading transaction
+    const isTradingTransaction = parsedData && parsedData.symbol;
 
-    const amount = parseFloat(transactionForm.amount);
-    if (isNaN(amount) || amount <= 0) {
-      error('Validation Error', 'Please enter a valid amount');
-      return;
-    }
+    if (isTradingTransaction) {
+      // Validate trading transaction form
+      if (!transactionForm.portfolioId) {
+        error('Validation Error', 'Please select a portfolio');
+        return;
+      }
+      if (!transactionForm.symbol) {
+        error('Validation Error', 'Please enter a symbol');
+        return;
+      }
+      if (!transactionForm.quantity || parseFloat(transactionForm.quantity) <= 0) {
+        error('Validation Error', 'Please enter a valid quantity');
+        return;
+      }
+      if (!transactionForm.price || parseFloat(transactionForm.price) <= 0) {
+        error('Validation Error', 'Please enter a valid price');
+        return;
+      }
+      if (!transactionForm.date) {
+        error('Validation Error', 'Please select a date');
+        return;
+      }
 
-    const result = await simpleEmailService.processEmail(processingEmail.id, {
-      type: transactionForm.type,
-      amount,
-      description: transactionForm.description,
-      category: transactionForm.category || undefined
-    });
+      try {
+        // Get or create asset
+        const assetResult = await simpleEmailService.getOrCreateAsset(
+          transactionForm.symbol,
+          transactionForm.assetType
+        );
 
-    if (result.error) {
-      error('Process Error', result.error);
+        if (assetResult.error || !assetResult.data) {
+          error('Asset Error', assetResult.error || 'Failed to create asset');
+          return;
+        }
+
+        const assetId = assetResult.data.id;
+        
+        // Calculate values
+        const quantity = parseFloat(transactionForm.quantity);
+        const price = parseFloat(transactionForm.price);
+        const fees = parseFloat(transactionForm.fees) || 0;
+        
+        // For options, convert contracts to shares (multiply by 100)
+        const actualQuantity = transactionForm.assetType === 'option' ? quantity * 100 : quantity;
+        
+        // Calculate total amount if not provided
+        const totalAmount = transactionForm.totalAmount 
+          ? parseFloat(transactionForm.totalAmount)
+          : quantity * price;
+
+        // Create the trading transaction data
+        const tradingTransactionData = {
+          portfolio_id: transactionForm.portfolioId,
+          asset_id: assetId,
+          transaction_type: transactionForm.transactionType,
+          quantity: actualQuantity,
+          price: price,
+          total_amount: totalAmount,
+          fees: fees,
+          transaction_date: transactionForm.date,
+          currency: transactionForm.currency,
+          notes: JSON.stringify({
+            ...parsedData?.rawData,
+            processed_from_email: true,
+            original_quantity_display: transactionForm.assetType === 'option' ? `${quantity} contracts` : `${quantity} shares`
+          })
+        };
+
+        // Use the enhanced processEmail method with trading data
+        const result = await simpleEmailService.processTradingEmail(
+          processingEmail.id, 
+          tradingTransactionData
+        );
+
+        if (result.error) {
+          error('Process Error', result.error);
+        } else {
+          success('Trading Email Processed', `${transactionForm.transactionType.toUpperCase()} transaction created for ${transactionForm.symbol} and email archived`);
+          setEmails(prev => prev.filter(email => email.id !== processingEmail.id));
+          setProcessingEmail(null);
+          setParsedData(null);
+          // Reset form to default state
+          const today = new Date();
+          const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+          setTransactionForm({
+            portfolioId: portfolios.length > 0 ? portfolios[0].id : '',
+            symbol: '',
+            assetType: 'stock',
+            transactionType: 'buy',
+            quantity: '',
+            price: '',
+            totalAmount: '',
+            fees: '0',
+            currency: 'USD',
+            date: dateStr,
+            type: 'expense',
+            amount: '',
+            description: '',
+            category: ''
+          });
+          await loadStats(); // Refresh stats
+        }
+      } catch (err) {
+        console.error('Error processing trading email:', err);
+        error('Process Error', err instanceof Error ? err.message : 'Failed to process trading email');
+      }
     } else {
-      success('Email Processed', `Transaction created and email archived`);
-      setEmails(prev => prev.filter(email => email.id !== processingEmail.id));
-      setProcessingEmail(null);
-      setTransactionForm({ type: 'expense', amount: '', description: '', category: '' });
-      await loadStats(); // Refresh stats
+      // Basic transaction validation
+      if (!transactionForm.amount || !transactionForm.description) {
+        error('Validation Error', 'Please fill in amount and description');
+        return;
+      }
+
+      const amount = parseFloat(transactionForm.amount);
+      if (isNaN(amount) || amount <= 0) {
+        error('Validation Error', 'Please enter a valid amount');
+        return;
+      }
+
+      // Use the legacy processEmail method for basic transactions
+      const result = await simpleEmailService.processEmail(processingEmail.id, {
+        type: transactionForm.type,
+        amount,
+        description: transactionForm.description,
+        category: transactionForm.category || undefined
+      });
+
+      if (result.error) {
+        error('Process Error', result.error);
+      } else {
+        success('Email Processed', `Transaction created and email archived`);
+        setEmails(prev => prev.filter(email => email.id !== processingEmail.id));
+        setProcessingEmail(null);
+        setParsedData(null);
+        setTransactionForm({ 
+          portfolioId: '',
+          symbol: '',
+          assetType: 'stock',
+          transactionType: 'buy',
+          quantity: '',
+          price: '',
+          totalAmount: '',
+          fees: '0',
+          currency: 'USD',
+          date: '',
+          type: 'expense', 
+          amount: '', 
+          description: '', 
+          category: '' 
+        });
+        await loadStats(); // Refresh stats
+      }
     }
   };
 
@@ -750,21 +892,83 @@ const SimpleEmailManagement: React.FC = () => {
     const extracted = parseEmailForTransaction(email);
     setParsedData(extracted);
     
+    // Get today's date in YYYY-MM-DD format
+    const today = new Date();
+    const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    
     if (extracted) {
-      // Auto-fill form with extracted data
-      setTransactionForm({
-        type: extracted.type,
-        amount: extracted.amount.toString(),
-        description: extracted.description,
-        category: extracted.category
-      });
+      // Check if this is a trading transaction
+      const isTradingTransaction = extracted.symbol && extracted.assetType && extracted.transactionType;
+      
+      if (isTradingTransaction) {
+        // Auto-fill form with trading data
+        setTransactionForm({
+          // Trading fields
+          portfolioId: '', // Will be set after portfolio lookup
+          symbol: extracted.symbol || '',
+          assetType: extracted.assetType || 'stock',
+          transactionType: extracted.transactionType || 'buy',
+          quantity: extracted.quantity?.toString() || '',
+          price: extracted.price?.toString() || '',
+          totalAmount: extracted.totalAmount?.toString() || '',
+          fees: extracted.fees?.toString() || '0',
+          currency: extracted.currency || 'USD',
+          date: extracted.transactionDate || dateStr,
+          // Legacy fields for compatibility
+          type: extracted.type || (extracted.transactionType === 'buy' ? 'expense' : 'income'),
+          amount: extracted.amount?.toString() || extracted.totalAmount?.toString() || '',
+          description: extracted.description || `${extracted.transactionType?.toUpperCase()} ${extracted.quantity || ''} ${extracted.assetType === 'option' ? 'contracts' : 'shares'} of ${extracted.symbol || ''}`,
+          category: extracted.category || 'Trading'
+        });
+        
+        // If portfolio name was extracted, try to find matching portfolio
+        if (extracted.portfolioName && portfolios.length > 0) {
+          const matchingPortfolio = portfolios.find(p => 
+            p.name.toUpperCase() === extracted.portfolioName?.toUpperCase() ||
+            p.name.toUpperCase().includes(extracted.portfolioName?.toUpperCase() || '') ||
+            (extracted.portfolioName?.toUpperCase() || '').includes(p.name.toUpperCase())
+          );
+          
+          if (matchingPortfolio) {
+            setTransactionForm(prev => ({ ...prev, portfolioId: matchingPortfolio.id }));
+          }
+        }
+      } else {
+        // Basic transaction with legacy fields
+        setTransactionForm({
+          portfolioId: '',
+          symbol: '',
+          assetType: 'stock',
+          transactionType: 'buy',
+          quantity: '',
+          price: '',
+          totalAmount: '',
+          fees: '0',
+          currency: extracted.currency || 'USD',
+          date: dateStr,
+          type: extracted.type || 'expense',
+          amount: extracted.amount?.toString() || '',
+          description: extracted.description || email.subject || 'Email transaction',
+          category: extracted.category || 'Email Import'
+        });
+      }
     } else {
       // Fallback to manual entry
       setTransactionForm({
+        portfolioId: portfolios.length > 0 ? portfolios[0].id : '',
+        symbol: '',
+        assetType: 'stock',
+        transactionType: 'buy',
+        quantity: '',
+        price: '',
+        totalAmount: '',
+        fees: '0',
+        currency: 'USD',
+        date: dateStr,
         type: 'expense',
         amount: '',
         description: email.subject || 'Email transaction',
-        category: 'Email Import'
+        category: ''
       });
     }
   };
@@ -1195,31 +1399,60 @@ const SimpleEmailManagement: React.FC = () => {
                     📊 Automatically Extracted Information
                   </DetailLabel>
                   
-                  {parsedData.portfolio && (
+                  {/* Trading transaction data */}
+                  {parsedData.symbol && (
+                    <EmailDetail>
+                      <DetailLabel>Symbol</DetailLabel>
+                      <DetailValue>{parsedData.symbol}</DetailValue>
+                    </EmailDetail>
+                  )}
+                  
+                  {parsedData.assetType && (
+                    <EmailDetail>
+                      <DetailLabel>Asset Type</DetailLabel>
+                      <DetailValue>{parsedData.assetType}</DetailValue>
+                    </EmailDetail>
+                  )}
+                  
+                  {parsedData.transactionType && (
+                    <EmailDetail>
+                      <DetailLabel>Transaction Type</DetailLabel>
+                      <DetailValue>{parsedData.transactionType}</DetailValue>
+                    </EmailDetail>
+                  )}
+                  
+                  {parsedData.portfolioName && (
                     <EmailDetail>
                       <DetailLabel>Portfolio</DetailLabel>
-                      <DetailValue>{parsedData.portfolio}</DetailValue>
+                      <DetailValue>{parsedData.portfolioName}</DetailValue>
                     </EmailDetail>
                   )}
                   
-                  {parsedData.movementType && (
+                  {parsedData.quantity && (
                     <EmailDetail>
-                      <DetailLabel>Movement Type</DetailLabel>
-                      <DetailValue>{parsedData.movementType}</DetailValue>
+                      <DetailLabel>Quantity</DetailLabel>
+                      <DetailValue>{parsedData.quantity} {parsedData.assetType === 'option' ? 'contracts' : 'shares'}</DetailValue>
                     </EmailDetail>
                   )}
                   
-                  {parsedData.status && (
+                  {parsedData.price && (
                     <EmailDetail>
-                      <DetailLabel>Status</DetailLabel>
-                      <DetailValue>{parsedData.status}</DetailValue>
+                      <DetailLabel>Price</DetailLabel>
+                      <DetailValue>${parsedData.price}</DetailValue>
                     </EmailDetail>
                   )}
                   
-                  {parsedData.to && (
+                  {parsedData.totalAmount && (
                     <EmailDetail>
-                      <DetailLabel>To</DetailLabel>
-                      <DetailValue>{parsedData.to}</DetailValue>
+                      <DetailLabel>Total Amount</DetailLabel>
+                      <DetailValue>${parsedData.totalAmount}</DetailValue>
+                    </EmailDetail>
+                  )}
+                  
+                  {parsedData.fees && (
+                    <EmailDetail>
+                      <DetailLabel>Fees</DetailLabel>
+                      <DetailValue>${parsedData.fees}</DetailValue>
                     </EmailDetail>
                   )}
                   
@@ -1230,10 +1463,10 @@ const SimpleEmailManagement: React.FC = () => {
                     </EmailDetail>
                   )}
                   
-                  {parsedData.notes && (
+                  {parsedData.transactionDate && (
                     <EmailDetail>
-                      <DetailLabel>Notes</DetailLabel>
-                      <DetailValue>{parsedData.notes}</DetailValue>
+                      <DetailLabel>Date</DetailLabel>
+                      <DetailValue>{parsedData.transactionDate}</DetailValue>
                     </EmailDetail>
                   )}
                 </div>
@@ -1257,57 +1490,175 @@ const SimpleEmailManagement: React.FC = () => {
               </div>
             )}
 
-            <FormGroup>
-              <FormLabel>Transaction Type</FormLabel>
-              <FormSelect
-                value={transactionForm.type}
-                onChange={(e) => setTransactionForm(prev => ({ ...prev, type: e.target.value as 'income' | 'expense' }))}
-              >
-                <option value="expense">Expense</option>
-                <option value="income">Income</option>
-              </FormSelect>
-            </FormGroup>
+            {/* Check if this is a trading transaction */}
+            {parsedData && parsedData.symbol ? (
+              /* Trading Transaction Form */
+              <>
+                <FormGroup>
+                  <FormLabel>Portfolio *</FormLabel>
+                  <FormSelect
+                    value={transactionForm.portfolioId}
+                    onChange={(e) => setTransactionForm(prev => ({ ...prev, portfolioId: e.target.value }))}
+                    style={parsedData && parsedData.portfolioName ? { background: '#f0fdf4' } : {}}
+                  >
+                    <option value="">Select Portfolio</option>
+                    {portfolios.map(portfolio => (
+                      <option key={portfolio.id} value={portfolio.id}>
+                        {portfolio.name}
+                      </option>
+                    ))}
+                  </FormSelect>
+                </FormGroup>
 
-            <FormGroup>
-              <FormLabel>Amount *</FormLabel>
-              <FormInput
-                type="number"
-                step="0.01"
-                placeholder="0.00"
-                value={transactionForm.amount}
-                onChange={(e) => setTransactionForm(prev => ({ ...prev, amount: e.target.value }))}
-                style={parsedData ? { background: '#f0fdf4' } : {}}
-              />
-            </FormGroup>
+                <FormGroup>
+                  <FormLabel>Symbol *</FormLabel>
+                  <FormInput
+                    type="text"
+                    placeholder="e.g., NVDA"
+                    value={transactionForm.symbol}
+                    onChange={(e) => setTransactionForm(prev => ({ ...prev, symbol: e.target.value.toUpperCase() }))}
+                    style={parsedData && parsedData.symbol ? { background: '#f0fdf4' } : {}}
+                  />
+                </FormGroup>
 
-            <FormGroup>
-              <FormLabel>Description *</FormLabel>
-              <FormInput
-                type="text"
-                placeholder="Transaction description"
-                value={transactionForm.description}
-                onChange={(e) => setTransactionForm(prev => ({ ...prev, description: e.target.value }))}
-                style={parsedData ? { background: '#f0fdf4' } : {}}
-              />
-            </FormGroup>
+                <FormGroup>
+                  <FormLabel>Asset Type *</FormLabel>
+                  <FormSelect
+                    value={transactionForm.assetType}
+                    onChange={(e) => setTransactionForm(prev => ({ ...prev, assetType: e.target.value as 'stock' | 'option' }))}
+                    style={parsedData && parsedData.assetType ? { background: '#f0fdf4' } : {}}
+                  >
+                    <option value="stock">Stock</option>
+                    <option value="option">Option</option>
+                  </FormSelect>
+                </FormGroup>
 
-            <FormGroup>
-              <FormLabel>Category</FormLabel>
-              <FormSelect
-                value={transactionForm.category}
-                onChange={(e) => setTransactionForm(prev => ({ ...prev, category: e.target.value }))}
-                style={parsedData ? { background: '#f0fdf4' } : {}}
-              >
-                <option value="">Select category (optional)</option>
-                <option value="Banking">Banking</option>
-                <option value="Investment">Investment</option>
-                <option value="Trading">Trading</option>
-                <option value="Income">Income</option>
-                <option value="Expense">Expense</option>
-                <option value="Fee">Fee</option>
-                <option value="Other">Other</option>
-              </FormSelect>
-            </FormGroup>
+                <FormGroup>
+                  <FormLabel>Transaction Type *</FormLabel>
+                  <FormSelect
+                    value={transactionForm.transactionType}
+                    onChange={(e) => setTransactionForm(prev => ({ ...prev, transactionType: e.target.value as 'buy' | 'sell' }))}
+                    style={parsedData && parsedData.transactionType ? { background: '#f0fdf4' } : {}}
+                  >
+                    <option value="buy">Buy</option>
+                    <option value="sell">Sell</option>
+                  </FormSelect>
+                </FormGroup>
+
+                <FormGroup>
+                  <FormLabel>{transactionForm.assetType === 'option' ? 'Contracts' : 'Quantity'} *</FormLabel>
+                  <FormInput
+                    type="number"
+                    step="0.0001"
+                    placeholder={transactionForm.assetType === 'option' ? 'e.g., 10 contracts' : 'e.g., 100 shares'}
+                    value={transactionForm.quantity}
+                    onChange={(e) => setTransactionForm(prev => ({ ...prev, quantity: e.target.value }))}
+                    style={parsedData && parsedData.quantity ? { background: '#f0fdf4' } : {}}
+                  />
+                </FormGroup>
+
+                <FormGroup>
+                  <FormLabel>Price *</FormLabel>
+                  <FormInput
+                    type="number"
+                    step="0.0001"
+                    placeholder="0.00"
+                    value={transactionForm.price}
+                    onChange={(e) => setTransactionForm(prev => ({ ...prev, price: e.target.value }))}
+                    style={parsedData && parsedData.price ? { background: '#f0fdf4' } : {}}
+                  />
+                </FormGroup>
+
+                <FormGroup>
+                  <FormLabel>Total Amount</FormLabel>
+                  <FormInput
+                    type="number"
+                    step="0.01"
+                    placeholder="Auto-calculated"
+                    value={transactionForm.totalAmount}
+                    onChange={(e) => setTransactionForm(prev => ({ ...prev, totalAmount: e.target.value }))}
+                    style={parsedData && parsedData.totalAmount ? { background: '#f0fdf4' } : {}}
+                  />
+                </FormGroup>
+
+                <FormGroup>
+                  <FormLabel>Fees</FormLabel>
+                  <FormInput
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={transactionForm.fees}
+                    onChange={(e) => setTransactionForm(prev => ({ ...prev, fees: e.target.value }))}
+                    style={parsedData && parsedData.fees ? { background: '#f0fdf4' } : {}}
+                  />
+                </FormGroup>
+
+                <FormGroup>
+                  <FormLabel>Date *</FormLabel>
+                  <FormInput
+                    type="date"
+                    value={transactionForm.date}
+                    onChange={(e) => setTransactionForm(prev => ({ ...prev, date: e.target.value }))}
+                    style={parsedData && parsedData.transactionDate ? { background: '#f0fdf4' } : {}}
+                  />
+                </FormGroup>
+              </>
+            ) : (
+              /* Basic Transaction Form */
+              <>
+                <FormGroup>
+                  <FormLabel>Transaction Type</FormLabel>
+                  <FormSelect
+                    value={transactionForm.type}
+                    onChange={(e) => setTransactionForm(prev => ({ ...prev, type: e.target.value as 'income' | 'expense' }))}
+                  >
+                    <option value="expense">Expense</option>
+                    <option value="income">Income</option>
+                  </FormSelect>
+                </FormGroup>
+
+                <FormGroup>
+                  <FormLabel>Amount *</FormLabel>
+                  <FormInput
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={transactionForm.amount}
+                    onChange={(e) => setTransactionForm(prev => ({ ...prev, amount: e.target.value }))}
+                    style={parsedData ? { background: '#f0fdf4' } : {}}
+                  />
+                </FormGroup>
+
+                <FormGroup>
+                  <FormLabel>Description *</FormLabel>
+                  <FormInput
+                    type="text"
+                    placeholder="Transaction description"
+                    value={transactionForm.description}
+                    onChange={(e) => setTransactionForm(prev => ({ ...prev, description: e.target.value }))}
+                    style={parsedData ? { background: '#f0fdf4' } : {}}
+                  />
+                </FormGroup>
+
+                <FormGroup>
+                  <FormLabel>Category</FormLabel>
+                  <FormSelect
+                    value={transactionForm.category}
+                    onChange={(e) => setTransactionForm(prev => ({ ...prev, category: e.target.value }))}
+                    style={parsedData ? { background: '#f0fdf4' } : {}}
+                  >
+                    <option value="">Select category (optional)</option>
+                    <option value="Banking">Banking</option>
+                    <option value="Investment">Investment</option>
+                    <option value="Trading">Trading</option>
+                    <option value="Income">Income</option>
+                    <option value="Expense">Expense</option>
+                    <option value="Fee">Fee</option>
+                    <option value="Other">Other</option>
+                  </FormSelect>
+                </FormGroup>
+              </>
+            )}
 
             <FormActions>
               <Button

@@ -505,22 +505,279 @@ class SimpleEmailService {
       };
     }
   }
+
+  /**
+   * Get portfolio ID by name
+   */
+  async getPortfolioByName(portfolioName: string): Promise<{ data: { id: string, name: string } | null; error: string | null }> {
+    try {
+      // Check authentication first
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError || !user) {
+        console.error('Authentication required for getPortfolioByName:', authError?.message);
+        return { 
+          data: null, 
+          error: authError?.message || 'Authentication required' 
+        };
+      }
+
+      // Normalize the portfolio name for matching
+      const normalizedName = portfolioName.toUpperCase().trim();
+      
+      // Common portfolio name variations
+      const nameVariations = [
+        normalizedName,
+        normalizedName.replace(/\s+/g, ''), // Remove spaces
+        normalizedName.replace(/ACCOUNT$/i, ''), // Remove "ACCOUNT" suffix
+        normalizedName.replace(/^.*\s/, ''), // Get last word only
+      ];
+
+      console.log('Looking up portfolio for variations:', nameVariations);
+
+      const { data, error } = await supabase
+        .from('portfolios')
+        .select('id, name')
+        .eq('user_id', user.id)
+        .eq('is_active', true);
+
+      if (error) {
+        console.error('Error fetching portfolios:', error);
+        return { data: null, error: error.message };
+      }
+
+      if (!data || data.length === 0) {
+        return { data: null, error: 'No portfolios found for user' };
+      }
+
+      // Try to find a matching portfolio
+      for (const variation of nameVariations) {
+        const matchingPortfolio = data.find(p => 
+          p.name.toUpperCase() === variation ||
+          p.name.toUpperCase().includes(variation) ||
+          variation.includes(p.name.toUpperCase())
+        );
+        
+        if (matchingPortfolio) {
+          console.log(`Found portfolio match: ${matchingPortfolio.name} (${matchingPortfolio.id}) for "${portfolioName}"`);
+          return { data: matchingPortfolio, error: null };
+        }
+      }
+
+      console.log(`No portfolio match found for "${portfolioName}". Available portfolios:`, data.map(p => p.name));
+      return { data: null, error: `No portfolio found matching "${portfolioName}"` };
+    } catch (err) {
+      console.error('Failed to lookup portfolio:', err);
+      return { 
+        data: null, 
+        error: err instanceof Error ? err.message : 'Failed to lookup portfolio' 
+      };
+    }
+  }
+
+  /**
+   * Get asset by symbol, or create if not exists
+   */
+  async getOrCreateAsset(symbol: string, assetType: 'stock' | 'option'): Promise<{ data: { id: string } | null; error: string | null }> {
+    try {
+      // Check authentication first
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError || !user) {
+        console.error('Authentication required for getOrCreateAsset:', authError?.message);
+        return { 
+          data: null, 
+          error: authError?.message || 'Authentication required' 
+        };
+      }
+
+      const normalizedSymbol = symbol.toUpperCase().trim();
+      
+      // First, try to find existing asset
+      const { data: existingAsset, error: lookupError } = await supabase
+        .from('assets')
+        .select('id, symbol, name, asset_type')
+        .eq('symbol', normalizedSymbol)
+        .single();
+
+      if (lookupError && lookupError.code !== 'PGRST116') { // PGRST116 = no rows found
+        console.error('Error looking up asset:', lookupError);
+        return { data: null, error: lookupError.message };
+      }
+
+      // If asset exists, return it
+      if (existingAsset) {
+        console.log(`Found existing asset: ${existingAsset.symbol} (${existingAsset.id})`);
+        return { data: { id: existingAsset.id }, error: null };
+      }
+
+      // Create new asset
+      const assetName = assetType === 'option' 
+        ? `${normalizedSymbol} Option` 
+        : normalizedSymbol;
+
+      const { data: newAsset, error: createError } = await supabase
+        .from('assets')
+        .insert([{
+          symbol: normalizedSymbol,
+          name: assetName,
+          asset_type: assetType,
+          currency: 'USD', // Default to USD
+          created_at: new Date().toISOString(),
+          last_updated: new Date().toISOString()
+        }])
+        .select('id')
+        .single();
+
+      if (createError) {
+        console.error('Error creating asset:', createError);
+        return { data: null, error: createError.message };
+      }
+
+      console.log(`Created new asset: ${normalizedSymbol} (${newAsset.id})`);
+      return { data: { id: newAsset.id }, error: null };
+    } catch (err) {
+      console.error('Failed to get or create asset:', err);
+      return { 
+        data: null, 
+        error: err instanceof Error ? err.message : 'Failed to get or create asset' 
+      };
+    }
+  }
+
+  /**
+   * Process trading email - create trading transaction and move to processed table
+   */
+  async processTradingEmail(
+    emailId: string, 
+    tradingData: {
+      portfolio_id: string;
+      asset_id: string;
+      transaction_type: 'buy' | 'sell';
+      quantity: number;
+      price: number;
+      total_amount: number;
+      fees: number;
+      transaction_date: string;
+      currency: string;
+      notes?: string;
+    }
+  ): Promise<{ success: boolean; transactionId?: string; error: string | null }> {
+    try {
+      // Check authentication first
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError || !user) {
+        console.error('Authentication required for processTradingEmail:', authError?.message);
+        return { 
+          success: false, 
+          error: authError?.message || 'Authentication required' 
+        };
+      }
+
+      // Get the email first
+      const emailResult = await this.getEmailById(emailId);
+      if (emailResult.error || !emailResult.data) {
+        return { success: false, error: emailResult.error || 'Email not found' };
+      }
+
+      const email = emailResult.data;
+
+      // Create trading transaction
+      const { data: transaction, error: transactionError } = await supabase
+        .from('transactions')
+        .insert([{
+          portfolio_id: tradingData.portfolio_id,
+          asset_id: tradingData.asset_id,
+          transaction_type: tradingData.transaction_type,
+          quantity: tradingData.quantity,
+          price: tradingData.price,
+          total_amount: tradingData.total_amount,
+          fees: tradingData.fees,
+          transaction_date: tradingData.transaction_date,
+          currency: tradingData.currency,
+          notes: tradingData.notes,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }])
+        .select('id')
+        .single();
+
+      if (transactionError) {
+        console.error('Error creating trading transaction:', transactionError);
+        return { success: false, error: transactionError.message };
+      }
+
+      // Move email to processed table
+      const { error: processedError } = await supabase
+        .from('imap_processed')
+        .insert([{
+          user_id: user.id,
+          original_inbox_id: email.id,
+          message_id: email.message_id,
+          subject: email.subject,
+          from_email: email.from_email,
+          received_at: email.received_at,
+          processing_result: 'approved',
+          transaction_id: transaction.id,
+          processed_at: new Date().toISOString(),
+          processed_by_user_id: user.id,
+          processing_notes: `Processed as trading transaction: ${tradingData.transaction_type.toUpperCase()} ${tradingData.quantity} ${tradingData.asset_id}`,
+          created_at: new Date().toISOString()
+        }]);
+
+      if (processedError) {
+        console.error('Error moving to processed:', processedError);
+        // Try to delete the transaction we just created
+        await supabase.from('transactions').delete().eq('id', transaction.id);
+        return { success: false, error: processedError.message };
+      }
+
+      // Delete from inbox
+      const { error: deleteError } = await supabase
+        .from('imap_inbox')
+        .delete()
+        .eq('id', emailId);
+
+      if (deleteError) {
+        console.error('Error deleting from inbox:', deleteError);
+        // Don't fail the whole operation if delete fails - email is already processed
+        console.warn('Email processed but not removed from inbox');
+      }
+
+      return { success: true, transactionId: transaction.id, error: null };
+    } catch (err) {
+      console.error('Failed to process trading email:', err);
+      return { 
+        success: false, 
+        error: err instanceof Error ? err.message : 'Failed to process trading email' 
+      };
+    }
+  }
 }
 
 /**
- * Parse email content to extract transaction information
+ * Parse email content to extract trading transaction information
  */
 export function parseEmailForTransaction(email: EmailItem): {
-  type: 'income' | 'expense';
-  amount: number;
-  description: string;
-  category: string;
-  portfolio?: string;
-  movementType?: string;
-  status?: string;
-  to?: string;
+  // Trading transaction fields
+  portfolioName?: string;
+  symbol?: string;
+  assetType?: 'stock' | 'option';
+  transactionType?: 'buy' | 'sell';
+  quantity?: number;
+  price?: number;
+  totalAmount?: number;
+  fees?: number;
   currency?: string;
-  notes?: string;
+  transactionDate?: string; // YYYY-MM-DD format only
+  // Raw data for audit trail
+  rawData?: any;
+  // Legacy fields for backward compatibility
+  type?: 'income' | 'expense';
+  amount?: number;
+  description?: string;
+  category?: string;
 } | null {
   try {
     const content = email.text_content || email.html_content || '';
@@ -528,136 +785,251 @@ export function parseEmailForTransaction(email: EmailItem): {
     
     console.log('Parsing email content:', { subject, contentLength: content.length });
     
-    // Extract amount - look for currency patterns
-    const amountPatterns = [
-      /\$\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/g,           // $123.45 or $1,234.56
-      /(\d+(?:,\d{3})*(?:\.\d{2})?)\s*USD/gi,         // 123.45 USD
-      /USD\s*\$?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/gi,  // USD $123.45
-      /amount[:\s]*\$?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/gi, // Amount: $123.45
-      /(\d+(?:\.\d{2})?)\s*dollars?/gi                // 123.45 dollars
+    // Create raw data object for audit trail
+    const rawData = {
+      subject,
+      content: content.substring(0, 1000), // Store first 1000 chars
+      parsed_at: new Date().toISOString()
+    };
+    
+    // Extract portfolio/account name
+    const portfolioPatterns = [
+      /account[:\s]*([A-Z]{2,6})/gi,           // Account: TFSA
+      /portfolio[:\s]*([A-Z]{2,6})/gi,         // Portfolio: RSP  
+      /([A-Z]{2,6})\s*account/gi,              // TFSA Account
+      /in\s+your\s+([A-Z]{2,6})/gi            // in your TFSA
     ];
     
-    let amount = 0;
-    let currency = 'USD';
+    let portfolioName = '';
+    for (const pattern of portfolioPatterns) {
+      const match = content.match(pattern);
+      if (match && match[1] && typeof match[1] === 'string') {
+        portfolioName = match[1].toUpperCase().trim();
+        break;
+      }
+    }
     
-    for (const pattern of amountPatterns) {
+    // Extract symbol
+    const symbolPatterns = [
+      /symbol[:\s]*([A-Z]{1,6})/gi,            // Symbol: NVDA
+      /ticker[:\s]*([A-Z]{1,6})/gi,            // Ticker: TSLA
+      /([A-Z]{2,6})\s+(?:shares?|contracts?)/gi, // NVDA shares
+      /([A-Z]{2,6})\s+(?:stock|option)/gi      // NVDA stock
+    ];
+    
+    let symbol = '';
+    for (const pattern of symbolPatterns) {
+      const match = content.match(pattern);
+      if (match && match[1] && typeof match[1] === 'string') {
+        symbol = match[1].toUpperCase().trim();
+        break;
+      }
+    }
+    
+    // Extract asset type - prioritize explicit mentions
+    let assetType: 'stock' | 'option' | undefined;
+    if (content.toLowerCase().includes('option') || content.toLowerCase().includes('contract')) {
+      assetType = 'option';
+    } else if (content.toLowerCase().includes('share') || content.toLowerCase().includes('stock')) {
+      assetType = 'stock';
+    }
+    
+    // Extract transaction type
+    let transactionType: 'buy' | 'sell' | undefined;
+    if (content.toLowerCase().includes('buy') || content.toLowerCase().includes('bought') || content.toLowerCase().includes('purchase')) {
+      transactionType = 'buy';
+    } else if (content.toLowerCase().includes('sell') || content.toLowerCase().includes('sold') || content.toLowerCase().includes('sale')) {
+      transactionType = 'sell';
+    }
+    
+    // Extract quantity
+    const quantityPatterns = [
+      /quantity[:\s]*(\d+(?:,\d{3})*(?:\.\d+)?)/gi,     // Quantity: 100
+      /(\d+(?:,\d{3})*(?:\.\d+)?)\s*shares?/gi,         // 100 shares
+      /(\d+(?:,\d{3})*(?:\.\d+)?)\s*contracts?/gi,      // 10 contracts
+      /shares?[:\s]*(\d+(?:,\d{3})*(?:\.\d+)?)/gi,      // Shares: 100
+      /contracts?[:\s]*(\d+(?:,\d{3})*(?:\.\d+)?)/gi    // Contracts: 10
+    ];
+    
+    let quantity = 0;
+    for (const pattern of quantityPatterns) {
       const matches = [...content.matchAll(pattern)];
-      if (matches.length > 0) {
+      if (matches.length > 0 && matches[0][1]) {
+        const quantityStr = matches[0][1].replace(/,/g, '');
+        quantity = parseFloat(quantityStr);
+        console.log('Found quantity:', quantity, 'from pattern:', pattern);
+        break;
+      }
+    }
+    
+    // Extract price per share/contract
+    const pricePatterns = [
+      /(?:average\s+)?price[:\s]*\$?\s*(\d+(?:,\d{3})*(?:\.\d{2,4})?)/gi,  // Average price: $123.45
+      /price\s+per\s+(?:share|contract)[:\s]*\$?\s*(\d+(?:,\d{3})*(?:\.\d{2,4})?)/gi, // Price per share: $50.00
+      /at\s+\$?\s*(\d+(?:,\d{3})*(?:\.\d{2,4})?)\s+per/gi,                // at $50.00 per
+      /\$\s*(\d+(?:,\d{3})*(?:\.\d{2,4})?)\s+per\s+(?:share|contract)/gi  // $50.00 per share
+    ];
+    
+    let price = 0;
+    for (const pattern of pricePatterns) {
+      const matches = [...content.matchAll(pattern)];
+      if (matches.length > 0 && matches[0][1]) {
+        const priceStr = matches[0][1].replace(/,/g, '');
+        price = parseFloat(priceStr);
+        console.log('Found price:', price, 'from pattern:', pattern);
+        break;
+      }
+    }
+    
+    // Extract total amount
+    const totalPatterns = [
+      /total[:\s]*\$?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/gi,     // Total: $123.45
+      /total\s+value[:\s]*\$?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/gi, // Total value: $123.45
+      /amount[:\s]*\$?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/gi     // Amount: $123.45
+    ];
+    
+    let totalAmount = 0;
+    for (const pattern of totalPatterns) {
+      const matches = [...content.matchAll(pattern)];
+      if (matches.length > 0 && matches[0][1]) {
         const amountStr = matches[0][1].replace(/,/g, '');
-        amount = parseFloat(amountStr);
-        console.log('Found amount:', amount, 'from pattern:', pattern);
+        totalAmount = parseFloat(amountStr);
+        console.log('Found total amount:', totalAmount, 'from pattern:', pattern);
         break;
       }
     }
-  
+    
     // Extract currency
-    const currencyMatch = content.match(/(USD|CAD|EUR|GBP)\s*[\($]/gi);
+    let currency = 'USD';
+    const currencyMatch = content.match(/(USD|CAD|EUR|GBP)/gi);
     if (currencyMatch) {
-      currency = currencyMatch[0].replace(/[\s\($]/g, '').toUpperCase();
+      currency = currencyMatch[0].toUpperCase();
     }
     
-    // Extract portfolio
-    const portfolioMatch = content.match(/portfolio[:\s]*([A-Z]{3,4}|[A-Za-z\s]+Account)/gi);
-    const portfolio = portfolioMatch ? portfolioMatch[0].split(/[:\s]+/)[1] : undefined;
-    
-    // Extract movement type
-    const movementPatterns = [
-      /movement\s+type[:\s]*(\w+)/gi,
-      /(deposit|withdrawal|transfer|buy|sell|dividend)/gi
+    // Extract fees
+    const feePatterns = [
+      /fee[s]?[:\s]*\$?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/gi,   // Fees: $1.50
+      /commission[:\s]*\$?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/gi, // Commission: $1.50
+      /charge[:\s]*\$?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/gi     // Charge: $1.50
     ];
     
-    let movementType = '';
-    for (const pattern of movementPatterns) {
-      const match = content.match(pattern);
-      if (match) {
-        movementType = match[1] || match[0];
+    let fees = 0;
+    for (const pattern of feePatterns) {
+      const matches = [...content.matchAll(pattern)];
+      if (matches.length > 0 && matches[0][1]) {
+        const feeStr = matches[0][1].replace(/,/g, '');
+        fees = parseFloat(feeStr);
+        console.log('Found fees:', fees, 'from pattern:', pattern);
         break;
       }
     }
     
-    // Extract status
-    const statusMatch = content.match(/status[:\s]*(\w+)/gi);
-    const status = statusMatch && statusMatch[1] ? statusMatch[1] : undefined;
-    
-    // Extract "To" field
-    const toPatterns = [
-      /to[:\s]*([A-Za-z0-9\s]+(?:account|chequing|savings|bank)\s*\d*)/gi,
-      /destination[:\s]*([A-Za-z0-9\s]+)/gi
+    // Extract transaction date/time - convert to YYYY-MM-DD format only
+    const datePatterns = [
+      /(?:date|time)[:\s]*(\d{4}-\d{2}-\d{2})/gi,           // Date: 2025-06-22
+      /(?:date|time)[:\s]*(\d{2}\/\d{2}\/\d{4})/gi,        // Date: 06/22/2025
+      /(?:on|at)\s+(\d{4}-\d{2}-\d{2})/gi,                 // on 2025-06-22
+      /(\d{4}-\d{2}-\d{2})\s+\d{2}:\d{2}/gi               // 2025-06-22 14:30
     ];
     
-    let to = '';
-    for (const pattern of toPatterns) {
+    let transactionDate = '';
+    for (const pattern of datePatterns) {
       const match = content.match(pattern);
       if (match && match[1] && typeof match[1] === 'string') {
-        to = match[1].trim();
+        let dateStr = match[1];
+        // Convert MM/DD/YYYY to YYYY-MM-DD
+        if (dateStr.includes('/')) {
+          const [month, day, year] = dateStr.split('/');
+          dateStr = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+        }
+        transactionDate = dateStr;
         break;
       }
     }
     
-    // Determine transaction type based on keywords
-    let type: 'income' | 'expense' = 'expense';
-    const incomeKeywords = ['deposit', 'dividend', 'interest', 'credit', 'received', 'incoming'];
-    const expenseKeywords = ['withdrawal', 'withdraw', 'fee', 'charge', 'debit', 'outgoing', 'transfer out'];
-    
-    const lowerContent = content.toLowerCase();
-    const lowerSubject = subject.toLowerCase();
-    const allText = lowerContent + ' ' + lowerSubject;
-    
-    if (incomeKeywords.some(keyword => allText.includes(keyword))) {
-      type = 'income';
-    } else if (expenseKeywords.some(keyword => allText.includes(keyword))) {
-      type = 'expense';
-    }
-    
-    // Generate description from subject and extracted info
-    let description = subject;
-    if (movementType) {
-      description = `${movementType}: ${subject}`;
-    }
-    if (to) {
-      description += ` to ${to}`;
-    }
-    
-    // Determine category
-    let category = 'Email Import';
-    if (movementType.toLowerCase().includes('deposit')) category = 'Banking';
-    if (movementType.toLowerCase().includes('withdrawal')) category = 'Banking';
-    if (movementType.toLowerCase().includes('transfer')) category = 'Banking';
-    if (movementType.toLowerCase().includes('dividend')) category = 'Investment';
-    if (allText.includes('trading') || allText.includes('buy') || allText.includes('sell')) category = 'Trading';
-    
-    // Extract additional notes
-    const notesPatterns = [
-      /notes?[:\s]*([^\n\r]{10,100})/gi,
-      /additional\s+info[:\s]*([^\n\r]{10,100})/gi
-    ];
-    
-    let notes = '';
-    for (const pattern of notesPatterns) {
-      const match = content.match(pattern);
-      if (match && match[1] && typeof match[1] === 'string') {
-        notes = match[1].trim();
-        break;
+    // If no specific date found, try to extract from email received date
+    if (!transactionDate && email.received_at) {
+      try {
+        const receivedDate = new Date(email.received_at);
+        const year = receivedDate.getFullYear();
+        const month = String(receivedDate.getMonth() + 1).padStart(2, '0');
+        const day = String(receivedDate.getDate()).padStart(2, '0');
+        transactionDate = `${year}-${month}-${day}`;
+      } catch (error) {
+        console.warn('Error parsing received_at date:', error);
       }
     }
     
-    console.log('Parsed email data:', {
-      type, amount, description, category, portfolio, movementType, status, to, currency, notes
+    console.log('Parsed trading data:', {
+      portfolioName, symbol, assetType, transactionType, quantity, price, totalAmount, fees, currency, transactionDate
     });
     
-    // Only return data if we found a valid amount
-    if (amount > 0) {
+    // Check if we have sufficient data for a trading transaction
+    const hasMinimumTradingData = symbol && assetType && transactionType && quantity > 0 && price > 0;
+    
+    if (hasMinimumTradingData) {
       return {
-        type,
-        amount,
-        description: description || 'Email transaction',
-        category,
-        portfolio,
-        movementType,
-        status,
-        to,
+        // Trading transaction fields
+        portfolioName,
+        symbol,
+        assetType,
+        transactionType,
+        quantity,
+        price,
+        totalAmount: totalAmount || (quantity * price), // Calculate if not found
+        fees,
         currency,
-        notes
+        transactionDate,
+        rawData,
+        // Legacy fields for backward compatibility
+        type: transactionType === 'buy' ? 'expense' : 'income',
+        amount: totalAmount || (quantity * price),
+        description: `${transactionType?.toUpperCase() || 'TRADE'} ${quantity} ${assetType === 'option' ? 'contracts' : 'shares'} of ${symbol}`,
+        category: 'Trading'
+      };
+    }
+    
+    // Fallback to basic amount extraction for non-trading emails
+    const basicAmountPatterns = [
+      /\$\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/g,           // $123.45 or $1,234.56
+      /(\d+(?:,\d{3})*(?:\.\d{2})?)\s*USD/gi,         // 123.45 USD
+      /amount[:\s]*\$?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/gi, // Amount: $123.45
+    ];
+    
+    let basicAmount = 0;
+    for (const pattern of basicAmountPatterns) {
+      const matches = [...content.matchAll(pattern)];
+      if (matches.length > 0 && matches[0][1]) {
+        const amountStr = matches[0][1].replace(/,/g, '');
+        basicAmount = parseFloat(amountStr);
+        console.log('Found basic amount:', basicAmount, 'from pattern:', pattern);
+        break;
+      }
+    }
+    
+    if (basicAmount > 0) {
+      // Determine basic transaction type
+      let basicType: 'income' | 'expense' = 'expense';
+      const incomeKeywords = ['deposit', 'dividend', 'interest', 'credit', 'received', 'incoming'];
+      const expenseKeywords = ['withdrawal', 'withdraw', 'fee', 'charge', 'debit', 'outgoing'];
+      
+      const lowerContent = content.toLowerCase();
+      const lowerSubject = subject.toLowerCase();
+      const allText = lowerContent + ' ' + lowerSubject;
+      
+      if (incomeKeywords.some(keyword => allText.includes(keyword))) {
+        basicType = 'income';
+      } else if (expenseKeywords.some(keyword => allText.includes(keyword))) {
+        basicType = 'expense';
+      }
+      
+      return {
+        type: basicType,
+        amount: basicAmount,
+        description: subject || 'Email transaction',
+        category: 'Email Import',
+        currency,
+        rawData
       };
     }
     
