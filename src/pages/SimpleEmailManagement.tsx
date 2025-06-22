@@ -1051,6 +1051,44 @@ const SimpleEmailManagement: React.FC = () => {
 
   const getEmailPreview = (email: EmailItem) => {
     const content = email.text_content || email.html_content || '';
+    
+    // Extract transaction-relevant information for preview
+    const lines = content.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+    
+    // Look for key trading information patterns
+    const relevantInfo = [];
+    
+    for (const line of lines) {
+      // Skip common email headers and footers
+      if (line.includes('wealthsimple.com') || 
+          line.includes('unsubscribe') || 
+          line.includes('privacy') ||
+          line.includes('@') ||
+          line.includes('http') ||
+          line.length < 10) {
+        continue;
+      }
+      
+      // Include lines with trading keywords
+      if (line.match(/\b(bought|sold|buy|sell|filled|order|shares|stock|symbol|price|total|margin|tfsa|rrsp|portfolio)\b/i) ||
+          line.match(/\$[\d,]+\.?\d*/)) {
+        relevantInfo.push(line);
+      }
+      
+      // Stop after finding enough relevant lines or hitting character limit
+      const preview = relevantInfo.join(' • ');
+      if (preview.length > 150 || relevantInfo.length > 3) {
+        break;
+      }
+    }
+    
+    // Format the preview
+    if (relevantInfo.length > 0) {
+      const preview = relevantInfo.join(' • ');
+      return preview.length > 200 ? preview.substring(0, 197) + '...' : preview;
+    }
+    
+    // Fallback to original truncated content if no trading info found
     return content.substring(0, 200) + (content.length > 200 ? '...' : '');
   };
 
