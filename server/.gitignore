@@ -1,0 +1,30 @@
+# Runtime files
+dist/
+logs/
+*.log
+combined.log
+error.log
+server.log
+server-websocket.log
+websocket-server.log
+
+# Dependencies
+node_modules/
+
+# Environment files (keep for production server config)
+# .env
+# .env.development  
+# .env.production
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Build artifacts
+build/
