@@ -522,145 +522,150 @@ export function parseEmailForTransaction(email: EmailItem): {
   currency?: string;
   notes?: string;
 } | null {
-  const content = email.text_content || email.html_content || '';
-  const subject = email.subject || '';
-  
-  console.log('Parsing email content:', { subject, contentLength: content.length });
-  
-  // Extract amount - look for currency patterns
-  const amountPatterns = [
-    /\$\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/g,           // $123.45 or $1,234.56
-    /(\d+(?:,\d{3})*(?:\.\d{2})?)\s*USD/gi,         // 123.45 USD
-    /USD\s*\$?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/gi,  // USD $123.45
-    /amount[:\s]*\$?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/gi, // Amount: $123.45
-    /(\d+(?:\.\d{2})?)\s*dollars?/gi                // 123.45 dollars
-  ];
-  
-  let amount = 0;
-  let currency = 'USD';
-  
-  for (const pattern of amountPatterns) {
-    const matches = [...content.matchAll(pattern)];
-    if (matches.length > 0) {
-      const amountStr = matches[0][1].replace(/,/g, '');
-      amount = parseFloat(amountStr);
-      console.log('Found amount:', amount, 'from pattern:', pattern);
-      break;
+  try {
+    const content = email.text_content || email.html_content || '';
+    const subject = email.subject || '';
+    
+    console.log('Parsing email content:', { subject, contentLength: content.length });
+    
+    // Extract amount - look for currency patterns
+    const amountPatterns = [
+      /\$\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/g,           // $123.45 or $1,234.56
+      /(\d+(?:,\d{3})*(?:\.\d{2})?)\s*USD/gi,         // 123.45 USD
+      /USD\s*\$?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/gi,  // USD $123.45
+      /amount[:\s]*\$?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/gi, // Amount: $123.45
+      /(\d+(?:\.\d{2})?)\s*dollars?/gi                // 123.45 dollars
+    ];
+    
+    let amount = 0;
+    let currency = 'USD';
+    
+    for (const pattern of amountPatterns) {
+      const matches = [...content.matchAll(pattern)];
+      if (matches.length > 0) {
+        const amountStr = matches[0][1].replace(/,/g, '');
+        amount = parseFloat(amountStr);
+        console.log('Found amount:', amount, 'from pattern:', pattern);
+        break;
+      }
     }
-  }
   
-  // Extract currency
-  const currencyMatch = content.match(/(USD|CAD|EUR|GBP)\s*[\($]/gi);
-  if (currencyMatch) {
-    currency = currencyMatch[0].replace(/[\s\($]/g, '').toUpperCase();
-  }
-  
-  // Extract portfolio
-  const portfolioMatch = content.match(/portfolio[:\s]*([A-Z]{3,4}|[A-Za-z\s]+Account)/gi);
-  const portfolio = portfolioMatch ? portfolioMatch[0].split(/[:\s]+/)[1] : undefined;
-  
-  // Extract movement type
-  const movementPatterns = [
-    /movement\s+type[:\s]*(\w+)/gi,
-    /(deposit|withdrawal|transfer|buy|sell|dividend)/gi
-  ];
-  
-  let movementType = '';
-  for (const pattern of movementPatterns) {
-    const match = content.match(pattern);
-    if (match) {
-      movementType = match[1] || match[0];
-      break;
+    // Extract currency
+    const currencyMatch = content.match(/(USD|CAD|EUR|GBP)\s*[\($]/gi);
+    if (currencyMatch) {
+      currency = currencyMatch[0].replace(/[\s\($]/g, '').toUpperCase();
     }
-  }
-  
-  // Extract status
-  const statusMatch = content.match(/status[:\s]*(\w+)/gi);
-  const status = statusMatch ? statusMatch[1] : undefined;
-  
-  // Extract "To" field
-  const toPatterns = [
-    /to[:\s]*([A-Za-z0-9\s]+(?:account|chequing|savings|bank)\s*\d*)/gi,
-    /destination[:\s]*([A-Za-z0-9\s]+)/gi
-  ];
-  
-  let to = '';
-  for (const pattern of toPatterns) {
-    const match = content.match(pattern);
-    if (match) {
-      to = match[1].trim();
-      break;
+    
+    // Extract portfolio
+    const portfolioMatch = content.match(/portfolio[:\s]*([A-Z]{3,4}|[A-Za-z\s]+Account)/gi);
+    const portfolio = portfolioMatch ? portfolioMatch[0].split(/[:\s]+/)[1] : undefined;
+    
+    // Extract movement type
+    const movementPatterns = [
+      /movement\s+type[:\s]*(\w+)/gi,
+      /(deposit|withdrawal|transfer|buy|sell|dividend)/gi
+    ];
+    
+    let movementType = '';
+    for (const pattern of movementPatterns) {
+      const match = content.match(pattern);
+      if (match) {
+        movementType = match[1] || match[0];
+        break;
+      }
     }
-  }
-  
-  // Determine transaction type based on keywords
-  let type: 'income' | 'expense' = 'expense';
-  const incomeKeywords = ['deposit', 'dividend', 'interest', 'credit', 'received', 'incoming'];
-  const expenseKeywords = ['withdrawal', 'withdraw', 'fee', 'charge', 'debit', 'outgoing', 'transfer out'];
-  
-  const lowerContent = content.toLowerCase();
-  const lowerSubject = subject.toLowerCase();
-  const allText = lowerContent + ' ' + lowerSubject;
-  
-  if (incomeKeywords.some(keyword => allText.includes(keyword))) {
-    type = 'income';
-  } else if (expenseKeywords.some(keyword => allText.includes(keyword))) {
-    type = 'expense';
-  }
-  
-  // Generate description from subject and extracted info
-  let description = subject;
-  if (movementType) {
-    description = `${movementType}: ${subject}`;
-  }
-  if (to) {
-    description += ` to ${to}`;
-  }
-  
-  // Determine category
-  let category = 'Email Import';
-  if (movementType.toLowerCase().includes('deposit')) category = 'Banking';
-  if (movementType.toLowerCase().includes('withdrawal')) category = 'Banking';
-  if (movementType.toLowerCase().includes('transfer')) category = 'Banking';
-  if (movementType.toLowerCase().includes('dividend')) category = 'Investment';
-  if (allText.includes('trading') || allText.includes('buy') || allText.includes('sell')) category = 'Trading';
-  
-  // Extract additional notes
-  const notesPatterns = [
-    /notes?[:\s]*([^\n\r]{10,100})/gi,
-    /additional\s+info[:\s]*([^\n\r]{10,100})/gi
-  ];
-  
-  let notes = '';
-  for (const pattern of notesPatterns) {
-    const match = content.match(pattern);
-    if (match) {
-      notes = match[1].trim();
-      break;
+    
+    // Extract status
+    const statusMatch = content.match(/status[:\s]*(\w+)/gi);
+    const status = statusMatch && statusMatch[1] ? statusMatch[1] : undefined;
+    
+    // Extract "To" field
+    const toPatterns = [
+      /to[:\s]*([A-Za-z0-9\s]+(?:account|chequing|savings|bank)\s*\d*)/gi,
+      /destination[:\s]*([A-Za-z0-9\s]+)/gi
+    ];
+    
+    let to = '';
+    for (const pattern of toPatterns) {
+      const match = content.match(pattern);
+      if (match && match[1] && typeof match[1] === 'string') {
+        to = match[1].trim();
+        break;
+      }
     }
+    
+    // Determine transaction type based on keywords
+    let type: 'income' | 'expense' = 'expense';
+    const incomeKeywords = ['deposit', 'dividend', 'interest', 'credit', 'received', 'incoming'];
+    const expenseKeywords = ['withdrawal', 'withdraw', 'fee', 'charge', 'debit', 'outgoing', 'transfer out'];
+    
+    const lowerContent = content.toLowerCase();
+    const lowerSubject = subject.toLowerCase();
+    const allText = lowerContent + ' ' + lowerSubject;
+    
+    if (incomeKeywords.some(keyword => allText.includes(keyword))) {
+      type = 'income';
+    } else if (expenseKeywords.some(keyword => allText.includes(keyword))) {
+      type = 'expense';
+    }
+    
+    // Generate description from subject and extracted info
+    let description = subject;
+    if (movementType) {
+      description = `${movementType}: ${subject}`;
+    }
+    if (to) {
+      description += ` to ${to}`;
+    }
+    
+    // Determine category
+    let category = 'Email Import';
+    if (movementType.toLowerCase().includes('deposit')) category = 'Banking';
+    if (movementType.toLowerCase().includes('withdrawal')) category = 'Banking';
+    if (movementType.toLowerCase().includes('transfer')) category = 'Banking';
+    if (movementType.toLowerCase().includes('dividend')) category = 'Investment';
+    if (allText.includes('trading') || allText.includes('buy') || allText.includes('sell')) category = 'Trading';
+    
+    // Extract additional notes
+    const notesPatterns = [
+      /notes?[:\s]*([^\n\r]{10,100})/gi,
+      /additional\s+info[:\s]*([^\n\r]{10,100})/gi
+    ];
+    
+    let notes = '';
+    for (const pattern of notesPatterns) {
+      const match = content.match(pattern);
+      if (match && match[1] && typeof match[1] === 'string') {
+        notes = match[1].trim();
+        break;
+      }
+    }
+    
+    console.log('Parsed email data:', {
+      type, amount, description, category, portfolio, movementType, status, to, currency, notes
+    });
+    
+    // Only return data if we found a valid amount
+    if (amount > 0) {
+      return {
+        type,
+        amount,
+        description: description || 'Email transaction',
+        category,
+        portfolio,
+        movementType,
+        status,
+        to,
+        currency,
+        notes
+      };
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error parsing email for transaction:', error);
+    return null;
   }
-  
-  console.log('Parsed email data:', {
-    type, amount, description, category, portfolio, movementType, status, to, currency, notes
-  });
-  
-  // Only return data if we found a valid amount
-  if (amount > 0) {
-    return {
-      type,
-      amount,
-      description: description || 'Email transaction',
-      category,
-      portfolio,
-      movementType,
-      status,
-      to,
-      currency,
-      notes
-    };
-  }
-  
-  return null;
 }
 
 export const simpleEmailService = new SimpleEmailService();
