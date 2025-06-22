@@ -42,7 +42,9 @@ export class AIServiceManager {
         // For now, use direct environment variable access (same as EnhancedSymbolInput)
         // This bypasses the database requirement until proper API key management is set up
         console.log(`Attempting to get API key for ${provider}...`);
+        console.log(`All environment variables:`, import.meta.env);
         console.log(`Environment check: VITE_${provider.toUpperCase()}_API_KEY =`, import.meta.env[`VITE_${provider.toUpperCase()}_API_KEY`] ? '[FOUND]' : 'NOT FOUND');
+        console.log(`Raw env value:`, import.meta.env[`VITE_${provider.toUpperCase()}_API_KEY`]);
         apiKey = ApiKeyStorage.getApiKeyWithFallback(provider) || undefined;
         console.log(`API key result for ${provider}:`, apiKey ? '[FOUND]' : 'NOT FOUND');
         
