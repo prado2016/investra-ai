@@ -358,7 +358,7 @@ Your task is to extract trading transaction data from this email. Please analyze
   "success": true,
   "extractedData": {
     "portfolioName": "string (e.g., TFSA, RRSP, Margin, etc.)",
-    "symbol": "string (stock symbol like AAPL, NVDA, etc.)",
+    "symbol": "string (for stocks: AAPL, NVDA; for options: full Yahoo format like NVDA250523C00140000)",
     "assetType": "stock" | "option",
     "transactionType": "buy" | "sell", 
     "quantity": number,
@@ -379,8 +379,11 @@ Your task is to extract trading transaction data from this email. Please analyze
 
 Rules for extraction:
 1. Portfolio names: Look for account types like TFSA, RRSP, RSP, Margin, Cash, Investment Account
-2. Symbols: Look for 1-6 letter stock symbols (AAPL, NVDA, TD.TO, etc.)
-3. Asset types: Determine if it's a stock or option based on keywords
+2. Symbols: 
+   - For STOCKS: Use ticker symbols (AAPL, NVDA, TD.TO, etc.)
+   - For OPTIONS: Use full Yahoo Finance format: [TICKER][YYMMDD][C/P][STRIKE_PRICE_8_DIGITS]
+     Examples: NVDA250523C00140000 (NVDA Call $140 exp 05/23/25), AAPL241220P00150000 (AAPL Put $150 exp 12/20/24)
+3. Asset types: Determine if it's a stock or option based on keywords like "call", "put", "option", "contract", expiration dates
 4. Transaction types: Identify buy/sell from words like bought, sold, purchase, sale, order filled
 5. Quantities: Extract number of shares or contracts
 6. Price: Extract price per share/contract 
@@ -397,6 +400,14 @@ Important notes:
 - For options, quantity represents number of contracts (may need conversion from shares)
 - Include relevant context in notes field
 - Be conservative with confidence scores - only use >0.8 if you're very certain
+
+CRITICAL FOR OPTIONS:
+- If you detect an option transaction, you MUST construct the full Yahoo Finance symbol format
+- Look for: underlying ticker, expiration date, call/put type, strike price
+- Format: [TICKER][YYMMDD][C/P][STRIKE_8_DIGITS]
+- Strike price format: pad with zeros to 8 digits, last 3 digits are decimals
+- Examples: $140.00 → 00140000, $15.50 → 00015500, $1000.00 → 01000000
+- If you cannot determine all option details, set assetType to "stock" and use underlying ticker only
 
 Return only valid JSON, no additional text.`;
   }
