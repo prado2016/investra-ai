@@ -792,12 +792,23 @@ export function parseEmailForTransaction(email: EmailItem): {
       parsed_at: new Date().toISOString()
     };
     
-    // Extract portfolio/account name
+    // Extract portfolio/account name - enhanced patterns for trading emails
     const portfolioPatterns = [
-      /account[:\s]*([A-Z]{2,6})/gi,           // Account: TFSA
-      /portfolio[:\s]*([A-Z]{2,6})/gi,         // Portfolio: RSP  
-      /([A-Z]{2,6})\s*account/gi,              // TFSA Account
-      /in\s+your\s+([A-Z]{2,6})/gi            // in your TFSA
+      /account[:\s]*([A-Z]{2,6})/gi,                    // Account: TFSA
+      /portfolio[:\s]*([A-Z]{2,6})/gi,                  // Portfolio: RSP  
+      /([A-Z]{2,6})\s*account/gi,                       // TFSA Account
+      /in\s+your\s+([A-Z]{2,6})/gi,                    // in your TFSA
+      /([A-Z\s]+)\s*account\s*:/gi,                     // STOWER ACCOUNT:
+      /account\s*name[:\s]*([A-Z\s]+)/gi,               // Account Name: STOWER ACCOUNT
+      /trading\s*account[:\s]*([A-Z\s]+)/gi,            // Trading Account: TFSA
+      /([A-Z\s]{3,20})\s*-\s*account/gi,               // INVESTMENT ACCOUNT - Account
+      /account\s*#[:\s]*\d+\s*-\s*([A-Z\s]+)/gi,       // Account #12345 - TFSA
+      /([A-Z]{2,6})\s*-\s*\d+/gi,                      // TFSA-12345
+      /account\s*type[:\s]*([A-Z\s]+)/gi,               // Account Type: RRSP
+      /wealthsimple\s*([A-Z]{2,6})/gi,                  // Wealthsimple TFSA
+      /questrade\s*([A-Z]{2,6})/gi,                     // Questrade RRSP
+      /interactive\s*brokers\s*([A-Z]{2,6})/gi,         // Interactive Brokers TFSA
+      /([A-Z]{2,6})\s*\([^)]*\)/gi                      // TFSA (Tax-Free Savings Account)
     ];
     
     let portfolioName = '';
@@ -809,19 +820,36 @@ export function parseEmailForTransaction(email: EmailItem): {
       }
     }
     
-    // Extract symbol
+    // Extract symbol - enhanced patterns for real trading emails
     const symbolPatterns = [
-      /symbol[:\s]*([A-Z]{1,6})/gi,            // Symbol: NVDA
-      /ticker[:\s]*([A-Z]{1,6})/gi,            // Ticker: TSLA
-      /([A-Z]{2,6})\s+(?:shares?|contracts?)/gi, // NVDA shares
-      /([A-Z]{2,6})\s+(?:stock|option)/gi,     // NVDA stock
-      /order.*?([A-Z]{2,6})\s/gi,              // order filled NVDA
-      /filled.*?([A-Z]{2,6})\s/gi,             // filled NVDA
-      /bought.*?([A-Z]{2,6})\s/gi,             // bought NVDA
-      /sold.*?([A-Z]{2,6})\s/gi,               // sold NVDA
-      /security[:\s]*([A-Z]{2,6})/gi,          // Security: NVDA
-      /instrument[:\s]*([A-Z]{2,6})/gi,        // Instrument: NVDA
-      /\b([A-Z]{2,6})\s+(?:has|was|is)/gi      // NVDA has been filled
+      /symbol[:\s]*([A-Z]{1,6})/gi,                     // Symbol: NVDA
+      /ticker[:\s]*([A-Z]{1,6})/gi,                     // Ticker: TSLA
+      /([A-Z]{1,6})\s+(?:shares?|contracts?)/gi,        // NVDA shares
+      /([A-Z]{1,6})\s+(?:stock|option)/gi,              // NVDA stock
+      /order.*?([A-Z]{1,6})\s/gi,                       // order filled NVDA
+      /filled.*?([A-Z]{1,6})\s/gi,                      // filled NVDA
+      /bought.*?([A-Z]{1,6})\s/gi,                      // bought NVDA
+      /sold.*?([A-Z]{1,6})\s/gi,                        // sold NVDA
+      /security[:\s]*([A-Z]{1,6})/gi,                   // Security: NVDA
+      /instrument[:\s]*([A-Z]{1,6})/gi,                 // Instrument: NVDA
+      /\b([A-Z]{1,6})\s+(?:has|was|is)/gi,              // NVDA has been filled
+      /stock[:\s]*([A-Z]{1,6})/gi,                      // Stock: AAPL
+      /company[:\s]*([A-Z]{1,6})/gi,                    // Company: MSFT
+      /purchase.*?([A-Z]{1,6})/gi,                      // purchase of TSLA
+      /sale.*?([A-Z]{1,6})/gi,                          // sale of AMZN
+      /([A-Z]{1,6})\s*\(/gi,                            // NVDA (some description)
+      /([A-Z]{1,6})\.TO/gi,                             // TSX symbols like TD.TO
+      /([A-Z]{1,6})\s*\-\s*[A-Z]/gi,                    // NVDA - NYSE
+      /you\s+(?:bought|sold|purchased)\s+([A-Z]{1,6})/gi, // You bought AAPL
+      /([A-Z]{1,6})\s+order\s+(?:filled|executed)/gi,   // AAPL order filled
+      /your\s+([A-Z]{1,6})\s+(?:order|trade)/gi,        // Your AAPL order
+      /([A-Z]{1,6})\s+(?:buy|sell)\s+order/gi,          // AAPL buy order
+      /([A-Z]{1,6})\s+(?:limit|market)\s+order/gi,      // AAPL limit order
+      /(?:for|of)\s+([A-Z]{1,6})\s+(?:shares?|stock)/gi, // for AAPL shares
+      /trade\s+(?:in|of)\s+([A-Z]{1,6})/gi,             // trade in AAPL
+      /position\s+(?:in|of)\s+([A-Z]{1,6})/gi,          // position in AAPL
+      /([A-Z]{1,6})\s+(?:common|preferred)\s+stock/gi,  // AAPL common stock
+      /([A-Z]{1,6})\s+(?:call|put)\s+option/gi          // AAPL call option
     ];
     
     let symbol = '';
@@ -841,21 +869,45 @@ export function parseEmailForTransaction(email: EmailItem): {
       assetType = 'stock';
     }
     
-    // Extract transaction type
+    // Extract transaction type - enhanced detection
     let transactionType: 'buy' | 'sell' | undefined;
-    if (content.toLowerCase().includes('buy') || content.toLowerCase().includes('bought') || content.toLowerCase().includes('purchase')) {
+    const lowerContent = content.toLowerCase();
+    const lowerSubject = subject.toLowerCase();
+    const allText = lowerContent + ' ' + lowerSubject;
+    
+    // More specific buy patterns
+    const buyPatterns = [
+      'buy', 'bought', 'purchase', 'purchased', 'acquiring', 'acquired',
+      'order filled', 'order has been filled', 'order executed',
+      'buy order', 'purchase order', 'opening position', 'long position',
+      'you bought', 'you purchased', 'we bought', 'we purchased'
+    ];
+    
+    // More specific sell patterns  
+    const sellPatterns = [
+      'sell', 'sold', 'sale', 'selling', 'disposing', 'disposed',
+      'sell order', 'sale order', 'closing position', 'short position',
+      'you sold', 'we sold', 'liquidated', 'liquidation'
+    ];
+    
+    if (buyPatterns.some(pattern => allText.includes(pattern))) {
       transactionType = 'buy';
-    } else if (content.toLowerCase().includes('sell') || content.toLowerCase().includes('sold') || content.toLowerCase().includes('sale')) {
+    } else if (sellPatterns.some(pattern => allText.includes(pattern))) {
       transactionType = 'sell';
     }
     
-    // Extract quantity
+    // Extract quantity - enhanced patterns for trading emails
     const quantityPatterns = [
       /quantity[:\s]*(\d+(?:,\d{3})*(?:\.\d+)?)/gi,     // Quantity: 100
       /(\d+(?:,\d{3})*(?:\.\d+)?)\s*shares?/gi,         // 100 shares
       /(\d+(?:,\d{3})*(?:\.\d+)?)\s*contracts?/gi,      // 10 contracts
       /shares?[:\s]*(\d+(?:,\d{3})*(?:\.\d+)?)/gi,      // Shares: 100
-      /contracts?[:\s]*(\d+(?:,\d{3})*(?:\.\d+)?)/gi    // Contracts: 10
+      /contracts?[:\s]*(\d+(?:,\d{3})*(?:\.\d+)?)/gi,   // Contracts: 10
+      /filled.*?(\d+(?:,\d{3})*(?:\.\d+)?)/gi,          // order filled 100
+      /purchased.*?(\d+(?:,\d{3})*(?:\.\d+)?)/gi,       // purchased 50
+      /sold.*?(\d+(?:,\d{3})*(?:\.\d+)?)/gi,            // sold 25
+      /order.*?(\d+(?:,\d{3})*(?:\.\d+)?)\s*(?:shares?|contracts?)/gi, // order for 100 shares
+      /(\d+(?:,\d{3})*(?:\.\d+)?)\s*(?:units?|securities?)/gi // 100 units
     ];
     
     let quantity = 0;
@@ -869,12 +921,17 @@ export function parseEmailForTransaction(email: EmailItem): {
       }
     }
     
-    // Extract price per share/contract
+    // Extract price per share/contract - enhanced patterns
     const pricePatterns = [
       /(?:average\s+)?price[:\s]*\$?\s*(\d+(?:,\d{3})*(?:\.\d{2,4})?)/gi,  // Average price: $123.45
       /price\s+per\s+(?:share|contract)[:\s]*\$?\s*(\d+(?:,\d{3})*(?:\.\d{2,4})?)/gi, // Price per share: $50.00
       /at\s+\$?\s*(\d+(?:,\d{3})*(?:\.\d{2,4})?)\s+per/gi,                // at $50.00 per
-      /\$\s*(\d+(?:,\d{3})*(?:\.\d{2,4})?)\s+per\s+(?:share|contract)/gi  // $50.00 per share
+      /\$\s*(\d+(?:,\d{3})*(?:\.\d{2,4})?)\s+per\s+(?:share|contract)/gi, // $50.00 per share
+      /execution\s+price[:\s]*\$?\s*(\d+(?:,\d{3})*(?:\.\d{2,4})?)/gi,     // Execution price: $50.00
+      /filled\s+at[:\s]*\$?\s*(\d+(?:,\d{3})*(?:\.\d{2,4})?)/gi,          // filled at $50.00
+      /trade\s+price[:\s]*\$?\s*(\d+(?:,\d{3})*(?:\.\d{2,4})?)/gi,        // Trade price: $50.00
+      /unit\s+price[:\s]*\$?\s*(\d+(?:,\d{3})*(?:\.\d{2,4})?)/gi,         // Unit price: $50.00
+      /\$\s*(\d+(?:,\d{3})*(?:\.\d{2,4})?)(?:\s+(?:per|each))?/gi         // $50.00 per or $50.00 each
     ];
     
     let price = 0;
@@ -890,9 +947,16 @@ export function parseEmailForTransaction(email: EmailItem): {
     
     // Extract total amount
     const totalPatterns = [
-      /total[:\s]*\$?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/gi,     // Total: $123.45
+      /total[:\s]*\$?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/gi,         // Total: $123.45
       /total\s+value[:\s]*\$?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/gi, // Total value: $123.45
-      /amount[:\s]*\$?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/gi     // Amount: $123.45
+      /amount[:\s]*\$?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/gi,        // Amount: $123.45
+      /gross\s+amount[:\s]*\$?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/gi, // Gross amount: $123.45
+      /net\s+amount[:\s]*\$?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/gi,  // Net amount: $123.45
+      /trade\s+value[:\s]*\$?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/gi, // Trade value: $123.45
+      /order\s+value[:\s]*\$?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/gi, // Order value: $123.45
+      /cash\s+impact[:\s]*\$?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/gi, // Cash impact: $123.45
+      /settlement\s+amount[:\s]*\$?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/gi, // Settlement amount: $123.45
+      /you\s+(?:paid|received)[:\s]*\$?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/gi // You paid: $123.45
     ];
     
     let totalAmount = 0;
@@ -915,9 +979,16 @@ export function parseEmailForTransaction(email: EmailItem): {
     
     // Extract fees
     const feePatterns = [
-      /fee[s]?[:\s]*\$?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/gi,   // Fees: $1.50
-      /commission[:\s]*\$?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/gi, // Commission: $1.50
-      /charge[:\s]*\$?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/gi     // Charge: $1.50
+      /fee[s]?[:\s]*\$?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/gi,        // Fees: $1.50
+      /commission[:\s]*\$?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/gi,     // Commission: $1.50
+      /charge[:\s]*\$?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/gi,         // Charge: $1.50
+      /trading\s+fee[:\s]*\$?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/gi,  // Trading fee: $1.50
+      /transaction\s+fee[:\s]*\$?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/gi, // Transaction fee: $1.50
+      /regulatory\s+fee[:\s]*\$?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/gi,  // Regulatory fee: $1.50
+      /sec\s+fee[:\s]*\$?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/gi,      // SEC fee: $1.50
+      /ecn\s+fee[:\s]*\$?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/gi,      // ECN fee: $1.50
+      /clearing\s+fee[:\s]*\$?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/gi, // Clearing fee: $1.50
+      /total\s+fees[:\s]*\$?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/gi    // Total fees: $1.50
     ];
     
     let fees = 0;
@@ -933,10 +1004,15 @@ export function parseEmailForTransaction(email: EmailItem): {
     
     // Extract transaction date/time - convert to YYYY-MM-DD format only
     const datePatterns = [
-      /(?:date|time)[:\s]*(\d{4}-\d{2}-\d{2})/gi,           // Date: 2025-06-22
-      /(?:date|time)[:\s]*(\d{2}\/\d{2}\/\d{4})/gi,        // Date: 06/22/2025
-      /(?:on|at)\s+(\d{4}-\d{2}-\d{2})/gi,                 // on 2025-06-22
-      /(\d{4}-\d{2}-\d{2})\s+\d{2}:\d{2}/gi               // 2025-06-22 14:30
+      /(?:trade\s+)?(?:date|time)[:\s]*(\d{4}-\d{2}-\d{2})/gi,        // Trade Date: 2025-06-22
+      /(?:execution\s+)?(?:date|time)[:\s]*(\d{2}\/\d{2}\/\d{4})/gi,  // Execution Date: 06/22/2025
+      /(?:settlement\s+)?(?:date|time)[:\s]*(\d{1,2}\/\d{1,2}\/\d{4})/gi, // Settlement Date: 6/22/2025
+      /(?:on|at)\s+(\d{4}-\d{2}-\d{2})/gi,                           // on 2025-06-22
+      /(\d{4}-\d{2}-\d{2})\s+\d{2}:\d{2}/gi,                        // 2025-06-22 14:30
+      /(?:filled|executed)\s+(?:on|at)\s+(\d{1,2}\/\d{1,2}\/\d{4})/gi, // filled on 6/22/2025
+      /(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})/gi,                    // ISO format 2025-06-22T14:30:00
+      /(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+\d{1,2},?\s+\d{4}/gi, // Dec 22, 2025
+      /\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+\d{4}/gi   // 22 Dec 2025
     ];
     
     let transactionDate = '';
@@ -946,10 +1022,33 @@ export function parseEmailForTransaction(email: EmailItem): {
         let dateStr = match[1];
         // Convert MM/DD/YYYY to YYYY-MM-DD
         if (dateStr.includes('/')) {
-          const [month, day, year] = dateStr.split('/');
-          dateStr = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+          const parts = dateStr.split('/');
+          if (parts.length === 3) {
+            const [month, day, year] = parts;
+            dateStr = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+          }
+        }
+        // Handle ISO format with time
+        else if (dateStr.includes('T')) {
+          dateStr = dateStr.split('T')[0]; // Keep only date part
+        }
+        // Handle month name formats (convert to YYYY-MM-DD)
+        else if (/(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i.test(dateStr)) {
+          try {
+            const parsedDate = new Date(dateStr);
+            if (!isNaN(parsedDate.getTime())) {
+              const year = parsedDate.getFullYear();
+              const month = String(parsedDate.getMonth() + 1).padStart(2, '0');
+              const day = String(parsedDate.getDate()).padStart(2, '0');
+              dateStr = `${year}-${month}-${day}`;
+            }
+          } catch (error) {
+            console.warn('Error parsing date:', dateStr, error);
+            continue; // Try next pattern
+          }
         }
         transactionDate = dateStr;
+        console.log('Found transaction date:', transactionDate, 'from pattern:', pattern);
         break;
       }
     }
