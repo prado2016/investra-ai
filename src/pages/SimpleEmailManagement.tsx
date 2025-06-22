@@ -940,15 +940,25 @@ const SimpleEmailManagement: React.FC = () => {
         
         // If portfolio name was extracted, try to find matching portfolio
         if (extracted.portfolioName && portfolios.length > 0) {
+          console.log('🤖 AI extracted portfolioName:', extracted.portfolioName);
+          console.log('📋 Available portfolios:', portfolios.map(p => ({ id: p.id, name: p.name })));
+          
           const matchingPortfolio = portfolios.find(p => 
             p.name.toUpperCase() === extracted.portfolioName?.toUpperCase() ||
             p.name.toUpperCase().includes(extracted.portfolioName?.toUpperCase() || '') ||
             (extracted.portfolioName?.toUpperCase() || '').includes(p.name.toUpperCase())
           );
           
+          console.log('🎯 Matching portfolio found:', matchingPortfolio ? { id: matchingPortfolio.id, name: matchingPortfolio.name } : 'None');
+          
           if (matchingPortfolio) {
             setTransactionForm(prev => ({ ...prev, portfolioId: matchingPortfolio.id }));
+            console.log('✅ Portfolio set to:', matchingPortfolio.name);
+          } else {
+            console.log('❌ No matching portfolio found for AI-extracted name:', extracted.portfolioName);
           }
+        } else if (extracted.portfolioName) {
+          console.log('⚠️ Portfolio name extracted but no portfolios loaded yet:', extracted.portfolioName);
         }
       } else {
         // Basic transaction with legacy fields
