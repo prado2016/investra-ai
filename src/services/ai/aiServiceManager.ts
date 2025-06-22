@@ -15,7 +15,7 @@ import type {
   EmailParsingResponse
 } from '../../types/ai';
 import { GeminiAIService } from './geminiService';
-import { ApiKeyService } from '../apiKeyService';
+// import { ApiKeyService } from '../apiKeyService'; // TODO: Re-enable when database is set up
 import { ApiKeyStorage } from '../../utils/apiKeyStorage';
 
 export class AIServiceManager {
@@ -41,9 +41,7 @@ export class AIServiceManager {
       if (!apiKey) {
         // For now, use direct environment variable access (same as EnhancedSymbolInput)
         // This bypasses the database requirement until proper API key management is set up
-        console.log(`Getting API key for ${provider} using environment fallback`);
         apiKey = ApiKeyStorage.getApiKeyWithFallback(provider) || undefined;
-        console.log(`Direct API key lookup for ${provider}:`, apiKey ? `Found: ${apiKey.substring(0, 10)}...` : 'Not found');
         
         // TODO: Uncomment this when api_keys table is properly set up in database
         // try {
