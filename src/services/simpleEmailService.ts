@@ -252,31 +252,55 @@ class SimpleEmailService {
 
       console.log('Checking enhanced email puller status for user:', user.id);
 
-      // Get detailed IMAP configuration
-      const { data: imapConfig, error: configError } = await supabase
-        .from('imap_configurations')
-        .select(`
-          id, 
-          is_active, 
-          sync_status, 
-          last_error,
-          email_address,
-          imap_host,
-          imap_port,
-          auto_import_enabled,
-          last_tested_at,
-          last_test_success,
-          created_at,
-          updated_at
-        `)
-        .eq('user_id', user.id)
-        .limit(1);
+      // Get detailed IMAP configuration with error handling for field mismatches
+      let imapConfig: any[] = [];
+      let configError: any = null;
+      
+      try {
+        // First try with all fields
+        const result = await supabase
+          .from('imap_configurations')
+          .select('id, is_active, sync_status, last_error, email_address, imap_host, imap_port, auto_import_enabled, last_tested_at, last_test_success, created_at, updated_at')
+          .eq('user_id', user.id)
+          .limit(1);
+          
+        imapConfig = result.data || [];
+        configError = result.error;
+      } catch (err) {
+        console.error('Error with detailed IMAP query, trying basic query:', err);
+        
+        // Fallback to basic fields only
+        try {
+          const fallbackResult = await supabase
+            .from('imap_configurations')
+            .select('id, is_active, email_address, imap_host, imap_port')
+            .eq('user_id', user.id)
+            .limit(1);
+            
+          imapConfig = fallbackResult.data || [];
+          configError = fallbackResult.error;
+        } catch (basicErr) {
+          console.error('Even basic IMAP query failed:', basicErr);
+          configError = basicErr;
+          imapConfig = [];
+        }
+      }
+
+      // Log the detailed error for debugging
+      if (configError) {
+        console.log('IMAP configuration error details:', {
+          code: configError.code,
+          message: configError.message,
+          details: configError.details,
+          hint: configError.hint
+        });
+      }
 
       const hasTable = !(configError && (
         configError.code === '42P01' || 
         configError.code === 'PGRST202' || 
-        configError.message.includes('relation') || 
-        configError.message.includes('does not exist')
+        configError.message?.includes('relation') || 
+        configError.message?.includes('does not exist')
       ));
 
       if (!hasTable) {
