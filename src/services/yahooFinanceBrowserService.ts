@@ -3,6 +3,98 @@
  * Uses fetch API instead of the Node.js yahoo-finance2 library
  */
 
+// Global request queue to prevent overwhelming API
+class RequestQueue {
+  private queue: Array<() => Promise<any>> = [];
+  private processing = false;
+  private lastRequestTime = 0;
+  private readonly MIN_DELAY = 3000; // 3 seconds between requests
+  private failureCount = 0;
+  private lastFailureTime = 0;
+  private readonly MAX_FAILURES = 3;
+  private readonly FAILURE_WINDOW = 60000; // 1 minute
+  private circuitOpen = false;
+
+  async add<T>(requestFn: () => Promise<T>): Promise<T> {
+    // Check circuit breaker
+    if (this.circuitOpen) {
+      const now = Date.now();
+      if (now - this.lastFailureTime < this.FAILURE_WINDOW) {
+        throw new Error('Circuit breaker open - Yahoo Finance API temporarily disabled due to repeated failures');
+      } else {
+        // Reset circuit breaker after timeout
+        this.circuitOpen = false;
+        this.failureCount = 0;
+      }
+    }
+
+    return new Promise((resolve, reject) => {
+      this.queue.push(async () => {
+        try {
+          // Ensure minimum delay between requests
+          const now = Date.now();
+          const timeSinceLastRequest = now - this.lastRequestTime;
+          if (timeSinceLastRequest < this.MIN_DELAY) {
+            const waitTime = this.MIN_DELAY - timeSinceLastRequest;
+            await new Promise(r => setTimeout(r, waitTime));
+          }
+          
+          const result = await requestFn();
+          this.lastRequestTime = Date.now();
+          
+          // Reset failure count on success
+          this.failureCount = 0;
+          resolve(result);
+        } catch (error) {
+          this.handleFailure();
+          reject(error);
+        }
+      });
+
+      this.processQueue();
+    });
+  }
+
+  private handleFailure() {
+    const now = Date.now();
+    
+    // Reset failure count if outside failure window
+    if (now - this.lastFailureTime > this.FAILURE_WINDOW) {
+      this.failureCount = 0;
+    }
+    
+    this.failureCount++;
+    this.lastFailureTime = now;
+    
+    // Open circuit breaker if too many failures
+    if (this.failureCount >= this.MAX_FAILURES) {
+      this.circuitOpen = true;
+      console.warn(`🚫 Yahoo Finance API circuit breaker OPEN - ${this.failureCount} failures in ${this.FAILURE_WINDOW}ms`);
+    }
+  }
+
+  private async processQueue() {
+    if (this.processing || this.queue.length === 0) return;
+
+    this.processing = true;
+    
+    while (this.queue.length > 0) {
+      const request = this.queue.shift();
+      if (request) {
+        try {
+          await request();
+        } catch (error) {
+          console.error('Request queue error:', error);
+        }
+      }
+    }
+
+    this.processing = false;
+  }
+}
+
+const requestQueue = new RequestQueue();
+
 // API types
 interface YahooFinanceQuote {
   symbol: string;
@@ -92,12 +184,17 @@ export class YahooFinanceBrowserService {
           };
         }
 
-        // In production, you would use a backend API or CORS proxy
-        const response = await fetch(`/api/yahoo/v8/finance/chart/${symbol}`);
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
+        // Use request queue to ensure only one request at a time
+        const response = await requestQueue.add(async () => {
+          console.log(`Making Yahoo Finance API request for: ${symbol}`);
+          const res = await fetch(`/api/yahoo/v8/finance/chart/${symbol}`);
+          
+          if (!res.ok) {
+            throw new Error(`HTTP error! status: ${res.status}`);
+          }
+          
+          return res;
+        });
 
         const data = await response.json();
         
@@ -155,35 +252,25 @@ export class YahooFinanceBrowserService {
   }
 
   /**
-   * Get quotes for multiple symbols with rate limiting
+   * Get quotes for multiple symbols using request queue
    */
   async getQuotes(symbols: string[], useCache: boolean = true): Promise<ApiResponse<YahooFinanceQuote[]>> {
     try {
-      // Limit concurrent requests to prevent overwhelming API
-      const BATCH_SIZE = 3;
-      const DELAY_BETWEEN_BATCHES = 1000; // 1 second
-      
       const quotes: YahooFinanceQuote[] = [];
       const errors: string[] = [];
       
-      // Process symbols in batches
-      for (let i = 0; i < symbols.length; i += BATCH_SIZE) {
-        const batch = symbols.slice(i, i + BATCH_SIZE);
-        
-        const promises = batch.map(symbol => this.getQuote(symbol, useCache));
-        const results = await Promise.allSettled(promises);
-        
-        results.forEach((result, index) => {
-          if (result.status === 'fulfilled' && result.value.success && result.value.data) {
-            quotes.push(result.value.data);
+      // Process symbols sequentially through the request queue
+      for (const symbol of symbols) {
+        try {
+          const result = await this.getQuote(symbol, useCache);
+          
+          if (result.success && result.data) {
+            quotes.push(result.data);
           } else {
-            errors.push(`Failed to fetch quote for ${batch[index]}`);
+            errors.push(`Failed to fetch quote for ${symbol}`);
           }
-        });
-        
-        // Add delay between batches to avoid rate limiting
-        if (i + BATCH_SIZE < symbols.length) {
-          await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_BATCHES));
+        } catch (error) {
+          errors.push(`Error fetching quote for ${symbol}: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
       }
 

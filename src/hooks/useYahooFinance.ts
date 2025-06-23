@@ -43,18 +43,11 @@ export function useQuote(symbol: string, options: UseQuoteOptions = {}) {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const network = useNetwork();
   
+  // DISABLE retries for single quote to prevent loops
   const retry = useRetry({
-    maxAttempts: 3,
-    baseDelay: 2000,
-    retryCondition: (err: unknown) => {
-      const errorStr = (err as Error)?.message?.toLowerCase() || '';
-      return network.isOnline && (
-        errorStr.includes('network') ||
-        errorStr.includes('timeout') ||
-        errorStr.includes('fetch') ||
-        errorStr.includes('5') // 5xx status codes
-      );
-    }
+    maxAttempts: 1, // No retries
+    baseDelay: 0,
+    retryCondition: () => false // Never retry
   });
 
   const fetchQuote = useCallback(async () => {
@@ -156,23 +149,11 @@ export function useQuotes(symbols: string[], options: UseQuotesOptions = {}) {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const network = useNetwork();
   
-  // Stabilize retry configuration to prevent dependency loops
+  // DISABLE retries completely for Yahoo Finance API to prevent loops
   const retryConfig = {
-    maxAttempts: 2, // Reduce attempts to limit API calls
-    baseDelay: 3000, // Increase delay between retries
-    retryCondition: (err: unknown) => {
-      const errorStr = (err as Error)?.message?.toLowerCase() || '';
-      // Don't retry on insufficient resources to prevent overwhelming API
-      if (errorStr.includes('insufficient_resources')) {
-        return false;
-      }
-      return network.isOnline && (
-        errorStr.includes('network') ||
-        errorStr.includes('timeout') ||
-        errorStr.includes('fetch') ||
-        errorStr.includes('5') // 5xx status codes
-      );
-    }
+    maxAttempts: 1, // No retries - single attempt only
+    baseDelay: 0,
+    retryCondition: () => false // Never retry
   };
   
   const retry = useRetry(retryConfig);

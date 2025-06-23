@@ -294,20 +294,21 @@ export const PositionsTable: React.FC<PositionsTableProps> = ({
   // Get asset information lookup
   const assetInfoMap = useMemo(() => getAssetInfo(), []);
 
-  // Get unique symbols for real-time quotes
+  // Get unique symbols for real-time quotes - LIMIT TO FIRST 3 SYMBOLS FOR TESTING
   const symbols = useMemo(() => {
     const uniqueSymbols = Array.from(new Set(positions.map(p => p.assetSymbol)));
-    return uniqueSymbols;
+    return uniqueSymbols.slice(0, 3); // LIMIT TO 3 SYMBOLS FOR TESTING
   }, [positions]);
 
+  // Re-enable with VERY conservative settings
   const { 
     data: quotes, 
     loading: quotesLoading, 
     refetch,
     retryState 
   } = useQuotes(symbols, {
-    enabled: symbols.length > 0,
-    refetchInterval: 60000, // 60 second intervals to reduce API load
+    enabled: symbols.length > 0 && symbols.length <= 3, // Only if we have 3 or fewer symbols
+    refetchInterval: 300000, // 5 minutes between updates
     useCache: true
   });
 
@@ -419,8 +420,19 @@ export const PositionsTable: React.FC<PositionsTableProps> = ({
     return <ArrowUpDown size={14} />;
   };
 
+  const [lastRefreshTime, setLastRefreshTime] = useState(0);
+  const REFRESH_COOLDOWN = 30000; // 30 seconds cooldown
+
   const handleRefresh = async () => {
+    const now = Date.now();
+    if (now - lastRefreshTime < REFRESH_COOLDOWN) {
+      const remainingTime = Math.ceil((REFRESH_COOLDOWN - (now - lastRefreshTime)) / 1000);
+      notify.warning('Refresh Cooldown', `Please wait ${remainingTime} seconds before refreshing again`);
+      return;
+    }
+
     try {
+      setLastRefreshTime(now);
       await refetch();
       onRefresh?.();
       notify.success('Data Refreshed', 'Position data has been updated with latest prices');
