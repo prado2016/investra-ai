@@ -85,19 +85,25 @@ export const EmailConfigurationPanel: React.FC<EmailConfigurationPanelProps> = (
   const { success, error } = useNotifications();
 
   const handleUpdateConfiguration = async () => {
+    console.log('Update button clicked with:', { email, appPassword: appPassword ? '***' : 'empty' });
+    
     if (!email || !appPassword) {
+      console.log('Validation failed: missing email or password');
       error('Validation Error', 'Please enter both email and app password');
       return;
     }
 
     if (!email.includes('@gmail.com')) {
+      console.log('Validation failed: not a Gmail address');
       error('Validation Error', 'Please enter a valid Gmail address');
       return;
     }
 
     // Remove spaces and validate
     const cleanPassword = appPassword.replace(/\s/g, '');
+    console.log('Password validation:', { originalLength: appPassword.length, cleanLength: cleanPassword.length });
     if (cleanPassword.length !== 16) {
+      console.log('Validation failed: password not 16 characters');
       error('Validation Error', 'Gmail app passwords must be exactly 16 characters (spaces will be removed automatically)');
       return;
     }
@@ -147,7 +153,10 @@ export const EmailConfigurationPanel: React.FC<EmailConfigurationPanelProps> = (
   };
 
   const handleTestConnection = async () => {
+    console.log('Test button clicked with:', { email, appPassword: appPassword ? '***' : 'empty' });
+    
     if (!email || !appPassword) {
+      console.log('Test validation failed: missing email or password');
       error('Validation Error', 'Please enter both email and app password before testing');
       return;
     }
