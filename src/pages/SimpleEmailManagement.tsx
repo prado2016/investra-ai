@@ -608,7 +608,12 @@ const SimpleEmailManagement: React.FC = () => {
   // State management
   const [emails, setEmails] = useState<EmailItem[]>([]);
   const [stats, setStats] = useState<EmailStats>({ total: 0, pending: 0, processing: 0, error: 0 });
-  const [pullerStatus, setPullerStatus] = useState<EmailPullerStatus>({ isConnected: false, emailCount: 0 });
+  const [pullerStatus, setPullerStatus] = useState<EmailPullerStatus>({ 
+    isConnected: false, 
+    emailCount: 0,
+    configurationActive: false,
+    recentActivity: { last24Hours: 0, lastHour: 0, lastWeek: 0 }
+  });
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'processing' | 'error'>('all');
@@ -698,7 +703,12 @@ const SimpleEmailManagement: React.FC = () => {
     if (result.error) {
       console.error('Failed to load puller status:', result.error);
     } else {
-      setPullerStatus(result.data || { isConnected: false, emailCount: 0 });
+      setPullerStatus(result.data || { 
+        isConnected: false, 
+        emailCount: 0,
+        configurationActive: false,
+        recentActivity: { last24Hours: 0, lastHour: 0, lastWeek: 0 }
+      });
     }
   };
 
