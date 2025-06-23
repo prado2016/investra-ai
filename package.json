@@ -16,7 +16,7 @@
     "preview": "vite preview",
     "type-check": "tsc --noEmit",
     "clean": "rm -rf dist node_modules/.vite",
-    "debug": "npm run dev:debug",
+    "debug": "npm run dev:debug"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
