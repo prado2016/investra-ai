@@ -257,33 +257,24 @@ class SimpleEmailService {
       let configError: any = null;
       
       try {
-        // First try with all fields
-        const result = await supabase
+        // First try to get the schema by querying with minimal fields
+        const schemaResult = await supabase
           .from('imap_configurations')
-          .select('id, is_active, sync_status, last_error, email_address, imap_host, imap_port, auto_import_enabled, last_tested_at, last_test_success, created_at, updated_at')
+          .select('*')
           .eq('user_id', user.id)
           .limit(1);
           
-        imapConfig = result.data || [];
-        configError = result.error;
-      } catch (err) {
-        console.error('Error with detailed IMAP query, trying basic query:', err);
-        
-        // Fallback to basic fields only
-        try {
-          const fallbackResult = await supabase
-            .from('imap_configurations')
-            .select('id, is_active, email_address, imap_host, imap_port')
-            .eq('user_id', user.id)
-            .limit(1);
-            
-          imapConfig = fallbackResult.data || [];
-          configError = fallbackResult.error;
-        } catch (basicErr) {
-          console.error('Even basic IMAP query failed:', basicErr);
-          configError = basicErr;
+        if (schemaResult.error) {
+          configError = schemaResult.error;
           imapConfig = [];
+        } else {
+          imapConfig = schemaResult.data || [];
+          console.log('Available IMAP configuration fields:', imapConfig.length > 0 ? Object.keys(imapConfig[0]) : 'No records found');
         }
+      } catch (err) {
+        console.error('Error querying IMAP configurations:', err);
+        configError = err;
+        imapConfig = [];
       }
 
       // Log the detailed error for debugging
@@ -396,7 +387,7 @@ class SimpleEmailService {
       // Determine sync status
       let syncStatus: 'running' | 'idle' | 'error' | 'never_ran' = 'never_ran';
       if (config) {
-        if (config.last_error) {
+        if (config.last_error || config.error || config.sync_error) {
           syncStatus = 'error';
         } else if (recentActivity.lastHour > 0) {
           syncStatus = 'running';
@@ -418,7 +409,7 @@ class SimpleEmailService {
         isConnected: inboxTableExists && (recentActivity.lastHour > 0 || emailCount > 0),
         lastSync: latestEmail?.created_at,
         emailCount: emailCount,
-        configurationActive: !!(config && config.is_active),
+        configurationActive: !!(config && (config.is_active ?? config.active ?? config.enabled ?? true)),
         syncStatus: syncStatus,
         lastSuccessfulSync: latestEmail?.created_at,
         nextScheduledSync: nextScheduledSync,
@@ -426,12 +417,12 @@ class SimpleEmailService {
         recentActivity: recentActivity,
         configuration: config ? {
           provider: 'IMAP',
-          emailAddress: config.email_address || 'Not configured',
-          host: config.imap_host || 'Not configured',
-          port: config.imap_port || 993,
-          autoImportEnabled: config.auto_import_enabled || false,
-          lastTested: config.last_tested_at,
-          lastTestSuccess: config.last_test_success
+          emailAddress: config.email_address || config.email || config.username || 'Not configured',
+          host: config.imap_host || config.host || config.server || 'Not configured',
+          port: config.imap_port || config.port || 993,
+          autoImportEnabled: config.auto_import_enabled || config.auto_import || false,
+          lastTested: config.last_tested_at || config.last_tested || config.tested_at,
+          lastTestSuccess: config.last_test_success ?? config.test_success ?? config.is_working
         } : undefined,
         error: !inboxTableExists 
           ? 'Email inbox table not available - email puller not configured'
