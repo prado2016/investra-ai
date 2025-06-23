@@ -940,12 +940,109 @@ export class PositionService {
   }
 
   /**
+   * Auto-expire options based on current date and expiration dates
+   */
+  static async autoExpireOptions(portfolioId: string): Promise<ServiceResponse<{ expired: number }>> {
+    try {
+      console.log('⏰ Checking for expired options in portfolio:', portfolioId);
+      
+      // Get all active positions for options
+      const { data: positions } = await supabase
+        .from('positions')
+        .select(`
+          *,
+          asset:assets(*)
+        `)
+        .eq('portfolio_id', portfolioId)
+        .eq('is_active', true);
+      
+      if (!positions || positions.length === 0) {
+        return { data: { expired: 0 }, error: null, success: true };
+      }
+      
+      let expiredCount = 0;
+      const currentDate = new Date();
+      currentDate.setHours(0, 0, 0, 0); // Set to start of day for comparison
+      
+      for (const position of positions) {
+        if (!position.asset || position.asset.asset_type !== 'option') {
+          continue;
+        }
+        
+        // Parse option symbol to get expiration date
+        const { parseOptionSymbol } = await import('../utils/assetCategorization');
+        const optionInfo = parseOptionSymbol(position.asset.symbol);
+        
+        if (!optionInfo) {
+          console.log(`⚠️ Could not parse option symbol: ${position.asset.symbol}`);
+          continue;
+        }
+        
+        // Check if option has expired
+        const expirationDate = new Date(optionInfo.expiration);
+        expirationDate.setHours(0, 0, 0, 0);
+        
+        if (expirationDate < currentDate) {
+          console.log(`⏰ Auto-expiring option ${position.asset.symbol} (expired: ${expirationDate.toDateString()})`);
+          
+          // Create expiration transaction
+          const expirationTransaction = {
+            portfolio_id: portfolioId,
+            asset_id: position.asset_id,
+            transaction_type: 'option_expired' as const,
+            quantity: Math.abs(position.quantity), // Always positive quantity for expiration
+            price: 0, // Expired options have no value
+            total_amount: 0,
+            fees: 0,
+            transaction_date: expirationDate.toISOString(),
+            settlement_date: expirationDate.toISOString(),
+            exchange_rate: 1,
+            currency: 'USD',
+            notes: `Auto-generated expiration for ${position.asset.symbol}`,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
+          
+          // Insert expiration transaction
+          const { error: insertError } = await supabase
+            .from('transactions')
+            .insert(expirationTransaction);
+            
+          if (insertError) {
+            console.error(`❌ Failed to create expiration transaction for ${position.asset.symbol}:`, insertError);
+            continue;
+          }
+          
+          expiredCount++;
+        }
+      }
+      
+      console.log(`✅ Auto-expired ${expiredCount} options`);
+      return { data: { expired: expiredCount }, error: null, success: true };
+      
+    } catch (error) {
+      console.error('❌ Error auto-expiring options:', error);
+      return { 
+        data: null, 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
+
+  /**
    * Recalculate all positions for a portfolio from transactions
    * This will rebuild positions from scratch based on all transactions
    */
   static async recalculatePositions(portfolioId: string): Promise<ServiceResponse<{ updated: number; created: number; deleted: number }>> {
     try {
       console.log('🔄 Recalculating positions for portfolio:', portfolioId);
+      
+      // First, auto-expire any expired options
+      const expireResult = await this.autoExpireOptions(portfolioId);
+      if (expireResult.success && expireResult.data?.expired && expireResult.data.expired > 0) {
+        console.log(`⏰ Auto-expired ${expireResult.data.expired} options before recalculation`);
+      }
       
       // Get all transactions for the portfolio
       const transactionsResult = await TransactionService.getTransactions(portfolioId);
@@ -1025,58 +1122,104 @@ export class PositionService {
         let realizedPL = 0;
         let weightedAverageCost = 0;
         
+        // Determine if this is an options asset by checking transaction data
+        const isOptionAsset = assetTransactions.some(tx => 
+          tx.asset?.asset_type === 'option' || 
+          assetTransactions[0]?.asset?.symbol?.includes('C') || 
+          assetTransactions[0]?.asset?.symbol?.includes('P')
+        );
+        
         for (const transaction of assetTransactions) {
           const transactionQuantity = transaction.quantity;
           const transactionPrice = transaction.price;
           const fees = transaction.fees || 0;
-          const totalAmount = transactionQuantity * transactionPrice + fees;
           
           if (transaction.transaction_type === 'buy') {
-            // Update weighted average cost basis
-            const currentValue = quantity * weightedAverageCost;
-            const newValue = currentValue + totalAmount;
-            quantity += transactionQuantity;
-            
-            if (quantity > 0) {
-              weightedAverageCost = newValue / quantity;
-              totalCostBasis = newValue;
+            if (isOptionAsset) {
+              // BUYING options (calls or puts) - we pay premium
+              const premiumPaid = transactionQuantity * transactionPrice + fees;
+              const currentValue = quantity * weightedAverageCost;
+              const newValue = currentValue + premiumPaid;
+              quantity += transactionQuantity;
+              
+              if (quantity > 0) {
+                weightedAverageCost = newValue / quantity;
+                totalCostBasis = newValue;
+              }
+              console.log(`📈 BOUGHT ${transactionQuantity} options at $${transactionPrice} each (premium paid: $${premiumPaid})`);
+            } else {
+              // Regular stock purchase
+              const totalAmount = transactionQuantity * transactionPrice + fees;
+              const currentValue = quantity * weightedAverageCost;
+              const newValue = currentValue + totalAmount;
+              quantity += transactionQuantity;
+              
+              if (quantity > 0) {
+                weightedAverageCost = newValue / quantity;
+                totalCostBasis = newValue;
+              }
             }
           } else if (transaction.transaction_type === 'sell') {
-            if (quantity >= transactionQuantity) {
-              const costOfSoldShares = transactionQuantity * weightedAverageCost;
-              const saleProceeds = transactionQuantity * transactionPrice - fees;
-              realizedPL += saleProceeds - costOfSoldShares;
+            if (isOptionAsset) {
+              // SELLING options (covered calls, cash-secured puts) - we receive premium
+              const premiumReceived = transactionQuantity * transactionPrice - fees;
               
-              quantity -= transactionQuantity;
-              totalCostBasis -= costOfSoldShares;
-            } else {
-              console.warn(`⚠️ Sell quantity (${transactionQuantity}) exceeds available quantity (${quantity}) for asset ${assetId}`);
-              // Handle overselling - sell all available and record loss
               if (quantity > 0) {
-                const costOfSoldShares = quantity * weightedAverageCost;
+                // Closing a long option position (selling options we previously bought)
+                if (quantity >= transactionQuantity) {
+                  const costOfClosedOptions = transactionQuantity * weightedAverageCost;
+                  realizedPL += premiumReceived - costOfClosedOptions;
+                  
+                  quantity -= transactionQuantity;
+                  totalCostBasis -= costOfClosedOptions;
+                  console.log(`📉 CLOSED ${transactionQuantity} long options (P&L: $${premiumReceived - costOfClosedOptions})`);
+                } else {
+                  // Handle partial closing
+                  const costOfClosedOptions = quantity * weightedAverageCost;
+                  realizedPL += premiumReceived - costOfClosedOptions;
+                  quantity = 0;
+                  totalCostBasis = 0;
+                }
+              } else {
+                // Opening a short option position (covered call, cash-secured put)
+                // For short options, we use negative quantity to represent short positions
+                quantity -= transactionQuantity; // This will be negative
+                realizedPL += premiumReceived; // Premium collected immediately
+                console.log(`📉 SOLD ${transactionQuantity} options (covered call/CSP) - premium received: $${premiumReceived}`);
+              }
+            } else {
+              // Regular stock sale
+              if (quantity >= transactionQuantity) {
+                const costOfSoldShares = transactionQuantity * weightedAverageCost;
                 const saleProceeds = transactionQuantity * transactionPrice - fees;
                 realizedPL += saleProceeds - costOfSoldShares;
-                quantity = 0;
-                totalCostBasis = 0;
+                
+                quantity -= transactionQuantity;
+                totalCostBasis -= costOfSoldShares;
+              } else {
+                console.warn(`⚠️ Sell quantity (${transactionQuantity}) exceeds available quantity (${quantity}) for asset ${assetId}`);
+                if (quantity > 0) {
+                  const costOfSoldShares = quantity * weightedAverageCost;
+                  const saleProceeds = transactionQuantity * transactionPrice - fees;
+                  realizedPL += saleProceeds - costOfSoldShares;
+                  quantity = 0;
+                  totalCostBasis = 0;
+                }
               }
             }
           } else if (transaction.transaction_type === 'option_expired') {
-            // For option expiration, the entire premium paid is lost
-            if (quantity >= transactionQuantity) {
-              const costOfExpiredOptions = transactionQuantity * weightedAverageCost;
-              // Realized loss equals the cost basis (since option expires worthless)
-              realizedPL -= costOfExpiredOptions;
-              
-              quantity -= transactionQuantity;
-              totalCostBasis -= costOfExpiredOptions;
-            } else {
-              console.warn(`⚠️ Option expiry quantity (${transactionQuantity}) exceeds available quantity (${quantity}) for asset ${assetId}`);
-              // Expire all available options
+            if (isOptionAsset) {
               if (quantity > 0) {
-                const costOfExpiredOptions = quantity * weightedAverageCost;
-                realizedPL -= costOfExpiredOptions;
-                quantity = 0;
-                totalCostBasis = 0;
+                // Long options expired worthless - lose premium paid
+                const lostPremium = Math.min(quantity, transactionQuantity) * weightedAverageCost;
+                realizedPL -= lostPremium;
+                quantity -= Math.min(quantity, transactionQuantity);
+                totalCostBasis -= lostPremium;
+                console.log(`⏰ ${Math.min(quantity, transactionQuantity)} LONG options expired worthless - lost $${lostPremium}`);
+              } else if (quantity < 0) {
+                // Short options expired worthless - keep premium received (already in realizedPL)
+                quantity += Math.min(Math.abs(quantity), transactionQuantity);
+                console.log(`⏰ ${Math.min(Math.abs(quantity), transactionQuantity)} SHORT options expired worthless - kept premium`);
               }
             }
           } else if (transaction.transaction_type === 'dividend') {
@@ -1085,15 +1228,29 @@ export class PositionService {
           }
         }
         
-        // Ensure no negative values due to rounding errors
-        quantity = Math.max(0, quantity);
-        totalCostBasis = Math.max(0, totalCostBasis);
-        weightedAverageCost = Math.max(0, weightedAverageCost);
+        // For options, we need to handle negative quantities (short positions)
+        // For stocks, ensure no negative values due to rounding errors
+        if (!isOptionAsset) {
+          quantity = Math.max(0, quantity);
+          totalCostBasis = Math.max(0, totalCostBasis);
+          weightedAverageCost = Math.max(0, weightedAverageCost);
+        } else {
+          // For options, negative quantity represents short positions
+          if (quantity < 0) {
+            console.log(`🔻 SHORT option position: ${Math.abs(quantity)} contracts`);
+          }
+          totalCostBasis = Math.max(0, totalCostBasis);
+          weightedAverageCost = Math.max(0, weightedAverageCost);
+        }
         
         console.log(`💰 Asset ${assetId}: quantity=${quantity}, avgCost=${weightedAverageCost}, totalCost=${totalCostBasis}, realizedPL=${realizedPL}`);
         
-        // Create or update position only if quantity > 0
-        if (quantity > 0) {
+        // Create or update position if we have an open position
+        // For stocks: quantity > 0
+        // For options: quantity != 0 (can be negative for short positions)
+        const shouldKeepPosition = isOptionAsset ? quantity !== 0 : quantity > 0;
+        
+        if (shouldKeepPosition) {
           // Check if position already exists
           const { data: existingPosition } = await supabase
             .from('positions')
@@ -1133,7 +1290,7 @@ export class PositionService {
             createdCount++;
           }
         } else {
-          // If quantity is 0 or negative, delete the position
+          // Delete position when quantity is 0 (or negative for stocks)
           console.log(`🧹 Deleting position for asset ${assetId} with zero quantity`);
           const { error: deleteError } = await supabase
             .from('positions')
@@ -1152,6 +1309,50 @@ export class PositionService {
       
     } catch (error) {
       console.error('❌ Error recalculating positions:', error);
+      return { 
+        data: null, 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      }
+    }
+  }
+
+  /**
+   * Manually trigger option expiration check for a portfolio
+   * This can be called from UI or scheduled tasks
+   */
+  static async checkAndExpireOptions(portfolioId: string): Promise<ServiceResponse<{ expired: number; recalculated: boolean }>> {
+    try {
+      console.log('🕒 Manual option expiration check for portfolio:', portfolioId);
+      
+      // Run auto-expiration
+      const expireResult = await this.autoExpireOptions(portfolioId);
+      if (!expireResult.success) {
+        return { data: null, error: expireResult.error, success: false };
+      }
+      
+      let recalculated = false;
+      const expiredCount = expireResult.data?.expired || 0;
+      
+      // If any options were expired, recalculate positions
+      if (expiredCount > 0) {
+        console.log(`🔄 Recalculating positions after expiring ${expiredCount} options`);
+        const recalcResult = await this.recalculatePositions(portfolioId);
+        recalculated = recalcResult.success;
+        
+        if (!recalcResult.success) {
+          console.warn('⚠️ Option expiration succeeded but position recalculation failed:', recalcResult.error);
+        }
+      }
+      
+      return { 
+        data: { expired: expiredCount, recalculated }, 
+        error: null, 
+        success: true 
+      };
+      
+    } catch (error) {
+      console.error('❌ Error in manual option expiration check:', error);
       return { 
         data: null, 
         error: error instanceof Error ? error.message : 'Unknown error', 
