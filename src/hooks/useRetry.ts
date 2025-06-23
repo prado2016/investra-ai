@@ -1,5 +1,4 @@
 import { useState, useCallback, useRef, useMemo } from 'react';
-import { useNotify } from './useNotify';
 
 export interface RetryOptions {
   maxAttempts?: number;
@@ -57,7 +56,6 @@ const DEFAULT_OPTIONS: Required<RetryOptions> = {
  */
 export const useRetry = (options: RetryOptions = {}) => {
   const opts = useMemo(() => ({ ...DEFAULT_OPTIONS, ...options }), [options]);
-  const notify = useNotify();
   
   const [state, setState] = useState<RetryState>({
     isRetrying: false,

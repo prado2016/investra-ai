@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { yahooFinanceBrowserService } from '../services/yahooFinanceBrowserService';
 import { useNetwork } from './useNetwork';
-import { useNotify } from './useNotify';
 import { useRetry } from './useRetry';
 import type { AssetType } from '../utils/assetCategorization';
 
@@ -43,7 +42,6 @@ export function useQuote(symbol: string, options: UseQuoteOptions = {}) {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const network = useNetwork();
-  const notify = useNotify();
   
   const retry = useRetry({
     maxAttempts: 3,
@@ -86,9 +84,9 @@ export function useQuote(symbol: string, options: UseQuoteOptions = {}) {
         setError(errorMessage);
         setData(null);
         
-        // Only show notification for non-network errors when online
+        // Log error instead of showing notification to prevent dependencies
         if (network.isOnline && !errorMessage.toLowerCase().includes('network')) {
-          notify.warning('Data Update Failed', errorMessage);
+          console.warn('Yahoo Finance API data update failed:', errorMessage);
         }
       }
     } catch (err) {
@@ -103,12 +101,14 @@ export function useQuote(symbol: string, options: UseQuoteOptions = {}) {
                             errorMessage.toLowerCase().includes('timeout');
       
       if (!isNetworkError) {
-        notify.apiError(err, 'Failed to fetch quote data');
+        console.error('Yahoo Finance API error (non-network):', err);
+      } else {
+        console.warn('Yahoo Finance API network error:', errorMessage);
       }
     } finally {
       setLoading(false);
     }
-  }, [symbol, enabled, useCache, network.isOnline, notify, retry]);
+  }, [symbol, enabled, useCache, network.isOnline, retry]);
 
   // Initial fetch
   useEffect(() => {
@@ -155,7 +155,6 @@ export function useQuotes(symbols: string[], options: UseQuotesOptions = {}) {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const network = useNetwork();
-  const notify = useNotify();
   
   // Stabilize retry configuration to prevent dependency loops
   const retryConfig = {
