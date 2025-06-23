@@ -112,51 +112,28 @@ export const EmailConfigurationPanel: React.FC<EmailConfigurationPanelProps> = (
         return;
       }
 
-      // Get existing configuration
-      const { data: existingConfig } = await supabase
-        .from('imap_configurations')
-        .select('id')
-        .eq('user_id', user.id)
-        .single();
-
-      // Prepare configuration data
+      // Update only the essential fields to avoid constraint issues
       const configData = {
-        user_id: user.id,
-        name: 'Gmail Import',
-        gmail_email: email,
-        encrypted_app_password: cleanPassword, // Note: In production, this should be encrypted
-        imap_host: 'imap.gmail.com',
-        imap_port: 993,
-        imap_secure: true,
+        encrypted_app_password: cleanPassword,
+        last_error: null, // Clear any existing errors
         is_active: true,
         sync_status: 'idle',
-        sync_interval_minutes: 15,
-        max_emails_per_sync: 50,
         updated_at: new Date().toISOString()
       };
 
-      let result;
-      if (existingConfig) {
-        // Update existing configuration
-        result = await supabase
-          .from('imap_configurations')
-          .update(configData)
-          .eq('id', existingConfig.id);
-      } else {
-        // Create new configuration
-        result = await supabase
-          .from('imap_configurations')
-          .insert({
-            ...configData,
-            created_at: new Date().toISOString()
-          });
-      }
+      // Update configuration for this user
+      const result = await supabase
+        .from('imap_configurations')
+        .update(configData)
+        .eq('user_id', user.id);
 
       if (result.error) {
+        console.error('Update error details:', result.error);
         throw result.error;
       }
 
-      success('Configuration Updated', 'Email configuration has been updated successfully');
+      console.log('Configuration update result:', result);
+      success('Configuration Updated', 'Email configuration has been updated successfully. The email puller should restart shortly.');
       setEmail('');
       setAppPassword('');
       onConfigurationUpdated?.();
