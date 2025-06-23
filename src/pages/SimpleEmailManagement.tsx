@@ -1099,13 +1099,41 @@ const SimpleEmailManagement: React.FC = () => {
   };
 
   const getStatusText = () => {
-    if (loading) return 'Checking...';
-    if (pullerStatus.isConnected) return 'Email Puller Connected';
-    return 'Email Puller Disconnected';
+    if (loading) return 'Checking Email Puller Status...';
+    
+    if (!pullerStatus.configurationActive) {
+      return 'Email Puller Not Configured';
+    }
+    
+    switch (pullerStatus.syncStatus) {
+      case 'running':
+        return 'Email Puller Active';
+      case 'idle':
+        return 'Email Puller Connected (Idle)';
+      case 'error':
+        return 'Email Puller Error';
+      case 'never_ran':
+        return 'Email Puller Not Started';
+      default:
+        return pullerStatus.isConnected ? 'Email Puller Connected' : 'Email Puller Disconnected';
+    }
   };
 
   const getStatusType = (): 'connected' | 'disconnected' | 'loading' => {
     if (loading) return 'loading';
+    
+    if (!pullerStatus.configurationActive || pullerStatus.syncStatus === 'never_ran') {
+      return 'disconnected';
+    }
+    
+    if (pullerStatus.syncStatus === 'error') {
+      return 'disconnected';
+    }
+    
+    if (pullerStatus.syncStatus === 'running' || (pullerStatus.isConnected && pullerStatus.recentActivity?.lastHour > 0)) {
+      return 'connected';
+    }
+    
     return pullerStatus.isConnected ? 'connected' : 'disconnected';
   };
 
@@ -1212,10 +1240,20 @@ const SimpleEmailManagement: React.FC = () => {
                 {user && (
                   <>User ID: {user.id} • </>
                 )}
+                Status: {pullerStatus.syncStatus || 'Unknown'} • 
                 {pullerStatus.lastSync && (
                   <>Last sync: {formatDate(pullerStatus.lastSync)} • </>
                 )}
+                {pullerStatus.nextScheduledSync && pullerStatus.syncStatus !== 'error' && (
+                  <>Next sync: {formatDate(pullerStatus.nextScheduledSync)} • </>
+                )}
                 {stats.total} emails in database
+                {pullerStatus.recentActivity && (
+                  <> • Activity: {pullerStatus.recentActivity.lastHour}h/{pullerStatus.recentActivity.last24Hours}d/{pullerStatus.recentActivity.lastWeek}w</>
+                )}
+                {pullerStatus.configuration && (
+                  <> • Config: {pullerStatus.configuration.emailAddress} ({pullerStatus.configuration.host}:{pullerStatus.configuration.port})</>
+                )}
                 {pullerStatus.error && (
                   <> • Error: {pullerStatus.error}</>
                 )}
@@ -1232,6 +1270,36 @@ const SimpleEmailManagement: React.FC = () => {
           </Button>
         </StatusHeader>
       </StatusCard>
+
+      {/* Detailed Configuration Info */}
+      {pullerStatus.configuration && (
+        <StatusCard $status="connected" style={{ marginBottom: '1rem', background: 'linear-gradient(135deg, #f8fafc 0%, #ffffff 100%)' }}>
+          <StatusHeader>
+            <StatusInfo>
+              <StatusIcon $status="connected">
+                <CheckCircle size={16} />
+              </StatusIcon>
+              <div>
+                <StatusText style={{ fontSize: '0.875rem' }}>Email Configuration Details</StatusText>
+                <StatusDetails style={{ marginTop: '0.25rem' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem' }}>
+                    <div><strong>Provider:</strong> {pullerStatus.configuration.provider}</div>
+                    <div><strong>Email:</strong> {pullerStatus.configuration.emailAddress}</div>
+                    <div><strong>Server:</strong> {pullerStatus.configuration.host}:{pullerStatus.configuration.port}</div>
+                    <div><strong>Auto Import:</strong> {pullerStatus.configuration.autoImportEnabled ? 'Enabled' : 'Disabled'}</div>
+                    {pullerStatus.configuration.lastTested && (
+                      <div><strong>Last Test:</strong> {formatDate(pullerStatus.configuration.lastTested)} ({pullerStatus.configuration.lastTestSuccess ? 'Success' : 'Failed'})</div>
+                    )}
+                    {pullerStatus.syncInterval && (
+                      <div><strong>Sync Interval:</strong> {pullerStatus.syncInterval} minutes</div>
+                    )}
+                  </div>
+                </StatusDetails>
+              </div>
+            </StatusInfo>
+          </StatusHeader>
+        </StatusCard>
+      )}
 
       {/* Statistics */}
       <StatsRow>
@@ -1251,6 +1319,22 @@ const SimpleEmailManagement: React.FC = () => {
           <StatValue>{stats.error}</StatValue>
           <StatLabel>Errors</StatLabel>
         </StatCard>
+        {pullerStatus.recentActivity && (
+          <>
+            <StatCard>
+              <StatValue>{pullerStatus.recentActivity.lastHour}</StatValue>
+              <StatLabel>Last Hour</StatLabel>
+            </StatCard>
+            <StatCard>
+              <StatValue>{pullerStatus.recentActivity.last24Hours}</StatValue>
+              <StatLabel>Last 24 Hours</StatLabel>
+            </StatCard>
+            <StatCard>
+              <StatValue>{pullerStatus.recentActivity.lastWeek}</StatValue>
+              <StatLabel>Last Week</StatLabel>
+            </StatCard>
+          </>
+        )}
       </StatsRow>
 
       {/* Search and Filter Controls */}

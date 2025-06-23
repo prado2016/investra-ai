@@ -41,6 +41,26 @@ export interface EmailPullerStatus {
   lastSync?: string;
   emailCount: number;
   error?: string;
+  // Enhanced status information
+  configurationActive: boolean;
+  syncStatus?: 'running' | 'idle' | 'error' | 'never_ran';
+  lastSuccessfulSync?: string;
+  nextScheduledSync?: string;
+  syncInterval?: number; // in minutes
+  recentActivity: {
+    last24Hours: number;
+    lastHour: number;
+    lastWeek: number;
+  };
+  configuration?: {
+    provider: string;
+    emailAddress: string;
+    host: string;
+    port: number;
+    autoImportEnabled: boolean;
+    lastTested?: string;
+    lastTestSuccess?: boolean;
+  };
 }
 
 class SimpleEmailService {
@@ -195,7 +215,7 @@ class SimpleEmailService {
   }
 
   /**
-   * Get email puller status by checking recent activity
+   * Get enhanced email puller status with detailed information
    */
   async getEmailPullerStatus(): Promise<{ data: EmailPullerStatus | null; error: string | null }> {
     try {
@@ -208,6 +228,8 @@ class SimpleEmailService {
           data: { 
             isConnected: false, 
             emailCount: 0, 
+            configurationActive: false,
+            recentActivity: { last24Hours: 0, lastHour: 0, lastWeek: 0 },
             error: `Authentication error: ${authError.message}` 
           }, 
           error: null 
@@ -220,147 +242,196 @@ class SimpleEmailService {
           data: { 
             isConnected: false, 
             emailCount: 0, 
+            configurationActive: false,
+            recentActivity: { last24Hours: 0, lastHour: 0, lastWeek: 0 },
             error: 'No authenticated user' 
           }, 
           error: null 
         };
       }
 
-      console.log('Checking email puller status for user:', user.id);
+      console.log('Checking enhanced email puller status for user:', user.id);
 
-      // Check if there's an IMAP configuration for this user
+      // Get detailed IMAP configuration
       const { data: imapConfig, error: configError } = await supabase
         .from('imap_configurations')
-        .select('id, is_active, sync_status, last_error')
+        .select(`
+          id, 
+          is_active, 
+          sync_status, 
+          last_error,
+          email_address,
+          imap_host,
+          imap_port,
+          auto_import_enabled,
+          last_tested_at,
+          last_test_success,
+          created_at,
+          updated_at
+        `)
         .eq('user_id', user.id)
         .limit(1);
 
-      if (configError) {
-        console.error('Error checking IMAP configuration:', configError);
-        // Handle missing table or permission errors gracefully
-        if (configError.code === '42P01' || configError.code === 'PGRST202' || configError.message.includes('relation') || configError.message.includes('does not exist')) {
-          console.log('IMAP configuration table not found - email puller not set up');
-          return { 
-            data: { 
-              isConnected: false, 
-              emailCount: 0, 
-              error: 'Email puller not configured - IMAP configuration table not available' 
-            }, 
-            error: null 
-          };
-        }
+      const hasTable = !(configError && (
+        configError.code === '42P01' || 
+        configError.code === 'PGRST202' || 
+        configError.message.includes('relation') || 
+        configError.message.includes('does not exist')
+      ));
+
+      if (!hasTable) {
+        console.log('IMAP configuration table not found - email puller not set up');
         return { 
           data: { 
             isConnected: false, 
             emailCount: 0, 
+            configurationActive: false,
+            syncStatus: 'never_ran',
+            recentActivity: { last24Hours: 0, lastHour: 0, lastWeek: 0 },
+            error: 'Email puller not configured - IMAP configuration table not available' 
+          }, 
+          error: null 
+        };
+      }
+
+      if (configError) {
+        console.error('Error checking IMAP configuration:', configError);
+        return { 
+          data: { 
+            isConnected: false, 
+            emailCount: 0, 
+            configurationActive: false,
+            syncStatus: 'error',
+            recentActivity: { last24Hours: 0, lastHour: 0, lastWeek: 0 },
             error: `Configuration error: ${configError.message}` 
           }, 
           error: null 
         };
       }
 
-      if (!imapConfig || imapConfig.length === 0) {
-        console.log('No IMAP configuration found for user');
-        return { 
-          data: { 
-            isConnected: false, 
-            emailCount: 0, 
-            error: 'No IMAP configuration found. Please set up email pulling configuration.' 
-          }, 
-          error: null 
-        };
-      }
+      const config = imapConfig && imapConfig.length > 0 ? imapConfig[0] : null;
+      console.log('IMAP config found:', config ? { 
+        id: config.id, 
+        active: config.is_active, 
+        status: config.sync_status,
+        email: config.email_address,
+        host: config.imap_host
+      } : 'None');
 
-      const config = imapConfig[0];
-      console.log('IMAP config found:', { id: config.id, active: config.is_active, status: config.sync_status });
+      // Calculate time ranges for activity analysis
+      const now = new Date();
+      const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000).toISOString();
+      const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+      const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-      // Check for recent emails (within last hour) to determine if puller is active
-      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-      
-      const { data: recentEmails, error: recentError } = await supabase
-        .from('imap_inbox')
-        .select('created_at')
-        .gte('created_at', oneHourAgo)
-        .order('created_at', { ascending: false })
-        .limit(1);
+      // Get email activity counts and check if inbox table exists
+      let emailCount = 0;
+      let recentActivity = { last24Hours: 0, lastHour: 0, lastWeek: 0 };
+      let latestEmail: any = null;
+      let inboxTableExists = true;
 
-      if (recentError) {
-        console.error('Error checking recent emails:', recentError);
-        // Handle missing table gracefully
-        if (recentError.code === '42P01' || recentError.code === 'PGRST202' || recentError.message.includes('relation') || recentError.message.includes('does not exist')) {
-          console.log('imap_inbox table not found - email puller not set up');
-          return { 
-            data: { 
-              isConnected: false, 
-              emailCount: 0, 
-              error: 'Email inbox table not available - email puller not configured' 
-            }, 
-            error: null 
-          };
+      try {
+        // Get total email count
+        const { count, error: countError } = await supabase
+          .from('imap_inbox')
+          .select('*', { count: 'exact', head: true });
+
+        if (countError) {
+          if (countError.code === '42P01' || countError.code === 'PGRST202' || countError.message.includes('relation') || countError.message.includes('does not exist')) {
+            console.log('imap_inbox table not found');
+            inboxTableExists = false;
+          } else {
+            throw countError;
+          }
+        } else {
+          emailCount = count || 0;
         }
-        return { 
-          data: { 
-            isConnected: false, 
-            emailCount: 0, 
-            error: `Database error: ${recentError.message}` 
-          }, 
-          error: null 
-        };
-      }
 
-      // Get total email count
-      const { count, error: countError } = await supabase
-        .from('imap_inbox')
-        .select('*', { count: 'exact', head: true });
+        if (inboxTableExists) {
+          // Get recent activity counts
+          const [hourlyResult, dailyResult, weeklyResult, latestResult] = await Promise.all([
+            supabase.from('imap_inbox').select('*', { count: 'exact', head: true }).gte('created_at', oneHourAgo),
+            supabase.from('imap_inbox').select('*', { count: 'exact', head: true }).gte('created_at', twentyFourHoursAgo),
+            supabase.from('imap_inbox').select('*', { count: 'exact', head: true }).gte('created_at', oneWeekAgo),
+            supabase.from('imap_inbox').select('created_at, received_at').order('created_at', { ascending: false }).limit(1)
+          ]);
 
-      if (countError) {
-        console.error('Error getting email count:', countError);
-        // Handle missing table gracefully
-        if (countError.code === '42P01' || countError.code === 'PGRST202' || countError.message.includes('relation') || countError.message.includes('does not exist')) {
-          console.log('imap_inbox table not found - email puller not set up');
-          return { 
-            data: { 
-              isConnected: false, 
-              emailCount: 0, 
-              error: 'Email inbox table not available - email puller not configured' 
-            }, 
-            error: null 
+          recentActivity = {
+            lastHour: hourlyResult.count || 0,
+            last24Hours: dailyResult.count || 0,
+            lastWeek: weeklyResult.count || 0
           };
+
+          latestEmail = latestResult.data && latestResult.data.length > 0 ? latestResult.data[0] : null;
         }
-        return { 
-          data: { 
-            isConnected: false, 
-            emailCount: 0, 
-            error: `Count error: ${countError.message}` 
-          }, 
-          error: null 
-        };
+      } catch (emailError) {
+        console.error('Error fetching email activity:', emailError);
+        inboxTableExists = false;
       }
 
-      // Get latest email timestamp (don't use .single() as it may return no rows)
-      const { data: latestEmails, error: latestError } = await supabase
-        .from('imap_inbox')
-        .select('created_at')
-        .order('created_at', { ascending: false })
-        .limit(1);
+      // Determine sync status
+      let syncStatus: 'running' | 'idle' | 'error' | 'never_ran' = 'never_ran';
+      if (config) {
+        if (config.last_error) {
+          syncStatus = 'error';
+        } else if (recentActivity.lastHour > 0) {
+          syncStatus = 'running';
+        } else if (latestEmail || emailCount > 0) {
+          syncStatus = 'idle';
+        }
+      }
 
-      const latestEmail = latestEmails && latestEmails.length > 0 ? latestEmails[0] : null;
+      // Calculate next sync time (estimate based on typical intervals)
+      let nextScheduledSync: string | undefined;
+      const syncInterval = 15; // Assume 15-minute intervals
+      if (latestEmail && syncStatus !== 'error') {
+        const lastSyncTime = new Date(latestEmail.created_at);
+        const nextSync = new Date(lastSyncTime.getTime() + syncInterval * 60 * 1000);
+        nextScheduledSync = nextSync.toISOString();
+      }
 
       const status: EmailPullerStatus = {
-        isConnected: (recentEmails && recentEmails.length > 0) || (count || 0) > 0,
+        isConnected: inboxTableExists && (recentActivity.lastHour > 0 || emailCount > 0),
         lastSync: latestEmail?.created_at,
-        emailCount: count || 0,
-        // Only report database errors, not "no rows found" errors
-        error: latestError && latestError.code !== 'PGRST116' ? latestError.message : undefined
+        emailCount: emailCount,
+        configurationActive: !!(config && config.is_active),
+        syncStatus: syncStatus,
+        lastSuccessfulSync: latestEmail?.created_at,
+        nextScheduledSync: nextScheduledSync,
+        syncInterval: syncInterval,
+        recentActivity: recentActivity,
+        configuration: config ? {
+          provider: 'IMAP',
+          emailAddress: config.email_address || 'Not configured',
+          host: config.imap_host || 'Not configured',
+          port: config.imap_port || 993,
+          autoImportEnabled: config.auto_import_enabled || false,
+          lastTested: config.last_tested_at,
+          lastTestSuccess: config.last_test_success
+        } : undefined,
+        error: !inboxTableExists 
+          ? 'Email inbox table not available - email puller not configured'
+          : config?.last_error || undefined
       };
+
+      console.log('Enhanced email puller status:', {
+        isConnected: status.isConnected,
+        syncStatus: status.syncStatus,
+        emailCount: status.emailCount,
+        configActive: status.configurationActive,
+        activity: status.recentActivity
+      });
 
       return { data: status, error: null };
     } catch (err) {
-      console.error('Failed to get email puller status:', err);
+      console.error('Failed to get enhanced email puller status:', err);
       return { 
         data: { 
           isConnected: false, 
           emailCount: 0, 
+          configurationActive: false,
+          syncStatus: 'error',
+          recentActivity: { last24Hours: 0, lastHour: 0, lastWeek: 0 },
           error: err instanceof Error ? err.message : 'Failed to check status' 
         }, 
         error: null 
