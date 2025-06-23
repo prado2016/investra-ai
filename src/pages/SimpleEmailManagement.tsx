@@ -1293,8 +1293,9 @@ const SimpleEmailManagement: React.FC = () => {
         </StatusHeader>
       </StatusCard>
 
-      {/* Email Configuration Panel - Show when there's an error */}
-      {pullerStatus.syncStatus === 'error' && (
+      {/* Email Configuration Panel - Show when there's an error or sync is overdue */}
+      {(pullerStatus.syncStatus === 'error' || 
+        (pullerStatus.lastSync && new Date().getTime() - new Date(pullerStatus.lastSync).getTime() > 60 * 60 * 1000)) && (
         <EmailConfigurationPanel onConfigurationUpdated={handleRefresh} />
       )}
 
