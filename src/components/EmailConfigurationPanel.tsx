@@ -89,6 +89,7 @@ export const EmailConfigurationPanel: React.FC<EmailConfigurationPanelProps> = (
     
     if (!email || !appPassword) {
       console.log('Validation failed: missing email or password');
+      alert('Please enter both email and app password');
       error('Validation Error', 'Please enter both email and app password');
       return;
     }
@@ -157,6 +158,7 @@ export const EmailConfigurationPanel: React.FC<EmailConfigurationPanelProps> = (
     
     if (!email || !appPassword) {
       console.log('Test validation failed: missing email or password');
+      alert('Please enter both email and app password before testing');
       error('Validation Error', 'Please enter both email and app password before testing');
       return;
     }
