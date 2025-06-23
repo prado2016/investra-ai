@@ -1049,6 +1049,16 @@ export class PositionService {
               
               quantity -= transactionQuantity;
               totalCostBasis -= costOfSoldShares;
+            } else {
+              console.warn(`⚠️ Sell quantity (${transactionQuantity}) exceeds available quantity (${quantity}) for asset ${assetId}`);
+              // Handle overselling - sell all available and record loss
+              if (quantity > 0) {
+                const costOfSoldShares = quantity * weightedAverageCost;
+                const saleProceeds = transactionQuantity * transactionPrice - fees;
+                realizedPL += saleProceeds - costOfSoldShares;
+                quantity = 0;
+                totalCostBasis = 0;
+              }
             }
           } else if (transaction.transaction_type === 'option_expired') {
             // For option expiration, the entire premium paid is lost
@@ -1059,11 +1069,28 @@ export class PositionService {
               
               quantity -= transactionQuantity;
               totalCostBasis -= costOfExpiredOptions;
+            } else {
+              console.warn(`⚠️ Option expiry quantity (${transactionQuantity}) exceeds available quantity (${quantity}) for asset ${assetId}`);
+              // Expire all available options
+              if (quantity > 0) {
+                const costOfExpiredOptions = quantity * weightedAverageCost;
+                realizedPL -= costOfExpiredOptions;
+                quantity = 0;
+                totalCostBasis = 0;
+              }
             }
+          } else if (transaction.transaction_type === 'dividend') {
+            // Dividends don't affect position quantity or cost basis, only realized P&L
+            realizedPL += transactionQuantity * transactionPrice - fees;
           }
         }
         
-        console.log(`💰 Asset ${assetId}: quantity=${quantity}, avgCost=${weightedAverageCost}, totalCost=${totalCostBasis}`);
+        // Ensure no negative values due to rounding errors
+        quantity = Math.max(0, quantity);
+        totalCostBasis = Math.max(0, totalCostBasis);
+        weightedAverageCost = Math.max(0, weightedAverageCost);
+        
+        console.log(`💰 Asset ${assetId}: quantity=${quantity}, avgCost=${weightedAverageCost}, totalCost=${totalCostBasis}, realizedPL=${realizedPL}`);
         
         // Create or update position only if quantity > 0
         if (quantity > 0) {

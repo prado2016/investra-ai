@@ -185,6 +185,29 @@ const AssetTypeTag = styled.span<{ $assetType: string }>`
   }}
 `;
 
+const CostBasisTag = styled.span<{ $method: string }>`
+  padding: 0.25rem 0.75rem;
+  border-radius: 1rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  
+  ${({ $method }) => {
+    switch ($method) {
+      case 'FIFO':
+        return 'background: #e0f2fe; color: #0277bd;';
+      case 'LIFO':
+        return 'background: #f3e5f5; color: #7b1fa2;';
+      case 'AVERAGE_COST':
+        return 'background: #e8f5e8; color: #2e7d32;';
+      case 'SPECIFIC_LOT':
+        return 'background: #fff3e0; color: #ef6c00;';
+      default:
+        return 'background: #f3f4f6; color: #6b7280;';
+    }
+  }}
+`;
+
 const PriceCell = styled.div<{ $isPositive?: boolean }>`
   display: flex;
   align-items: center;
@@ -241,6 +264,7 @@ type SortDirection = 'asc' | 'desc' | null;
 interface EnhancedPosition extends Position {
   currentPrice: number;
   assetName: string;
+  transactionCount?: number;
 }
 
 interface PositionsTableProps {
@@ -270,17 +294,21 @@ export const PositionsTable: React.FC<PositionsTableProps> = ({
   // Get asset information lookup
   const assetInfoMap = useMemo(() => getAssetInfo(), []);
 
-  // COMPLETELY DISABLE real-time quotes to prevent infinite loop
-  const emptySymbols = useMemo(() => [], []); // Stable empty array
+  // Get unique symbols for real-time quotes
+  const symbols = useMemo(() => {
+    const uniqueSymbols = Array.from(new Set(positions.map(p => p.assetSymbol)));
+    return uniqueSymbols;
+  }, [positions]);
+
   const { 
     data: quotes, 
     loading: quotesLoading, 
     refetch,
     retryState 
-  } = useQuotes(emptySymbols, {
-    enabled: false,
-    refetchInterval: undefined, // Remove interval completely
-    useCache: false
+  } = useQuotes(symbols, {
+    enabled: symbols.length > 0,
+    refetchInterval: 30000, // 30 second intervals
+    useCache: true
   });
 
   // Create a map of current prices
@@ -296,12 +324,25 @@ export const PositionsTable: React.FC<PositionsTableProps> = ({
   const enhancedPositions = useMemo(() => {
     return positions.map(position => {
       const assetInfo = assetInfoMap.get(position.assetSymbol);
-      const currentPrice = currentPrices.get(position.assetSymbol) || 
-        (position.currentMarketValue / position.quantity);
+      
+      // Get current price from real-time quotes, fallback to calculated price
+      let currentPrice = currentPrices.get(position.assetSymbol);
+      if (!currentPrice || currentPrice <= 0) {
+        // Fallback to current market value divided by quantity
+        currentPrice = position.quantity > 0 ? position.currentMarketValue / position.quantity : position.averageCostBasis;
+      }
+      
+      // Recalculate market value and P&L with current price
+      const currentMarketValue = currentPrice * position.quantity;
+      const unrealizedPL = currentMarketValue - position.totalCostBasis;
+      const unrealizedPLPercent = position.totalCostBasis > 0 ? (unrealizedPL / position.totalCostBasis) * 100 : 0;
       
       return {
         ...position,
         currentPrice,
+        currentMarketValue,
+        unrealizedPL,
+        unrealizedPLPercent,
         assetName: assetInfo?.name || position.assetSymbol
       } as EnhancedPosition;
     });
@@ -567,6 +608,11 @@ export const PositionsTable: React.FC<PositionsTableProps> = ({
                     Avg Cost {getSortIcon('averageCostBasis')}
                   </span>
                 </TableHeaderCell>
+                <TableHeaderCell onClick={() => handleSort('costBasisMethod')}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    Cost Method {getSortIcon('costBasisMethod')}
+                  </span>
+                </TableHeaderCell>
                 <TableHeaderCell onClick={() => handleSort('currentPrice')}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     Current Price {getSortIcon('currentPrice')}
@@ -602,11 +648,31 @@ export const PositionsTable: React.FC<PositionsTableProps> = ({
                     </AssetTypeTag>
                   </TableCell>
                   <TableCell>
-                    <strong>{position.assetSymbol}</strong>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <strong>{position.assetSymbol}</strong>
+                      <span 
+                        style={{ 
+                          fontSize: '0.75rem', 
+                          color: '#6b7280', 
+                          background: '#f3f4f6', 
+                          padding: '0.125rem 0.5rem', 
+                          borderRadius: '0.75rem',
+                          cursor: 'help'
+                        }}
+                        title="Click to view transactions that make up this position"
+                      >
+                        📊
+                      </span>
+                    </div>
                   </TableCell>
                   <TableCell>{position.assetName || '-'}</TableCell>
                   <TableCell>{position.quantity.toLocaleString()}</TableCell>
                   <TableCell>{formatCurrency(position.averageCostBasis)}</TableCell>
+                  <TableCell>
+                    <CostBasisTag $method={position.costBasisMethod}>
+                      {position.costBasisMethod}
+                    </CostBasisTag>
+                  </TableCell>
                   <TableCell>
                     <PriceCell>
                       {formatCurrency(position.currentPrice)}

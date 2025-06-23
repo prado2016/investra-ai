@@ -311,6 +311,7 @@ export const PositionDetailsModal: React.FC<PositionDetailsModalProps> = ({
 }) => {
   const [transactions, setTransactions] = useState<TransactionWithAsset[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [editingTransaction, setEditingTransaction] = useState<TransactionWithAsset | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const notify = useNotify();
@@ -319,11 +320,12 @@ export const PositionDetailsModal: React.FC<PositionDetailsModalProps> = ({
   // Fetch transactions for this position
   const fetchTransactions = useCallback(async () => {
     if (!activePortfolio?.id) {
-      notify.error('No active portfolio found');
+      setError('No active portfolio found');
       return;
     }
     
     setLoading(true);
+    setError(null);
     try {
       // Get all transactions for the portfolio, then filter by asset
       const response = await TransactionService.getTransactions(activePortfolio.id);
@@ -334,16 +336,17 @@ export const PositionDetailsModal: React.FC<PositionDetailsModalProps> = ({
           tx => tx.asset.symbol === position.assetSymbol
         );
         setTransactions(positionTransactions);
+        setError(null);
       } else {
-        notify.error('Failed to fetch transactions: ' + response.error);
+        setError(response.error || 'Failed to fetch transactions');
       }
     } catch (error) {
       console.error('Failed to fetch transactions:', error);
-      notify.error('Failed to fetch transactions');
+      setError(error instanceof Error ? error.message : 'Failed to fetch transactions');
     } finally {
       setLoading(false);
     }
-  }, [activePortfolio?.id, position.assetSymbol, notify]);
+  }, [activePortfolio?.id, position.assetSymbol]);
 
   useEffect(() => {
     if (isOpen && position) {
@@ -502,6 +505,26 @@ export const PositionDetailsModal: React.FC<PositionDetailsModalProps> = ({
 
           {loading ? (
             <LoadingState>Loading transactions...</LoadingState>
+          ) : error ? (
+            <EmptyState>
+              <AlertTriangle size={48} />
+              <h3>Error Loading Transactions</h3>
+              <p>{error}</p>
+              <button 
+                onClick={() => fetchTransactions()}
+                style={{ 
+                  marginTop: '1rem', 
+                  padding: '0.5rem 1rem', 
+                  background: 'var(--color-primary-600)', 
+                  color: 'white', 
+                  border: 'none', 
+                  borderRadius: '6px', 
+                  cursor: 'pointer' 
+                }}
+              >
+                Retry
+              </button>
+            </EmptyState>
           ) : transactions.length === 0 ? (
             <EmptyState>
               <CheckCircle size={48} />
