@@ -99,21 +99,15 @@ const TableHead = styled.thead`
 
 const TableRow = styled.tr`
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background-color 0.15s ease;
   position: relative;
 
   &:hover {
     background: #f1f5f9 !important;
-    transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   }
 
   &:nth-child(even) {
     background: #f9fafb;
-  }
-
-  &:active {
-    transform: translateY(0);
   }
 
   /* Add a subtle border indicator on hover */
@@ -123,7 +117,7 @@ const TableRow = styled.tr`
     left: 0;
     top: 0;
     bottom: 0;
-    width: 4px;
+    width: 3px;
     background: #3b82f6;
     border-radius: 0 2px 2px 0;
   }

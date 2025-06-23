@@ -54,6 +54,8 @@ const ModalHeader = styled.div`
   padding: var(--space-6);
   border-bottom: 1px solid var(--border-primary);
   background: var(--bg-secondary);
+  gap: var(--space-4);
+  min-height: 80px;
 `;
 
 const HeaderContent = styled.div`
@@ -102,17 +104,36 @@ const SummaryValue = styled.span<{ $positive?: boolean; $negative?: boolean }>`
 `;
 
 const CloseButton = styled.button`
-  background: none;
-  border: none;
-  color: var(--text-secondary);
+  background: #f3f4f6;
+  border: 2px solid #d1d5db;
+  color: #374151;
   cursor: pointer;
-  padding: var(--space-2);
-  border-radius: var(--radius-md);
-  transition: all var(--transition-fast);
+  padding: 8px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10;
   
   &:hover {
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
+    background: #fee2e2;
+    color: #dc2626;
+    border-color: #fca5a5;
+    transform: scale(1.05);
+  }
+  
+  &:active {
+    transform: scale(0.95);
+  }
+  
+  &:focus {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
   }
 `;
 
@@ -354,6 +375,20 @@ export const PositionDetailsModal: React.FC<PositionDetailsModalProps> = ({
     }
   }, [isOpen, position, fetchTransactions]);
 
+  // Handle Escape key to close modal
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape);
+      return () => document.removeEventListener('keydown', handleEscape);
+    }
+  }, [isOpen, onClose]);
+
   const handleEditTransaction = (transaction: TransactionWithAsset) => {
     setEditingTransaction(transaction);
     setShowEditModal(true);
@@ -486,7 +521,7 @@ export const PositionDetailsModal: React.FC<PositionDetailsModalProps> = ({
             </PositionSummary>
           </HeaderContent>
           
-          <CloseButton onClick={onClose}>
+          <CloseButton onClick={onClose} title="Close modal">
             <X size={20} />
           </CloseButton>
         </ModalHeader>
@@ -586,6 +621,32 @@ export const PositionDetailsModal: React.FC<PositionDetailsModalProps> = ({
             </TransactionsList>
           )}
         </ModalBody>
+
+        {/* Modal Footer with Close Button */}
+        <div style={{
+          padding: '1rem 1.5rem',
+          borderTop: '1px solid #e5e7eb',
+          background: '#f9fafb',
+          display: 'flex',
+          justifyContent: 'flex-end',
+          gap: '0.5rem'
+        }}>
+          <button
+            onClick={onClose}
+            style={{
+              padding: '0.5rem 1rem',
+              background: '#6b7280',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '0.875rem',
+              fontWeight: '500'
+            }}
+          >
+            Close
+          </button>
+        </div>
 
         {/* Edit Transaction Modal */}
         {editingTransaction && (
