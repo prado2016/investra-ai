@@ -44,11 +44,32 @@ async function cleanSlate() {
         imapClient = new ImapClient(imapConfig);
         await imapClient.connect();
 
-        // Move all inbox emails to processed folder
+        // Move all inbox emails to processed folder in Gmail
         const movedCount = await imapClient.moveAllInboxEmails(PROCESSED_FOLDER);
         totalMoved += movedCount;
 
-        logger.info(`✅ ${imapConfig.gmail_email}: ${movedCount} emails moved`);
+        logger.info(`✅ ${imapConfig.gmail_email}: ${movedCount} emails moved in Gmail`);
+
+        // Archive all existing emails in database
+        if (movedCount > 0) {
+          try {
+            // Get all emails for this user from imap_inbox
+            const { data: inboxEmails, error } = await (database as any).client
+              .from('imap_inbox')
+              .select('message_id')
+              .eq('user_id', imapConfig.user_id);
+
+            if (error) {
+              logger.warn(`Failed to get inbox emails for database archiving: ${error.message}`);
+            } else if (inboxEmails && inboxEmails.length > 0) {
+              const messageIds = inboxEmails.map((email: any) => email.message_id);
+              const removedCount = await database.removeProcessedEmails(messageIds, imapConfig.user_id);
+              logger.info(`✅ ${imapConfig.gmail_email}: ${removedCount} emails removed from database inbox`);
+            }
+          } catch (dbError) {
+            logger.warn(`Failed to archive emails in database: ${dbError instanceof Error ? dbError.message : 'Unknown error'}`);
+          }
+        }
 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';

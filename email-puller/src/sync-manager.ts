@@ -145,8 +145,14 @@ export class EmailSyncManager {
           const allUIDs = emails.map(email => email.uid);
           
           if (allUIDs.length > 0) {
+            // Move emails in Gmail
             await imapClient.moveEmailsToFolder(allUIDs, config.processedFolderName);
-            logger.info(`Moved ${allUIDs.length} emails to ${config.processedFolderName}`);
+            logger.info(`Moved ${allUIDs.length} emails to ${config.processedFolderName} in Gmail`);
+            
+            // Remove emails from database inbox table
+            const emailMessageIds = emails.map(email => email.messageId);
+            const removedCount = await database.removeProcessedEmails(emailMessageIds, imapConfig.user_id);
+            logger.info(`Removed ${removedCount} processed emails from database inbox`);
           }
         } catch (moveError) {
           logger.warn(`Failed to move emails to processed folder: ${moveError instanceof Error ? moveError.message : 'Unknown error'}`);

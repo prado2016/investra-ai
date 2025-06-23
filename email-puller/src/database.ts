@@ -281,6 +281,35 @@ export class Database {
   }
 
   /**
+   * Remove processed emails from inbox table
+   */
+  async removeProcessedEmails(messageIds: string[], userId: string): Promise<number> {
+    if (messageIds.length === 0) return 0;
+
+    try {
+      // Delete from inbox table
+      const { error, count } = await this.client
+        .from('imap_inbox')
+        .delete({ count: 'exact' })
+        .in('message_id', messageIds)
+        .eq('user_id', userId);
+
+      if (error) {
+        logger.error('Failed to delete processed emails from inbox:', error);
+        throw error;
+      }
+
+      const deletedCount = count || 0;
+      logger.info(`Removed ${deletedCount} processed emails from inbox table`);
+      return deletedCount;
+
+    } catch (error) {
+      logger.error('Error removing processed emails from inbox:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Test database connection
    */
   async testConnection(): Promise<boolean> {
