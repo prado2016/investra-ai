@@ -1133,19 +1133,22 @@ const SimpleEmailManagement: React.FC = () => {
   const getStatusType = (): 'connected' | 'disconnected' | 'loading' => {
     if (loading) return 'loading';
     
-    if (!pullerStatus.configurationActive || pullerStatus.syncStatus === 'never_ran') {
+    if (!pullerStatus.configurationActive) {
       return 'disconnected';
     }
     
-    if (pullerStatus.syncStatus === 'error') {
-      return 'disconnected';
+    switch (pullerStatus.syncStatus) {
+      case 'running':
+        return 'connected';
+      case 'idle':
+        return 'connected';
+      case 'error':
+        return 'disconnected';
+      case 'never_ran':
+        return 'disconnected';
+      default:
+        return pullerStatus.isConnected ? 'connected' : 'disconnected';
     }
-    
-    if (pullerStatus.syncStatus === 'running' || (pullerStatus.isConnected && pullerStatus.recentActivity?.lastHour > 0)) {
-      return 'connected';
-    }
-    
-    return pullerStatus.isConnected ? 'connected' : 'disconnected';
   };
 
   // Show loading state while checking authentication
@@ -1251,14 +1254,22 @@ const SimpleEmailManagement: React.FC = () => {
                 {user && (
                   <>User ID: {user.id} • </>
                 )}
-                Status: {pullerStatus.syncStatus || 'Unknown'} • 
-                {pullerStatus.lastSync && (
-                  <>Last sync: {formatDate(pullerStatus.lastSync)} • </>
+                Status: {pullerStatus.syncStatus || 'Unknown'}
+                {pullerStatus.lastSync && pullerStatus.syncStatus !== 'never_ran' && (
+                  <> • Last Sync: {formatDate(pullerStatus.lastSync)} ({pullerStatus.syncStatus})</>
                 )}
-                {pullerStatus.nextScheduledSync && pullerStatus.syncStatus !== 'error' && (
-                  <>Next sync: {formatDate(pullerStatus.nextScheduledSync)} • </>
+                {pullerStatus.syncStatus === 'never_ran' && pullerStatus.configurationActive && (
+                  <> • Configuration exists but sync has not started</>
                 )}
-                {stats.total} emails in database
+                {pullerStatus.nextScheduledSync && pullerStatus.syncStatus !== 'error' && pullerStatus.syncStatus !== 'never_ran' && (
+                  <> • Next sync: {formatDate(pullerStatus.nextScheduledSync)}</>
+                )}
+                {(pullerStatus.syncStatus === 'never_ran' || !pullerStatus.lastSync) && stats.total > 0 && (
+                  <> • Note: {stats.total} emails exist but may be from previous syncs</>
+                )}
+                {stats.total > 0 && (
+                  <> • {stats.total} emails in database</>
+                )}
                 {pullerStatus.recentActivity && (
                   <> • Activity: {pullerStatus.recentActivity.lastHour}h/{pullerStatus.recentActivity.last24Hours}d/{pullerStatus.recentActivity.lastWeek}w</>
                 )}
