@@ -155,23 +155,37 @@ export class YahooFinanceBrowserService {
   }
 
   /**
-   * Get quotes for multiple symbols
+   * Get quotes for multiple symbols with rate limiting
    */
   async getQuotes(symbols: string[], useCache: boolean = true): Promise<ApiResponse<YahooFinanceQuote[]>> {
     try {
-      const promises = symbols.map(symbol => this.getQuote(symbol, useCache));
-      const results = await Promise.allSettled(promises);
+      // Limit concurrent requests to prevent overwhelming API
+      const BATCH_SIZE = 3;
+      const DELAY_BETWEEN_BATCHES = 1000; // 1 second
       
       const quotes: YahooFinanceQuote[] = [];
       const errors: string[] = [];
-
-      results.forEach((result, index) => {
-        if (result.status === 'fulfilled' && result.value.success && result.value.data) {
-          quotes.push(result.value.data);
-        } else {
-          errors.push(`Failed to fetch quote for ${symbols[index]}`);
+      
+      // Process symbols in batches
+      for (let i = 0; i < symbols.length; i += BATCH_SIZE) {
+        const batch = symbols.slice(i, i + BATCH_SIZE);
+        
+        const promises = batch.map(symbol => this.getQuote(symbol, useCache));
+        const results = await Promise.allSettled(promises);
+        
+        results.forEach((result, index) => {
+          if (result.status === 'fulfilled' && result.value.success && result.value.data) {
+            quotes.push(result.value.data);
+          } else {
+            errors.push(`Failed to fetch quote for ${batch[index]}`);
+          }
+        });
+        
+        // Add delay between batches to avoid rate limiting
+        if (i + BATCH_SIZE < symbols.length) {
+          await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_BATCHES));
         }
-      });
+      }
 
       if (quotes.length === 0) {
         throw new Error(`Failed to fetch quotes for all symbols: ${errors.join(', ')}`);

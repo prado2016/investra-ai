@@ -145,13 +145,9 @@ export const useRetry = (options: RetryOptions = {}) => {
         config.onRetryAttempt(attempt, error);
         
         if (attempt < config.maxAttempts) {
-          // Show user feedback for retries
+          // Log retry attempts instead of showing notifications to prevent dependency loops
           const errorMsg = (error as Error)?.message || String(error) || 'Operation failed';
-          notify.warning(
-            `Retrying... (${attempt}/${config.maxAttempts})`,
-            `${errorMsg}. Retrying in ${Math.round(delay / 1000)}s`,
-            { duration: delay }
-          );
+          console.warn(`Retrying API call (${attempt}/${config.maxAttempts}): ${errorMsg}. Retrying in ${Math.round(delay / 1000)}s`);
         }
 
         // Wait before next attempt
@@ -180,16 +176,12 @@ export const useRetry = (options: RetryOptions = {}) => {
     config.onMaxAttemptsReached(lastError);
     abortControllerRef.current = null;
     
-    // Show final failure notification
+    // Log final failure instead of showing notification to prevent dependency loops
     const errorMsg = (lastError as Error)?.message || String(lastError) || 'Operation failed';
-    notify.error(
-      'Operation Failed',
-      `Failed after ${config.maxAttempts} attempts: ${errorMsg}`,
-      { duration: 8000 }
-    );
+    console.error(`Operation failed after ${config.maxAttempts} attempts: ${errorMsg}`);
 
     throw lastError;
-  }, [opts, notify, calculateDelay]);
+  }, [opts, calculateDelay]);
 
   const abort = useCallback(() => {
     if (abortControllerRef.current) {

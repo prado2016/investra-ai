@@ -307,7 +307,7 @@ export const PositionsTable: React.FC<PositionsTableProps> = ({
     retryState 
   } = useQuotes(symbols, {
     enabled: symbols.length > 0,
-    refetchInterval: 30000, // 30 second intervals
+    refetchInterval: 60000, // 60 second intervals to reduce API load
     useCache: true
   });
 

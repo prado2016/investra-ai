@@ -157,11 +157,16 @@ export function useQuotes(symbols: string[], options: UseQuotesOptions = {}) {
   const network = useNetwork();
   const notify = useNotify();
   
-  const retry = useRetry({
-    maxAttempts: 3,
-    baseDelay: 2000,
+  // Stabilize retry configuration to prevent dependency loops
+  const retryConfig = {
+    maxAttempts: 2, // Reduce attempts to limit API calls
+    baseDelay: 3000, // Increase delay between retries
     retryCondition: (err: unknown) => {
       const errorStr = (err as Error)?.message?.toLowerCase() || '';
+      // Don't retry on insufficient resources to prevent overwhelming API
+      if (errorStr.includes('insufficient_resources')) {
+        return false;
+      }
       return network.isOnline && (
         errorStr.includes('network') ||
         errorStr.includes('timeout') ||
@@ -169,7 +174,9 @@ export function useQuotes(symbols: string[], options: UseQuotesOptions = {}) {
         errorStr.includes('5') // 5xx status codes
       );
     }
-  });
+  };
+  
+  const retry = useRetry(retryConfig);
 
   const fetchQuotes = useCallback(async () => {
     if (!symbols.length || !enabled) return;
@@ -197,8 +204,9 @@ export function useQuotes(symbols: string[], options: UseQuotesOptions = {}) {
         setError(errorMessage);
         setData([]);
         
+        // Log error instead of showing notification to prevent dependencies
         if (network.isOnline && !errorMessage.toLowerCase().includes('network')) {
-          notify.warning('Data Update Failed', errorMessage);
+          console.warn('Yahoo Finance API data update failed:', errorMessage);
         }
       }
     } catch (err) {
@@ -208,15 +216,18 @@ export function useQuotes(symbols: string[], options: UseQuotesOptions = {}) {
       
       const isNetworkError = errorMessage.toLowerCase().includes('network') || 
                             errorMessage.toLowerCase().includes('fetch') ||
-                            errorMessage.toLowerCase().includes('timeout');
+                            errorMessage.toLowerCase().includes('timeout') ||
+                            errorMessage.toLowerCase().includes('insufficient_resources');
       
       if (!isNetworkError) {
-        notify.apiError(err, 'Failed to fetch quotes data');
+        console.error('Yahoo Finance API error (non-network):', err);
+      } else {
+        console.warn('Yahoo Finance API network error:', errorMessage);
       }
     } finally {
       setLoading(false);
     }
-  }, [symbols, enabled, useCache, network.isOnline, notify, retry]);
+  }, [symbols, enabled, useCache, network.isOnline, retry]);
 
   // Initial fetch - only run if enabled
   useEffect(() => {
