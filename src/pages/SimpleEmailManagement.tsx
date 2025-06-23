@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
+import { EmailConfigurationPanel } from '../components/EmailConfigurationPanel';
 import { useNotifications } from '../hooks/useNotifications';
 import { useSupabasePortfolios } from '../hooks/useSupabasePortfolios';
 import { simpleEmailService, parseEmailForTransaction } from '../services/simpleEmailService';
@@ -1280,6 +1281,11 @@ const SimpleEmailManagement: React.FC = () => {
           </Button>
         </StatusHeader>
       </StatusCard>
+
+      {/* Email Configuration Panel - Show when there's an error */}
+      {pullerStatus.syncStatus === 'error' && (
+        <EmailConfigurationPanel onConfigurationUpdated={handleRefresh} />
+      )}
 
       {/* Detailed Configuration Info */}
       {pullerStatus.configuration && (
