@@ -60,6 +60,10 @@ export interface EmailPullerStatus {
     autoImportEnabled: boolean;
     lastTested?: string;
     lastTestSuccess?: boolean;
+    syncInterval?: number;
+    maxEmailsPerSync?: number;
+    emailsSynced?: number;
+    lastSyncStatus?: string;
   };
 }
 
@@ -396,13 +400,16 @@ class SimpleEmailService {
         }
       }
 
-      // Calculate next sync time (estimate based on typical intervals)
+      // Calculate next sync time based on actual configuration
       let nextScheduledSync: string | undefined;
-      const syncInterval = 15; // Assume 15-minute intervals
-      if (latestEmail && syncStatus !== 'error') {
-        const lastSyncTime = new Date(latestEmail.created_at);
+      const syncInterval = config?.sync_interval_minutes || 15;
+      
+      if (config && config.last_sync_at && syncStatus !== 'error') {
+        const lastSyncTime = new Date(config.last_sync_at);
         const nextSync = new Date(lastSyncTime.getTime() + syncInterval * 60 * 1000);
-        nextScheduledSync = nextSync.toISOString();
+        if (nextSync > new Date()) {
+          nextScheduledSync = nextSync.toISOString();
+        }
       }
 
       const status: EmailPullerStatus = {
@@ -416,13 +423,17 @@ class SimpleEmailService {
         syncInterval: syncInterval,
         recentActivity: recentActivity,
         configuration: config ? {
-          provider: 'IMAP',
-          emailAddress: config.email_address || config.email || config.username || 'Not configured',
-          host: config.imap_host || config.host || config.server || 'Not configured',
-          port: config.imap_port || config.port || 993,
-          autoImportEnabled: config.auto_import_enabled || config.auto_import || false,
-          lastTested: config.last_tested_at || config.last_tested || config.tested_at,
-          lastTestSuccess: config.last_test_success ?? config.test_success ?? config.is_working
+          provider: 'Gmail IMAP',
+          emailAddress: config.gmail_email || 'Not configured',
+          host: config.imap_host || 'Not configured',
+          port: config.imap_port || 993,
+          autoImportEnabled: config.is_active || false,
+          lastTested: config.last_sync_at,
+          lastTestSuccess: config.sync_status === 'idle' || config.sync_status === 'success',
+          syncInterval: config.sync_interval_minutes,
+          maxEmailsPerSync: config.max_emails_per_sync,
+          emailsSynced: config.emails_synced,
+          lastSyncStatus: config.sync_status
         } : undefined,
         error: !inboxTableExists 
           ? 'Email inbox table not available - email puller not configured'

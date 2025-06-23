@@ -1298,10 +1298,16 @@ const SimpleEmailManagement: React.FC = () => {
                     <div><strong>Server:</strong> {pullerStatus.configuration.host}:{pullerStatus.configuration.port}</div>
                     <div><strong>Auto Import:</strong> {pullerStatus.configuration.autoImportEnabled ? 'Enabled' : 'Disabled'}</div>
                     {pullerStatus.configuration.lastTested && (
-                      <div><strong>Last Test:</strong> {formatDate(pullerStatus.configuration.lastTested)} ({pullerStatus.configuration.lastTestSuccess ? 'Success' : 'Failed'})</div>
+                      <div><strong>Last Sync:</strong> {formatDate(pullerStatus.configuration.lastTested)} ({pullerStatus.configuration.lastSyncStatus})</div>
                     )}
-                    {pullerStatus.syncInterval && (
-                      <div><strong>Sync Interval:</strong> {pullerStatus.syncInterval} minutes</div>
+                    {pullerStatus.configuration.syncInterval && (
+                      <div><strong>Sync Interval:</strong> {pullerStatus.configuration.syncInterval} minutes</div>
+                    )}
+                    {pullerStatus.configuration.emailsSynced && (
+                      <div><strong>Total Synced:</strong> {pullerStatus.configuration.emailsSynced} emails</div>
+                    )}
+                    {pullerStatus.configuration.maxEmailsPerSync && (
+                      <div><strong>Max Per Sync:</strong> {pullerStatus.configuration.maxEmailsPerSync} emails</div>
                     )}
                   </div>
                 </StatusDetails>
