@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { usePortfolios } from '../contexts/PortfolioContext';
 import { usePageTitle } from '../hooks/usePageTitle';
-import { TransactionService, AssetService, FundMovementService } from '../services/supabaseService';
+import { TransactionService, FundMovementService } from '../services/supabaseService';
 import { useNotify } from '../hooks/useNotify';
-import TransactionForm from '../components/TransactionForm.tsx';
+// TransactionForm component was removed during cleanup
 import TransactionList from '../components/TransactionList.tsx';
 import TransactionEditModal from '../components/TransactionEditModal.tsx';
 import FundMovementForm from '../components/FundMovementForm.tsx';
 import FundMovementList from '../components/FundMovementList.tsx';
 import FundMovementEditModal from '../components/FundMovementEditModal.tsx';
 import { Plus, TrendingUp, DollarSign, ArrowUpDown, ChevronDown, ChevronUp } from 'lucide-react';
-import type { Transaction, TransactionType, FundMovement, FundMovementType, FundMovementStatus, Currency } from '../types/portfolio';
+import type { TransactionType, FundMovement, FundMovementType, FundMovementStatus, Currency } from '../types/portfolio';
 import type { TransactionWithAsset } from '../components/TransactionList';
 import type { FundMovementWithMetadata } from '../components/FundMovementList';
 import '../styles/transactions-layout.css';
@@ -267,6 +267,8 @@ const TransactionsPage: React.FC = () => {
     }
   };
 
+  // Removed handleSaveTransaction - TransactionForm component was removed
+  /*
   const handleSaveTransaction = async (transactionData: Omit<Transaction, 'id' | 'assetId' | 'createdAt' | 'updatedAt'>): Promise<boolean> => {
     if (!activePortfolio?.id) {
       notify.error('No portfolio selected');
@@ -320,6 +322,7 @@ const TransactionsPage: React.FC = () => {
       setLoading(false);
     }
   };
+  */
 
   const handleDeleteTransaction = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this transaction?')) {
@@ -526,10 +529,10 @@ const TransactionsPage: React.FC = () => {
             
             {!isTransactionFormMinimized && (
               <div className="enhanced-form-wrapper">
-                <TransactionForm
-                  onSave={handleSaveTransaction}
-                  onCancel={() => {}} // No cancel needed for add-only form
-                />
+                <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                  TransactionForm component was removed during cleanup.
+                  Use the email parsing system to import transactions.
+                </div>
               </div>
             )}
           </div>

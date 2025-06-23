@@ -9,7 +9,7 @@ import { useDebugSettings } from '../contexts/DebugContext';
 import { SupabaseService } from '../services/supabaseService';
 import ThemeToggle from '../components/ThemeToggle';
 import ApiKeySettings from '../components/SimpleApiKeySettings';
-import GeminiTestComponent from '../components/GeminiTestComponent';
+// GeminiTestComponent was removed during cleanup
 import AccountDestinationManager from '../components/AccountDestinationManager';
 import PortfolioManagementModal from '../components/PortfolioManagementModal';
 // EmailDatabaseTest removed - email system redesigned
@@ -625,9 +625,13 @@ const Settings: React.FC = () => {
         <ApiKeySettings />
       </Section>
 
-      {/* Gemini AI Test */}
+      {/* Gemini AI Test - Component removed during cleanup */}
       <Section>
-        <GeminiTestComponent />
+        <SectionTitle>AI Services</SectionTitle>
+        <Description>
+          AI testing components were removed during cleanup. 
+          AI functionality is available through the email parsing system.
+        </Description>
       </Section>
 
       {/* Email Database Test */}
