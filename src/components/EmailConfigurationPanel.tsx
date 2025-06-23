@@ -95,8 +95,10 @@ export const EmailConfigurationPanel: React.FC<EmailConfigurationPanelProps> = (
       return;
     }
 
-    if (appPassword.length < 16) {
-      error('Validation Error', 'Gmail app passwords are typically 16 characters');
+    // Remove spaces and validate
+    const cleanPassword = appPassword.replace(/\s/g, '');
+    if (cleanPassword.length !== 16) {
+      error('Validation Error', 'Gmail app passwords must be exactly 16 characters (spaces will be removed automatically)');
       return;
     }
 
@@ -122,7 +124,7 @@ export const EmailConfigurationPanel: React.FC<EmailConfigurationPanelProps> = (
         user_id: user.id,
         name: 'Gmail Import',
         gmail_email: email,
-        encrypted_app_password: appPassword, // Note: In production, this should be encrypted
+        encrypted_app_password: cleanPassword, // Note: In production, this should be encrypted
         imap_host: 'imap.gmail.com',
         imap_port: 993,
         imap_secure: true,
@@ -220,13 +222,15 @@ export const EmailConfigurationPanel: React.FC<EmailConfigurationPanelProps> = (
         </FormLabel>
         <FormInput
           type="password"
-          placeholder="xxxx xxxx xxxx xxxx"
+          placeholder="xxxx xxxx xxxx xxxx (spaces will be removed)"
           value={appPassword}
-          onChange={(e) => setAppPassword(e.target.value.replace(/\s/g, ''))}
-          maxLength={16}
+          onChange={(e) => setAppPassword(e.target.value)}
+          maxLength={20}
         />
         <div style={{ fontSize: '0.75rem', color: '#92400e', marginTop: '0.25rem' }}>
           Generate this in Google Account Settings → Security → 2-Step Verification → App passwords
+          <br />
+          Characters: {appPassword.replace(/\s/g, '').length}/16 (spaces are automatically removed)
         </div>
       </FormGroup>
 
