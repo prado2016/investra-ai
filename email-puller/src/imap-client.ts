@@ -24,6 +24,7 @@ export interface ParsedEmail {
   attachments: any[];
   size: number;
   rawContent: string;
+  uid: number; // Add UID for tracking
 }
 
 export class ImapClient {
@@ -89,6 +90,106 @@ export class ImapClient {
       }
     } catch (error) {
       logger.warn(`Error during IMAP disconnect:`, error);
+    }
+  }
+
+  /**
+   * Create or ensure a folder exists in Gmail
+   */
+  async ensureFolder(folderName: string): Promise<void> {
+    if (!this.client) {
+      throw new Error('IMAP client not connected');
+    }
+
+    try {
+      // Try to select the folder first
+      try {
+        await this.client.mailboxOpen(folderName);
+        logger.debug(`Folder ${folderName} already exists`);
+        return;
+      } catch (error) {
+        // Folder doesn't exist, create it
+        logger.info(`Creating folder: ${folderName}`);
+      }
+
+      // Create the folder
+      await (this.client as any).mailboxCreate(folderName);
+      logger.info(`Successfully created folder: ${folderName}`);
+
+    } catch (error) {
+      logger.error(`Failed to ensure folder ${folderName}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Move emails to a specific folder by UIDs
+   */
+  async moveEmailsToFolder(uids: number[], folderName: string): Promise<void> {
+    if (!this.client) {
+      throw new Error('IMAP client not connected');
+    }
+
+    if (uids.length === 0) {
+      logger.debug('No emails to move');
+      return;
+    }
+
+    try {
+      // Ensure we're in INBOX
+      await this.client.mailboxOpen('INBOX');
+      
+      // Ensure the destination folder exists
+      await this.ensureFolder(folderName);
+
+      // Move emails by UID
+      const uidSet = uids.join(',');
+      logger.info(`Moving ${uids.length} emails to ${folderName}`);
+      
+      await (this.client as any).messageMove(uidSet, folderName, { uid: true });
+      logger.info(`Successfully moved ${uids.length} emails to ${folderName}`);
+
+    } catch (error) {
+      logger.error(`Failed to move emails to ${folderName}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Move all emails currently in INBOX to processed folder (clean slate)
+   */
+  async moveAllInboxEmails(folderName: string): Promise<number> {
+    if (!this.client) {
+      throw new Error('IMAP client not connected');
+    }
+
+    try {
+      // Select INBOX
+      await this.client.mailboxOpen('INBOX');
+      
+      // Get all messages
+      const mailboxStatus = await this.client.status('INBOX', { messages: true });
+      const totalMessages = mailboxStatus.messages;
+      
+      if (totalMessages === 0) {
+        logger.info('No messages to move from INBOX');
+        return 0;
+      }
+
+      logger.info(`Found ${totalMessages} messages in INBOX to move`);
+      
+      // Ensure destination folder exists
+      await this.ensureFolder(folderName);
+
+      // Move all messages (use sequence numbers 1:*)
+      await (this.client as any).messageMove('1:*', folderName);
+      logger.info(`Successfully moved all ${totalMessages} emails to ${folderName}`);
+      
+      return totalMessages;
+
+    } catch (error) {
+      logger.error(`Failed to move all inbox emails:`, error);
+      throw error;
     }
   }
 
@@ -188,7 +289,8 @@ export class ImapClient {
         htmlContent: parsed.html || '',
         attachments: parsed.attachments || [],
         size: message.size || 0,
-        rawContent: message.source.toString()
+        rawContent: message.source.toString(),
+        uid: message.uid // Include UID for tracking
       };
 
       logger.debug(`Parsed email: ${parsedEmail.subject} from ${parsedEmail.from?.email}`);

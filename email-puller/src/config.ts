@@ -32,6 +32,10 @@ export interface EmailPullerConfig {
   // Runtime configuration
   runOnce: boolean;
   enableScheduler: boolean;
+  
+  // Email management
+  processedFolderName: string;
+  archiveAfterSync: boolean;
 }
 
 export const config: EmailPullerConfig = {
@@ -58,7 +62,11 @@ export const config: EmailPullerConfig = {
   
   // Runtime
   runOnce: process.env.RUN_ONCE === 'true',
-  enableScheduler: process.env.ENABLE_SCHEDULER !== 'false'
+  enableScheduler: process.env.ENABLE_SCHEDULER !== 'false',
+  
+  // Email management
+  processedFolderName: process.env.PROCESSED_FOLDER_NAME || 'Investra/Processed',
+  archiveAfterSync: process.env.ARCHIVE_AFTER_SYNC !== 'false'
 };
 
 // Validation

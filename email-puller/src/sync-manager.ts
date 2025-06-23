@@ -5,6 +5,7 @@
 import { logger } from './logger.js';
 import { database, type ImapConfiguration } from './database.js';
 import { ImapClient } from './imap-client.js';
+import { config } from './config.js';
 
 export interface SyncResult {
   success: boolean;
@@ -98,59 +99,76 @@ export class EmailSyncManager {
   /**
    * Sync emails for a single IMAP configuration
    */
-  async syncConfiguration(config: ImapConfiguration): Promise<SyncResult> {
+  async syncConfiguration(imapConfig: ImapConfiguration): Promise<SyncResult> {
     const result: SyncResult = {
       success: false,
       emailsSynced: 0,
-      configurationId: config.id,
-      userEmail: config.gmail_email
+      configurationId: imapConfig.id,
+      userEmail: imapConfig.gmail_email
     };
 
     let imapClient: ImapClient | null = null;
 
     try {
       // Update status to syncing
-      await database.updateImapConfigStatus(config.id, 'syncing');
+      await database.updateImapConfigStatus(imapConfig.id, 'syncing');
 
       // Create and connect IMAP client
-      imapClient = new ImapClient(config);
+      imapClient = new ImapClient(imapConfig);
       await imapClient.connect();
 
       // Fetch recent emails
-      logger.debug(`Fetching up to ${config.max_emails_per_sync} emails for ${config.gmail_email}`);
-      const emails = await imapClient.fetchRecentEmails(config.max_emails_per_sync);
+      logger.debug(`Fetching up to ${imapConfig.max_emails_per_sync} emails for ${imapConfig.gmail_email}`);
+      const emails = await imapClient.fetchRecentEmails(imapConfig.max_emails_per_sync);
 
       if (emails.length === 0) {
-        logger.info(`No new emails found for ${config.gmail_email}`);
+        logger.info(`No new emails found for ${imapConfig.gmail_email}`);
         result.success = true;
-        await database.updateImapConfigStatus(config.id, 'success');
+        await database.updateImapConfigStatus(imapConfig.id, 'success');
         return result;
       }
 
       // Convert emails to database format
       const emailData = emails.map(email => 
-        imapClient!.emailToDbFormat(email, config.user_id)
+        imapClient!.emailToDbFormat(email, imapConfig.user_id)
       );
 
       // Insert emails into database
       const insertedCount = await database.insertEmails(emailData);
       result.emailsSynced = insertedCount;
 
+      // Move emails to processed folder if archiving is enabled and emails were inserted
+      if (config.archiveAfterSync && insertedCount > 0) {
+        try {
+          // Get UIDs of emails that were actually inserted (not skipped duplicates)
+          // For now, move all fetched emails since we fetched recent ones
+          const allUIDs = emails.map(email => email.uid);
+          
+          if (allUIDs.length > 0) {
+            await imapClient.moveEmailsToFolder(allUIDs, config.processedFolderName);
+            logger.info(`Moved ${allUIDs.length} emails to ${config.processedFolderName}`);
+          }
+        } catch (moveError) {
+          logger.warn(`Failed to move emails to processed folder: ${moveError instanceof Error ? moveError.message : 'Unknown error'}`);
+          // Don't fail the entire sync if moving fails
+        }
+      }
+
       // Update configuration status and email count
-      await database.updateImapConfigStatus(config.id, 'success');
-      await database.updateEmailsSynced(config.id, config.emails_synced + insertedCount);
+      await database.updateImapConfigStatus(imapConfig.id, 'success');
+      await database.updateEmailsSynced(imapConfig.id, imapConfig.emails_synced + insertedCount);
 
       result.success = true;
-      logger.info(`Successfully synced ${insertedCount} emails for ${config.gmail_email}`);
+      logger.info(`Successfully synced ${insertedCount} emails for ${imapConfig.gmail_email}`);
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       result.error = errorMessage;
       
       // Update configuration status with error
-      await database.updateImapConfigStatus(config.id, 'error', errorMessage);
+      await database.updateImapConfigStatus(imapConfig.id, 'error', errorMessage);
       
-      logger.error(`Failed to sync ${config.gmail_email}:`, error);
+      logger.error(`Failed to sync ${imapConfig.gmail_email}:`, error);
 
     } finally {
       // Always disconnect IMAP client
