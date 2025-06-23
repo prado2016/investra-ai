@@ -334,9 +334,7 @@ class SimpleEmailService {
         active: config.is_active, 
         status: config.sync_status,
         email: config.email_address,
-        host: config.imap_host,
-        last_sync_at: config.last_sync_at,
-        all_fields: Object.keys(config)
+        host: config.imap_host
       } : 'None');
 
       // Calculate time ranges for activity analysis
@@ -393,37 +391,22 @@ class SimpleEmailService {
       // Determine sync status
       let syncStatus: 'running' | 'idle' | 'error' | 'never_ran' = 'never_ran';
       if (config) {
-        console.log('Determining sync status with:', {
-          has_error: !!(config.last_error || config.error || config.sync_error),
-          recent_activity: recentActivity.lastHour,
-          latest_email: !!latestEmail,
-          email_count: emailCount,
-          last_sync_at: config.last_sync_at,
-          config_sync_status: config.sync_status
-        });
-
         // Check for errors first
         if (config.last_error || config.error || config.sync_error) {
           syncStatus = 'error';
-          console.log('Setting status to error due to:', config.last_error || config.error || config.sync_error);
         } 
         // Check if actively syncing (recent activity in last hour)
         else if (recentActivity.lastHour > 0) {
           syncStatus = 'running';
-          console.log('Setting status to running due to recent activity');
         } 
         // Check if we have synced emails (idle state)
         else if (latestEmail || emailCount > 0 || config.last_sync_at) {
           syncStatus = 'idle';
-          console.log('Setting status to idle due to sync history');
         }
         // If config exists but no sync history, check sync_status from config
         else if (config.sync_status && config.sync_status !== 'never_ran') {
           syncStatus = config.sync_status;
-          console.log('Using config sync status:', config.sync_status);
         }
-        
-        console.log('Final sync status:', syncStatus);
       }
 
       // Calculate next sync time based on actual configuration
