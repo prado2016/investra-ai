@@ -77,6 +77,11 @@ class SimpleEmailService {
 
       if (error) {
         console.error('Error fetching emails:', error);
+        // Handle missing table gracefully
+        if (error.code === '42P01' || error.code === 'PGRST202' || error.message.includes('relation') || error.message.includes('does not exist')) {
+          console.log('imap_inbox table not found - returning empty array');
+          return { data: [], error: null };
+        }
         return { data: null, error: error.message };
       }
 
@@ -112,6 +117,14 @@ class SimpleEmailService {
 
       if (error) {
         console.error('Error fetching email stats:', error);
+        // Handle missing table gracefully
+        if (error.code === '42P01' || error.code === 'PGRST202' || error.message.includes('relation') || error.message.includes('does not exist')) {
+          console.log('imap_inbox table not found - returning zero stats');
+          return { 
+            data: { total: 0, pending: 0, processing: 0, error: 0 }, 
+            error: null 
+          };
+        }
         return { data: null, error: error.message };
       }
 
@@ -224,6 +237,18 @@ class SimpleEmailService {
 
       if (configError) {
         console.error('Error checking IMAP configuration:', configError);
+        // Handle missing table or permission errors gracefully
+        if (configError.code === '42P01' || configError.code === 'PGRST202' || configError.message.includes('relation') || configError.message.includes('does not exist')) {
+          console.log('IMAP configuration table not found - email puller not set up');
+          return { 
+            data: { 
+              isConnected: false, 
+              emailCount: 0, 
+              error: 'Email puller not configured - IMAP configuration table not available' 
+            }, 
+            error: null 
+          };
+        }
         return { 
           data: { 
             isConnected: false, 
@@ -261,6 +286,18 @@ class SimpleEmailService {
 
       if (recentError) {
         console.error('Error checking recent emails:', recentError);
+        // Handle missing table gracefully
+        if (recentError.code === '42P01' || recentError.code === 'PGRST202' || recentError.message.includes('relation') || recentError.message.includes('does not exist')) {
+          console.log('imap_inbox table not found - email puller not set up');
+          return { 
+            data: { 
+              isConnected: false, 
+              emailCount: 0, 
+              error: 'Email inbox table not available - email puller not configured' 
+            }, 
+            error: null 
+          };
+        }
         return { 
           data: { 
             isConnected: false, 
@@ -278,6 +315,18 @@ class SimpleEmailService {
 
       if (countError) {
         console.error('Error getting email count:', countError);
+        // Handle missing table gracefully
+        if (countError.code === '42P01' || countError.code === 'PGRST202' || countError.message.includes('relation') || countError.message.includes('does not exist')) {
+          console.log('imap_inbox table not found - email puller not set up');
+          return { 
+            data: { 
+              isConnected: false, 
+              emailCount: 0, 
+              error: 'Email inbox table not available - email puller not configured' 
+            }, 
+            error: null 
+          };
+        }
         return { 
           data: { 
             isConnected: false, 
