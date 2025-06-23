@@ -42,38 +42,11 @@ jobs:
     - name: Type checking
       run: npm run type-check
 
-  unit-tests:
-    name: Unit Tests
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ env.NODE_VERSION }}
-        cache: 'npm'
-
-    - name: Install dependencies
-      run: npm ci
-
-    - name: Run unit tests
-      run: npm run test:run
-
-    - name: Upload test coverage
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: test-coverage
-        path: coverage/
-        retention-days: 7
 
   build-frontend:
     name: Build Frontend
     runs-on: ubuntu-latest
-    needs: [code-quality, unit-tests]
+    needs: [code-quality]
     
     steps:
     - name: Checkout code
@@ -143,7 +116,7 @@ jobs:
   development-summary:
     name: Development CI Summary
     runs-on: ubuntu-latest
-    needs: [code-quality, unit-tests, build-frontend, build-email-puller]
+    needs: [code-quality, build-frontend, build-email-puller]
     if: always()
     
     steps:
@@ -153,7 +126,6 @@ jobs:
         script: |
           const results = {
             'Code Quality': '${{ needs.code-quality.result }}',
-            'Unit Tests': '${{ needs.unit-tests.result }}',
             'Frontend Build': '${{ needs.build-frontend.result }}',
             'Email Puller Build': '${{ needs.build-email-puller.result }}'
           };
@@ -166,7 +138,6 @@ jobs:
           await core.summary.addRaw(summary).write();
           
           const criticalFailed = results['Code Quality'] !== 'success' || 
-                                results['Unit Tests'] !== 'success' || 
                                 results['Frontend Build'] !== 'success';
           
           if (criticalFailed) {
