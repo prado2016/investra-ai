@@ -197,27 +197,25 @@ jobs:
           # Create PM2 ecosystem file with environment variables
           echo "Creating PM2 ecosystem file for email puller staging"
           cd /opt/investra/email-puller-staging
-          sudo bash -c 'cat > ecosystem.config.js << "EOF"
-module.exports = {
-  apps: [{
-    name: "investra-email-puller-staging",
-    script: "./imap-puller.js",
-    env: {
-      SUPABASE_URL: "${{ secrets.SUPABASE_URL }}",
-      SUPABASE_ANON_KEY: "${{ secrets.SUPABASE_ANON_KEY }}",
-      VITE_SUPABASE_URL: "${{ secrets.SUPABASE_URL }}",
-      VITE_SUPABASE_ANON_KEY: "${{ secrets.SUPABASE_ANON_KEY }}",
-      SYNC_INTERVAL_MINUTES: "30",
-      MAX_EMAILS_PER_SYNC: "50",
-      ENABLE_SCHEDULER: "true",
-      ARCHIVE_AFTER_SYNC: "true",
-      PROCESSED_FOLDER_NAME: "Investra/Processed",
-      ENABLE_LOGGING: "true",
-      LOG_LEVEL: "info"
-    }
-  }]
-};
-EOF'
+          sudo bash -c "echo 'module.exports = {' > ecosystem.config.js"
+          sudo bash -c "echo '  apps: [{' >> ecosystem.config.js"
+          sudo bash -c "echo '    name: \"investra-email-puller-staging\",' >> ecosystem.config.js"
+          sudo bash -c "echo '    script: \"./imap-puller.js\",' >> ecosystem.config.js"
+          sudo bash -c "echo '    env: {' >> ecosystem.config.js"
+          sudo bash -c "echo '      SUPABASE_URL: \"${{ secrets.SUPABASE_URL }}\",' >> ecosystem.config.js"
+          sudo bash -c "echo '      SUPABASE_ANON_KEY: \"${{ secrets.SUPABASE_ANON_KEY }}\",' >> ecosystem.config.js"
+          sudo bash -c "echo '      VITE_SUPABASE_URL: \"${{ secrets.SUPABASE_URL }}\",' >> ecosystem.config.js"
+          sudo bash -c "echo '      VITE_SUPABASE_ANON_KEY: \"${{ secrets.SUPABASE_ANON_KEY }}\",' >> ecosystem.config.js"
+          sudo bash -c "echo '      SYNC_INTERVAL_MINUTES: \"30\",' >> ecosystem.config.js"
+          sudo bash -c "echo '      MAX_EMAILS_PER_SYNC: \"50\",' >> ecosystem.config.js"
+          sudo bash -c "echo '      ENABLE_SCHEDULER: \"true\",' >> ecosystem.config.js"
+          sudo bash -c "echo '      ARCHIVE_AFTER_SYNC: \"true\",' >> ecosystem.config.js"
+          sudo bash -c "echo '      PROCESSED_FOLDER_NAME: \"Investra/Processed\",' >> ecosystem.config.js"
+          sudo bash -c "echo '      ENABLE_LOGGING: \"true\",' >> ecosystem.config.js"
+          sudo bash -c "echo '      LOG_LEVEL: \"info\"' >> ecosystem.config.js"
+          sudo bash -c "echo '    }' >> ecosystem.config.js"
+          sudo bash -c "echo '  }]' >> ecosystem.config.js"
+          sudo bash -c "echo '};' >> ecosystem.config.js"
           
           # Determine appropriate user for service
           SERVICE_USER=""
