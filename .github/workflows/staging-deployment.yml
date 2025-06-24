@@ -211,6 +211,22 @@ jobs:
           cd /opt/investra/email-puller-staging
           sudo npm ci --only=production || sudo npm install --only=production
           
+          # Create environment file with required variables
+          echo "Creating .env file for email puller staging"
+          sudo tee .env > /dev/null <<EOF
+SUPABASE_URL=${{ secrets.SUPABASE_URL }}
+SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
+VITE_SUPABASE_URL=${{ secrets.SUPABASE_URL }}
+VITE_SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
+SYNC_INTERVAL_MINUTES=30
+MAX_EMAILS_PER_SYNC=50
+ENABLE_SCHEDULER=true
+ARCHIVE_AFTER_SYNC=true
+PROCESSED_FOLDER_NAME=Investra/Processed
+ENABLE_LOGGING=true
+LOG_LEVEL=info
+EOF
+          
           # Determine appropriate user for service
           SERVICE_USER=""
           SERVICE_GROUP=""
@@ -253,7 +269,7 @@ jobs:
               sudo pm2 stop investra-email-puller-staging || true
               sudo pm2 delete investra-email-puller-staging || true
               cd /opt/investra/email-puller-staging
-              sudo pm2 start imap-puller.js --name investra-email-puller-staging
+              sudo pm2 start imap-puller.js --name investra-email-puller-staging --env-file .env
               sudo pm2 save
               echo "✅ Email puller service deployed and started with PM2"
             else
@@ -267,7 +283,7 @@ jobs:
                 cd /opt/investra/email-puller-staging
                 sudo pm2 stop investra-email-puller-staging || true
                 sudo pm2 delete investra-email-puller-staging || true
-                sudo pm2 start imap-puller.js --name investra-email-puller-staging
+                sudo pm2 start imap-puller.js --name investra-email-puller-staging --env-file .env
                 sudo pm2 save
                 sudo pm2 startup || true  # Setup PM2 to start on boot (may fail in CI, that's ok)
                 echo "✅ Email puller service deployed and started with globally installed PM2"
@@ -280,7 +296,7 @@ jobs:
                 # Use user PM2
                 pm2 stop investra-email-puller-staging || true
                 pm2 delete investra-email-puller-staging || true
-                pm2 start imap-puller.js --name investra-email-puller-staging
+                pm2 start imap-puller.js --name investra-email-puller-staging --env-file .env
                 pm2 save
                 # Change ownership back to service user
                 sudo chown -R "$SERVICE_USER:$SERVICE_GROUP" /opt/investra/email-puller-staging
