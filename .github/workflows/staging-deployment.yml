@@ -213,19 +213,17 @@ jobs:
           
           # Create environment file with required variables
           echo "Creating .env file for email puller staging"
-          sudo bash -c "cat > .env" <<EOF
-SUPABASE_URL=${{ secrets.SUPABASE_URL }}
-SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
-VITE_SUPABASE_URL=${{ secrets.SUPABASE_URL }}
-VITE_SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
-SYNC_INTERVAL_MINUTES=30
-MAX_EMAILS_PER_SYNC=50
-ENABLE_SCHEDULER=true
-ARCHIVE_AFTER_SYNC=true
-PROCESSED_FOLDER_NAME=Investra/Processed
-ENABLE_LOGGING=true
-LOG_LEVEL=info
-EOF
+          sudo bash -c "echo 'SUPABASE_URL=${{ secrets.SUPABASE_URL }}' > .env"
+          sudo bash -c "echo 'SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}' >> .env"
+          sudo bash -c "echo 'VITE_SUPABASE_URL=${{ secrets.SUPABASE_URL }}' >> .env"
+          sudo bash -c "echo 'VITE_SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}' >> .env"
+          sudo bash -c "echo 'SYNC_INTERVAL_MINUTES=30' >> .env"
+          sudo bash -c "echo 'MAX_EMAILS_PER_SYNC=50' >> .env"
+          sudo bash -c "echo 'ENABLE_SCHEDULER=true' >> .env"
+          sudo bash -c "echo 'ARCHIVE_AFTER_SYNC=true' >> .env"
+          sudo bash -c "echo 'PROCESSED_FOLDER_NAME=Investra/Processed' >> .env"
+          sudo bash -c "echo 'ENABLE_LOGGING=true' >> .env"
+          sudo bash -c "echo 'LOG_LEVEL=info' >> .env"
           
           # Determine appropriate user for service
           SERVICE_USER=""
