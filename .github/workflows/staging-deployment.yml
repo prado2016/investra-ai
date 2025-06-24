@@ -213,7 +213,7 @@ jobs:
           
           # Create environment file with required variables
           echo "Creating .env file for email puller staging"
-          sudo tee .env > /dev/null <<EOF
+          sudo bash -c "cat > .env" <<EOF
 SUPABASE_URL=${{ secrets.SUPABASE_URL }}
 SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
 VITE_SUPABASE_URL=${{ secrets.SUPABASE_URL }}
