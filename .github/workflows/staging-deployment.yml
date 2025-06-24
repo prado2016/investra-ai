@@ -197,27 +197,27 @@ jobs:
           # Create PM2 ecosystem file with environment variables
           echo "Creating PM2 ecosystem file for email puller staging"
           cd /opt/investra/email-puller-staging
-          sudo bash -c "cat > ecosystem.config.js << 'EOL'
+          sudo bash -c 'cat > ecosystem.config.js << "EOF"
 module.exports = {
   apps: [{
-    name: 'investra-email-puller-staging',
-    script: './imap-puller.js',
+    name: "investra-email-puller-staging",
+    script: "./imap-puller.js",
     env: {
-      SUPABASE_URL: '${{ secrets.SUPABASE_URL }}',
-      SUPABASE_ANON_KEY: '${{ secrets.SUPABASE_ANON_KEY }}',
-      VITE_SUPABASE_URL: '${{ secrets.SUPABASE_URL }}',
-      VITE_SUPABASE_ANON_KEY: '${{ secrets.SUPABASE_ANON_KEY }}',
-      SYNC_INTERVAL_MINUTES: '30',
-      MAX_EMAILS_PER_SYNC: '50',
-      ENABLE_SCHEDULER: 'true',
-      ARCHIVE_AFTER_SYNC: 'true',
-      PROCESSED_FOLDER_NAME: 'Investra/Processed',
-      ENABLE_LOGGING: 'true',
-      LOG_LEVEL: 'info'
+      SUPABASE_URL: "${{ secrets.SUPABASE_URL }}",
+      SUPABASE_ANON_KEY: "${{ secrets.SUPABASE_ANON_KEY }}",
+      VITE_SUPABASE_URL: "${{ secrets.SUPABASE_URL }}",
+      VITE_SUPABASE_ANON_KEY: "${{ secrets.SUPABASE_ANON_KEY }}",
+      SYNC_INTERVAL_MINUTES: "30",
+      MAX_EMAILS_PER_SYNC: "50",
+      ENABLE_SCHEDULER: "true",
+      ARCHIVE_AFTER_SYNC: "true",
+      PROCESSED_FOLDER_NAME: "Investra/Processed",
+      ENABLE_LOGGING: "true",
+      LOG_LEVEL: "info"
     }
   }]
 };
-EOL"
+EOF'
           
           # Determine appropriate user for service
           SERVICE_USER=""
