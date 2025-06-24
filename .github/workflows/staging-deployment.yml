@@ -191,8 +191,25 @@ jobs:
           
           # Deploy to staging location
           sudo mkdir -p /opt/investra/email-puller-staging
-          sudo cp dist/imap-puller.js /opt/investra/email-puller-staging/
+          
+          # Copy all built files from dist directory
+          if [ -d "dist" ]; then
+            echo "Copying all build artifacts from dist/"
+            sudo cp -r dist/* /opt/investra/email-puller-staging/
+          else
+            echo "❌ No dist directory found after build"
+            exit 1
+          fi
+          
+          # Copy package files for dependencies
           sudo cp package.json /opt/investra/email-puller-staging/
+          if [ -f "package-lock.json" ]; then
+            sudo cp package-lock.json /opt/investra/email-puller-staging/
+          fi
+          
+          # Install production dependencies in staging location
+          cd /opt/investra/email-puller-staging
+          sudo npm ci --only=production || sudo npm install --only=production
           
           # Determine appropriate user for service
           SERVICE_USER=""
