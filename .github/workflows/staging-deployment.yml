@@ -197,27 +197,27 @@ jobs:
           # Create PM2 ecosystem file with environment variables
           echo "Creating PM2 ecosystem file for email puller staging"
           cd /opt/investra/email-puller-staging
-          sudo bash -c "echo 'module.exports = {' > ecosystem.config.js"
-          sudo bash -c "echo '  apps: [{' >> ecosystem.config.js"
-          sudo bash -c "echo '    name: \"investra-email-puller-staging\",' >> ecosystem.config.js"
-          sudo bash -c "echo '    script: \"./imap-puller.js\",' >> ecosystem.config.js"
-          sudo bash -c "echo '    env: {' >> ecosystem.config.js"
-          sudo bash -c "echo '      SUPABASE_URL: \"${{ secrets.SUPABASE_URL }}\",' >> ecosystem.config.js"
-          sudo bash -c "echo '      SUPABASE_ANON_KEY: \"${{ secrets.SUPABASE_ANON_KEY }}\",' >> ecosystem.config.js"
-          sudo bash -c "echo '      VITE_SUPABASE_URL: \"${{ secrets.SUPABASE_URL }}\",' >> ecosystem.config.js"
-          sudo bash -c "echo '      VITE_SUPABASE_ANON_KEY: \"${{ secrets.SUPABASE_ANON_KEY }}\",' >> ecosystem.config.js"
-          sudo bash -c "echo '      SYNC_INTERVAL_MINUTES: \"30\",' >> ecosystem.config.js"
-          sudo bash -c "echo '      MAX_EMAILS_PER_SYNC: \"50\",' >> ecosystem.config.js"
-          sudo bash -c "echo '      ENABLE_SCHEDULER: \"true\",' >> ecosystem.config.js"
-          sudo bash -c "echo '      ARCHIVE_AFTER_SYNC: \"true\",' >> ecosystem.config.js"
-          sudo bash -c "echo '      PROCESSED_FOLDER_NAME: \"Investra/Processed\",' >> ecosystem.config.js"
-          sudo bash -c "echo '      ENABLE_LOGGING: \"true\",' >> ecosystem.config.js"
-          sudo bash -c "echo '      LOG_LEVEL: \"info\",' >> ecosystem.config.js"
-          sudo bash -c "echo '      SENTRY_DSN: \"${{ secrets.SENTRY_DSN }}\",' >> ecosystem.config.js"
-          sudo bash -c "echo '      APP_VERSION: \"1.0.0\"' >> ecosystem.config.js"
-          sudo bash -c "echo '    }' >> ecosystem.config.js"
-          sudo bash -c "echo '  }]' >> ecosystem.config.js"
-          sudo bash -c "echo '};' >> ecosystem.config.js"
+          sudo bash -c "echo 'module.exports = {' > ecosystem.config.cjs"
+          sudo bash -c "echo '  apps: [{' >> ecosystem.config.cjs"
+          sudo bash -c "echo '    name: \"investra-email-puller-staging\",' >> ecosystem.config.cjs"
+          sudo bash -c "echo '    script: \"./imap-puller.js\",' >> ecosystem.config.cjs"
+          sudo bash -c "echo '    env: {' >> ecosystem.config.cjs"
+          sudo bash -c "echo '      SUPABASE_URL: \"${{ secrets.SUPABASE_URL }}\",' >> ecosystem.config.cjs"
+          sudo bash -c "echo '      SUPABASE_ANON_KEY: \"${{ secrets.SUPABASE_ANON_KEY }}\",' >> ecosystem.config.cjs"
+          sudo bash -c "echo '      VITE_SUPABASE_URL: \"${{ secrets.SUPABASE_URL }}\",' >> ecosystem.config.cjs"
+          sudo bash -c "echo '      VITE_SUPABASE_ANON_KEY: \"${{ secrets.SUPABASE_ANON_KEY }}\",' >> ecosystem.config.cjs"
+          sudo bash -c "echo '      SYNC_INTERVAL_MINUTES: \"30\",' >> ecosystem.config.cjs"
+          sudo bash -c "echo '      MAX_EMAILS_PER_SYNC: \"50\",' >> ecosystem.config.cjs"
+          sudo bash -c "echo '      ENABLE_SCHEDULER: \"true\",' >> ecosystem.config.cjs"
+          sudo bash -c "echo '      ARCHIVE_AFTER_SYNC: \"true\",' >> ecosystem.config.cjs"
+          sudo bash -c "echo '      PROCESSED_FOLDER_NAME: \"Investra/Processed\",' >> ecosystem.config.cjs"
+          sudo bash -c "echo '      ENABLE_LOGGING: \"true\",' >> ecosystem.config.cjs"
+          sudo bash -c "echo '      LOG_LEVEL: \"info\",' >> ecosystem.config.cjs"
+          sudo bash -c "echo '      SENTRY_DSN: \"${{ secrets.SENTRY_DSN }}\",' >> ecosystem.config.cjs"
+          sudo bash -c "echo '      APP_VERSION: \"1.0.0\"' >> ecosystem.config.cjs"
+          sudo bash -c "echo '    }' >> ecosystem.config.cjs"
+          sudo bash -c "echo '  }]' >> ecosystem.config.cjs"
+          sudo bash -c "echo '};' >> ecosystem.config.cjs"
           
           # Determine appropriate user for service
           SERVICE_USER=""
@@ -261,7 +261,7 @@ jobs:
               sudo pm2 stop investra-email-puller-staging || true
               sudo pm2 delete investra-email-puller-staging || true
               cd /opt/investra/email-puller-staging
-              sudo pm2 start ecosystem.config.js
+              sudo pm2 start ecosystem.config.cjs
               sudo pm2 save
               echo "✅ Email puller service deployed and started with PM2"
             else
@@ -275,7 +275,7 @@ jobs:
                 cd /opt/investra/email-puller-staging
                 sudo pm2 stop investra-email-puller-staging || true
                 sudo pm2 delete investra-email-puller-staging || true
-                sudo pm2 start ecosystem.config.js
+                sudo pm2 start ecosystem.config.cjs
                 sudo pm2 save
                 sudo pm2 startup || true  # Setup PM2 to start on boot (may fail in CI, that's ok)
                 echo "✅ Email puller service deployed and started with globally installed PM2"
@@ -288,7 +288,7 @@ jobs:
                 # Use user PM2
                 pm2 stop investra-email-puller-staging || true
                 pm2 delete investra-email-puller-staging || true
-                pm2 start ecosystem.config.js
+                pm2 start ecosystem.config.cjs
                 pm2 save
                 # Change ownership back to service user
                 sudo chown -R "$SERVICE_USER:$SERVICE_GROUP" /opt/investra/email-puller-staging
@@ -307,7 +307,7 @@ jobs:
               cd /opt/investra/email-puller-staging
               sudo pm2 stop investra-email-puller-staging || true
               sudo pm2 delete investra-email-puller-staging || true
-              sudo pm2 start ecosystem.config.js
+              sudo pm2 start ecosystem.config.cjs
               sudo pm2 save
               sudo pm2 startup || true  # Setup PM2 to start on boot (may fail in CI, that's ok)
               echo "✅ Email puller service deployed and started with newly installed PM2"
