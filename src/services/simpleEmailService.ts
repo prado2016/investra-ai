@@ -1081,4 +1081,45 @@ export async function parseEmailForTransaction(email: EmailItem): Promise<{
   }
 }
 
+// Additional utility functions
+export async function triggerManualEmailSync(): Promise<{ success: boolean; data?: any; error?: string }> {
+    try {
+      console.log('🔄 Triggering manual email sync...');
+      
+      // Make API call to the server endpoint
+      const response = await fetch('/api/email/manual-sync', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Include authentication cookies
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Network error' }));
+        console.error('❌ Manual sync trigger failed:', errorData);
+        return { 
+          success: false, 
+          error: errorData.error || `HTTP ${response.status}: ${response.statusText}` 
+        };
+      }
+
+      const result = await response.json();
+      console.log('✅ Manual sync triggered successfully:', result);
+      
+      return { 
+        success: true, 
+        data: result.data,
+        error: null 
+      };
+      
+    } catch (err) {
+      console.error('❌ Failed to trigger manual sync:', err);
+      return { 
+        success: false, 
+        error: err instanceof Error ? err.message : 'Failed to trigger manual sync' 
+      };
+    }
+}
+
 export const simpleEmailService = new SimpleEmailService();

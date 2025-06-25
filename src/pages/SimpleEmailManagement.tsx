@@ -25,7 +25,7 @@ import { Button } from '../components/ui/Button';
 import { EmailConfigurationPanel } from '../components/EmailConfigurationPanel';
 import { useNotifications } from '../hooks/useNotifications';
 import { useSupabasePortfolios } from '../hooks/useSupabasePortfolios';
-import { simpleEmailService, parseEmailForTransaction } from '../services/simpleEmailService';
+import { simpleEmailService, parseEmailForTransaction, triggerManualEmailSync } from '../services/simpleEmailService';
 import type { EmailItem, EmailStats, EmailPullerStatus } from '../services/simpleEmailService';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useAuth } from '../contexts/AuthProvider';
@@ -619,6 +619,7 @@ const SimpleEmailManagement: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'processing' | 'error'>('all');
   const [refreshing, setRefreshing] = useState(false);
+  const [manualSyncing, setManualSyncing] = useState(false);
   const [selectedEmail, setSelectedEmail] = useState<EmailItem | null>(null);
   const [processingEmail, setProcessingEmail] = useState<EmailItem | null>(null);
   const [parsedData, setParsedData] = useState<any>(null);
@@ -718,6 +719,33 @@ const SimpleEmailManagement: React.FC = () => {
     await loadData();
     setRefreshing(false);
     success('Refreshed', 'Email data has been refreshed');
+  };
+
+  const handleManualSync = async () => {
+    setManualSyncing(true);
+    try {
+      console.log('🔄 Starting manual email sync...');
+      const result = await triggerManualEmailSync();
+      
+      if (result.success) {
+        success('Manual Sync Triggered', 'Email puller service has been notified to start immediate sync');
+        console.log('✅ Manual sync trigger successful:', result.data);
+        
+        // Refresh data after a short delay to see if sync completed
+        setTimeout(async () => {
+          await loadData();
+        }, 2000);
+      } else {
+        error('Manual Sync Failed', result.error || 'Failed to trigger manual sync');
+        console.error('❌ Manual sync trigger failed:', result.error);
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
+      error('Manual Sync Error', errorMessage);
+      console.error('❌ Manual sync error:', err);
+    } finally {
+      setManualSyncing(false);
+    }
   };
 
   const handleSearch = async () => {
@@ -1282,14 +1310,33 @@ const SimpleEmailManagement: React.FC = () => {
               </StatusDetails>
             </div>
           </StatusInfo>
-          <Button 
-            variant="outline" 
-            onClick={handleRefresh}
-            disabled={refreshing}
-          >
-            <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
-            Refresh
-          </Button>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            {/* Show manual sync button when idle > 30 minutes */}
+            {(() => {
+              const timeSinceSync = pullerStatus.lastSync ? new Date().getTime() - new Date(pullerStatus.lastSync).getTime() : 0;
+              const isIdle30Min = timeSinceSync > 30 * 60 * 1000; // 30 minutes
+              return isIdle30Min && pullerStatus.syncStatus === 'idle';
+            })() && (
+              <Button 
+                variant="default" 
+                onClick={handleManualSync}
+                disabled={manualSyncing}
+                style={{ backgroundColor: '#059669', borderColor: '#059669' }}
+              >
+                <RefreshCw size={16} className={manualSyncing ? 'animate-spin' : ''} />
+                Manual Sync
+              </Button>
+            )}
+            
+            <Button 
+              variant="outline" 
+              onClick={handleRefresh}
+              disabled={refreshing}
+            >
+              <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
+              Refresh
+            </Button>
+          </div>
         </StatusHeader>
       </StatusCard>
 

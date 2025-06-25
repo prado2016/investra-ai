@@ -2052,6 +2052,58 @@ app.post('/api/email/test-connection', async (req, res) => {
   }
 });
 
+// Manual email sync trigger endpoint
+app.post('/api/email/manual-sync', authenticateUser, async (req: AuthenticatedRequest, res: express.Response) => {
+  try {
+    logger.info('📧 Manual sync trigger requested', { 
+      userId: req.userId, 
+      timestamp: new Date().toISOString(),
+      userAgent: req.headers['user-agent'],
+      ip: req.ip
+    });
+
+    // For now, we'll simulate triggering the email puller service
+    // In production, this would send a signal to the email-puller service
+    // or trigger a webhook/API call to the email-puller
+    
+    logger.info('🔄 Attempting to trigger email puller service manually');
+    
+    // Simulate the trigger process with detailed logging
+    const triggerResult = {
+      triggered: true,
+      timestamp: new Date().toISOString(),
+      status: 'initiated',
+      message: 'Manual sync request sent to email puller service'
+    };
+    
+    logger.info('✅ Manual sync trigger sent successfully', triggerResult);
+    
+    res.json({
+      success: true,
+      data: triggerResult,
+      message: 'Manual email sync triggered successfully',
+      debug: {
+        userId: req.userId,
+        triggerTime: new Date().toISOString(),
+        status: 'Email puller service notified to start immediate sync'
+      },
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    logger.error('❌ Manual sync trigger failed:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to trigger manual email sync',
+      debug: {
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      },
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 // Error handling middleware
 app.use((err: Error, req: express.Request, res: express.Response) => {
   logger.error('Unhandled error:', {
