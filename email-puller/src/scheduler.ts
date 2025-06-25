@@ -104,17 +104,17 @@ export class EmailScheduler {
       const hours = Math.floor(intervalMinutes / 60);
       return `0 */${hours} * * *`;
     } else if (intervalMinutes >= 30) {
-      // For 30+ minute intervals
-      return `*/${intervalMinutes} * * * *`;
+      // For 30+ minute intervals - run every N minutes
+      return `0 */${intervalMinutes} * * *`;
     } else if (intervalMinutes >= 15) {
-      // For 15+ minute intervals
-      return `*/${intervalMinutes} * * * *`;
+      // For 15+ minute intervals - run every N minutes
+      return `0 */${intervalMinutes} * * *`;
     } else if (intervalMinutes >= 5) {
-      // For 5+ minute intervals
-      return `*/${intervalMinutes} * * * *`;
+      // For 5+ minute intervals - run every N minutes
+      return `0 */${intervalMinutes} * * *`;
     } else {
       // Minimum 5 minute interval for safety
-      return `*/5 * * * *`;
+      return `0 */5 * * *`;
     }
   }
 
