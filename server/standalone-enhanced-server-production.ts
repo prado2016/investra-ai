@@ -1850,7 +1850,7 @@ app.post('/api/manual-review/reject', authenticateUser, async (req: Authenticate
   }
 });
 
-app.delete('/api/manual-review/delete', authenticateUser, async (req: AuthenticatedRequest, res) => {
+app.delete('/api/manual-review/delete', authenticateUser, async (req: AuthenticatedRequest, res: express.Response) => {
   try {
     const { emailId } = req.body;
     const userId = req.userId;
