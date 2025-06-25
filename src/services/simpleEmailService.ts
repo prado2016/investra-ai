@@ -1086,11 +1086,24 @@ export async function triggerManualEmailSync(): Promise<{ success: boolean; data
     try {
       console.log('🔄 Triggering manual email sync...');
       
+      // Get authentication token from Supabase
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      
+      if (!token) {
+        console.error('❌ No authentication token available');
+        return { 
+          success: false, 
+          error: 'Authentication required. Please log in again.' 
+        };
+      }
+      
       // Make API call to the server endpoint
       const response = await fetch('/api/email/manual-sync', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         credentials: 'include', // Include authentication cookies
       });
