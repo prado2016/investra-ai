@@ -18,10 +18,7 @@ export function initSentry() {
     
     // Performance monitoring
     integrations: [
-      Sentry.browserTracingIntegration({
-        // Set tracing sample rate based on environment
-        tracePropagationTargets: ['localhost', /^https:\/\/.*\.investra\.ai/],
-      }),
+      Sentry.browserTracingIntegration(),
     ],
     
     // Sample rates
@@ -33,9 +30,6 @@ export function initSentry() {
     
     // Debug mode in development
     debug: isDevelopment,
-    
-    // Capture unhandled promise rejections
-    captureUnhandledRejections: true,
     
     // Filter out known noise
     beforeSend(event, hint) {

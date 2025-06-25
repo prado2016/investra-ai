@@ -20,12 +20,12 @@ const SentryTest: React.FC = () => {
 
   const testPerformance = () => {
     addBreadcrumb('User clicked test performance button', 'user');
-    const transaction = Sentry.startTransaction({ name: 'test-transaction' });
-    
-    // Simulate some work
-    setTimeout(() => {
-      transaction.finish();
-    }, 1000);
+    Sentry.startSpan({ name: 'test-performance-span' }, () => {
+      // Simulate some work
+      return new Promise(resolve => {
+        setTimeout(resolve, 1000);
+      });
+    });
   };
 
   return (
