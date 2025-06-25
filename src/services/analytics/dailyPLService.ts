@@ -360,23 +360,43 @@ export class DailyPLAnalyticsService {
       totalFees += fees;
       
       switch (transaction.transaction_type) {
-        case 'buy':
+        case 'buy': {
           tradeVolume += totalAmount;
           netCashFlow -= totalAmount; // Cash outflow
+          
+          // Check if this is an option buy that might be closing a short position
+          if (transaction.asset?.asset_type === 'option') {
+            // For now, treat option buys as regular purchases
+            // TODO: Implement short position tracking to detect buy-to-close trades
+            // and calculate P/L based on the original sell price
+          }
           break;
+        }
           
         case 'sell': {
           tradeVolume += totalAmount;
           netCashFlow += totalAmount; // Cash inflow
           
-          // Check if this is a covered call sell (option asset type)
-          if (transaction.asset?.type === 'option' && transaction.asset?.symbol?.includes('C')) {
-            // This is a covered call sell - treat as pure premium income
-            realizedPL += totalAmount - fees; // Premium collected minus fees
+          // Check if this is an option sell
+          if (transaction.asset?.asset_type === 'option') {
+            // For options, check if we have a matching position (previous buy)
+            const optionPosition = positions.find(p => 
+              p.asset_id === transaction.asset_id && 
+              p.quantity >= transaction.quantity
+            );
+            
+            if (optionPosition) {
+              // This is closing a long option position - calculate P/L
+              const sellProceeds = totalAmount - fees;
+              const costBasis = transaction.quantity * optionPosition.average_cost_basis;
+              realizedPL += sellProceeds - costBasis;
+            } else {
+              // This is opening a short option position (naked call/put sell)
+              // Treat as pure premium income
+              realizedPL += totalAmount - fees; // Premium collected minus fees
+            }
           } else {
             // Regular stock/ETF sell - calculate realized P/L
-            // Note: This is a simplified calculation
-            // In a real system, you'd need to match with specific buy lots
             const position = positions.find(p => p.asset_id === transaction.asset_id);
             if (position) {
               const sellProceeds = totalAmount - fees;
@@ -390,6 +410,23 @@ export class DailyPLAnalyticsService {
         case 'dividend': {
           dividendIncome += totalAmount;
           netCashFlow += totalAmount; // Cash inflow
+          break;
+        }
+        
+        case 'option_expired': {
+          // When an option expires, we need to check if it was a short or long position
+          const position = positions.find(p => p.asset_id === transaction.asset_id);
+          if (position) {
+            if (position.quantity < 0) {
+              // This was a short position that expired - we keep the premium (profit)
+              // The original sell premium is already counted in realized P/L
+              // No additional P/L calculation needed for expiration
+            } else {
+              // This was a long position that expired - loss equals the premium paid
+              const premiumLoss = position.quantity * position.average_cost_basis;
+              realizedPL -= premiumLoss; // Loss from expired long option
+            }
+          }
           break;
         }
           
