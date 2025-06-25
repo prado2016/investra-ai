@@ -352,7 +352,7 @@ jobs:
           
           # Deploy to staging location
           sudo mkdir -p /opt/investra/email-api-staging
-          sudo cp dist/standalone-enhanced-server-production.js /opt/investra/email-api-staging/
+          sudo cp -r dist/* /opt/investra/email-api-staging/
           sudo cp package.json /opt/investra/email-api-staging/
           sudo cp package-lock.json /opt/investra/email-api-staging/
           sudo cp ecosystem.config.js /opt/investra/email-api-staging/
