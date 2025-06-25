@@ -1,5 +1,4 @@
 import * as Sentry from '@sentry/react';
-import { BrowserTracing } from '@sentry/tracing';
 
 const isDevelopment = import.meta.env.DEV;
 const isProduction = import.meta.env.PROD;
@@ -19,7 +18,7 @@ export function initSentry() {
     
     // Performance monitoring
     integrations: [
-      new BrowserTracing({
+      Sentry.browserTracingIntegration({
         // Set tracing sample rate based on environment
         tracePropagationTargets: ['localhost', /^https:\/\/.*\.investra\.ai/],
       }),

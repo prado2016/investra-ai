@@ -92,6 +92,9 @@ if (process.env.SENTRY_DSN) {
     tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1.0,
     serverName: 'investra-server',
     release: process.env.APP_VERSION || 'unknown',
+    integrations: [
+      Sentry.httpIntegration()
+    ],
     beforeSend(event) {
       // Filter out health check requests
       if (event.request?.url?.includes('/health')) {
@@ -402,7 +405,7 @@ const server = createServer(app);
 
 // Add Sentry request handler (must be first)
 if (process.env.SENTRY_DSN) {
-  app.use(Sentry.Handlers.requestHandler());
+  app.use(Sentry.expressIntegration.requestHandler());
 }
 
 // WebSocket server setup - with error handling for production
@@ -2071,7 +2074,7 @@ app.use((err: Error, req: express.Request, res: express.Response) => {
 // 404 handler
 // Add Sentry error handler (must be before other error handlers)
 if (process.env.SENTRY_DSN) {
-  app.use(Sentry.Handlers.errorHandler());
+  app.use(Sentry.expressIntegration.errorHandler());
 }
 
 app.use('*', (req, res) => {
