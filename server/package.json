@@ -30,6 +30,7 @@
   "author": "Investra AI",
   "license": "ISC",
   "dependencies": {
+    "@sentry/node": "^9.31.0",
     "@supabase/supabase-js": "^2.39.3",
     "@types/jsonwebtoken": "^9.0.10",
     "cors": "^2.8.5",

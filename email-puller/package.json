@@ -14,19 +14,20 @@
     "test": "echo \"No tests yet\" && exit 0"
   },
   "dependencies": {
+    "@sentry/node": "^9.31.0",
     "@supabase/supabase-js": "^2.49.9",
+    "dotenv": "^16.5.0",
     "imapflow": "^1.0.188",
     "mailparser": "^3.7.3",
-    "dotenv": "^16.5.0",
     "node-cron": "^3.0.3"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
     "@types/node-cron": "^3.0.11",
-    "typescript": "^5.0.0",
-    "eslint": "^8.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
-    "@typescript-eslint/eslint-plugin": "^6.0.0"
+    "eslint": "^8.0.0",
+    "typescript": "^5.0.0"
   },
   "keywords": [
     "email",

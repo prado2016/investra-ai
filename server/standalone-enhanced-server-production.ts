@@ -14,6 +14,7 @@ import * as dotenv from 'dotenv';
 // Removed unused imports: fs and path
 import { createServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
+import * as Sentry from '@sentry/node';
 
 // Define AuthenticatedRequest interface locally
 interface AuthenticatedRequest extends express.Request {
@@ -78,8 +79,31 @@ if (!authLoaded) {
   };
 }
 
-// Load environment variables
-dotenv.config();
+// Load environment variables from multiple locations
+dotenv.config(); // Current directory
+dotenv.config({ path: '../.env.local' }); // Parent directory for local development
+dotenv.config({ path: '../.env' }); // Parent directory for production
+
+// Initialize Sentry for error tracking
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV || 'development',
+    tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1.0,
+    serverName: 'investra-server',
+    release: process.env.APP_VERSION || 'unknown',
+    beforeSend(event) {
+      // Filter out health check requests
+      if (event.request?.url?.includes('/health')) {
+        return null;
+      }
+      return event;
+    },
+  });
+  console.log('✅ Sentry initialized for server');
+} else {
+  console.warn('⚠️ SENTRY_DSN not found - Sentry will not be initialized for server');
+}
 
 // Ensure Supabase environment variables are available for the auth middleware
 if (!process.env.SUPABASE_URL && process.env.VITE_SUPABASE_URL) {
@@ -375,6 +399,11 @@ function estimateTransactions(subject: string): number {
 // Initialize Express app
 const app = express();
 const server = createServer(app);
+
+// Add Sentry request handler (must be first)
+if (process.env.SENTRY_DSN) {
+  app.use(Sentry.Handlers.requestHandler());
+}
 
 // WebSocket server setup - with error handling for production
 const WS_PORT = parseInt(process.env.WS_PORT || '3002', 10);
@@ -2040,6 +2069,11 @@ app.use((err: Error, req: express.Request, res: express.Response) => {
 });
 
 // 404 handler
+// Add Sentry error handler (must be before other error handlers)
+if (process.env.SENTRY_DSN) {
+  app.use(Sentry.Handlers.errorHandler());
+}
+
 app.use('*', (req, res) => {
   res.status(404).json({
     success: false,

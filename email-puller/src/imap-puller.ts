@@ -5,6 +5,7 @@
  * Standalone application for pulling emails from Gmail via IMAP
  */
 
+import * as Sentry from '@sentry/node';
 import { config, validateConfig } from './config.js';
 import { logger } from './logger.js';
 import { database } from './database.js';
@@ -19,6 +20,25 @@ class EmailPuller {
    */
   async start(): Promise<void> {
     try {
+      // Initialize Sentry for error tracking
+      if (process.env.SENTRY_DSN) {
+        Sentry.init({
+          dsn: process.env.SENTRY_DSN,
+          environment: process.env.NODE_ENV || 'development',
+          tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1.0,
+          serverName: 'investra-email-puller',
+          release: process.env.APP_VERSION || 'unknown',
+          beforeSend(event) {
+            // Add email puller specific context
+            event.tags = { ...event.tags, service: 'email-puller' };
+            return event;
+          },
+        });
+        logger.info('✅ Sentry initialized for email puller');
+      } else {
+        logger.warn('⚠️ SENTRY_DSN not found - Sentry will not be initialized for email puller');
+      }
+
       logger.info('🚀 Starting Investra Email Puller');
       logger.info(`Version: 1.0.0`);
       logger.info(`Node.js: ${process.version}`);
@@ -55,6 +75,11 @@ class EmailPuller {
 
     } catch (error) {
       logger.error('Failed to start email puller:', error);
+      // Capture error in Sentry before exiting
+      if (process.env.SENTRY_DSN) {
+        Sentry.captureException(error);
+        await Sentry.flush(2000);
+      }
       process.exit(1);
     }
   }
@@ -208,8 +233,13 @@ export { EmailPuller };
 // Run if this is the main module
 if (import.meta.url === `file://${process.argv[1]}`) {
   const puller = new EmailPuller();
-  puller.start().catch(error => {
+  puller.start().catch(async (error) => {
     console.error('Fatal error:', error);
+    // Capture error in Sentry before exiting
+    if (process.env.SENTRY_DSN) {
+      Sentry.captureException(error);
+      await Sentry.flush(2000);
+    }
     process.exit(1);
   });
 }
