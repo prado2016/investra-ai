@@ -403,10 +403,7 @@ function estimateTransactions(subject: string): number {
 const app = express();
 const server = createServer(app);
 
-// Add Sentry request handler (must be first)
-if (process.env.SENTRY_DSN) {
-  app.use(Sentry.expressIntegration.requestHandler());
-}
+// Sentry is initialized with httpIntegration which automatically handles Express requests
 
 // WebSocket server setup - with error handling for production
 const WS_PORT = parseInt(process.env.WS_PORT || '3002', 10);
@@ -2072,10 +2069,7 @@ app.use((err: Error, req: express.Request, res: express.Response) => {
 });
 
 // 404 handler
-// Add Sentry error handler (must be before other error handlers)
-if (process.env.SENTRY_DSN) {
-  app.use(Sentry.expressIntegration.errorHandler());
-}
+// Sentry errors are automatically captured by the httpIntegration
 
 app.use('*', (req, res) => {
   res.status(404).json({
