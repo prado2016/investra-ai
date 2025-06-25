@@ -1109,8 +1109,7 @@ export async function triggerManualEmailSync(): Promise<{ success: boolean; data
       
       return { 
         success: true, 
-        data: result.data,
-        error: null 
+        data: result.data
       };
       
     } catch (err) {

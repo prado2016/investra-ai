@@ -1318,7 +1318,7 @@ const SimpleEmailManagement: React.FC = () => {
               return isIdle30Min && pullerStatus.syncStatus === 'idle';
             })() && (
               <Button 
-                variant="default" 
+                variant="primary" 
                 onClick={handleManualSync}
                 disabled={manualSyncing}
                 style={{ backgroundColor: '#059669', borderColor: '#059669' }}
