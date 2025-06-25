@@ -129,7 +129,13 @@ class EmailPuller {
 
       // Run initial sync
       logger.info('🔄 Running initial email sync');
-      await emailScheduler.runOnce();
+      try {
+        await emailScheduler.runOnce();
+        logger.info('✅ Initial sync completed successfully');
+      } catch (error) {
+        logger.error('❌ Initial sync failed:', error);
+        // Continue running despite initial sync failure
+      }
 
       // Keep the process running
       logger.info('✅ Email puller is running');

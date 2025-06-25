@@ -38,6 +38,7 @@ export class EmailScheduler {
     logger.info(`Cron expression: ${cronExpression}`);
 
     this.scheduledTask = cron.schedule(cronExpression, async () => {
+      logger.info('🕐 Scheduled sync triggered by cron');
       await this.runSync();
     }, {
       scheduled: true,
@@ -62,14 +63,16 @@ export class EmailScheduler {
    * Run a single sync operation
    */
   async runSync(): Promise<void> {
+    logger.info('📧 Email sync requested');
+    
     if (this.isRunning) {
-      logger.warn('Sync already in progress, skipping this run');
+      logger.warn('⚠️ Sync already in progress, skipping this run');
       return;
     }
 
     try {
       this.isRunning = true;
-      logger.info('Starting scheduled email sync');
+      logger.info('🚀 Starting scheduled email sync');
       
       const result = await this.syncManager.syncAllConfigurations();
       

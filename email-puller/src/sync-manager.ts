@@ -52,15 +52,22 @@ export class EmailSyncManager {
       }
 
       // Get all active configurations
+      logger.info('Fetching active IMAP configurations from database...');
       const configurations = await database.getActiveImapConfigurations();
       summary.configurationsTotal = configurations.length;
 
+      logger.info(`Database query completed. Found ${configurations.length} configurations`);
+      
       if (configurations.length === 0) {
-        logger.info('No active IMAP configurations found');
+        logger.warn('⚠️ No active IMAP configurations found in database');
+        logger.info('This could mean:');
+        logger.info('- No email configurations have been set up');
+        logger.info('- All configurations are marked as inactive');
+        logger.info('- Database connection issue prevented loading');
         return this.finalizeSummary(summary);
       }
 
-      logger.info(`Found ${configurations.length} active IMAP configurations`);
+      logger.info(`✅ Found ${configurations.length} active IMAP configurations`);
 
       // Sync each configuration
       for (const config of configurations) {
