@@ -390,12 +390,12 @@ const Summary: React.FC = () => {
               </MetricRow>
               
               <MetricRow>
-                <MetricLabel>Net Cash Flow:</MetricLabel>
+                <MetricLabel>Total P/L:</MetricLabel>
                 <MetricValue 
-                  $positive={selectedDayData.netCashFlow > 0}
-                  $negative={selectedDayData.netCashFlow < 0}
+                  $positive={selectedDayData.totalPL > 0}
+                  $negative={selectedDayData.totalPL < 0}
                 >
-                  {formatValue(selectedDayData.netCashFlow)}
+                  {formatValue(selectedDayData.totalPL)}
                 </MetricValue>
               </MetricRow>
               

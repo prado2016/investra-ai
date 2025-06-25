@@ -369,14 +369,20 @@ export class DailyPLAnalyticsService {
           tradeVolume += totalAmount;
           netCashFlow += totalAmount; // Cash inflow
           
-          // Calculate realized P/L for sells
-          // Note: This is a simplified calculation
-          // In a real system, you'd need to match with specific buy lots
-          const position = positions.find(p => p.asset_id === transaction.asset_id);
-          if (position) {
-            const sellProceeds = totalAmount - fees;
-            const costBasis = transaction.quantity * position.average_cost_basis;
-            realizedPL += sellProceeds - costBasis;
+          // Check if this is a covered call sell (option asset type)
+          if (transaction.asset?.type === 'option' && transaction.asset?.symbol?.includes('C')) {
+            // This is a covered call sell - treat as pure premium income
+            realizedPL += totalAmount - fees; // Premium collected minus fees
+          } else {
+            // Regular stock/ETF sell - calculate realized P/L
+            // Note: This is a simplified calculation
+            // In a real system, you'd need to match with specific buy lots
+            const position = positions.find(p => p.asset_id === transaction.asset_id);
+            if (position) {
+              const sellProceeds = totalAmount - fees;
+              const costBasis = transaction.quantity * position.average_cost_basis;
+              realizedPL += sellProceeds - costBasis;
+            }
           }
           break;
         }
