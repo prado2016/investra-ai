@@ -325,6 +325,123 @@ jobs:
           fi
         fi
 
+    - name: Build and deploy API server
+      run: |
+        if [ -d "server" ]; then
+          cd server
+          echo "=== API Server Build Process ==="
+          
+          # Check if package-lock.json exists and install dependencies accordingly
+          if [ -f "package-lock.json" ]; then
+            echo "✅ package-lock.json found, using npm ci"
+            npm ci
+          else
+            echo "⚠️ package-lock.json not found, using npm install"
+            npm install
+          fi
+          
+          echo "Building API server..."
+          npm run build
+          
+          # Verify build artifacts exist
+          if [ ! -f "dist/standalone-enhanced-server-production.js" ]; then
+            echo "❌ Build failed: dist/standalone-enhanced-server-production.js not found"
+            exit 1
+          fi
+          echo "✅ API server build completed successfully"
+          
+          # Deploy to staging location
+          sudo mkdir -p /opt/investra/email-api-staging
+          sudo cp dist/standalone-enhanced-server-production.js /opt/investra/email-api-staging/
+          sudo cp package.json /opt/investra/email-api-staging/
+          sudo cp package-lock.json /opt/investra/email-api-staging/
+          sudo cp ecosystem.config.js /opt/investra/email-api-staging/
+          
+          # Install production dependencies in staging location
+          cd /opt/investra/email-api-staging
+          sudo npm ci --only=production
+          
+          # Create PM2 ecosystem file for staging with environment variables
+          echo "Creating PM2 ecosystem file for API server staging"
+          sudo bash -c "echo 'module.exports = {' > ecosystem.staging.config.js"
+          sudo bash -c "echo '  apps: [{' >> ecosystem.staging.config.js"
+          sudo bash -c "echo '    name: \"investra-api-staging\",' >> ecosystem.staging.config.js"
+          sudo bash -c "echo '    script: \"./standalone-enhanced-server-production.js\",' >> ecosystem.staging.config.js"
+          sudo bash -c "echo '    instances: 1,' >> ecosystem.staging.config.js"
+          sudo bash -c "echo '    exec_mode: \"fork\",' >> ecosystem.staging.config.js"
+          sudo bash -c "echo '    env: {' >> ecosystem.staging.config.js"
+          sudo bash -c "echo '      NODE_ENV: \"staging\",' >> ecosystem.staging.config.js"
+          sudo bash -c "echo '      PORT: \"8080\",' >> ecosystem.staging.config.js"
+          sudo bash -c "echo '      SUPABASE_URL: \"${{ secrets.SUPABASE_URL }}\",' >> ecosystem.staging.config.js"
+          sudo bash -c "echo '      SUPABASE_ANON_KEY: \"${{ secrets.SUPABASE_ANON_KEY }}\",' >> ecosystem.staging.config.js"
+          sudo bash -c "echo '      SENTRY_DSN: \"${{ secrets.SENTRY_DSN }}\",' >> ecosystem.staging.config.js"
+          sudo bash -c "echo '      LOG_LEVEL: \"info\"' >> ecosystem.staging.config.js"
+          sudo bash -c "echo '    }' >> ecosystem.staging.config.js"
+          sudo bash -c "echo '  }]' >> ecosystem.staging.config.js"
+          sudo bash -c "echo '};' >> ecosystem.staging.config.js"
+          
+          # Set appropriate permissions
+          sudo chmod -R 755 /opt/investra/email-api-staging
+          
+          # Check if pm2 is available and manage service accordingly
+          if command -v pm2 >/dev/null 2>&1; then
+            echo "✅ PM2 found, managing API server with PM2"
+            
+            # Check if PM2 is available with sudo
+            if sudo which pm2 >/dev/null 2>&1; then
+              echo "✅ PM2 available with sudo, managing API server with PM2"
+              # Restart staging API server with PM2
+              sudo pm2 stop investra-api-staging || true
+              sudo pm2 delete investra-api-staging || true
+              cd /opt/investra/email-api-staging
+              sudo pm2 start ecosystem.staging.config.js
+              sudo pm2 save
+              echo "✅ API server deployed and started with PM2 on port 8080"
+            else
+              echo "⚠️ PM2 found for user but not available with sudo, installing globally"
+              # Install PM2 globally so it's available with sudo
+              sudo npm install -g pm2
+              
+              # Verify PM2 installation with sudo
+              if sudo which pm2 >/dev/null 2>&1; then
+                echo "✅ PM2 installed globally, starting API server"
+                cd /opt/investra/email-api-staging
+                sudo pm2 stop investra-api-staging || true
+                sudo pm2 delete investra-api-staging || true
+                sudo pm2 start ecosystem.staging.config.js
+                sudo pm2 save
+                echo "✅ API server deployed and started with globally installed PM2"
+              else
+                echo "⚠️ Global PM2 installation failed, deploying without process management"
+                echo "📁 API server artifacts copied to /opt/investra/email-api-staging/"
+                echo "📋 Manual start command: cd /opt/investra/email-api-staging && node standalone-enhanced-server-production.js"
+                echo "✅ API server deployment completed (manual start required)"
+              fi
+            fi
+          else
+            echo "⚠️ PM2 not found, installing PM2 globally"
+            # Install PM2 globally
+            sudo npm install -g pm2
+            
+            # Verify PM2 installation
+            if sudo which pm2 >/dev/null 2>&1; then
+              echo "✅ PM2 installed successfully, starting API server"
+              # Initialize PM2 and start service
+              cd /opt/investra/email-api-staging
+              sudo pm2 stop investra-api-staging || true
+              sudo pm2 delete investra-api-staging || true
+              sudo pm2 start ecosystem.staging.config.js
+              sudo pm2 save
+              echo "✅ API server deployed and started with newly installed PM2"
+            else
+              echo "⚠️ PM2 installation failed, deploying without process management"
+              echo "📁 API server artifacts copied to /opt/investra/email-api-staging/"
+              echo "📋 Manual start command: cd /opt/investra/email-api-staging && node standalone-enhanced-server-production.js"
+              echo "✅ API server deployment completed (manual start required)"
+            fi
+          fi
+        fi
+
   integration-tests:
     name: Integration Tests on Staging
     runs-on: ubuntu-latest
