@@ -193,6 +193,11 @@ jobs:
           sudo mkdir -p /opt/investra/email-puller-staging
           sudo cp dist/imap-puller.js /opt/investra/email-puller-staging/
           sudo cp package.json /opt/investra/email-puller-staging/
+          sudo cp package-lock.json /opt/investra/email-puller-staging/
+          
+          # Install production dependencies in staging location
+          cd /opt/investra/email-puller-staging
+          sudo npm ci --only=production
           
           # Create PM2 ecosystem file with environment variables
           echo "Creating PM2 ecosystem file for email puller staging"
