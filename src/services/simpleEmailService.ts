@@ -254,19 +254,85 @@ class SimpleEmailService {
         };
       }
 
-      console.log('Checking enhanced email puller status for user:', user.id);
+      console.log('Checking email puller status via API for user:', user.id);
 
-      // Get detailed IMAP configuration with error handling for field mismatches
-      let imapConfig: any[] = [];
-      let configError: any = null;
+      // Use API endpoint instead of direct database access to avoid hanging
+      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://10.0.0.89:3001';
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
       
       try {
-        // First try to get the schema by querying with minimal fields
-        const schemaResult = await supabase
-          .from('imap_configurations')
-          .select('*')
-          .eq('user_id', user.id)
-          .limit(1);
+        const response = await fetch(`${apiBaseUrl}/api/imap/status`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+          const apiData = result.data;
+          return {
+            data: {
+              isConnected: apiData.healthy || false,
+              emailCount: apiData.emailsProcessed || 0,
+              configurationActive: apiData.status === 'running',
+              syncStatus: apiData.healthy ? 'running' : 'error',
+              lastSync: apiData.lastSync,
+              recentActivity: { 
+                last24Hours: apiData.emailsProcessed || 0, 
+                lastHour: 0, 
+                lastWeek: apiData.emailsProcessed || 0 
+              },
+              configuration: {
+                provider: 'gmail',
+                emailAddress: apiData.config?.username || 'transactions@investra.com',
+                host: apiData.config?.server || 'imap.gmail.com',
+                port: apiData.config?.port || 993,
+                autoImportEnabled: apiData.status === 'running',
+                lastTested: apiData.lastSync,
+                lastTestSuccess: apiData.healthy,
+                syncInterval: 30,
+                maxEmailsPerSync: 50,
+                emailsSynced: apiData.emailsProcessed || 0,
+                lastSyncStatus: apiData.status
+              }
+            },
+            error: null
+          };
+        } else {
+          throw new Error(result.error || 'Invalid API response');
+        }
+        
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        
+        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+          console.error('Email puller status request timed out');
+          return {
+            data: {
+              isConnected: false,
+              emailCount: 0,
+              configurationActive: false,
+              syncStatus: 'error',
+              recentActivity: { last24Hours: 0, lastHour: 0, lastWeek: 0 },
+              error: 'Status check timed out'
+            },
+            error: null
+          };
+        }
+        
+        throw fetchError;
+      }
           
         if (schemaResult.error) {
           configError = schemaResult.error;
