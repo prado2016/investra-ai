@@ -15,7 +15,9 @@ import {
   TradingFeesBox,
   TradeVolumeBox,
   NetCashFlowBox,
-  TotalReturnBox
+  TotalReturnBox,
+  NetDepositsBox,
+  TimeWeightedReturnRateBox
 } from '../components/SummaryBoxes';
 
 
@@ -162,6 +164,7 @@ const EmptyState = styled.div`
 `;
 
 import Tooltip from '../components/Tooltip';
+import DetailModal from '../components/DetailModal';
 
 const LastUpdated = styled.div`
   font-size: 0.75rem;
@@ -174,6 +177,8 @@ const Dashboard: React.FC = () => {
   const { portfolios, activePortfolio, setActivePortfolio, loading: portfoliosLoading, error: portfoliosError, refreshPortfolios } = usePortfolios();
   const { metrics, loading: metricsLoading, error: metricsError, refreshMetrics } = useDashboardMetrics();
   const [isPrivacyMode, setIsPrivacyMode] = useState(false);
+  const [selectedMetric, setSelectedMetric] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Set dynamic page title
   usePageTitle('Dashboard', { 
@@ -311,6 +316,10 @@ const Dashboard: React.FC = () => {
                 <TotalDailyPLBox 
                   value={metrics.totalDailyPL} 
                   isPrivacyMode={isPrivacyMode}
+                  onClick={() => {
+                    setSelectedMetric('totalDailyPL');
+                    setIsModalOpen(true);
+                  }}
                 />
                 
                 <TotalReturnBox 
@@ -318,42 +327,88 @@ const Dashboard: React.FC = () => {
                   isPrivacyMode={isPrivacyMode}
                   subtitle="All-time performance"
                   percentValue={metrics.totalReturnPercent}
+                  onClick={() => {
+                    setSelectedMetric('totalReturn');
+                    setIsModalOpen(true);
+                  }}
                 />
                 
                 <RealizedPLBox 
                   value={metrics.realizedPL} 
                   isPrivacyMode={isPrivacyMode}
                   subtitle="This month"
+                  onClick={() => {
+                    setSelectedMetric('realizedPL');
+                    setIsModalOpen(true);
+                  }}
                 />
                 
                 <UnrealizedPLBox 
                   value={metrics.unrealizedPL} 
                   isPrivacyMode={isPrivacyMode}
                   subtitle="Current positions"
+                  onClick={() => {
+                    setSelectedMetric('unrealizedPL');
+                    setIsModalOpen(true);
+                  }}
                 />
                 
                 <DividendIncomeBox 
                   value={metrics.dividendIncome} 
                   isPrivacyMode={isPrivacyMode}
                   subtitle="This month"
+                  onClick={() => {
+                    setSelectedMetric('dividendIncome');
+                    setIsModalOpen(true);
+                  }}
                 />
                 
                 <TradingFeesBox 
                   value={metrics.tradingFees} 
                   isPrivacyMode={isPrivacyMode}
                   subtitle="This month"
+                  onClick={() => {
+                    setSelectedMetric('tradingFees');
+                    setIsModalOpen(true);
+                  }}
                 />
                 
                 <TradeVolumeBox 
                   value={metrics.tradeVolume} 
                   isPrivacyMode={isPrivacyMode}
                   subtitle="Today's activity"
+                  onClick={() => {
+                    setSelectedMetric('tradeVolume');
+                    setIsModalOpen(true);
+                  }}
                 />
                 
                 <NetCashFlowBox 
                   value={metrics.netCashFlow} 
                   isPrivacyMode={isPrivacyMode}
                   subtitle="Net flow"
+                  onClick={() => {
+                    setSelectedMetric('netCashFlow');
+                    setIsModalOpen(true);
+                  }}
+                />
+
+                <NetDepositsBox
+                  value={metrics.netDeposits}
+                  isPrivacyMode={isPrivacyMode}
+                  onClick={() => {
+                    setSelectedMetric('netDeposits');
+                    setIsModalOpen(true);
+                  }}
+                />
+
+                <TimeWeightedReturnRateBox
+                  value={metrics.timeWeightedReturnRate}
+                  isPrivacyMode={isPrivacyMode}
+                  onClick={() => {
+                    setSelectedMetric('timeWeightedReturnRate');
+                    setIsModalOpen(true);
+                  }}
                 />
               </SummaryGrid>
 
@@ -368,6 +423,12 @@ const Dashboard: React.FC = () => {
               {/* Donut chart will go here */}
             </Sidebar>
           </DashboardLayout>
+          {isModalOpen && selectedMetric && (
+            <DetailModal
+              metric={selectedMetric}
+              onClose={() => setIsModalOpen(false)}
+            />
+          )}
         </>
       )}
     </PageContainer>

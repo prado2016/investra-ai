@@ -17,7 +17,7 @@ import Sparkline from './Sparkline';
 import { formatCurrency } from '../utils/formatting';
 
 // Styled Components
-const SummaryCard = styled.div`
+const SummaryCard = styled.div<{ $isClickable?: boolean }>`
   background: white;
   border-radius: 12px;
   padding: 1.5rem;
@@ -25,10 +25,13 @@ const SummaryCard = styled.div`
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   transition: transform 0.2s, box-shadow 0.2s;
 
-  &:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  }
+  ${props => props.$isClickable && `
+    cursor: pointer;
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+  `}
 `;
 
 const CardHeader = styled.div`
@@ -94,6 +97,7 @@ interface SummaryBoxProps {
   currency?: string;
   format?: 'currency' | 'number' | 'percentage';
   sparklineData?: { value: number }[];
+  onClick?: () => void; // New: Make card clickable
 }
 
 // Main Summary Box Component
@@ -107,7 +111,8 @@ export const SummaryBox: React.FC<SummaryBoxProps> = ({
   isPrivacyMode = false,
   currency = 'USD',
   format = 'currency',
-  sparklineData
+  sparklineData,
+  onClick
 }) => {
   const formatValue = (val: number) => {
     if (isPrivacyMode) return '••••••';
@@ -128,7 +133,7 @@ export const SummaryBox: React.FC<SummaryBoxProps> = ({
   const isNegative = value < 0;
 
   return (
-    <SummaryCard>
+    <SummaryCard onClick={onClick} $isClickable={!!onClick}>
       <CardHeader>
         <CardIcon $color={iconColor}>
           {icon}
@@ -282,6 +287,37 @@ export const NetCashFlowBox: React.FC<{
     icon={<TrendingUp size={20} />}
     iconColor="#06b6d4"
     isPrivacyMode={isPrivacyMode}
+  />
+);
+
+export const NetDepositsBox: React.FC<{ 
+  value: number; 
+  isPrivacyMode?: boolean;
+  subtitle?: string;
+}> = ({ value, isPrivacyMode, subtitle }) => (
+  <SummaryBox
+    title="Net Deposits"
+    value={value}
+    subtitle={subtitle || "Total cash added/removed"}
+    icon={<DollarSign size={20} />}
+    iconColor="#22c55e"
+    isPrivacyMode={isPrivacyMode}
+  />
+);
+
+export const TimeWeightedReturnRateBox: React.FC<{ 
+  value: number; 
+  isPrivacyMode?: boolean;
+  subtitle?: string;
+}> = ({ value, isPrivacyMode, subtitle }) => (
+  <SummaryBox
+    title="Time-Weighted Return"
+    value={value}
+    subtitle={subtitle || "Annualized performance (TWR)"}
+    icon={<Activity size={20} />}
+    iconColor="#f97316"
+    isPrivacyMode={isPrivacyMode}
+    format="percentage"
   />
 );
 
