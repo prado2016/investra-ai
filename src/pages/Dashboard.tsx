@@ -17,7 +17,7 @@ import {
   NetCashFlowBox,
   TotalReturnBox
 } from '../components/SummaryBoxes';
-import LoadingOverlay from '../components/LoadingComponents';
+
 
 const PageContainer = styled.div`
   padding: 2rem;
@@ -161,6 +161,8 @@ const EmptyState = styled.div`
   border: 1px solid #e5e7eb;
 `;
 
+import Tooltip from '../components/Tooltip';
+
 const LastUpdated = styled.div`
   font-size: 0.75rem;
   color: #9ca3af;
@@ -208,9 +210,7 @@ const Dashboard: React.FC = () => {
             <Subtitle>Overview of your portfolio performance</Subtitle>
           </HeaderLeft>
         </PageHeader>
-        <LoadingOverlay isLoading={true} message="Loading portfolio data...">
-          <div>Loading portfolio data...</div>
-        </LoadingOverlay>
+        <SkeletonSummaryGrid count={8} />
       </PageContainer>
     );
   }
@@ -358,7 +358,9 @@ const Dashboard: React.FC = () => {
               </SummaryGrid>
 
               <LastUpdated>
-                Last updated: {metrics.lastUpdated.toLocaleTimeString()}
+                <Tooltip text={`Data as of ${metrics.lastUpdated.toLocaleString()}`}>
+                  Last updated: {metrics.lastUpdated.toLocaleTimeString()}
+                </Tooltip>
               </LastUpdated>
             </MainContent>
             <Sidebar>
