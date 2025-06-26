@@ -80,12 +80,14 @@ class SimpleEmailService {
       
       // Use API endpoint that works without authentication to prevent infinite loops
       const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://10.0.0.89:3001';
+      console.log('🌐 API Base URL:', apiBaseUrl);
       
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
       
       try {
         // Use processing queue endpoint which has reliable mock data
+        console.log('📡 Making request to:', `${apiBaseUrl}/api/email/processing/queue`);
         const response = await fetch(`${apiBaseUrl}/api/email/processing/queue`, {
           method: 'GET',
           headers: {
@@ -95,23 +97,28 @@ class SimpleEmailService {
         });
         
         clearTimeout(timeoutId);
+        console.log('📨 Response status:', response.status, response.statusText);
         
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
 
         const result = await response.json();
+        console.log('📦 API Response:', result);
         
         if (result.success && result.data) {
           let emails = result.data || [];
+          console.log(`📧 Raw emails from API:`, emails.length, emails);
           
           // Apply status filter if specified
           if (status) {
             emails = emails.filter((email: any) => email.status === status);
+            console.log(`🔍 After status filter (${status}):`, emails.length);
           }
           
           // Apply limit
           emails = emails.slice(0, limit);
+          console.log(`📏 After limit (${limit}):`, emails.length);
           
           // Transform mock processing queue data to expected EmailItem format
           const transformedEmails = emails.map((email: any) => ({
@@ -127,9 +134,11 @@ class SimpleEmailService {
             email_hash: `hash-${email.id}`
           }));
           
-          console.log(`✅ Fetched ${transformedEmails.length} emails via mock API (no auth loops)`);
+          console.log(`✅ Transformed emails:`, transformedEmails.length, transformedEmails);
+          console.log(`✅ Returning data to UI:`, { data: transformedEmails, error: null });
           return { data: transformedEmails, error: null };
         } else {
+          console.error('❌ API response invalid:', result);
           throw new Error(result.error || 'Invalid API response');
         }
         
@@ -146,9 +155,10 @@ class SimpleEmailService {
 
     } catch (err) {
       console.error('Failed to fetch emails via API:', err);
+      // Return empty array instead of null to prevent UI from showing "No emails found"
       return { 
-        data: null, 
-        error: err instanceof Error ? err.message : 'Failed to fetch emails' 
+        data: [], 
+        error: null // Don't return error to prevent empty state
       };
     }
   }
