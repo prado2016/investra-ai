@@ -95,9 +95,9 @@ class SimpleEmailService {
 
       console.log('✅ User authenticated:', user.id);
       
-      // Build query for real emails from email_inbox table
+      // Build query for real emails from imap_inbox table
       let query = supabase
-        .from('email_inbox')
+        .from('imap_inbox')
         .select('*')
         .eq('user_id', user.id)
         .order('received_at', { ascending: false });
@@ -110,7 +110,7 @@ class SimpleEmailService {
       // Apply limit
       query = query.limit(limit);
 
-      console.log('📡 Querying email_inbox table for user:', user.id);
+      console.log('📡 Querying imap_inbox table for user:', user.id);
       const { data: emails, error: queryError } = await query;
       
       if (queryError) {
