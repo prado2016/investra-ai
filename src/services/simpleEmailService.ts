@@ -7,12 +7,13 @@ import { supabase } from '../lib/supabase';
 
 export interface EmailItem {
   id: string;
-  user_id: string;
-  message_id: string;
+  user_id?: string;
+  message_id?: string;
   thread_id?: string;
   subject: string;
-  from_email: string;
+  from_email?: string;
   from_name?: string;
+  from?: string; // Added for transformed data
   to_email?: string;
   reply_to?: string;
   received_at: string;
@@ -21,11 +22,17 @@ export interface EmailItem {
   html_content?: string;
   attachments_info?: any[];
   email_size?: number;
-  priority: 'low' | 'normal' | 'high';
+  priority?: 'low' | 'normal' | 'high';
   status: 'pending' | 'processing' | 'error';
   error_message?: string;
-  created_at: string;
-  updated_at: string;
+  created_at?: string;
+  updated_at?: string;
+  // Added for UI display
+  preview?: string;
+  has_attachments?: boolean;
+  estimated_transactions?: number;
+  full_content?: string;
+  email_hash?: string;
 }
 
 export interface EmailStats {

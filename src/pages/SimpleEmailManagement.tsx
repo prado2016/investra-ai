@@ -678,14 +678,21 @@ const SimpleEmailManagement: React.FC = () => {
   };
 
   const loadEmails = async () => {
+    console.log('🔄 UI: Loading emails...');
     const statusFilterValue = statusFilter === 'all' ? undefined : statusFilter;
+    console.log('🔍 UI: Status filter:', statusFilterValue);
+    
     const result = await simpleEmailService.getEmails(statusFilterValue, 100);
+    console.log('📦 UI: getEmails result:', result);
     
     if (result.error) {
+      console.error('❌ UI: Error loading emails:', result.error);
       error('Load Error', result.error);
       setEmails([]);
     } else {
-      setEmails(result.data || []);
+      const emailData = result.data || [];
+      console.log('✅ UI: Setting emails state:', emailData.length, emailData);
+      setEmails(emailData);
     }
   };
 
@@ -1067,10 +1074,16 @@ const SimpleEmailManagement: React.FC = () => {
   const filteredEmails = emails.filter(email => {
     const matchesSearch = !searchTerm || 
       email.subject?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      email.from_email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      email.from_name?.toLowerCase().includes(searchTerm.toLowerCase());
+      email.from?.toLowerCase().includes(searchTerm.toLowerCase());
     
     return matchesSearch;
+  });
+  
+  console.log('🔍 UI: Filtering emails:', {
+    totalEmails: emails.length,
+    searchTerm,
+    filteredCount: filteredEmails.length,
+    emails: emails.map(e => ({ id: e.id, subject: e.subject, from: e.from }))
   });
 
   const formatDate = (dateString: string) => {
