@@ -520,6 +520,7 @@ app.use(cors({
       'http://10.0.0.89',
       'http://10.0.0.89:80',
       'http://10.0.0.89:5173',
+      'http://10.0.0.89:8080',
       'https://investra.com',
       'https://app.investra.com',
       'https://www.investra.com'
