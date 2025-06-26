@@ -76,7 +76,7 @@ class SimpleEmailService {
     limit: number = 100
   ): Promise<{ data: EmailItem[] | null; error: string | null }> {
     try {
-      // Check authentication first
+      // Get fresh authentication token
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       
       if (authError || !user) {
@@ -87,31 +87,86 @@ class SimpleEmailService {
         };
       }
 
-      let query = supabase
-        .from('imap_inbox')
-        .select('*')
-        .order('received_at', { ascending: false })
-        .limit(limit);
-
-      if (status) {
-        query = query.eq('status', status);
+      // Get fresh session with token
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      
+      if (!token) {
+        console.error('No authentication token available');
+        return { 
+          data: null, 
+          error: 'Authentication token unavailable' 
+        };
       }
 
-      const { data, error } = await query;
-
-      if (error) {
-        console.error('Error fetching emails:', error);
-        // Handle missing table gracefully
-        if (error.code === '42P01' || error.code === 'PGRST202' || error.message.includes('relation') || error.message.includes('does not exist')) {
-          console.log('imap_inbox table not found - returning empty array');
-          return { data: [], error: null };
+      // Use API endpoint instead of direct database access
+      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://10.0.0.89:3001';
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+      
+      try {
+        const response = await fetch(`${apiBaseUrl}/api/manual-review/emails`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
-        return { data: null, error: error.message };
+
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+          let emails = result.data || [];
+          
+          // Apply status filter if specified
+          if (status) {
+            emails = emails.filter((email: any) => email.status === status);
+          }
+          
+          // Apply limit
+          emails = emails.slice(0, limit);
+          
+          // Transform API data to match expected EmailItem format
+          const transformedEmails = emails.map((email: any) => ({
+            id: email.id,
+            subject: email.subject || 'No Subject',
+            from: email.from || 'Unknown Sender',
+            received_at: email.received_at || new Date().toISOString(),
+            status: email.status || 'pending',
+            preview: email.preview || '',
+            has_attachments: email.has_attachments || false,
+            estimated_transactions: email.estimated_transactions || 0,
+            full_content: email.full_content || '',
+            email_hash: email.email_hash || ''
+          }));
+          
+          console.log(`Fetched ${transformedEmails.length} emails via API`);
+          return { data: transformedEmails, error: null };
+        } else {
+          throw new Error(result.error || 'Invalid API response');
+        }
+        
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        
+        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+          console.error('Email fetch request timed out');
+          return { data: [], error: 'Request timed out' };
+        }
+        
+        throw fetchError;
       }
 
-      return { data: data || [], error: null };
     } catch (err) {
-      console.error('Failed to fetch emails:', err);
+      console.error('Failed to fetch emails via API:', err);
       return { 
         data: null, 
         error: err instanceof Error ? err.message : 'Failed to fetch emails' 
@@ -124,59 +179,63 @@ class SimpleEmailService {
    */
   async getEmailStats(): Promise<{ data: EmailStats | null; error: string | null }> {
     try {
-      // Check authentication first
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      // Use API endpoint for stats to match the working puller status
+      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://10.0.0.89:3001';
       
-      if (authError || !user) {
-        console.error('Authentication required for getEmailStats:', authError?.message);
-        return { 
-          data: { total: 0, pending: 0, processing: 0, error: 0 }, 
-          error: authError?.message || 'Authentication required' 
-        };
-      }
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
+      try {
+        const response = await fetch(`${apiBaseUrl}/api/email/stats`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
 
-      const { data, error } = await supabase
-        .from('imap_inbox')
-        .select('status, received_at');
-
-      if (error) {
-        console.error('Error fetching email stats:', error);
-        // Handle missing table gracefully
-        if (error.code === '42P01' || error.code === 'PGRST202' || error.message.includes('relation') || error.message.includes('does not exist')) {
-          console.log('imap_inbox table not found - returning zero stats');
-          return { 
-            data: { total: 0, pending: 0, processing: 0, error: 0 }, 
-            error: null 
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+          const apiData = result.data;
+          return {
+            data: {
+              total: apiData.totalProcessed || 0,
+              pending: apiData.reviewRequired || 0,
+              processing: 0, // API doesn't have processing count
+              error: apiData.failed || 0,
+              latest_email: apiData.lastProcessedAt
+            },
+            error: null
+          };
+        } else {
+          throw new Error(result.error || 'Invalid API response');
+        }
+        
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        
+        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+          console.error('Email stats request timed out');
+          return {
+            data: { total: 0, pending: 0, processing: 0, error: 0 },
+            error: null
           };
         }
-        return { data: null, error: error.message };
+        
+        throw fetchError;
       }
 
-      if (!data) {
-        return { 
-          data: { 
-            total: 0, 
-            pending: 0, 
-            processing: 0, 
-            error: 0 
-          }, 
-          error: null 
-        };
-      }
-
-      const stats: EmailStats = {
-        total: data.length,
-        pending: data.filter(email => email.status === 'pending').length,
-        processing: data.filter(email => email.status === 'processing').length,
-        error: data.filter(email => email.status === 'error').length,
-        latest_email: data.length > 0 ? data[0].received_at : undefined
-      };
-
-      return { data: stats, error: null };
     } catch (err) {
-      console.error('Failed to fetch email stats:', err);
+      console.error('Failed to fetch email stats via API:', err);
       return { 
-        data: null, 
+        data: { total: 0, pending: 0, processing: 0, error: 0 }, 
         error: err instanceof Error ? err.message : 'Failed to fetch email stats' 
       };
     }
