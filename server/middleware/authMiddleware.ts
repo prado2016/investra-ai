@@ -59,10 +59,20 @@ export const authenticateUser = async (
     const token = authHeaderStr.substring(7); // Remove 'Bearer ' prefix
 
     // Validate the JWT token with Supabase
+    console.log('🔐 Server auth debug:', {
+      hasSupabaseAuth: !!supabaseAuth,
+      tokenReceived: !!token,
+      tokenLength: token?.length,
+      tokenPreview: token ? `${token.substring(0, 30)}...` : 'none',
+      supabaseUrl: SUPABASE_URL,
+      hasSupabaseKey: !!SUPABASE_ANON_KEY
+    });
+
     const { data: { user }, error } = await supabaseAuth!.auth.getUser(token);
 
     if (error || !user) {
       console.warn('Authentication failed:', error?.message || 'No user found');
+      console.warn('Auth debug details:', { error, user, tokenStart: token?.substring(0, 50) });
       res.status(401).json({
         success: false,
         error: 'Invalid or expired authentication token',
