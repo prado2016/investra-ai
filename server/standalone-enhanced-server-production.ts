@@ -2105,7 +2105,7 @@ app.post('/api/email/manual-sync', authenticateUser, async (req: AuthenticatedRe
 });
 
 // Error handling middleware
-app.use((err: Error, req: express.Request, res: express.Response) => {
+app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
   logger.error('Unhandled error:', {
     error: err.message,
     stack: err.stack,
