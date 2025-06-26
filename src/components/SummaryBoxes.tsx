@@ -13,6 +13,7 @@ import {
   ArrowUpDown, 
   CreditCard 
 } from 'lucide-react';
+import Sparkline from './Sparkline';
 import { formatCurrency } from '../utils/formatting';
 
 // Styled Components
@@ -92,6 +93,7 @@ interface SummaryBoxProps {
   isPrivacyMode?: boolean;
   currency?: string;
   format?: 'currency' | 'number' | 'percentage';
+  sparklineData?: { value: number }[];
 }
 
 // Main Summary Box Component
@@ -104,7 +106,8 @@ export const SummaryBox: React.FC<SummaryBoxProps> = ({
   iconColor,
   isPrivacyMode = false,
   currency = 'USD',
-  format = 'currency'
+  format = 'currency',
+  sparklineData
 }) => {
   const formatValue = (val: number) => {
     if (isPrivacyMode) return '••••••';
@@ -151,6 +154,12 @@ export const SummaryBox: React.FC<SummaryBoxProps> = ({
           )}
         </CardSubtitle>
       )}
+
+      {sparklineData && !isPrivacyMode && (
+        <div style={{ marginTop: '1rem' }}>
+          <Sparkline data={sparklineData} color={iconColor} />
+        </div>
+      )}
     </SummaryCard>
   );
 };
@@ -161,17 +170,30 @@ export const TotalDailyPLBox: React.FC<{
   value: number; 
   isPrivacyMode?: boolean; 
   trend?: number;
-}> = ({ value, isPrivacyMode, trend }) => (
-  <SummaryBox
-    title="Total Daily P&L"
-    value={value}
-    subtitle="Today's performance"
-    trend={trend}
-    icon={<TrendingUp size={20} />}
-    iconColor={value >= 0 ? '#16a34a' : '#dc2626'}
-    isPrivacyMode={isPrivacyMode}
-  />
-);
+}> = ({ value, isPrivacyMode, trend }) => {
+  const mockSparklineData = [
+    { value: -100 },
+    { value: 200 },
+    { value: 150 },
+    { value: 300 },
+    { value: 250 },
+    { value: 400 },
+    { value: value },
+  ];
+
+  return (
+    <SummaryBox
+      title="Total Daily P&L"
+      value={value}
+      subtitle="Today's performance"
+      trend={trend}
+      icon={<TrendingUp size={20} />}
+      iconColor={value >= 0 ? '#16a34a' : '#dc2626'}
+      isPrivacyMode={isPrivacyMode}
+      sparklineData={mockSparklineData}
+    />
+  );
+};
 
 export const RealizedPLBox: React.FC<{ 
   value: number; 
@@ -268,16 +290,29 @@ export const TotalReturnBox: React.FC<{
   isPrivacyMode?: boolean;
   subtitle?: string;
   percentValue?: number;
-}> = ({ value, isPrivacyMode, subtitle, percentValue }) => (
-  <SummaryBox
-    title="Total Return"
-    value={value}
-    subtitle={subtitle || "All-time portfolio performance"}
-    trend={percentValue}
-    icon={<TrendingUp size={20} />}
-    iconColor={value >= 0 ? '#16a34a' : '#dc2626'}
-    isPrivacyMode={isPrivacyMode}
-  />
-);
+}> = ({ value, isPrivacyMode, subtitle, percentValue }) => {
+  const mockSparklineData = [
+    { value: 10000 },
+    { value: 10500 },
+    { value: 11000 },
+    { value: 10800 },
+    { value: 11500 },
+    { value: 12000 },
+    { value: value },
+  ];
+
+  return (
+    <SummaryBox
+      title="Total Return"
+      value={value}
+      subtitle={subtitle || "All-time portfolio performance"}
+      trend={percentValue}
+      icon={<TrendingUp size={20} />}
+      iconColor={value >= 0 ? '#16a34a' : '#dc2626'}
+      isPrivacyMode={isPrivacyMode}
+      sparklineData={mockSparklineData}
+    />
+  );
+};
 
 export default SummaryBox;
