@@ -83,89 +83,87 @@ class SimpleEmailService {
     limit: number = 100
   ): Promise<{ data: EmailItem[] | null; error: string | null }> {
     try {
-      console.log('🔄 Fetching emails using mock data endpoint to avoid auth loops');
+      console.log('🔄 Fetching real emails from database');
       
-      // Use API endpoint that works without authentication to prevent infinite loops
-      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://10.0.0.89:3001';
-      console.log('🌐 API Base URL:', apiBaseUrl);
+      // Get current user session
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
       
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-      
-      try {
-        // Use processing queue endpoint which has reliable mock data
-        console.log('📡 Making request to:', `${apiBaseUrl}/api/email/processing/queue`);
-        const response = await fetch(`${apiBaseUrl}/api/email/processing/queue`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          signal: controller.signal
-        });
-        
-        clearTimeout(timeoutId);
-        console.log('📨 Response status:', response.status, response.statusText);
-        
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        const result = await response.json();
-        console.log('📦 API Response:', result);
-        
-        if (result.success && result.data) {
-          let emails = result.data || [];
-          console.log(`📧 Raw emails from API:`, emails.length, emails);
-          
-          // Apply status filter if specified
-          if (status) {
-            emails = emails.filter((email: any) => email.status === status);
-            console.log(`🔍 After status filter (${status}):`, emails.length);
-          }
-          
-          // Apply limit
-          emails = emails.slice(0, limit);
-          console.log(`📏 After limit (${limit}):`, emails.length);
-          
-          // Transform mock processing queue data to expected EmailItem format
-          const transformedEmails = emails.map((email: any) => ({
-            id: email.id?.toString() || '',
-            subject: email.email_subject || 'No Subject',
-            from: email.from_email || 'Unknown Sender',
-            received_at: email.created_at || new Date().toISOString(),
-            status: email.status || 'pending',
-            preview: `${email.email_subject} - ${email.status} (${email.progress?.percentage || 0}% complete)`,
-            has_attachments: false,
-            estimated_transactions: 1,
-            full_content: `Email: ${email.email_subject}\nFrom: ${email.from_email}\nStatus: ${email.status}\nProgress: ${email.progress?.percentage || 0}%`,
-            email_hash: `hash-${email.id}`
-          }));
-          
-          console.log(`✅ Transformed emails:`, transformedEmails.length, transformedEmails);
-          console.log(`✅ Returning data to UI:`, { data: transformedEmails, error: null });
-          return { data: transformedEmails, error: null };
-        } else {
-          console.error('❌ API response invalid:', result);
-          throw new Error(result.error || 'Invalid API response');
-        }
-        
-      } catch (fetchError) {
-        clearTimeout(timeoutId);
-        
-        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
-          console.error('Email fetch request timed out');
-          return { data: [], error: 'Request timed out' };
-        }
-        
-        throw fetchError;
+      if (userError || !user) {
+        console.error('❌ Authentication error:', userError);
+        return { data: [], error: 'User not authenticated' };
       }
 
+      console.log('✅ User authenticated:', user.id);
+      
+      // Build query for real emails from email_inbox table
+      let query = supabase
+        .from('email_inbox')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('received_at', { ascending: false });
+
+      // Apply status filter if specified
+      if (status) {
+        query = query.eq('status', status);
+      }
+
+      // Apply limit
+      query = query.limit(limit);
+
+      console.log('📡 Querying email_inbox table for user:', user.id);
+      const { data: emails, error: queryError } = await query;
+      
+      if (queryError) {
+        console.error('❌ Database query error:', queryError);
+        return { data: [], error: queryError.message };
+      }
+
+      if (!emails || emails.length === 0) {
+        console.log('📭 No emails found in database');
+        return { data: [], error: null };
+      }
+
+      console.log(`📧 Found ${emails.length} real emails from database`);
+      
+      // Transform database emails to expected EmailItem format
+      const transformedEmails = emails.map((email: any) => ({
+        id: email.id?.toString() || '',
+        user_id: email.user_id,
+        message_id: email.message_id,
+        thread_id: email.thread_id,
+        subject: email.subject || 'No Subject',
+        from_email: email.from_email,
+        from_name: email.from_name,
+        from: email.from_email || 'Unknown Sender', // For UI compatibility
+        to_email: email.to_email,
+        reply_to: email.reply_to,
+        received_at: email.received_at,
+        raw_content: email.raw_content,
+        text_content: email.text_content,
+        html_content: email.html_content,
+        attachments_info: email.attachments_info,
+        email_size: email.email_size,
+        priority: email.priority || 'normal',
+        status: email.status || 'pending',
+        error_message: email.error_message,
+        created_at: email.created_at,
+        updated_at: email.updated_at,
+        // UI display properties
+        preview: email.text_content ? email.text_content.substring(0, 100) + '...' : email.subject,
+        has_attachments: email.attachments_info && email.attachments_info.length > 0,
+        estimated_transactions: 1,
+        full_content: email.text_content || email.html_content || email.raw_content,
+        email_hash: `hash-${email.id}`
+      }));
+      
+      console.log(`✅ Transformed real emails:`, transformedEmails.length, transformedEmails);
+      return { data: transformedEmails, error: null };
+
     } catch (err) {
-      console.error('Failed to fetch emails via API:', err);
-      // Return empty array instead of null to prevent UI from showing "No emails found"
+      console.error('Failed to fetch real emails from database:', err);
       return { 
         data: [], 
-        error: null // Don't return error to prevent empty state
+        error: err instanceof Error ? err.message : 'Failed to fetch emails'
       };
     }
   }
