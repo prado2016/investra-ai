@@ -1099,7 +1099,8 @@ export async function triggerManualEmailSync(): Promise<{ success: boolean; data
       }
       
       // Make API call to the server endpoint
-      const response = await fetch('/api/imap/process-now', {
+      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://10.0.0.89:3001';
+      const response = await fetch(`${apiBaseUrl}/api/email/manual-sync`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
