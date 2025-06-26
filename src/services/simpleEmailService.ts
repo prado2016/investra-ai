@@ -118,8 +118,26 @@ class SimpleEmailService {
         return { data: [], error: queryError.message };
       }
 
+      // Debug: Check what's actually in the table
+      console.log('🔍 Debug: Checking all emails in imap_inbox table');
+      const { data: allEmails, error: allEmailsError } = await supabase
+        .from('imap_inbox')
+        .select('id, user_id, subject, from_email, status, created_at')
+        .limit(10);
+      
+      if (allEmailsError) {
+        console.error('❌ Error fetching all emails for debug:', allEmailsError);
+      } else {
+        console.log('📧 All emails in imap_inbox (first 10):', allEmails);
+        console.log('📧 Total found:', allEmails?.length || 0);
+        if (allEmails && allEmails.length > 0) {
+          console.log('📧 Unique user_ids found:', [...new Set(allEmails.map(e => e.user_id))]);
+          console.log('📧 Current user_id:', user.id);
+        }
+      }
+
       if (!emails || emails.length === 0) {
-        console.log('📭 No emails found in database');
+        console.log('📭 No emails found in database for current user');
         return { data: [], error: null };
       }
 
