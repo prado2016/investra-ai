@@ -1086,7 +1086,18 @@ export async function triggerManualEmailSync(): Promise<{ success: boolean; data
     try {
       console.log('🔄 Triggering manual email sync...');
       
-      // Get authentication token from Supabase
+      // Get fresh authentication token from Supabase (this auto-refreshes if needed)
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError || !user) {
+        console.error('❌ Authentication failed:', authError?.message);
+        return { 
+          success: false, 
+          error: 'Authentication required. Please log in again.' 
+        };
+      }
+
+      // Get fresh session with potentially refreshed token
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
       
@@ -1095,14 +1106,15 @@ export async function triggerManualEmailSync(): Promise<{ success: boolean; data
         hasToken: !!token, 
         tokenLength: token?.length,
         tokenPreview: token ? `${token.substring(0, 20)}...` : 'none',
-        sessionUser: session?.user?.email 
+        sessionUser: session?.user?.email,
+        userFromAuth: user?.email
       });
       
       if (!token) {
-        console.error('❌ No authentication token available');
+        console.error('❌ No authentication token available after refresh');
         return { 
           success: false, 
-          error: 'Authentication required. Please log in again.' 
+          error: 'Authentication token unavailable. Please log in again.' 
         };
       }
       
@@ -1120,6 +1132,61 @@ export async function triggerManualEmailSync(): Promise<{ success: boolean; data
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: 'Network error' }));
         console.error('❌ Manual sync trigger failed:', errorData);
+        
+        // If we get a 401, try to refresh the session once more
+        if (response.status === 401) {
+          console.log('🔄 401 error - attempting token refresh...');
+          
+          try {
+            // Force refresh the session
+            const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
+            
+            if (refreshError || !refreshedSession?.access_token) {
+              console.error('❌ Token refresh failed:', refreshError?.message);
+              return { 
+                success: false, 
+                error: 'Authentication token expired. Please log in again.' 
+              };
+            }
+            
+            console.log('✅ Token refreshed, retrying request...');
+            
+            // Retry the request with the new token
+            const retryResponse = await fetch(`${apiBaseUrl}/api/email/manual-sync`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${refreshedSession.access_token}`,
+              },
+              credentials: 'include',
+            });
+
+            if (!retryResponse.ok) {
+              const retryErrorData = await retryResponse.json().catch(() => ({ error: 'Network error on retry' }));
+              console.error('❌ Manual sync still failed after token refresh:', retryErrorData);
+              return { 
+                success: false, 
+                error: retryErrorData.error || `Retry failed: HTTP ${retryResponse.status}` 
+              };
+            }
+
+            const retryResult = await retryResponse.json();
+            console.log('✅ Manual sync succeeded after token refresh:', retryResult);
+            
+            return { 
+              success: true, 
+              data: retryResult.data
+            };
+            
+          } catch (refreshErr) {
+            console.error('❌ Token refresh attempt failed:', refreshErr);
+            return { 
+              success: false, 
+              error: 'Token refresh failed. Please log in again.' 
+            };
+          }
+        }
+        
         return { 
           success: false, 
           error: errorData.error || `HTTP ${response.status}: ${response.statusText}` 
