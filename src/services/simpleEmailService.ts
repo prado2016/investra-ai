@@ -1090,6 +1090,14 @@ export async function triggerManualEmailSync(): Promise<{ success: boolean; data
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
       
+      console.log('🔐 Auth debug:', { 
+        hasSession: !!session, 
+        hasToken: !!token, 
+        tokenLength: token?.length,
+        tokenPreview: token ? `${token.substring(0, 20)}...` : 'none',
+        sessionUser: session?.user?.email 
+      });
+      
       if (!token) {
         console.error('❌ No authentication token available');
         return { 
