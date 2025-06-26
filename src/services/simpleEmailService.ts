@@ -1099,7 +1099,7 @@ export async function triggerManualEmailSync(): Promise<{ success: boolean; data
       }
       
       // Make API call to the server endpoint
-      const response = await fetch('/api/email/manual-sync', {
+      const response = await fetch('/api/imap/process-now', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
