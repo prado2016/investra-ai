@@ -106,14 +106,57 @@ class SimpleEmailService {
       const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
       
       try {
-        // Use processing queue endpoint which works without auth and has email data
-        const response = await fetch(`${apiBaseUrl}/api/email/processing/queue`, {
+        // First try the real emails endpoint with authentication
+        let response = await fetch(`${apiBaseUrl}/api/manual-review/emails`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
           },
           signal: controller.signal
         });
+        
+        // If auth fails, try to refresh token and retry once
+        if (response.status === 401) {
+          console.log('🔄 Auth failed, attempting token refresh...');
+          
+          try {
+            const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
+            
+            if (refreshError || !refreshedSession?.access_token) {
+              console.error('❌ Token refresh failed, falling back to mock data');
+              // Fall back to processing queue endpoint (mock data)
+              response = await fetch(`${apiBaseUrl}/api/email/processing/queue`, {
+                method: 'GET',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                signal: controller.signal
+              });
+            } else {
+              console.log('✅ Token refreshed, retrying real emails...');
+              // Retry with refreshed token
+              response = await fetch(`${apiBaseUrl}/api/manual-review/emails`, {
+                method: 'GET',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${refreshedSession.access_token}`,
+                },
+                signal: controller.signal
+              });
+            }
+          } catch (refreshErr) {
+            console.error('❌ Token refresh error, using mock data:', refreshErr);
+            // Fall back to processing queue endpoint (mock data)
+            response = await fetch(`${apiBaseUrl}/api/email/processing/queue`, {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              signal: controller.signal
+            });
+          }
+        }
         
         clearTimeout(timeoutId);
         
@@ -134,19 +177,42 @@ class SimpleEmailService {
           // Apply limit
           emails = emails.slice(0, limit);
           
-          // Transform processing queue data to match expected EmailItem format
-          const transformedEmails = emails.map((email: any) => ({
-            id: email.id?.toString() || '',
-            subject: email.email_subject || 'No Subject',
-            from: email.from_email || 'Unknown Sender',
-            received_at: email.created_at || new Date().toISOString(),
-            status: email.status || 'pending',
-            preview: `${email.email_subject} - ${email.status} (${email.progress?.percentage || 0}% complete)`,
-            has_attachments: false,
-            estimated_transactions: 1,
-            full_content: `Email: ${email.email_subject}\nFrom: ${email.from_email}\nStatus: ${email.status}\nProgress: ${email.progress?.percentage || 0}%`,
-            email_hash: `hash-${email.id}`
-          }));
+          // Transform email data to match expected EmailItem format
+          // Handle both real email data and mock processing queue data
+          const transformedEmails = emails.map((email: any) => {
+            // Check if this is real email data (has subject, from) or mock data (has email_subject, from_email)
+            const isRealEmail = email.subject && email.from;
+            
+            if (isRealEmail) {
+              // Real email data from /api/manual-review/emails
+              return {
+                id: email.id || '',
+                subject: email.subject || 'No Subject',
+                from: email.from || 'Unknown Sender',
+                received_at: email.received_at || new Date().toISOString(),
+                status: email.status || 'pending',
+                preview: email.preview || email.subject?.substring(0, 150) || '',
+                has_attachments: email.has_attachments || false,
+                estimated_transactions: email.estimated_transactions || 0,
+                full_content: email.full_content || '',
+                email_hash: email.email_hash || `hash-${email.id}`
+              };
+            } else {
+              // Mock processing queue data - fallback
+              return {
+                id: email.id?.toString() || '',
+                subject: email.email_subject || 'No Subject',
+                from: email.from_email || 'Unknown Sender',
+                received_at: email.created_at || new Date().toISOString(),
+                status: email.status || 'pending',
+                preview: `${email.email_subject} - ${email.status} (${email.progress?.percentage || 0}% complete)`,
+                has_attachments: false,
+                estimated_transactions: 1,
+                full_content: `Email: ${email.email_subject}\nFrom: ${email.from_email}\nStatus: ${email.status}\nProgress: ${email.progress?.percentage || 0}%`,
+                email_hash: `hash-${email.id}`
+              };
+            }
+          });
           
           console.log(`Fetched ${transformedEmails.length} emails via API`);
           return { data: transformedEmails, error: null };
