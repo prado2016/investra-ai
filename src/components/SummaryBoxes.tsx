@@ -175,7 +175,8 @@ export const TotalDailyPLBox: React.FC<{
   value: number; 
   isPrivacyMode?: boolean; 
   trend?: number;
-}> = ({ value, isPrivacyMode, trend }) => {
+  onClick?: () => void;
+}> = ({ value, isPrivacyMode, trend, onClick }) => {
   const mockSparklineData = [
     { value: -100 },
     { value: 200 },
@@ -196,6 +197,7 @@ export const TotalDailyPLBox: React.FC<{
       iconColor={value >= 0 ? '#16a34a' : '#dc2626'}
       isPrivacyMode={isPrivacyMode}
       sparklineData={mockSparklineData}
+      onClick={onClick}
     />
   );
 };
@@ -204,7 +206,8 @@ export const RealizedPLBox: React.FC<{
   value: number; 
   isPrivacyMode?: boolean;
   subtitle?: string;
-}> = ({ value, isPrivacyMode, subtitle }) => (
+  onClick?: () => void;
+}> = ({ value, isPrivacyMode, subtitle, onClick }) => (
   <SummaryBox
     title="Realized P&L"
     value={value}
@@ -212,6 +215,7 @@ export const RealizedPLBox: React.FC<{
     icon={<Target size={20} />}
     iconColor="#3b82f6"
     isPrivacyMode={isPrivacyMode}
+    onClick={onClick}
   />
 );
 
@@ -219,7 +223,8 @@ export const UnrealizedPLBox: React.FC<{
   value: number; 
   isPrivacyMode?: boolean;
   subtitle?: string;
-}> = ({ value, isPrivacyMode, subtitle }) => (
+  onClick?: () => void;
+}> = ({ value, isPrivacyMode, subtitle, onClick }) => (
   <SummaryBox
     title="Unrealized P&L"
     value={value}
@@ -227,6 +232,7 @@ export const UnrealizedPLBox: React.FC<{
     icon={<Activity size={20} />}
     iconColor="#8b5cf6"
     isPrivacyMode={isPrivacyMode}
+    onClick={onClick}
   />
 );
 
@@ -234,7 +240,8 @@ export const DividendIncomeBox: React.FC<{
   value: number; 
   isPrivacyMode?: boolean;
   subtitle?: string;
-}> = ({ value, isPrivacyMode, subtitle }) => (
+  onClick?: () => void;
+}> = ({ value, isPrivacyMode, subtitle, onClick }) => (
   <SummaryBox
     title="Dividend Income"
     value={value}
@@ -242,6 +249,7 @@ export const DividendIncomeBox: React.FC<{
     icon={<DollarSign size={20} />}
     iconColor="#10b981"
     isPrivacyMode={isPrivacyMode}
+    onClick={onClick}
   />
 );
 
@@ -249,7 +257,8 @@ export const TradingFeesBox: React.FC<{
   value: number; 
   isPrivacyMode?: boolean;
   subtitle?: string;
-}> = ({ value, isPrivacyMode, subtitle }) => (
+  onClick?: () => void;
+}> = ({ value, isPrivacyMode, subtitle, onClick }) => (
   <SummaryBox
     title="Trading Fees"
     value={value}
@@ -257,6 +266,7 @@ export const TradingFeesBox: React.FC<{
     icon={<CreditCard size={20} />}
     iconColor="#ef4444"
     isPrivacyMode={isPrivacyMode}
+    onClick={onClick}
   />
 );
 
@@ -264,7 +274,8 @@ export const TradeVolumeBox: React.FC<{
   value: number; 
   isPrivacyMode?: boolean;
   subtitle?: string;
-}> = ({ value, isPrivacyMode, subtitle }) => (
+  onClick?: () => void;
+}> = ({ value, isPrivacyMode, subtitle, onClick }) => (
   <SummaryBox
     title="Trade Volume"
     value={value}
@@ -272,6 +283,7 @@ export const TradeVolumeBox: React.FC<{
     icon={<ArrowUpDown size={20} />}
     iconColor="#f59e0b"
     isPrivacyMode={isPrivacyMode}
+    onClick={onClick}
   />
 );
 
@@ -279,7 +291,8 @@ export const NetCashFlowBox: React.FC<{
   value: number; 
   isPrivacyMode?: boolean;
   subtitle?: string;
-}> = ({ value, isPrivacyMode, subtitle }) => (
+  onClick?: () => void;
+}> = ({ value, isPrivacyMode, subtitle, onClick }) => (
   <SummaryBox
     title="Net Cash Flow"
     value={value}
@@ -287,6 +300,7 @@ export const NetCashFlowBox: React.FC<{
     icon={<TrendingUp size={20} />}
     iconColor="#06b6d4"
     isPrivacyMode={isPrivacyMode}
+    onClick={onClick}
   />
 );
 
@@ -294,7 +308,8 @@ export const NetDepositsBox: React.FC<{
   value: number; 
   isPrivacyMode?: boolean;
   subtitle?: string;
-}> = ({ value, isPrivacyMode, subtitle }) => (
+  onClick?: () => void;
+}> = ({ value, isPrivacyMode, subtitle, onClick }) => (
   <SummaryBox
     title="Net Deposits"
     value={value}
@@ -302,6 +317,7 @@ export const NetDepositsBox: React.FC<{
     icon={<DollarSign size={20} />}
     iconColor="#22c55e"
     isPrivacyMode={isPrivacyMode}
+    onClick={onClick}
   />
 );
 
@@ -309,7 +325,8 @@ export const TimeWeightedReturnRateBox: React.FC<{
   value: number; 
   isPrivacyMode?: boolean;
   subtitle?: string;
-}> = ({ value, isPrivacyMode, subtitle }) => (
+  onClick?: () => void;
+}> = ({ value, isPrivacyMode, subtitle, onClick }) => (
   <SummaryBox
     title="Time-Weighted Return"
     value={value}
@@ -318,6 +335,7 @@ export const TimeWeightedReturnRateBox: React.FC<{
     iconColor="#f97316"
     isPrivacyMode={isPrivacyMode}
     format="percentage"
+    onClick={onClick}
   />
 );
 
@@ -326,7 +344,8 @@ export const TotalReturnBox: React.FC<{
   isPrivacyMode?: boolean;
   subtitle?: string;
   percentValue?: number;
-}> = ({ value, isPrivacyMode, subtitle, percentValue }) => {
+  onClick?: () => void;
+}> = ({ value, isPrivacyMode, subtitle, percentValue, onClick }) => {
   const mockSparklineData = [
     { value: 10000 },
     { value: 10500 },
@@ -347,6 +366,7 @@ export const TotalReturnBox: React.FC<{
       iconColor={value >= 0 ? '#16a34a' : '#dc2626'}
       isPrivacyMode={isPrivacyMode}
       sparklineData={mockSparklineData}
+      onClick={onClick}
     />
   );
 };

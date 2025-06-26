@@ -18,6 +18,8 @@ export interface DashboardMetrics {
   tradingFees: number;
   tradeVolume: number;
   netCashFlow: number;
+  netDeposits: number; // New: Total cash added/removed
+  timeWeightedReturnRate: number; // New: Annualized performance (TWR)
   // All-time total return metrics
   totalReturn: number;
   totalReturnPercent: number;
@@ -182,6 +184,8 @@ export function useDashboardMetrics(): UseDashboardMetricsReturn {
         tradingFees: monthlyFees, // Monthly total
         tradeVolume: todayData?.tradeVolume || 0, // Today's volume
         netCashFlow: todayData?.netCashFlow || 0, // Today's net cash flow
+        netDeposits: 50000, // Placeholder for Net Deposits
+        timeWeightedReturnRate: 0.15, // Placeholder for Time-Weighted Return Rate (15%)
         totalReturn: allTimeTotalReturn, // All-time total return
         totalReturnPercent: allTimeTotalReturnPercent, // All-time return percentage
         transactionCount: todayData?.transactionCount || 0,
