@@ -571,6 +571,12 @@ class SimpleEmailService {
 
       const email = emailResult.data;
 
+      // Check if email is already processed
+      if (email.source === 'processed') {
+        console.log('✅ Email already processed, skipping');
+        return { success: true, transactionId: undefined, error: null };
+      }
+
       // Skip transaction creation for simple expense/income records
       // The transactions table is for trading transactions only
       console.log('📝 Skipping transaction creation - email processed as reviewed');
@@ -588,7 +594,7 @@ class SimpleEmailService {
           subject: email.subject,
           from_email: email.from_email,
           received_at: email.received_at,
-          processing_result: 'reviewed',
+          processing_result: 'approved',
           transaction_id: null, // No transaction created for non-trading emails
           processed_at: new Date().toISOString(),
           processed_by_user_id: user.id,
