@@ -194,7 +194,15 @@ const SimpleApiKeySettings: React.FC = () => {
       setStoredKeys(updatedKeys);
 
       // Reinitialize AI services with new API keys
-      AIServiceManager.reinitializeServices();
+      const aiManager = AIServiceManager.getInstance();
+      // Clear and reinitialize services to pick up new API keys
+      try {
+        await aiManager.initializeService('gemini');
+        await aiManager.initializeService('openai');
+        console.log('Reinitializing AI services with updated API keys...');
+      } catch (error) {
+        console.error('Error reinitializing services:', error);
+      }
 
       // Clear form
       setKeyName('');
