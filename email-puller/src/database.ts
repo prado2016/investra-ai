@@ -309,7 +309,89 @@ export class Database {
   }
 
   /**
-   * Remove processed emails from inbox table
+   * Move emails from inbox to processed table (proper archiving)
+   */
+  async moveEmailsToProcessed(messageIds: string[], userId: string): Promise<number> {
+    if (messageIds.length === 0) return 0;
+
+    try {
+      // First, get the emails from inbox that need to be moved
+      const { data: emailsToMove, error: fetchError } = await this.client
+        .from('imap_inbox')
+        .select('*')
+        .in('message_id', messageIds)
+        .eq('user_id', userId);
+
+      if (fetchError) {
+        logger.error('Failed to fetch emails for moving to processed:', fetchError);
+        throw fetchError;
+      }
+
+      if (!emailsToMove || emailsToMove.length === 0) {
+        logger.warn('No emails found to move to processed table');
+        return 0;
+      }
+
+      // Transform emails for processed table
+      const processedEmails = emailsToMove.map(email => ({
+        user_id: email.user_id,
+        original_inbox_id: email.id,
+        message_id: email.message_id,
+        thread_id: email.thread_id,
+        subject: email.subject,
+        from_email: email.from_email,
+        from_name: email.from_name,
+        to_email: email.to_email,
+        reply_to: email.reply_to,
+        received_at: email.received_at,
+        raw_content: email.raw_content,
+        text_content: email.text_content,
+        html_content: email.html_content,
+        attachments_info: email.attachments_info,
+        email_size: email.email_size,
+        priority: email.priority,
+        processing_result: 'auto_archived',
+        transaction_id: null,
+        processed_at: new Date().toISOString(),
+        processed_by_user_id: email.user_id,
+        processing_notes: 'Automatically archived by email-puller after Gmail sync',
+        created_at: new Date().toISOString()
+      }));
+
+      // Insert into processed table
+      const { error: insertError } = await this.client
+        .from('imap_processed')
+        .insert(processedEmails);
+
+      if (insertError) {
+        logger.error('Failed to insert emails into processed table:', insertError);
+        throw insertError;
+      }
+
+      // Now delete from inbox table
+      const { error: deleteError, count } = await this.client
+        .from('imap_inbox')
+        .delete({ count: 'exact' })
+        .in('message_id', messageIds)
+        .eq('user_id', userId);
+
+      if (deleteError) {
+        logger.error('Failed to delete emails from inbox after moving to processed:', deleteError);
+        throw deleteError;
+      }
+
+      const movedCount = count || 0;
+      logger.info(`Successfully moved ${movedCount} emails from inbox to processed table`);
+      return movedCount;
+
+    } catch (error) {
+      logger.error('Error moving emails to processed table:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Remove processed emails from inbox table (DEPRECATED - use moveEmailsToProcessed instead)
    */
   async removeProcessedEmails(messageIds: string[], userId: string): Promise<number> {
     if (messageIds.length === 0) return 0;
