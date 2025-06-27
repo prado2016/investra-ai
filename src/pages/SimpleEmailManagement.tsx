@@ -450,6 +450,84 @@ const ModalContent = styled.div`
   }
 `;
 
+// AI Parsing Animation Components
+const ParsingContainer = styled.div`
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 2rem;
+  margin-bottom: 1.5rem;
+  text-align: center;
+
+  [data-theme="dark"] & {
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+    border-color: #475569;
+  }
+`;
+
+const ParsingStage = styled.div<{ $active: boolean; $completed: boolean; $error: boolean }>`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 1rem;
+  margin: 0.5rem 0;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  
+  ${props => props.$active && `
+    background: #dbeafe;
+    border: 2px solid #3b82f6;
+    transform: scale(1.02);
+    
+    [data-theme="dark"] & {
+      background: #1e3a8a;
+      border-color: #60a5fa;
+    }
+  `}
+  
+  ${props => props.$completed && `
+    background: #dcfce7;
+    border: 2px solid #16a34a;
+    
+    [data-theme="dark"] & {
+      background: #14532d;
+      border-color: #22c55e;
+    }
+  `}
+  
+  ${props => props.$error && `
+    background: #fee2e2;
+    border: 2px solid #ef4444;
+    
+    [data-theme="dark"] & {
+      background: #7f1d1d;
+      border-color: #f87171;
+    }
+  `}
+`;
+
+const ParsingIcon = styled.div<{ $active: boolean }>`
+  font-size: 1.5rem;
+  ${props => props.$active && `
+    animation: pulse 1.5s infinite;
+  `}
+  
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+  }
+`;
+
+const ParsingText = styled.div`
+  font-weight: 600;
+  color: #374151;
+  
+  [data-theme="dark"] & {
+    color: #d1d5db;
+  }
+`;
+
 const ModalHeader = styled.div`
   display: flex;
   justify-content: space-between;
@@ -540,63 +618,6 @@ const EmailContent = styled.div`
   }
 `;
 
-const FormGroup = styled.div`
-  margin-bottom: 1.5rem;
-`;
-
-const FormLabel = styled.label`
-  display: block;
-  font-weight: 600;
-  color: #374151;
-  margin-bottom: 0.5rem;
-  font-size: 0.875rem;
-
-  [data-theme="dark"] & {
-    color: #d1d5db;
-  }
-`;
-
-const FormInput = styled.input`
-  width: 100%;
-  padding: 0.75rem;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  font-size: 0.875rem;
-  
-  &:focus {
-    outline: none;
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-  }
-
-  [data-theme="dark"] & {
-    background: #374151;
-    border-color: #4b5563;
-    color: #f3f4f6;
-
-    &:focus {
-      border-color: #60a5fa;
-      box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.1);
-    }
-  }
-`;
-
-const FormSelect = styled.select`
-  width: 100%;
-  padding: 0.75rem;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  font-size: 0.875rem;
-  background: white;
-  cursor: pointer;
-
-  [data-theme="dark"] & {
-    background: #374151;
-    border-color: #4b5563;
-    color: #f3f4f6;
-  }
-`;
-
 const FormActions = styled.div`
   display: flex;
   gap: 1rem;
@@ -633,6 +654,8 @@ const SimpleEmailManagement: React.FC = () => {
   const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0 });
   const [bulkResults, setBulkResults] = useState<{ processed: number; errors: number; }>({ processed: 0, errors: 0 });
   const [parsedData, setParsedData] = useState<any>(null);
+  const [parsingStage, setParsingStage] = useState<'idle' | 'analyzing' | 'extracting' | 'validating' | 'complete' | 'error'>('idle');
+  const [parsingError, setParsingError] = useState<string | null>(null);
   const [transactionForm, setTransactionForm] = useState({
     // Trading transaction fields
     portfolioId: '',
@@ -961,125 +984,113 @@ const SimpleEmailManagement: React.FC = () => {
 
   const openProcessModal = async (email: EmailItem) => {
     setProcessingEmail(email);
+    setParsedData(null);
+    setParsingError(null);
+    setParsingStage('analyzing');
     
-    // Parse email content to extract transaction information
-    const extracted = await parseEmailForTransaction(email);
-    setParsedData(extracted);
-    
-    // Get today's date in YYYY-MM-DD format
-    const today = new Date();
-    const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-    
-    if (extracted && extracted.aiParsed) {
-      // Check if this is a trading transaction - if we have extracted data, treat as trading
-      const isTradingTransaction = true; // Always treat parsed emails as trading transactions
+    try {
+      // Stage 1: Analyzing email content
+      await new Promise(resolve => setTimeout(resolve, 800));
+      setParsingStage('extracting');
       
-      if (isTradingTransaction) {
-        // Auto-fill form with trading data
-        setTransactionForm({
-          // Trading fields
-          portfolioId: '', // Will be set after portfolio lookup
-          symbol: extracted.symbol || '',
-          assetType: extracted.assetType || 'stock',
-          transactionType: extracted.transactionType || 'buy',
-          quantity: extracted.quantity?.toString() || '',
-          price: extracted.price?.toString() || '',
-          totalAmount: extracted.totalAmount?.toString() || '',
-          fees: extracted.fees?.toString() || '0',
-          currency: extracted.currency || 'USD',
-          date: extracted.transactionDate || dateStr,
-          // Legacy fields for compatibility
-          type: extracted.type || (extracted.transactionType === 'buy' ? 'expense' : 'income'),
-          amount: extracted.amount?.toString() || extracted.totalAmount?.toString() || '',
-          description: extracted.description || `${extracted.transactionType?.toUpperCase()} ${extracted.quantity || ''} ${extracted.assetType === 'option' ? 'contracts' : 'shares'} of ${extracted.symbol || ''}`,
-          category: extracted.category || 'Trading'
-        });
-        
-        // If portfolio name was extracted, try to find matching portfolio
-        if (extracted.portfolioName && portfolios.length > 0) {
-          console.log('🤖 AI extracted portfolioName:', extracted.portfolioName);
-          console.log('📋 Available portfolios:', portfolios.map(p => ({ id: p.id, name: p.name })));
-          
-          // Enhanced matching logic for portfolio names
-          const extractedName = extracted.portfolioName?.toUpperCase() || '';
-          
-          const matchingPortfolio = portfolios.find(p => {
-            const portfolioName = p.name.toUpperCase();
-            
-            // Direct matches
-            if (portfolioName === extractedName) return true;
-            if (portfolioName.includes(extractedName)) return true;
-            if (extractedName.includes(portfolioName)) return true;
-            
-            // Common portfolio type mappings
-            const mappings = [
-              { ai: 'MARGIN', portfolio: ['NON-REGISTERED', 'TRADING', 'MARGIN', 'CASH'] },
-              { ai: 'TFSA', portfolio: ['TFSA', 'TAX-FREE'] },
-              { ai: 'RRSP', portfolio: ['RRSP', 'RSP'] },
-              { ai: 'CASH', portfolio: ['CASH', 'NON-REGISTERED', 'TRADING'] },
-              { ai: 'TRADING', portfolio: ['TRADING', 'NON-REGISTERED', 'MARGIN'] }
-            ];
-            
-            // Check if AI extracted name matches any mapping
-            for (const mapping of mappings) {
-              if (extractedName === mapping.ai) {
-                return mapping.portfolio.some(keyword => portfolioName.includes(keyword));
-              }
-            }
-            
-            return false;
-          });
-          
-          console.log('🎯 Matching portfolio found:', matchingPortfolio ? { id: matchingPortfolio.id, name: matchingPortfolio.name } : 'None');
-          
-          if (matchingPortfolio) {
-            setTransactionForm(prev => ({ ...prev, portfolioId: matchingPortfolio.id }));
-            console.log('✅ Portfolio set to:', matchingPortfolio.name);
-          } else {
-            console.log('❌ No matching portfolio found for AI-extracted name:', extracted.portfolioName);
-          }
-        } else if (extracted.portfolioName) {
-          console.log('⚠️ Portfolio name extracted but no portfolios loaded yet:', extracted.portfolioName);
-        }
+      // Stage 2: Extracting transaction data
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      setParsingStage('validating');
+      
+      // Parse email content to extract transaction information
+      const extracted = await parseEmailForTransaction(email);
+      
+      // Stage 3: Validating extracted data
+      await new Promise(resolve => setTimeout(resolve, 600));
+      
+      if (extracted && extracted.aiParsed) {
+        setParsingStage('complete');
+        setParsedData(extracted);
       } else {
-        // Basic transaction with legacy fields
-        setTransactionForm({
-          portfolioId: '',
-          symbol: '',
-          assetType: 'stock',
-          transactionType: 'buy',
-          quantity: '',
-          price: '',
-          totalAmount: '',
-          fees: '0',
-          currency: extracted.currency || 'USD',
-          date: dateStr,
-          type: extracted.type || 'expense',
-          amount: extracted.amount?.toString() || '',
-          description: extracted.description || email.subject || 'Email transaction',
-          category: extracted.category || 'Email Import'
-        });
+        setParsingStage('error');
+        setParsingError(extracted?.error || 'Unable to extract transaction data from this email');
+        setParsedData(extracted);
       }
-    } else {
-      // Fallback to manual entry when AI parsing failed or no data extracted
-      setTransactionForm({
-        portfolioId: portfolios.length > 0 ? portfolios[0].id : '',
-        symbol: '',
-        assetType: 'stock',
-        transactionType: 'buy',
-        quantity: '',
-        price: '',
-        totalAmount: '',
-        fees: '0',
-        currency: 'USD',
-        date: dateStr,
-        type: 'expense',
-        amount: '',
-        description: email.subject || 'Email transaction',
-        category: ''
-      });
+    } catch (error) {
+      setParsingStage('error');
+      setParsingError(error instanceof Error ? error.message : 'An unexpected error occurred');
+      setParsedData(null);
     }
   };
+
+  // Form filling logic (moved outside of openProcessModal)
+  useEffect(() => {
+    if (parsedData && parsedData.aiParsed && processingEmail) {
+      // Get today's date in YYYY-MM-DD format
+      const today = new Date();
+      const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      
+      // Auto-fill form with trading data
+      setTransactionForm({
+        // Trading fields
+        portfolioId: '', // Will be set after portfolio lookup
+        symbol: parsedData.symbol || '',
+        assetType: parsedData.assetType || 'stock',
+        transactionType: parsedData.transactionType || 'buy',
+        quantity: parsedData.quantity?.toString() || '',
+        price: parsedData.price?.toString() || '',
+        totalAmount: parsedData.totalAmount?.toString() || '',
+        fees: parsedData.fees?.toString() || '0',
+        currency: parsedData.currency || 'USD',
+        date: parsedData.transactionDate || dateStr,
+        // Legacy fields for compatibility
+        type: parsedData.type || (parsedData.transactionType === 'buy' ? 'expense' : 'income'),
+        amount: parsedData.amount?.toString() || parsedData.totalAmount?.toString() || '',
+        description: parsedData.description || `${parsedData.transactionType?.toUpperCase()} ${parsedData.quantity || ''} ${parsedData.assetType === 'option' ? 'contracts' : 'shares'} of ${parsedData.symbol || ''}`,
+        category: parsedData.category || 'Trading'
+      });
+      
+      // If portfolio name was extracted, try to find matching portfolio
+      if (parsedData.portfolioName && portfolios.length > 0) {
+        console.log('🤖 AI extracted portfolioName:', parsedData.portfolioName);
+        console.log('📋 Available portfolios:', portfolios.map(p => ({ id: p.id, name: p.name })));
+        
+        // Enhanced matching logic for portfolio names
+        const extractedName = parsedData.portfolioName?.toUpperCase() || '';
+        
+        const matchingPortfolio = portfolios.find(p => {
+          const portfolioName = p.name.toUpperCase();
+          
+          // Direct matches
+          if (portfolioName === extractedName) return true;
+          if (portfolioName.includes(extractedName)) return true;
+          if (extractedName.includes(portfolioName)) return true;
+          
+          // Common portfolio type mappings
+          const mappings = [
+            { ai: 'MARGIN', portfolio: ['NON-REGISTERED', 'TRADING', 'MARGIN', 'CASH'] },
+            { ai: 'TFSA', portfolio: ['TFSA', 'TAX-FREE'] },
+            { ai: 'RRSP', portfolio: ['RRSP', 'RSP'] },
+            { ai: 'CASH', portfolio: ['CASH', 'NON-REGISTERED', 'TRADING'] },
+            { ai: 'TRADING', portfolio: ['TRADING', 'NON-REGISTERED', 'MARGIN'] }
+          ];
+          
+          // Check if AI extracted name matches any mapping
+          for (const mapping of mappings) {
+            if (extractedName === mapping.ai) {
+              return mapping.portfolio.some(keyword => portfolioName.includes(keyword));
+            }
+          }
+          
+          return false;
+        });
+        
+        console.log('🎯 Matching portfolio found:', matchingPortfolio ? { id: matchingPortfolio.id, name: matchingPortfolio.name } : 'None');
+        
+        if (matchingPortfolio) {
+          setTransactionForm(prev => ({ ...prev, portfolioId: matchingPortfolio.id }));
+          console.log('✅ Portfolio set to:', matchingPortfolio.name);
+        } else {
+          console.log('❌ No matching portfolio found for AI-extracted name:', parsedData.portfolioName);
+        }
+      }
+    }
+  }, [parsedData, portfolios, processingEmail]);
 
   // Bulk process all emails one by one
   const handleBulkProcess = async () => {
@@ -1853,11 +1864,11 @@ const SimpleEmailManagement: React.FC = () => {
 
       {/* Process Email Modal */}
       {processingEmail && (
-        <ModalOverlay onClick={() => setProcessingEmail(null)}>
-          <ModalContent onClick={(e) => e.stopPropagation()}>
+        <ModalOverlay onClick={() => { setProcessingEmail(null); setParsingStage('idle'); }}>
+          <ModalContent onClick={(e) => e.stopPropagation()} style={{ maxWidth: '1200px', width: '90vw' }}>
             <ModalHeader>
-              <ModalTitle>Process Email as Transaction</ModalTitle>
-              <CloseButton onClick={() => setProcessingEmail(null)}>
+              <ModalTitle>AI Email Transaction Parser</ModalTitle>
+              <CloseButton onClick={() => { setProcessingEmail(null); setParsingStage('idle'); }}>
                 <X size={20} />
               </CloseButton>
             </ModalHeader>
@@ -1877,83 +1888,42 @@ const SimpleEmailManagement: React.FC = () => {
               </DetailValue>
             </EmailDetail>
 
-            {/* AI Parsing Status */}
-            <div style={{
-              background: parsedData?.aiParsed 
-                ? (parsedData.confidence && parsedData.confidence > 0.7 ? '#dcfce7' : '#fef3c7')
-                : '#fee2e2',
-              border: `1px solid ${parsedData?.aiParsed 
-                ? (parsedData.confidence && parsedData.confidence > 0.7 ? '#16a34a' : '#eab308')
-                : '#ef4444'}`,
-              borderRadius: '8px',
-              padding: '0.75rem',
-              marginBottom: '1rem'
-            }}>
-              {parsedData?.aiParsed ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <span style={{ fontSize: '1.2rem' }}>🤖</span>
-                  <div>
-                    <DetailLabel style={{ 
-                      margin: 0, 
-                      color: parsedData.confidence && parsedData.confidence > 0.7 ? '#15803d' : '#a16207',
-                      fontWeight: 600
-                    }}>
-                      AI Extracted {parsedData.parsingType === 'trading' ? 'Trading' : 'Basic'} Transaction
-                    </DetailLabel>
-                    {parsedData.confidence && (
-                      <div style={{ 
-                        fontSize: '0.875rem', 
-                        color: parsedData.confidence > 0.7 ? '#15803d' : '#a16207',
-                        marginTop: '0.25rem'
-                      }}>
-                        Confidence: {Math.round(parsedData.confidence * 100)}%
-                        {parsedData.confidence > 0.8 && ' (High)'}
-                        {parsedData.confidence > 0.5 && parsedData.confidence <= 0.8 && ' (Medium)'}
-                        {parsedData.confidence <= 0.5 && ' (Low)'}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                    <span style={{ fontSize: '1.2rem' }}>❌</span>
-                    <DetailLabel style={{ margin: 0, color: '#991b1b', fontWeight: 600 }}>
-                      AI Parsing Failed
-                    </DetailLabel>
-                  </div>
-                  <div style={{ fontSize: '0.875rem', color: '#991b1b', marginBottom: '0.5rem' }}>
-                    Unable to automatically extract transaction data from this email.
-                  </div>
-                  {parsedData?.error && (
-                    <div style={{ 
-                      fontSize: '0.875rem', 
-                      color: '#7f1d1d', 
-                      background: '#fef2f2', 
-                      padding: '0.5rem',
-                      borderRadius: '4px',
-                      marginBottom: '0.5rem',
-                      fontFamily: 'monospace'
-                    }}>
-                      <strong>Error:</strong> {parsedData.error}
-                    </div>
-                  )}
-                  <div style={{ 
-                    fontSize: '0.75rem', 
-                    color: '#7f1d1d', 
-                    background: '#fef2f2', 
-                    padding: '0.5rem',
-                    borderRadius: '4px',
-                    fontFamily: 'monospace'
-                  }}>
-                    <strong>Common causes:</strong> API quota exceeded, unsupported email format, or non-financial content.
-                    Check console for detailed error messages.
-                  </div>
-                </div>
-              )}
-            </div>
+            {/* AI Parsing Animation */}
+            {parsingStage !== 'idle' && parsingStage !== 'complete' && parsingStage !== 'error' && (
+              <ParsingContainer>
+                <DetailLabel style={{ textAlign: 'center', fontSize: '1.125rem', fontWeight: '600' }}>🤖 AI Processing Email</DetailLabel>
+                
+                <ParsingStage 
+                  $active={parsingStage === 'analyzing'} 
+                  $completed={['extracting', 'validating'].includes(parsingStage)}
+                  $error={false}
+                >
+                  <ParsingIcon $active={parsingStage === 'analyzing'}>🔍</ParsingIcon>
+                  <ParsingText>Analyzing email content</ParsingText>
+                </ParsingStage>
 
-            {parsedData?.aiParsed ? (
+                <ParsingStage 
+                  $active={parsingStage === 'extracting'} 
+                  $completed={parsingStage === 'validating'}
+                  $error={false}
+                >
+                  <ParsingIcon $active={parsingStage === 'extracting'}>⚡</ParsingIcon>
+                  <ParsingText>Extracting transaction data</ParsingText>
+                </ParsingStage>
+
+                <ParsingStage 
+                  $active={parsingStage === 'validating'} 
+                  $completed={false}
+                  $error={false}
+                >
+                  <ParsingIcon $active={parsingStage === 'validating'}>✅</ParsingIcon>
+                  <ParsingText>Validating extracted information</ParsingText>
+                </ParsingStage>
+              </ParsingContainer>
+            )}
+
+            {/* Success State - Side by Side */}
+            {parsingStage === 'complete' && parsedData?.aiParsed && (
               <>
                 {/* Show extracted information */}
                 <div style={{ 
@@ -2039,200 +2009,64 @@ const SimpleEmailManagement: React.FC = () => {
                   )}
                 </div>
 
-                {/* Editable transaction form with pre-filled data */}
-                <DetailLabel style={{ color: '#374151', marginBottom: '1rem' }}>
-                  ✏️ Review & Edit Transaction Details
-                </DetailLabel>
+                <div>✅ Success! Data extracted and ready for review.</div>
               </>
-            ) : (
+            )}
+
+            {/* Error State */}
+            {parsingStage === 'error' && (
               <div style={{ 
-                background: '#fef3c7', 
-                border: '1px solid #fbbf24', 
+                background: '#fee2e2', 
+                border: '2px solid #ef4444', 
                 borderRadius: '8px', 
-                padding: '1rem', 
-                marginBottom: '1.5rem' 
+                padding: '1.5rem', 
+                marginBottom: '1.5rem',
+                textAlign: 'center'
               }}>
-                <DetailLabel style={{ color: '#92400e' }}>
-                  ⚠️ Could not automatically extract transaction data. Please enter manually.
-                </DetailLabel>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+                  <span style={{ fontSize: '1.5rem' }}>❌</span>
+                  <DetailLabel style={{ margin: 0, color: '#991b1b', fontSize: '1.125rem', fontWeight: '600' }}>
+                    AI Parsing Failed
+                  </DetailLabel>
+                </div>
+                
+                {parsingError && (
+                  <div style={{ 
+                    fontSize: '0.875rem', 
+                    color: '#7f1d1d', 
+                    background: '#fef2f2', 
+                    padding: '0.75rem',
+                    borderRadius: '6px',
+                    marginBottom: '1rem',
+                    fontFamily: 'monospace',
+                    textAlign: 'left'
+                  }}>
+                    <strong>Error:</strong> {parsingError}
+                  </div>
+                )}
+                <div>Manual entry required below.</div>
               </div>
             )}
 
-            {/* Trading Transaction Form - Always show for email processing */}
-            <>
-                <FormGroup>
-                  <FormLabel>
-                    Portfolio * 
-                    {parsedData && parsedData.portfolioName && parsedData.aiParsed && (
-                      <span style={{ 
-                        marginLeft: '0.5rem', 
-                        fontSize: '0.75rem', 
-                        color: '#16a34a',
-                        fontWeight: 'normal'
-                      }}>
-                        🤖 AI
-                      </span>
-                    )}
-                  </FormLabel>
-                  <FormSelect
-                    value={transactionForm.portfolioId}
-                    onChange={(e) => setTransactionForm(prev => ({ ...prev, portfolioId: e.target.value }))}
-                    style={parsedData && parsedData.portfolioName ? { background: '#f0fdf4' } : {}}
-                  >
-                    <option value="">Select Portfolio</option>
-                    {portfolios.map(portfolio => (
-                      <option key={portfolio.id} value={portfolio.id}>
-                        {portfolio.name}
-                      </option>
-                    ))}
-                  </FormSelect>
-                </FormGroup>
+            {/* Action Buttons */}
+            {(parsingStage === 'complete' || parsingStage === 'error') && (
+              <FormActions>
+                <Button
+                  variant="outline"
+                  onClick={() => { setProcessingEmail(null); setParsingStage('idle'); }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={handleProcessEmail}
+                >
+                  <DollarSign size={16} />
+                  Create Transaction & Archive Email
+                </Button>
+              </FormActions>
+            )}
 
-                <FormGroup>
-                  <FormLabel>
-                    Symbol * 
-                    {parsedData && parsedData.symbol && parsedData.aiParsed && (
-                      <span style={{ 
-                        marginLeft: '0.5rem', 
-                        fontSize: '0.75rem', 
-                        color: '#16a34a',
-                        fontWeight: 'normal'
-                      }}>
-                        🤖 AI
-                      </span>
-                    )}
-                  </FormLabel>
-                  <FormInput
-                    type="text"
-                    placeholder="e.g., NVDA"
-                    value={transactionForm.symbol}
-                    onChange={(e) => setTransactionForm(prev => ({ ...prev, symbol: e.target.value.toUpperCase() }))}
-                    style={parsedData && parsedData.symbol ? { background: '#f0fdf4' } : {}}
-                  />
-                </FormGroup>
-
-                <FormGroup>
-                  <FormLabel>Asset Type *</FormLabel>
-                  <FormSelect
-                    value={transactionForm.assetType}
-                    onChange={(e) => setTransactionForm(prev => ({ ...prev, assetType: e.target.value as 'stock' | 'option' }))}
-                    style={parsedData && parsedData.assetType ? { background: '#f0fdf4' } : {}}
-                  >
-                    <option value="stock">Stock</option>
-                    <option value="option">Option</option>
-                  </FormSelect>
-                </FormGroup>
-
-                <FormGroup>
-                  <FormLabel>Transaction Type *</FormLabel>
-                  <FormSelect
-                    value={transactionForm.transactionType}
-                    onChange={(e) => setTransactionForm(prev => ({ ...prev, transactionType: e.target.value as 'buy' | 'sell' }))}
-                    style={parsedData && parsedData.transactionType ? { background: '#f0fdf4' } : {}}
-                  >
-                    <option value="buy">Buy</option>
-                    <option value="sell">Sell</option>
-                  </FormSelect>
-                </FormGroup>
-
-                <FormGroup>
-                  <FormLabel>
-                    {transactionForm.assetType === 'option' ? 'Contracts' : 'Quantity'} *
-                    {parsedData && parsedData.quantity && parsedData.aiParsed && (
-                      <span style={{ 
-                        marginLeft: '0.5rem', 
-                        fontSize: '0.75rem', 
-                        color: '#16a34a',
-                        fontWeight: 'normal'
-                      }}>
-                        🤖 AI
-                      </span>
-                    )}
-                  </FormLabel>
-                  <FormInput
-                    type="number"
-                    step="0.0001"
-                    placeholder={transactionForm.assetType === 'option' ? 'e.g., 10 contracts' : 'e.g., 100 shares'}
-                    value={transactionForm.quantity}
-                    onChange={(e) => setTransactionForm(prev => ({ ...prev, quantity: e.target.value }))}
-                    style={parsedData && parsedData.quantity ? { background: '#f0fdf4' } : {}}
-                  />
-                </FormGroup>
-
-                <FormGroup>
-                  <FormLabel>
-                    Price *
-                    {parsedData && parsedData.price && parsedData.aiParsed && (
-                      <span style={{ 
-                        marginLeft: '0.5rem', 
-                        fontSize: '0.75rem', 
-                        color: '#16a34a',
-                        fontWeight: 'normal'
-                      }}>
-                        🤖 AI
-                      </span>
-                    )}
-                  </FormLabel>
-                  <FormInput
-                    type="number"
-                    step="0.0001"
-                    placeholder="0.00"
-                    value={transactionForm.price}
-                    onChange={(e) => setTransactionForm(prev => ({ ...prev, price: e.target.value }))}
-                    style={parsedData && parsedData.price ? { background: '#f0fdf4' } : {}}
-                  />
-                </FormGroup>
-
-                <FormGroup>
-                  <FormLabel>Total Amount</FormLabel>
-                  <FormInput
-                    type="number"
-                    step="0.01"
-                    placeholder="Auto-calculated"
-                    value={transactionForm.totalAmount}
-                    onChange={(e) => setTransactionForm(prev => ({ ...prev, totalAmount: e.target.value }))}
-                    style={parsedData && parsedData.totalAmount ? { background: '#f0fdf4' } : {}}
-                  />
-                </FormGroup>
-
-                <FormGroup>
-                  <FormLabel>Fees</FormLabel>
-                  <FormInput
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={transactionForm.fees}
-                    onChange={(e) => setTransactionForm(prev => ({ ...prev, fees: e.target.value }))}
-                    style={parsedData && parsedData.fees ? { background: '#f0fdf4' } : {}}
-                  />
-                </FormGroup>
-
-                <FormGroup>
-                  <FormLabel>Date *</FormLabel>
-                  <FormInput
-                    type="date"
-                    value={transactionForm.date}
-                    onChange={(e) => setTransactionForm(prev => ({ ...prev, date: e.target.value }))}
-                    style={parsedData && parsedData.transactionDate ? { background: '#f0fdf4' } : {}}
-                  />
-                </FormGroup>
-            </>
-
-            <FormActions>
-              <Button
-                variant="outline"
-                onClick={() => setProcessingEmail(null)}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="primary"
-                onClick={handleProcessEmail}
-              >
-                <DollarSign size={16} />
-                Create Transaction & Archive Email
-              </Button>
-            </FormActions>
           </ModalContent>
         </ModalOverlay>
       )}
