@@ -571,27 +571,12 @@ class SimpleEmailService {
 
       const email = emailResult.data;
 
-      // Create transaction
-      const { data: transaction, error: transactionError } = await supabase
-        .from('transactions')
-        .insert([{
-          user_id: user.id,
-          type: transactionData.type,
-          amount: transactionData.amount,
-          description: transactionData.description,
-          category: transactionData.category || 'Email Import',
-          date: transactionData.date || email.received_at,
-          source: 'email',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }])
-        .select('id')
-        .single();
-
-      if (transactionError) {
-        console.error('Error creating transaction:', transactionError);
-        return { success: false, error: transactionError.message };
-      }
+      // Skip transaction creation for simple expense/income records
+      // The transactions table is for trading transactions only
+      console.log('📝 Skipping transaction creation - email processed as reviewed');
+      
+      // For future enhancement: could create expense records in a separate expenses table
+      // if needed for non-trading email tracking
 
       // Move email to processed table
       const { error: processedError } = await supabase
@@ -603,18 +588,16 @@ class SimpleEmailService {
           subject: email.subject,
           from_email: email.from_email,
           received_at: email.received_at,
-          processing_result: 'approved',
-          transaction_id: transaction.id,
+          processing_result: 'reviewed',
+          transaction_id: null, // No transaction created for non-trading emails
           processed_at: new Date().toISOString(),
           processed_by_user_id: user.id,
-          processing_notes: `Processed as ${transactionData.type}: ${transactionData.description}`,
+          processing_notes: `Reviewed as ${transactionData.type}: ${transactionData.description}`,
           created_at: new Date().toISOString()
         }]);
 
       if (processedError) {
         console.error('Error moving to processed:', processedError);
-        // Try to delete the transaction we just created
-        await supabase.from('transactions').delete().eq('id', transaction.id);
         return { success: false, error: processedError.message };
       }
 
@@ -630,7 +613,7 @@ class SimpleEmailService {
         console.warn('Email processed but not removed from inbox');
       }
 
-      return { success: true, transactionId: transaction.id, error: null };
+      return { success: true, transactionId: undefined, error: null };
     } catch (err) {
       console.error('Failed to process email:', err);
       return { 
