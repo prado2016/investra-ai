@@ -1152,8 +1152,8 @@ const SimpleEmailManagement: React.FC = () => {
           }
         }
         
-        // Small delay to prevent overwhelming the system
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Longer delay to prevent AI API rate limiting and system overload
+        await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second delay
         
       } catch (error) {
         console.error(`❌ Error processing email ${email.id}:`, error);

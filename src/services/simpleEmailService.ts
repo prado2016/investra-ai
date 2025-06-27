@@ -432,18 +432,44 @@ class SimpleEmailService {
    */
   async getEmailById(id: string): Promise<{ data: EmailItem | null; error: string | null }> {
     try {
-      const { data, error } = await supabase
+      console.log('🔍 Looking for email by ID:', id);
+      
+      // Try imap_inbox first
+      const { data: inboxData } = await supabase
         .from('imap_inbox')
         .select('*')
         .eq('id', id)
-        .single();
+        .maybeSingle(); // Use maybeSingle to avoid error when no rows found
 
-      if (error) {
-        console.error('Error fetching email:', error);
-        return { data: null, error: error.message };
+      if (inboxData) {
+        console.log('✅ Found email in imap_inbox');
+        return { data: { ...inboxData, source: 'inbox' }, error: null };
       }
 
-      return { data, error: null };
+      // Try imap_processed if not found in inbox
+      console.log('🔍 Email not in inbox, checking imap_processed...');
+      const { data: processedData } = await supabase
+        .from('imap_processed')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle();
+
+      if (processedData) {
+        console.log('✅ Found email in imap_processed');
+        return { 
+          data: { 
+            ...processedData, 
+            source: 'processed',
+            received_at: processedData.processed_at || processedData.received_at 
+          }, 
+          error: null 
+        };
+      }
+
+      // Email not found in either table
+      console.log('❌ Email not found in either table');
+      return { data: null, error: 'Email not found' };
+
     } catch (err) {
       console.error('Failed to fetch email:', err);
       return { 
