@@ -7,8 +7,10 @@ interface StoredApiKey {
   provider: string;
   keyName: string;
   apiKey: string;
+  model?: string;
   createdAt: string;
   isActive: boolean;
+  isDefault: boolean;
 }
 
 export class ApiKeyStorage {
@@ -31,14 +33,33 @@ export class ApiKeyStorage {
   }
 
   /**
-   * Get API key for a specific provider
+   * Get default API key for a specific provider
    */
   static getApiKey(provider: string): string | null {
     const keys = this.getStoredKeys();
-    const activeKey = keys.find(key => 
-      key.provider === provider && key.isActive
+    const defaultKey = keys.find(key => 
+      key.provider === provider && key.isActive && key.isDefault
     );
-    return activeKey?.apiKey || null;
+    return defaultKey?.apiKey || null;
+  }
+
+  /**
+   * Get default API key configuration (including model) for a specific provider
+   */
+  static getDefaultKeyConfig(provider: string): { apiKey: string; model?: string } | null {
+    const keys = this.getStoredKeys();
+    const defaultKey = keys.find(key => 
+      key.provider === provider && key.isActive && key.isDefault
+    );
+    
+    if (defaultKey) {
+      return {
+        apiKey: defaultKey.apiKey,
+        model: defaultKey.model
+      };
+    }
+    
+    return null;
   }
 
   /**
@@ -67,15 +88,17 @@ export class ApiKeyStorage {
   /**
    * Save API key for a provider
    */
-  static saveApiKey(provider: string, keyName: string, apiKey: string): boolean {
+  static saveApiKey(provider: string, keyName: string, apiKey: string, model?: string, isDefault?: boolean): boolean {
     try {
       const keys = this.getStoredKeys();
       const newKey: StoredApiKey = {
         provider,
         keyName,
         apiKey,
+        model,
         createdAt: new Date().toISOString(),
-        isActive: true
+        isActive: true,
+        isDefault: isDefault || false
       };
 
       // Check if key with same name already exists
@@ -91,6 +114,14 @@ export class ApiKeyStorage {
       } else {
         // Add new key
         updatedKeys = [...keys, newKey];
+      }
+
+      // If this is being set as default, unset other defaults for this provider
+      if (isDefault) {
+        updatedKeys = updatedKeys.map(key => ({
+          ...key,
+          isDefault: key.provider === provider && key.keyName === keyName
+        }));
       }
 
       localStorage.setItem(this.STORAGE_KEY, JSON.stringify(updatedKeys));
