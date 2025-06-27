@@ -629,6 +629,7 @@ const SimpleEmailManagement: React.FC = () => {
   const [selectedEmail, setSelectedEmail] = useState<EmailItem | null>(null);
   const [processingEmail, setProcessingEmail] = useState<EmailItem | null>(null);
   const [bulkProcessing, setBulkProcessing] = useState(false);
+  const [bulkCancelled, setBulkCancelled] = useState(false);
   const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0 });
   const [bulkResults, setBulkResults] = useState<{ processed: number; errors: number; }>({ processed: 0, errors: 0 });
   const [parsedData, setParsedData] = useState<any>(null);
@@ -1099,6 +1100,7 @@ const SimpleEmailManagement: React.FC = () => {
     if (!confirmed) return;
 
     setBulkProcessing(true);
+    setBulkCancelled(false);
     setBulkProgress({ current: 0, total: emailsToProcess.length });
     setBulkResults({ processed: 0, errors: 0 });
 
@@ -1106,6 +1108,12 @@ const SimpleEmailManagement: React.FC = () => {
     let errors = 0;
 
     for (let i = 0; i < emailsToProcess.length; i++) {
+      // Check for cancellation at the start of each iteration
+      if (bulkCancelled) {
+        console.log('🛑 Bulk processing cancelled by user');
+        break;
+      }
+
       const email = emailsToProcess[i];
       setBulkProgress({ current: i + 1, total: emailsToProcess.length });
 
@@ -1164,16 +1172,25 @@ const SimpleEmailManagement: React.FC = () => {
       setBulkResults({ processed, errors });
     }
 
+    const wasCancelled = bulkCancelled;
     setBulkProcessing(false);
+    setBulkCancelled(false);
     
     // Refresh email list to show updated statuses
     await loadEmails();
     
-    if (errors === 0) {
+    if (wasCancelled) {
+      error('Bulk Processing Cancelled', `Processing stopped by user. Processed ${processed} emails, ${errors} failed`);
+    } else if (errors === 0) {
       success('Bulk Processing Complete', `Successfully processed ${processed} emails`);
     } else {
       error('Bulk Processing Complete', `Processed ${processed} emails, ${errors} failed`);
     }
+  };
+
+  // Cancel bulk processing
+  const handleCancelBulkProcessing = () => {
+    setBulkCancelled(true);
   };
 
   // Filter emails based on search and status
@@ -1631,6 +1648,19 @@ const SimpleEmailManagement: React.FC = () => {
                   ❌ {bulkResults.errors} errors
                 </div>
               )}
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleCancelBulkProcessing}
+                style={{ 
+                  borderColor: '#ef4444', 
+                  color: '#ef4444',
+                  minWidth: '80px'
+                }}
+              >
+                <X size={14} />
+                Cancel
+              </Button>
             </div>
           )}
         </div>

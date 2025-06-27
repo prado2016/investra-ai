@@ -277,7 +277,10 @@ export class GeminiAIService extends BaseAIService {
 
     try {
       this.genAI = new GoogleGenerativeAI(apiKey);
-      const modelName = this.config.model || 'gemini-1.5-flash';
+      // Explicitly use Gemini 1.5 Flash for higher free tier limits (1,500 requests/day)
+      const modelName = this.config.model || 
+                        import.meta.env.VITE_GEMINI_MODEL || 
+                        'gemini-1.5-flash';
       
       const generationConfig = {
         temperature: this.config.temperature || 0.1,
@@ -291,7 +294,7 @@ export class GeminiAIService extends BaseAIService {
         generationConfig
       });
 
-      console.log('Gemini AI initialized successfully');
+      console.log(`Gemini AI initialized successfully with model: ${modelName}`);
 
     } catch (error) {
       console.error('Failed to initialize Gemini AI:', error);
