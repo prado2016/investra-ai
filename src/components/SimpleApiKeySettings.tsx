@@ -7,7 +7,7 @@ import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { Key, Save, Eye, EyeOff, TestTube, CheckCircle, AlertCircle, Loader } from 'lucide-react';
 import { InputField, PasswordField, SelectField } from './FormFields';
-import { AIServiceManager } from '../utils/aiServiceManager';
+import { AIServiceManager } from '../services/ai/aiServiceManager';
 
 const SettingsContainer = styled.div`
   max-width: 600px;
@@ -215,12 +215,13 @@ const SimpleApiKeySettings: React.FC = () => {
     setTestingKey(keyId);
 
     try {
-      // Simple validation test
+      console.log(`🧪 Testing ${keyToTest.provider} API key: ${keyToTest.keyName}`);
+      
+      // Basic format validation first
       if (keyToTest.apiKey.length < 10) {
         throw new Error('API key appears to be too short');
       }
 
-      // Basic format validation
       const formatTests = {
         gemini: (key: string) => key.startsWith('AI') && key.length > 20,
         openai: (key: string) => key.startsWith('sk-') && key.length > 40,
@@ -233,19 +234,53 @@ const SimpleApiKeySettings: React.FC = () => {
         throw new Error(`API key format doesn't match expected pattern for ${keyToTest.provider}`);
       }
 
-      // Simulate API test delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      console.log(`✅ Format validation passed for ${keyToTest.provider}`);
 
-      setTestResults(prev => ({
-        ...prev,
-        [keyId]: { success: true, message: 'API key format is valid and ready to use!' }
-      }));
+      // Actually test the API connection
+      const aiManager = AIServiceManager.getInstance();
+      
+      // Initialize the service with the test key
+      const initialized = await aiManager.initializeService(keyToTest.provider as any, {
+        apiKey: keyToTest.apiKey,
+        model: keyToTest.provider === 'gemini' ? 'gemini-1.5-flash' : undefined
+      });
+
+      if (!initialized) {
+        throw new Error('Failed to initialize AI service');
+      }
+
+      console.log(`🔌 Service initialized for ${keyToTest.provider}, testing connection...`);
+
+      // Get the service and test connection
+      const service = aiManager.getService(keyToTest.provider as any);
+      if (!service) {
+        throw new Error('Service not available after initialization');
+      }
+
+      // Test actual connection
+      const testResult = await service.testConnection();
+      console.log(`🔍 Connection test result:`, testResult);
+
+      if (testResult.success) {
+        const latencyInfo = testResult.latency ? ` (${testResult.latency}ms)` : '';
+        setTestResults(prev => ({
+          ...prev,
+          [keyId]: { 
+            success: true, 
+            message: `✅ API connection successful!${latencyInfo}` 
+          }
+        }));
+        console.log(`✅ ${keyToTest.provider} API test successful!`);
+      } else {
+        throw new Error(testResult.error || 'Connection test failed');
+      }
 
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Test failed with unknown error';
+      console.error(`❌ ${keyToTest.provider} API test failed:`, message);
       setTestResults(prev => ({
         ...prev,
-        [keyId]: { success: false, message }
+        [keyId]: { success: false, message: `❌ ${message}` }
       }));
     } finally {
       setTestingKey(null);
