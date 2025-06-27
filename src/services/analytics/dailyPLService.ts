@@ -66,12 +66,12 @@ export class DailyPLAnalyticsService {
   /**
    * Get daily P/L data for a specific portfolio and month
    */
-  async getMonthlyPLData(
+  '''  async getMonthlyPLData(
     portfolioId: string,
     year: number,
     month: number, // 0-11 (January = 0)
     options?: PLServiceOptions
-  ): Promise<{ data: MonthlyPLSummary | null; error: string | null }> {
+  ): Promise<{ data: MonthlyPLSummary | null; error: string | null }> {'''
       try {
       // Log the service call with detailed information
       debug.info('Daily P/L service called for monthly data', {
@@ -165,14 +165,14 @@ export class DailyPLAnalyticsService {
         return { data: emptyMonthSummary, error: null };
       }
 
-      // Calculate monthly P/L data
-      const monthlyData = this.calculateMonthlyPL(
+      '''      // Calculate monthly P/L data
+      const monthlyData = await this.calculateMonthlyPL(
         year,
         month,
         transactions,
         positions,
         options
-      );
+      );'''
 
       return { data: monthlyData, error: null };
     } catch (error) {
@@ -186,13 +186,13 @@ export class DailyPLAnalyticsService {
   /**
    * Calculate daily P/L data for a specific month
    */
-  private calculateMonthlyPL(
+  '''  private async calculateMonthlyPL(
     year: number,
     month: number,
     transactions: EnhancedTransaction[],
     positions: EnhancedPosition[],
     options?: PLServiceOptions
-  ): MonthlyPLSummary {
+  ): Promise<MonthlyPLSummary> {
     const threshold = options?.threshold || this.DEFAULT_THRESHOLD;
     const startOfMonth = new Date(year, month, 1);
     const endOfMonth = new Date(year, month + 1, 0);
@@ -212,7 +212,7 @@ export class DailyPLAnalyticsService {
     // Iterate through each day of the month
     for (let day = 1; day <= endOfMonth.getDate(); day++) {
       const currentDate = new Date(year, month, day);
-      const dayData = this.calculateDayPL(
+      const dayData = await this.calculateDayPL(
         currentDate,
         transactions,
         positions,
@@ -257,17 +257,61 @@ export class DailyPLAnalyticsService {
       profitableDays,
       lossDays
     };
-  }
+  }'''
 
   /**
    * Calculate P/L data for a specific day
    */
-  private calculateDayPL(
+  '''  private processDayTrades(
+    dayTransactions: EnhancedTransaction[],
+    positions: EnhancedPosition[]
+  ): { realizedPL: number; remainingTransactions: EnhancedTransaction[] } {
+    let realizedPL = 0;
+    const remainingTransactions: EnhancedTransaction[] = [];
+    const tradesBySymbol: { [symbol: string]: EnhancedTransaction[] } = {};
+
+    for (const t of dayTransactions) {
+      const symbol = t.asset.symbol;
+      if (!tradesBySymbol[symbol]) {
+        tradesBySymbol[symbol] = [];
+      }
+      tradesBySymbol[symbol].push(t);
+    }
+
+    for (const symbol in tradesBySymbol) {
+      const trades = tradesBySymbol[symbol];
+      const buys = trades.filter(t => t.transaction_type === 'buy').sort((a, b) => a.total_amount - b.total_amount);
+      const sells = trades.filter(t => t.transaction_type === 'sell').sort((a, b) => a.total_amount - b.total_amount);
+
+      while (buys.length > 0 && sells.length > 0) {
+        const buy = buys.shift()!;
+        const sell = sells.shift()!;
+        
+        const matchedQuantity = Math.min(buy.quantity, sell.quantity);
+        const buyPrice = buy.price;
+        const sellPrice = sell.price;
+
+        realizedPL += (sellPrice - buyPrice) * matchedQuantity;
+
+        if (buy.quantity > matchedQuantity) {
+          buys.unshift({ ...buy, quantity: buy.quantity - matchedQuantity });
+        }
+        if (sell.quantity > matchedQuantity) {
+          sells.unshift({ ...sell, quantity: sell.quantity - matchedQuantity });
+        }
+      }
+      remainingTransactions.push(...buys, ...sells);
+    }
+
+    return { realizedPL, remainingTransactions };
+  }
+
+  '''  '''  private async calculateDayPL(
     date: Date,
     transactions: EnhancedTransaction[],
     positions: EnhancedPosition[],
     threshold: number
-  ): DailyPLData {
+  ): Promise<DailyPLData> {''''''''
     const dateString = date.toISOString().split('T')[0]; // YYYY-MM-DD
     
     // Log the day calculation inputs for troubleshooting
@@ -352,8 +396,11 @@ export class DailyPLAnalyticsService {
     let tradeVolume = 0;
     let netCashFlow = 0;
 
+    '''    const { realizedPL: dayTradePL, remainingTransactions } = this.processDayTrades(dayTransactions, positions);
+    realizedPL += dayTradePL;
+
     // Process each transaction
-    dayTransactions.forEach(transaction => {
+    remainingTransactions.forEach(transaction => {
       const totalAmount = transaction.total_amount;
       const fees = transaction.fees || 0;
       
@@ -363,13 +410,6 @@ export class DailyPLAnalyticsService {
         case 'buy': {
           tradeVolume += totalAmount;
           netCashFlow -= totalAmount; // Cash outflow
-          
-          // Check if this is an option buy that might be closing a short position
-          if (transaction.asset?.asset_type === 'option') {
-            // For now, treat option buys as regular purchases
-            // TODO: Implement short position tracking to detect buy-to-close trades
-            // and calculate P/L based on the original sell price
-          }
           break;
         }
           
@@ -377,33 +417,7 @@ export class DailyPLAnalyticsService {
           tradeVolume += totalAmount;
           netCashFlow += totalAmount; // Cash inflow
           
-          // Check if this is an option sell
-          if (transaction.asset?.asset_type === 'option') {
-            // For options, check if we have a matching position (previous buy)
-            const optionPosition = positions.find(p => 
-              p.asset_id === transaction.asset_id && 
-              p.quantity >= transaction.quantity
-            );
-            
-            if (optionPosition) {
-              // This is closing a long option position - calculate P/L
-              const sellProceeds = totalAmount - fees;
-              const costBasis = transaction.quantity * optionPosition.average_cost_basis;
-              realizedPL += sellProceeds - costBasis;
-            } else {
-              // This is opening a short option position (naked call/put sell)
-              // Treat as pure premium income
-              realizedPL += totalAmount - fees; // Premium collected minus fees
-            }
-          } else {
-            // Regular stock/ETF sell - calculate realized P/L
-            const position = positions.find(p => p.asset_id === transaction.asset_id);
-            if (position) {
-              const sellProceeds = totalAmount - fees;
-              const costBasis = transaction.quantity * position.average_cost_basis;
-              realizedPL += sellProceeds - costBasis;
-            }
-          }
+          // P/L for sells is now handled by FIFO logic below
           break;
         }
           
@@ -434,11 +448,16 @@ export class DailyPLAnalyticsService {
           // Handle other transaction types as needed
           break;
       }
-    });
+    });'''
+
+    '''    const sells = remainingTransactions.filter(t => t.transaction_type === 'sell');
+    if (sells.length > 0) {
+      realizedPL += await this.calculateFIFOPL(sells, transactions);
+    }
 
     // For unrealized P/L, we would need current market prices
     // This is simplified - in practice, you'd fetch current prices
-    const unrealizedPL = 0; // Placeholder
+    const unrealizedPL = 0; // Placeholder'''
 
     const totalPL = realizedPL + unrealizedPL + dividendIncome - totalFees;
     const colorCategory = this.determineColorCategory(totalPL, hasTransactions, threshold);
@@ -473,7 +492,40 @@ export class DailyPLAnalyticsService {
   /**
    * Determine color category for calendar day styling
    */
-  private determineColorCategory(
+  '''  private async calculateFIFOPL(
+    sellTransactions: EnhancedTransaction[],
+    allTransactions: EnhancedTransaction[]
+  ): Promise<number> {
+    let realizedPL = 0;
+    const buys = allTransactions.filter(t => t.transaction_type === 'buy').sort((a, b) => new Date(a.transaction_date).getTime() - new Date(b.transaction_date).getTime());
+
+    for (const sell of sellTransactions) {
+      let sellQuantity = sell.quantity;
+      const sellPrice = sell.price;
+
+      for (const buy of buys) {
+        if (buy.asset.symbol !== sell.asset.symbol || buy.quantity === 0) {
+          continue;
+        }
+
+        const matchQuantity = Math.min(sellQuantity, buy.quantity);
+        const buyPrice = buy.price;
+
+        realizedPL += (sellPrice - buyPrice) * matchQuantity;
+
+        buy.quantity -= matchQuantity;
+        sellQuantity -= matchQuantity;
+
+        if (sellQuantity === 0) {
+          break;
+        }
+      }
+    }
+
+    return realizedPL;
+  }
+
+  private determineColorCategory('''
     totalPL: number,
     hasTransactions: boolean,
     threshold: number
@@ -564,12 +616,12 @@ export class DailyPLAnalyticsService {
       }
 
       const threshold = options?.threshold || this.DEFAULT_THRESHOLD;
-      const dayData = this.calculateDayPL(
+      '''      const dayData = await this.calculateDayPL(
         date,
         transactionsResult.data,
         positionsResult.data,
         threshold
-      );
+      );'''
 
       return { data: dayData, error: null };
     } catch (error) {
