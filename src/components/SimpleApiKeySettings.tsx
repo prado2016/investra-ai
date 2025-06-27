@@ -152,7 +152,7 @@ const SimpleApiKeySettings: React.FC = () => {
     }
   }, []);
 
-  const handleSaveApiKey = () => {
+  const handleSaveApiKey = async () => {
     if (!keyName.trim()) {
       setSaveStatus({ success: false, message: 'Please enter a name for this API key' });
       return;
@@ -194,14 +194,19 @@ const SimpleApiKeySettings: React.FC = () => {
       setStoredKeys(updatedKeys);
 
       // Reinitialize AI services with new API keys
-      const aiManager = AIServiceManager.getInstance();
-      // Clear and reinitialize services to pick up new API keys
       try {
-        await aiManager.initializeService('gemini');
-        await aiManager.initializeService('openai');
+        const aiManager = AIServiceManager.getInstance();
         console.log('Reinitializing AI services with updated API keys...');
+        
+        // Reinitialize services to pick up new API keys from localStorage
+        await aiManager.initializeService('gemini');
+        if (newKey.provider === 'openai') {
+          await aiManager.initializeService('openai');
+        }
+        
+        console.log('✅ AI services reinitialized successfully');
       } catch (error) {
-        console.error('Error reinitializing services:', error);
+        console.error('❌ Error reinitializing services:', error);
       }
 
       // Clear form
