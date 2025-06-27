@@ -423,7 +423,16 @@ export class AIServiceManager {
   }
 
   private getBestProviderForEmailParsing(): AIProvider {
-    // Priority order for email parsing
+    // First, try to get the user's default provider
+    const defaultProvider = ApiKeyStorage.getDefaultProvider() as AIProvider;
+    if (defaultProvider && this.services.has(defaultProvider)) {
+      const service = this.services.get(defaultProvider)!;
+      if (service.isConfigured) {
+        return defaultProvider;
+      }
+    }
+
+    // Priority order for email parsing if no default or default is not available
     const priorities: AIProvider[] = ['gemini', 'openrouter', 'openai', 'perplexity'];
     
     for (const provider of priorities) {

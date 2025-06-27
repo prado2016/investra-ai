@@ -935,15 +935,8 @@ export async function parseEmailForTransaction(email: EmailItem): Promise<{
       context: 'Trading transaction email processing'
     };
 
-    // Try AI parsing first - ensure Gemini service is initialized
+    // Try AI parsing first - use the default AI provider
     try {
-      // Ensure Gemini service is properly initialized before making the call
-      const initialized = await aiServiceManager.initializeService('gemini');
-      if (!initialized) {
-        console.error('Failed to initialize Gemini AI service');
-        return null;
-      }
-      
       const aiResponse: EmailParsingResponse = await aiServiceManager.parseEmailForTransaction(aiRequest);
       
       // Enhanced logging for debugging AI confidence issues

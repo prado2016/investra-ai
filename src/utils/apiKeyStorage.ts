@@ -79,6 +79,15 @@ export class ApiKeyStorage {
   }
 
   /**
+   * Get the default provider (the one marked as default)
+   */
+  static getDefaultProvider(): string | null {
+    const keys = this.getStoredKeys();
+    const defaultKey = keys.find(key => key.isActive && key.isDefault);
+    return defaultKey?.provider || null;
+  }
+
+  /**
    * Check if API key is available for provider
    */
   static hasApiKey(provider: string): boolean {
