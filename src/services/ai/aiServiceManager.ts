@@ -196,6 +196,7 @@ export class AIServiceManager {
     const results: Record<AIProvider, { success: boolean; error?: string; latency?: number }> = {
       openai: { success: false },
       gemini: { success: false },
+      openrouter: { success: false },
       perplexity: { success: false }
     };
     
@@ -362,6 +363,10 @@ export class AIServiceManager {
         // TODO: Implement OpenAI service
         console.warn('OpenAI service not yet implemented');
         return null;
+      case 'openrouter':
+        // TODO: Implement OpenRouter service
+        console.warn('OpenRouter service not yet implemented');
+        return null;
       case 'perplexity':
         // TODO: Implement Perplexity service
         console.warn('Perplexity service not yet implemented');
@@ -374,7 +379,7 @@ export class AIServiceManager {
 
   private getBestProviderForSymbolLookup(): AIProvider {
     // Priority order for symbol lookup
-    const priorities: AIProvider[] = ['gemini', 'perplexity', 'openai'];
+    const priorities: AIProvider[] = ['gemini', 'openrouter', 'perplexity', 'openai'];
     
     for (const provider of priorities) {
       if (this.services.has(provider)) {
@@ -397,7 +402,7 @@ export class AIServiceManager {
 
   private getBestProviderForAnalysis(): AIProvider {
     // Priority order for financial analysis
-    const priorities: AIProvider[] = ['gemini', 'openai', 'perplexity'];
+    const priorities: AIProvider[] = ['gemini', 'openrouter', 'openai', 'perplexity'];
     
     for (const provider of priorities) {
       if (this.services.has(provider)) {
@@ -420,7 +425,7 @@ export class AIServiceManager {
 
   private getBestProviderForEmailParsing(): AIProvider {
     // Priority order for email parsing
-    const priorities: AIProvider[] = ['gemini', 'openai', 'perplexity'];
+    const priorities: AIProvider[] = ['gemini', 'openrouter', 'openai', 'perplexity'];
     
     for (const provider of priorities) {
       if (this.services.has(provider)) {
@@ -443,9 +448,10 @@ export class AIServiceManager {
 
   private getFallbackProvider(currentProvider: AIProvider): AIProvider | null {
     const fallbackMap: Record<AIProvider, AIProvider[]> = {
-      'gemini': ['openai', 'perplexity'],
-      'openai': ['gemini', 'perplexity'],
-      'perplexity': ['gemini', 'openai']
+      'gemini': ['openrouter', 'openai', 'perplexity'],
+      'openai': ['gemini', 'openrouter', 'perplexity'],
+      'openrouter': ['gemini', 'openai', 'perplexity'],
+      'perplexity': ['gemini', 'openrouter', 'openai']
     };
 
     const fallbacks = fallbackMap[currentProvider] || [];

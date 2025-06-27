@@ -68,7 +68,7 @@ export interface MarketInsightsResponse {
 }
 
 // AI Provider types
-export type AIProvider = 'gemini' | 'openai' | 'perplexity';
+export type AIProvider = 'gemini' | 'openai' | 'openrouter' | 'perplexity';
 
 // Asset types (copied from portfolio types to avoid circular dependencies)
 export type AssetType = 'stock' | 'option' | 'forex' | 'crypto' | 'reit' | 'etf';
