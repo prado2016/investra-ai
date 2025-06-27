@@ -628,6 +628,9 @@ const SimpleEmailManagement: React.FC = () => {
   const [manualSyncing, setManualSyncing] = useState(false);
   const [selectedEmail, setSelectedEmail] = useState<EmailItem | null>(null);
   const [processingEmail, setProcessingEmail] = useState<EmailItem | null>(null);
+  const [bulkProcessing, setBulkProcessing] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0 });
+  const [bulkResults, setBulkResults] = useState<{ processed: number; errors: number; }>({ processed: 0, errors: 0 });
   const [parsedData, setParsedData] = useState<any>(null);
   const [transactionForm, setTransactionForm] = useState({
     // Trading transaction fields
@@ -1076,6 +1079,104 @@ const SimpleEmailManagement: React.FC = () => {
     }
   };
 
+  // Bulk process all emails one by one
+  const handleBulkProcess = async () => {
+    if (bulkProcessing) return;
+    
+    // Get all unprocessed emails (pending, processing, error status)
+    const unprocessedEmails = emails.filter(email => 
+      email.status === 'pending' || email.status === 'processing' || email.status === 'error'
+    );
+    
+    if (unprocessedEmails.length === 0) {
+      error('No Emails to Process', 'All emails have already been processed');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Process ${unprocessedEmails.length} emails? This will automatically parse each email and create transactions where possible.`
+    );
+
+    if (!confirmed) return;
+
+    setBulkProcessing(true);
+    setBulkProgress({ current: 0, total: unprocessedEmails.length });
+    setBulkResults({ processed: 0, errors: 0 });
+
+    let processed = 0;
+    let errors = 0;
+
+    for (let i = 0; i < unprocessedEmails.length; i++) {
+      const email = unprocessedEmails[i];
+      setBulkProgress({ current: i + 1, total: unprocessedEmails.length });
+
+      try {
+        console.log(`🔄 Bulk processing email ${i + 1}/${unprocessedEmails.length}: ${email.subject}`);
+        
+        // Parse email content to extract transaction information
+        const extracted = await parseEmailForTransaction(email);
+        
+        if (extracted?.rawData && Object.keys(extracted.rawData).length > 0) {
+          // Email contains transaction data - attempt to process it
+          console.log('📧 Email contains transaction data, processing...', extracted);
+          
+          // Use the simple processEmail method for automatic processing
+          const result = await simpleEmailService.processEmail(email.id, {
+            type: 'expense',
+            amount: 0, // Will be updated based on parsed data
+            description: email.subject || 'Processed email',
+            category: 'Trading',
+            date: new Date().toISOString()
+          });
+          
+          if (result.error) {
+            console.error(`❌ Failed to process email ${email.id}:`, result.error);
+            errors++;
+          } else {
+            console.log(`✅ Successfully processed email ${email.id}`);
+            processed++;
+          }
+        } else {
+          // Email doesn't contain transaction data - mark as processed but no transaction created
+          console.log('📧 Email contains no transaction data, marking as reviewed');
+          
+          const result = await simpleEmailService.processEmail(email.id, {
+            type: 'expense',
+            amount: 0,
+            description: email.subject || 'Reviewed email',
+            category: 'Other',
+            date: new Date().toISOString()
+          });
+          if (result.error) {
+            errors++;
+          } else {
+            processed++;
+          }
+        }
+        
+        // Small delay to prevent overwhelming the system
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+      } catch (error) {
+        console.error(`❌ Error processing email ${email.id}:`, error);
+        errors++;
+      }
+      
+      setBulkResults({ processed, errors });
+    }
+
+    setBulkProcessing(false);
+    
+    // Refresh email list to show updated statuses
+    await loadEmails();
+    
+    if (errors === 0) {
+      success('Bulk Processing Complete', `Successfully processed ${processed} emails`);
+    } else {
+      error('Bulk Processing Complete', `Processed ${processed} emails, ${errors} failed`);
+    }
+  };
+
   // Filter emails based on search and status
   const filteredEmails = emails.filter(email => {
     const matchesSearch = !searchTerm || 
@@ -1486,6 +1587,66 @@ const SimpleEmailManagement: React.FC = () => {
           <Search size={16} />
           Search
         </Button>
+      </ControlsRow>
+
+      {/* Bulk Processing Controls */}
+      <ControlsRow style={{ justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <Button 
+            variant="secondary" 
+            onClick={handleBulkProcess}
+            disabled={bulkProcessing || emails.filter(e => e.status !== 'processed').length === 0}
+            style={{ 
+              minWidth: '200px',
+              background: bulkProcessing ? '#f59e0b' : undefined,
+              color: bulkProcessing ? 'white' : undefined
+            }}
+          >
+            {bulkProcessing ? (
+              <>
+                <RefreshCw size={16} className="animate-spin" />
+                Processing {bulkProgress.current}/{bulkProgress.total}
+              </>
+            ) : (
+              <>
+                <DollarSign size={16} />
+                Process All Emails ({emails.filter(e => e.status !== 'processed').length})
+              </>
+            )}
+          </Button>
+          
+          {bulkProcessing && (
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '1rem',
+              fontSize: '0.875rem',
+              color: '#6b7280'
+            }}>
+              <div>
+                Progress: {bulkProgress.current}/{bulkProgress.total}
+              </div>
+              <div>
+                ✅ {bulkResults.processed} processed
+              </div>
+              {bulkResults.errors > 0 && (
+                <div style={{ color: '#ef4444' }}>
+                  ❌ {bulkResults.errors} errors
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+        
+        {!bulkProcessing && emails.filter(e => e.status !== 'processed').length > 0 && (
+          <div style={{ 
+            fontSize: '0.875rem', 
+            color: '#6b7280',
+            fontStyle: 'italic'
+          }}>
+            This will automatically parse and process all unprocessed emails
+          </div>
+        )}
       </ControlsRow>
 
       {/* Email List */}
