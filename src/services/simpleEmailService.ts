@@ -23,7 +23,7 @@ export interface EmailItem {
   attachments_info?: any[];
   email_size?: number;
   priority?: 'low' | 'normal' | 'high';
-  status: 'pending' | 'processing' | 'error';
+  status: 'pending' | 'processing' | 'error' | 'processed';
   error_message?: string;
   created_at?: string;
   updated_at?: string;
@@ -33,6 +33,7 @@ export interface EmailItem {
   estimated_transactions?: number;
   full_content?: string;
   email_hash?: string;
+  source?: 'inbox' | 'processed';
 }
 
 export interface EmailStats {
@@ -79,11 +80,11 @@ class SimpleEmailService {
    * Get all emails from inbox for current user
    */
   async getEmails(
-    status?: 'pending' | 'processing' | 'error',
+    status?: 'pending' | 'processing' | 'error' | 'processed',
     limit: number = 100
   ): Promise<{ data: EmailItem[] | null; error: string | null }> {
     try {
-      console.log('🔄 Fetching real emails from database');
+      console.log('🔄 Fetching real emails from database (both inbox and processed)');
       
       // Get current user session
       const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -95,84 +96,54 @@ class SimpleEmailService {
 
       console.log('✅ User authenticated:', user.id);
       
-      // Build query for real emails from imap_inbox table
-      let query = supabase
+      // Query both imap_inbox and imap_processed tables
+      console.log('📡 Querying imap_inbox for pending emails...');
+      const { data: inboxEmails, error: inboxError } = await supabase
         .from('imap_inbox')
         .select('*')
         .eq('user_id', user.id)
-        .order('received_at', { ascending: false });
+        .order('received_at', { ascending: false })
+        .limit(limit);
 
-      // Apply status filter if specified
-      if (status) {
-        query = query.eq('status', status);
-      }
-
-      // Apply limit
-      query = query.limit(limit);
-
-      console.log('📡 Querying imap_inbox table for user:', user.id);
-      const { data: emails, error: queryError } = await query;
-      
-      if (queryError) {
-        console.error('❌ Database query error:', queryError);
-        return { data: [], error: queryError.message };
-      }
-
-      // Debug: Check what's actually in the table
-      console.log('🔍 Debug: Checking all emails in imap_inbox table');
-      const { data: allEmails, error: allEmailsError } = await supabase
-        .from('imap_inbox')
-        .select('id, user_id, subject, from_email, status, created_at')
-        .limit(50); // Increased to 50 to see more emails
-      
-      if (allEmailsError) {
-        console.error('❌ Error fetching all emails for debug:', allEmailsError);
-      } else {
-        console.log('📧 All emails in imap_inbox (first 50):', allEmails);
-        console.log('📧 Total found in imap_inbox:', allEmails?.length || 0);
-        if (allEmails && allEmails.length > 0) {
-          console.log('📧 Unique user_ids found:', [...new Set(allEmails.map(e => e.user_id))]);
-          console.log('📧 Current user_id:', user.id);
-          console.log('📧 Sample email subjects:', allEmails.slice(0, 5).map(e => e.subject));
-        }
-      }
-
-      // Debug: Also check imap_processed table for completed emails
-      console.log('🔍 Debug: Checking imap_processed table');
+      console.log('📡 Querying imap_processed for completed emails...');
       const { data: processedEmails, error: processedError } = await supabase
         .from('imap_processed')
-        .select('id, user_id, subject, from_email, processed_at')
-        .limit(10);
-      
-      if (processedError) {
-        console.log('ℹ️ imap_processed table check (may not exist):', processedError.message);
-      } else {
-        console.log('📧 Processed emails found:', processedEmails?.length || 0);
-        if (processedEmails && processedEmails.length > 0) {
-          console.log('📧 Processed user_ids:', [...new Set(processedEmails.map(e => e.user_id))]);
-        }
+        .select('*')
+        .eq('user_id', user.id)
+        .order('processed_at', { ascending: false })
+        .limit(limit);
+
+      if (inboxError && processedError) {
+        console.error('❌ Both queries failed:', { inboxError, processedError });
+        return { data: [], error: 'Database query failed' };
       }
 
-      // Debug: Check imap_configurations to see what configs exist
-      console.log('🔍 Debug: Checking imap_configurations');
-      const { data: configs, error: configError } = await supabase
-        .from('imap_configurations')
-        .select('id, user_id, gmail_email, is_active, last_sync_at')
-        .limit(10);
-      
-      if (configError) {
-        console.log('ℹ️ imap_configurations check:', configError.message);
-      } else {
-        console.log('⚙️ IMAP configurations found:', configs?.length || 0);
-        if (configs && configs.length > 0) {
-          console.log('⚙️ Config user_ids:', [...new Set(configs.map(c => c.user_id))]);
-          console.log('⚙️ Active configs:', configs.filter(c => c.is_active));
-          console.log('⚙️ Current user has config:', configs.some(c => c.user_id === user.id));
-        }
+      // Combine results from both tables
+      const allEmails = [
+        ...(inboxEmails || []).map(email => ({ ...email, source: 'inbox' })),
+        ...(processedEmails || []).map(email => ({ ...email, source: 'processed', received_at: email.processed_at || email.received_at }))
+      ];
+
+      console.log(`📧 Found ${inboxEmails?.length || 0} emails in inbox, ${processedEmails?.length || 0} in processed`);
+      console.log(`📧 Total combined emails: ${allEmails.length}`);
+
+      // Sort combined results by received_at
+      allEmails.sort((a, b) => new Date(b.received_at).getTime() - new Date(a.received_at).getTime());
+
+      // Apply status filter if specified (for inbox emails only, processed emails are inherently "completed")
+      let filteredEmails = allEmails;
+      if (status) {
+        filteredEmails = allEmails.filter(email => 
+          email.source === 'processed' || email.status === status
+        );
+        console.log(`🔍 After status filter (${status}): ${filteredEmails.length} emails`);
       }
+
+      // Apply limit to final results
+      const emails = filteredEmails.slice(0, limit);
 
       if (!emails || emails.length === 0) {
-        console.log('📭 No emails found in database for current user');
+        console.log('📭 No emails found in either inbox or processed tables');
         return { data: [], error: null };
       }
 
@@ -197,7 +168,7 @@ class SimpleEmailService {
         attachments_info: email.attachments_info,
         email_size: email.email_size,
         priority: email.priority || 'normal',
-        status: email.status || 'pending',
+        status: email.source === 'processed' ? 'processed' : (email.status || 'pending'),
         error_message: email.error_message,
         created_at: email.created_at,
         updated_at: email.updated_at,
@@ -206,7 +177,8 @@ class SimpleEmailService {
         has_attachments: email.attachments_info && email.attachments_info.length > 0,
         estimated_transactions: 1,
         full_content: email.text_content || email.html_content || email.raw_content,
-        email_hash: `hash-${email.id}`
+        email_hash: `hash-${email.id}`,
+        source: email.source // Track whether email is from inbox or processed table
       }));
       
       console.log(`✅ Transformed real emails:`, transformedEmails.length, transformedEmails);
@@ -293,7 +265,7 @@ class SimpleEmailService {
    */
   async searchEmails(
     searchTerm: string,
-    status?: 'pending' | 'processing' | 'error'
+    status?: 'pending' | 'processing' | 'error' | 'processed'
   ): Promise<{ data: EmailItem[] | null; error: string | null }> {
     try {
       let query = supabase

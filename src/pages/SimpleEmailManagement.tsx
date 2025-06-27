@@ -248,13 +248,14 @@ const EmailList = styled.div`
   gap: 1rem;
 `;
 
-const EmailCard = styled(Card)<{ $priority: 'pending' | 'processing' | 'error' }>`
+const EmailCard = styled(Card)<{ $priority: 'pending' | 'processing' | 'error' | 'processed' }>`
   padding: 1.5rem;
   border-left: 4px solid ${props => {
     switch (props.$priority) {
       case 'pending': return '#f59e0b';
       case 'processing': return '#3b82f6';
       case 'error': return '#ef4444';
+      case 'processed': return '#10b981';
       default: return '#6b7280';
     }
   }};
@@ -331,7 +332,7 @@ const EmailPreview = styled.div`
   }
 `;
 
-const StatusBadge = styled.span<{ $status: 'pending' | 'processing' | 'error' }>`
+const StatusBadge = styled.span<{ $status: 'pending' | 'processing' | 'error' | 'processed' }>`
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
@@ -356,6 +357,11 @@ const StatusBadge = styled.span<{ $status: 'pending' | 'processing' | 'error' }>
         return `
           background: #fee2e2;
           color: #991b1b;
+        `;
+      case 'processed':
+        return `
+          background: #d1fae5;
+          color: #065f46;
         `;
       default:
         return `
@@ -617,7 +623,7 @@ const SimpleEmailManagement: React.FC = () => {
   });
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'processing' | 'error'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'processing' | 'error' | 'processed'>('all');
   const [refreshing, setRefreshing] = useState(false);
   const [manualSyncing, setManualSyncing] = useState(false);
   const [selectedEmail, setSelectedEmail] = useState<EmailItem | null>(null);
@@ -1472,6 +1478,7 @@ const SimpleEmailManagement: React.FC = () => {
             <option value="pending">Pending</option>
             <option value="processing">Processing</option>
             <option value="error">Error</option>
+            <option value="processed">Processed</option>
           </FilterSelect>
         </div>
 
