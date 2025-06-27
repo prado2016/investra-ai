@@ -970,7 +970,7 @@ const SimpleEmailManagement: React.FC = () => {
     const today = new Date();
     const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
     
-    if (extracted) {
+    if (extracted && extracted.aiParsed) {
       // Check if this is a trading transaction - if we have extracted data, treat as trading
       const isTradingTransaction = true; // Always treat parsed emails as trading transactions
       
@@ -1061,7 +1061,7 @@ const SimpleEmailManagement: React.FC = () => {
         });
       }
     } else {
-      // Fallback to manual entry
+      // Fallback to manual entry when AI parsing failed or no data extracted
       setTransactionForm({
         portfolioId: portfolios.length > 0 ? portfolios[0].id : '',
         symbol: '',
@@ -1925,6 +1925,19 @@ const SimpleEmailManagement: React.FC = () => {
                   <div style={{ fontSize: '0.875rem', color: '#991b1b', marginBottom: '0.5rem' }}>
                     Unable to automatically extract transaction data from this email.
                   </div>
+                  {parsedData?.error && (
+                    <div style={{ 
+                      fontSize: '0.875rem', 
+                      color: '#7f1d1d', 
+                      background: '#fef2f2', 
+                      padding: '0.5rem',
+                      borderRadius: '4px',
+                      marginBottom: '0.5rem',
+                      fontFamily: 'monospace'
+                    }}>
+                      <strong>Error:</strong> {parsedData.error}
+                    </div>
+                  )}
                   <div style={{ 
                     fontSize: '0.75rem', 
                     color: '#7f1d1d', 
@@ -1940,7 +1953,7 @@ const SimpleEmailManagement: React.FC = () => {
               )}
             </div>
 
-            {parsedData ? (
+            {parsedData?.aiParsed ? (
               <>
                 {/* Show extracted information */}
                 <div style={{ 
@@ -2045,10 +2058,8 @@ const SimpleEmailManagement: React.FC = () => {
               </div>
             )}
 
-            {/* Check if this is a trading transaction - show trading form if we have ANY trading-related data */}
-            {parsedData ? (
-              /* Trading Transaction Form */
-              <>
+            {/* Trading Transaction Form - Always show for email processing */}
+            <>
                 <FormGroup>
                   <FormLabel>
                     Portfolio * 
@@ -2205,63 +2216,7 @@ const SimpleEmailManagement: React.FC = () => {
                     style={parsedData && parsedData.transactionDate ? { background: '#f0fdf4' } : {}}
                   />
                 </FormGroup>
-              </>
-            ) : (
-              /* Basic Transaction Form */
-              <>
-                <FormGroup>
-                  <FormLabel>Transaction Type</FormLabel>
-                  <FormSelect
-                    value={transactionForm.type}
-                    onChange={(e) => setTransactionForm(prev => ({ ...prev, type: e.target.value as 'income' | 'expense' }))}
-                  >
-                    <option value="expense">Expense</option>
-                    <option value="income">Income</option>
-                  </FormSelect>
-                </FormGroup>
-
-                <FormGroup>
-                  <FormLabel>Amount *</FormLabel>
-                  <FormInput
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={transactionForm.amount}
-                    onChange={(e) => setTransactionForm(prev => ({ ...prev, amount: e.target.value }))}
-                    style={parsedData ? { background: '#f0fdf4' } : {}}
-                  />
-                </FormGroup>
-
-                <FormGroup>
-                  <FormLabel>Description *</FormLabel>
-                  <FormInput
-                    type="text"
-                    placeholder="Transaction description"
-                    value={transactionForm.description}
-                    onChange={(e) => setTransactionForm(prev => ({ ...prev, description: e.target.value }))}
-                    style={parsedData ? { background: '#f0fdf4' } : {}}
-                  />
-                </FormGroup>
-
-                <FormGroup>
-                  <FormLabel>Category</FormLabel>
-                  <FormSelect
-                    value={transactionForm.category}
-                    onChange={(e) => setTransactionForm(prev => ({ ...prev, category: e.target.value }))}
-                    style={parsedData ? { background: '#f0fdf4' } : {}}
-                  >
-                    <option value="">Select category (optional)</option>
-                    <option value="Banking">Banking</option>
-                    <option value="Investment">Investment</option>
-                    <option value="Trading">Trading</option>
-                    <option value="Income">Income</option>
-                    <option value="Expense">Expense</option>
-                    <option value="Fee">Fee</option>
-                    <option value="Other">Other</option>
-                  </FormSelect>
-                </FormGroup>
-              </>
-            )}
+            </>
 
             <FormActions>
               <Button

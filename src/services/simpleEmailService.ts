@@ -911,6 +911,7 @@ export async function parseEmailForTransaction(email: EmailItem): Promise<{
   confidence?: number; // 0-1 scale
   parsingType?: 'trading' | 'basic' | 'unknown';
   aiParsed?: boolean;
+  error?: string; // Error message when parsing fails
   // Raw data for audit trail
   rawData?: any;
   // Legacy fields for backward compatibility
@@ -1008,17 +1009,62 @@ export async function parseEmailForTransaction(email: EmailItem): Promise<{
           error: aiResponse.error,
           parsingType: aiResponse.parsingType
         });
-        return null;
+        
+        // Return error information instead of null
+        return {
+          aiParsed: false,
+          confidence: aiResponse.confidence || 0,
+          parsingType: aiResponse.parsingType || 'unknown',
+          error: aiResponse.error || 'AI parsing failed or confidence too low',
+          rawData: {
+            aiResponse: aiResponse,
+            originalEmail: {
+              subject,
+              content: content.substring(0, 500),
+              parsed_at: new Date().toISOString()
+            }
+          }
+        };
       }
     } catch (aiError) {
       console.error('❌ AI parsing error:', aiError);
-      return null;
+      
+      // Return error information instead of null
+      return {
+        aiParsed: false,
+        confidence: 0,
+        parsingType: 'unknown',
+        error: aiError instanceof Error ? aiError.message : 'Unknown AI parsing error',
+        rawData: {
+          parseError: aiError instanceof Error ? aiError.message : 'Unknown error',
+          originalEmail: {
+            subject,
+            content: content.substring(0, 500),
+            parsed_at: new Date().toISOString()
+          }
+        }
+      };
     }
     
     return null;
   } catch (error) {
     console.error('Error parsing email for transaction:', error);
-    return null;
+    
+    // Return error information instead of null
+    return {
+      aiParsed: false,
+      confidence: 0,
+      parsingType: 'unknown',
+      error: error instanceof Error ? error.message : 'Unknown error during email parsing',
+      rawData: {
+        parseError: error instanceof Error ? error.message : 'Unknown error',
+        originalEmail: {
+          subject: email.subject || 'Unknown subject',
+          content: (email.text_content || email.html_content || '').substring(0, 500),
+          parsed_at: new Date().toISOString()
+        }
+      }
+    };
   }
 }
 
