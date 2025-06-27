@@ -123,16 +123,51 @@ class SimpleEmailService {
       const { data: allEmails, error: allEmailsError } = await supabase
         .from('imap_inbox')
         .select('id, user_id, subject, from_email, status, created_at')
-        .limit(10);
+        .limit(50); // Increased to 50 to see more emails
       
       if (allEmailsError) {
         console.error('❌ Error fetching all emails for debug:', allEmailsError);
       } else {
-        console.log('📧 All emails in imap_inbox (first 10):', allEmails);
-        console.log('📧 Total found:', allEmails?.length || 0);
+        console.log('📧 All emails in imap_inbox (first 50):', allEmails);
+        console.log('📧 Total found in imap_inbox:', allEmails?.length || 0);
         if (allEmails && allEmails.length > 0) {
           console.log('📧 Unique user_ids found:', [...new Set(allEmails.map(e => e.user_id))]);
           console.log('📧 Current user_id:', user.id);
+          console.log('📧 Sample email subjects:', allEmails.slice(0, 5).map(e => e.subject));
+        }
+      }
+
+      // Debug: Also check imap_processed table for completed emails
+      console.log('🔍 Debug: Checking imap_processed table');
+      const { data: processedEmails, error: processedError } = await supabase
+        .from('imap_processed')
+        .select('id, user_id, subject, from_email, processed_at')
+        .limit(10);
+      
+      if (processedError) {
+        console.log('ℹ️ imap_processed table check (may not exist):', processedError.message);
+      } else {
+        console.log('📧 Processed emails found:', processedEmails?.length || 0);
+        if (processedEmails && processedEmails.length > 0) {
+          console.log('📧 Processed user_ids:', [...new Set(processedEmails.map(e => e.user_id))]);
+        }
+      }
+
+      // Debug: Check imap_configurations to see what configs exist
+      console.log('🔍 Debug: Checking imap_configurations');
+      const { data: configs, error: configError } = await supabase
+        .from('imap_configurations')
+        .select('id, user_id, gmail_email, is_active, last_sync_at')
+        .limit(10);
+      
+      if (configError) {
+        console.log('ℹ️ imap_configurations check:', configError.message);
+      } else {
+        console.log('⚙️ IMAP configurations found:', configs?.length || 0);
+        if (configs && configs.length > 0) {
+          console.log('⚙️ Config user_ids:', [...new Set(configs.map(c => c.user_id))]);
+          console.log('⚙️ Active configs:', configs.filter(c => c.is_active));
+          console.log('⚙️ Current user has config:', configs.some(c => c.user_id === user.id));
         }
       }
 
