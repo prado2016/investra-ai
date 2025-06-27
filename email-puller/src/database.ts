@@ -145,23 +145,51 @@ export class Database {
   }
 
   /**
-   * Check if email already exists in the inbox
+   * Check if an email already exists in either inbox or processed tables
    */
   async emailExists(messageId: string, userId: string): Promise<boolean> {
     try {
-      const { data, error } = await this.client
+      // Check both imap_inbox and imap_processed tables to prevent re-importing
+      // emails that have already been processed and moved to processed table
+      
+      // First check inbox
+      const { data: inboxData, error: inboxError } = await this.client
         .from('imap_inbox')
         .select('id')
         .eq('message_id', messageId)
         .eq('user_id', userId)
         .limit(1);
 
-      if (error) {
-        logger.error('Failed to check email existence:', error);
-        throw error;
+      if (inboxError) {
+        logger.error('Failed to check email existence in inbox:', inboxError);
+        throw inboxError;
       }
 
-      return (data?.length || 0) > 0;
+      if ((inboxData?.length || 0) > 0) {
+        logger.debug(`Email ${messageId} found in imap_inbox, skipping`);
+        return true;
+      }
+
+      // Then check processed table
+      const { data: processedData, error: processedError } = await this.client
+        .from('imap_processed')
+        .select('id')
+        .eq('message_id', messageId)
+        .eq('user_id', userId)
+        .limit(1);
+
+      if (processedError) {
+        logger.error('Failed to check email existence in processed:', processedError);
+        throw processedError;
+      }
+
+      if ((processedData?.length || 0) > 0) {
+        logger.debug(`Email ${messageId} found in imap_processed, skipping`);
+        return true;
+      }
+
+      // Email doesn't exist in either table - safe to import
+      return false;
     } catch (error) {
       logger.error('Error checking email existence:', error);
       throw error;

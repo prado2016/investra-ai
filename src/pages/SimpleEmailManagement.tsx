@@ -1152,8 +1152,8 @@ const SimpleEmailManagement: React.FC = () => {
           }
         }
         
-        // Longer delay to prevent AI API rate limiting and system overload
-        await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second delay
+        // 60 second delay to prevent Gemini API rate limiting (1 email per minute)
+        await new Promise(resolve => setTimeout(resolve, 60000)); // 60 second delay
         
       } catch (error) {
         console.error(`❌ Error processing email ${email.id}:`, error);
@@ -1433,22 +1433,16 @@ const SimpleEmailManagement: React.FC = () => {
             </div>
           </StatusInfo>
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-            {/* Show manual sync button when idle > 30 minutes */}
-            {(() => {
-              const timeSinceSync = pullerStatus.lastSync ? new Date().getTime() - new Date(pullerStatus.lastSync).getTime() : 0;
-              const isIdle30Min = timeSinceSync > 30 * 60 * 1000; // 30 minutes
-              return isIdle30Min && pullerStatus.syncStatus === 'idle';
-            })() && (
-              <Button 
-                variant="primary" 
-                onClick={handleManualSync}
-                disabled={manualSyncing}
-                style={{ backgroundColor: '#059669', borderColor: '#059669' }}
-              >
-                <RefreshCw size={16} className={manualSyncing ? 'animate-spin' : ''} />
-                Manual Sync
-              </Button>
-            )}
+            {/* Manual sync button - always available for debugging */}
+            <Button 
+              variant="primary" 
+              onClick={handleManualSync}
+              disabled={manualSyncing}
+              style={{ backgroundColor: '#059669', borderColor: '#059669' }}
+            >
+              <RefreshCw size={16} className={manualSyncing ? 'animate-spin' : ''} />
+              Manual Sync
+            </Button>
             
             <Button 
               variant="outline" 

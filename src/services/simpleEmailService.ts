@@ -924,9 +924,26 @@ export async function parseEmailForTransaction(email: EmailItem): Promise<{
       context: 'Trading transaction email processing'
     };
 
-    // Try AI parsing first
+    // Try AI parsing first - ensure Gemini service is initialized
     try {
+      // Ensure Gemini service is properly initialized before making the call
+      const initialized = await aiServiceManager.initializeService('gemini');
+      if (!initialized) {
+        console.error('Failed to initialize Gemini AI service');
+        return null;
+      }
+      
       const aiResponse: EmailParsingResponse = await aiServiceManager.parseEmailForTransaction(aiRequest);
+      
+      // Enhanced logging for debugging AI confidence issues
+      console.log('🤖 AI Response Details:', {
+        success: aiResponse.success,
+        confidence: aiResponse.confidence,
+        hasExtractedData: !!aiResponse.extractedData,
+        parsingType: aiResponse.parsingType,
+        error: aiResponse.error,
+        timestamp: aiResponse.timestamp
+      });
       
       if (aiResponse.success && aiResponse.extractedData && aiResponse.confidence > 0.3) {
         console.log('AI parsing successful:', { 
@@ -973,73 +990,19 @@ export async function parseEmailForTransaction(email: EmailItem): Promise<{
         
         return result;
       } else {
-        console.log('AI parsing failed or low confidence:', { 
+        console.log('❌ AI parsing failed or low confidence:', { 
           success: aiResponse.success, 
           confidence: aiResponse.confidence,
-          error: aiResponse.error 
+          hasExtractedData: !!aiResponse.extractedData,
+          requiredConfidence: 0.3,
+          error: aiResponse.error,
+          parsingType: aiResponse.parsingType
         });
+        return null;
       }
     } catch (aiError) {
-      console.error('AI parsing error, falling back to regex:', aiError);
-    }
-
-    // Fallback to regex-based parsing if AI fails or returns low confidence
-    console.log('Using fallback regex parsing');
-    
-    // Create basic raw data object for audit trail
-    const rawData = {
-      subject,
-      content: content.substring(0, 1000), // Store first 1000 chars
-      parsed_at: new Date().toISOString(),
-      aiParsed: false,
-      fallbackReason: 'AI parsing failed or low confidence'
-    };
-    
-    // Simple fallback parsing for basic amount extraction
-    const basicAmountPatterns = [
-      /\$\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/g,           // $123.45 or $1,234.56
-      /(\d+(?:,\d{3})*(?:\.\d{2})?)\s*USD/gi,         // 123.45 USD
-      /amount[:\s]*\$?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/gi, // Amount: $123.45
-    ];
-    
-    let basicAmount = 0;
-    for (const pattern of basicAmountPatterns) {
-      const matches = [...content.matchAll(pattern)];
-      if (matches.length > 0 && matches[0][1]) {
-        const amountStr = matches[0][1].replace(/,/g, '');
-        basicAmount = parseFloat(amountStr);
-        console.log('Found basic amount:', basicAmount, 'from pattern:', pattern);
-        break;
-      }
-    }
-    
-    if (basicAmount > 0) {
-      // Determine basic transaction type
-      let basicType: 'income' | 'expense' = 'expense';
-      const incomeKeywords = ['deposit', 'dividend', 'interest', 'credit', 'received', 'incoming'];
-      const expenseKeywords = ['withdrawal', 'withdraw', 'fee', 'charge', 'debit', 'outgoing'];
-      
-      const lowerContent = content.toLowerCase();
-      const lowerSubject = subject.toLowerCase();
-      const allText = lowerContent + ' ' + lowerSubject;
-      
-      if (incomeKeywords.some(keyword => allText.includes(keyword))) {
-        basicType = 'income';
-      } else if (expenseKeywords.some(keyword => allText.includes(keyword))) {
-        basicType = 'expense';
-      }
-      
-      return {
-        type: basicType,
-        amount: basicAmount,
-        description: subject || 'Email transaction',
-        category: 'Email Import',
-        currency: 'USD',
-        aiParsed: false,
-        confidence: 0.5,
-        parsingType: 'basic' as const,
-        rawData
-      };
+      console.error('❌ AI parsing error:', aiError);
+      return null;
     }
     
     return null;
