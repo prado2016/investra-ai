@@ -1083,35 +1083,33 @@ const SimpleEmailManagement: React.FC = () => {
   const handleBulkProcess = async () => {
     if (bulkProcessing) return;
     
-    // Get all unprocessed emails (pending, processing, error status)
-    const unprocessedEmails = emails.filter(email => 
-      email.status === 'pending' || email.status === 'processing' || email.status === 'error'
-    );
+    // Get all emails (including processed ones for reprocessing)
+    const emailsToProcess = emails.filter(email => email.id); // All emails
     
-    if (unprocessedEmails.length === 0) {
-      error('No Emails to Process', 'All emails have already been processed');
+    if (emailsToProcess.length === 0) {
+      error('No Emails to Process', 'No emails found to process');
       return;
     }
 
     const confirmed = window.confirm(
-      `Process ${unprocessedEmails.length} emails? This will automatically parse each email and create transactions where possible.`
+      `Process ${emailsToProcess.length} emails? This will automatically parse each email and create transactions where possible.`
     );
 
     if (!confirmed) return;
 
     setBulkProcessing(true);
-    setBulkProgress({ current: 0, total: unprocessedEmails.length });
+    setBulkProgress({ current: 0, total: emailsToProcess.length });
     setBulkResults({ processed: 0, errors: 0 });
 
     let processed = 0;
     let errors = 0;
 
-    for (let i = 0; i < unprocessedEmails.length; i++) {
-      const email = unprocessedEmails[i];
-      setBulkProgress({ current: i + 1, total: unprocessedEmails.length });
+    for (let i = 0; i < emailsToProcess.length; i++) {
+      const email = emailsToProcess[i];
+      setBulkProgress({ current: i + 1, total: emailsToProcess.length });
 
       try {
-        console.log(`🔄 Bulk processing email ${i + 1}/${unprocessedEmails.length}: ${email.subject}`);
+        console.log(`🔄 Bulk processing email ${i + 1}/${emailsToProcess.length}: ${email.subject}`);
         
         // Parse email content to extract transaction information
         const extracted = await parseEmailForTransaction(email);
@@ -1190,7 +1188,11 @@ const SimpleEmailManagement: React.FC = () => {
     totalEmails: emails.length,
     searchTerm,
     filteredCount: filteredEmails.length,
-    emails: emails.map(e => ({ id: e.id, subject: e.subject, from: e.from }))
+    emailStatuses: emails.reduce((acc, e) => {
+      acc[e.status] = (acc[e.status] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>),
+    emails: emails.map(e => ({ id: e.id, subject: e.subject, from: e.from, status: e.status }))
   });
 
   const formatDate = (dateString: string) => {
@@ -1595,7 +1597,7 @@ const SimpleEmailManagement: React.FC = () => {
           <Button 
             variant="secondary" 
             onClick={handleBulkProcess}
-            disabled={bulkProcessing || emails.filter(e => e.status !== 'processed').length === 0}
+            disabled={bulkProcessing || emails.length === 0}
             style={{ 
               minWidth: '200px',
               background: bulkProcessing ? '#f59e0b' : undefined,
@@ -1610,7 +1612,7 @@ const SimpleEmailManagement: React.FC = () => {
             ) : (
               <>
                 <DollarSign size={16} />
-                Process All Emails ({emails.filter(e => e.status !== 'processed').length})
+                Process All Emails ({emails.length})
               </>
             )}
           </Button>
@@ -1638,13 +1640,13 @@ const SimpleEmailManagement: React.FC = () => {
           )}
         </div>
         
-        {!bulkProcessing && emails.filter(e => e.status !== 'processed').length > 0 && (
+        {!bulkProcessing && emails.length > 0 && (
           <div style={{ 
             fontSize: '0.875rem', 
             color: '#6b7280',
             fontStyle: 'italic'
           }}>
-            This will automatically parse and process all unprocessed emails
+            This will automatically parse and process all emails (including reprocessing completed ones)
           </div>
         )}
       </ControlsRow>
