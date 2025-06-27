@@ -70,7 +70,7 @@ export class ApiKeyStorage {
     const envKey = `VITE_${provider.toUpperCase()}_API_KEY`;
     const envValue = import.meta.env[envKey];
     
-    if (envValue && envValue !== 'your_gemini_api_key_here') {
+    if (envValue && envValue !== 'your_gemini_api_key_here' && envValue !== 'your_openrouter_api_key_here') {
       return envValue;
     }
 

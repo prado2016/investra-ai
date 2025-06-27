@@ -15,6 +15,7 @@ import type {
   EmailParsingResponse
 } from '../../types/ai';
 import { GeminiAIService } from './geminiService';
+import { OpenRouterAIService } from './openrouterService';
 // import { ApiKeyService } from '../apiKeyService'; // TODO: Re-enable when database is set up
 import { ApiKeyStorage } from '../../utils/apiKeyStorage';
 
@@ -364,9 +365,7 @@ export class AIServiceManager {
         console.warn('OpenAI service not yet implemented');
         return null;
       case 'openrouter':
-        // TODO: Implement OpenRouter service
-        console.warn('OpenRouter service not yet implemented');
-        return null;
+        return new OpenRouterAIService(config);
       case 'perplexity':
         // TODO: Implement Perplexity service
         console.warn('Perplexity service not yet implemented');
