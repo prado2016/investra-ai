@@ -425,20 +425,27 @@ export class AIServiceManager {
   private getBestProviderForEmailParsing(): AIProvider {
     // First, try to get the user's default provider
     const defaultProvider = ApiKeyStorage.getDefaultProvider() as AIProvider;
+    console.log('🔍 Default provider from storage:', defaultProvider);
+    console.log('🔍 Available services:', Array.from(this.services.keys()));
+    
     if (defaultProvider && this.services.has(defaultProvider)) {
       const service = this.services.get(defaultProvider)!;
+      console.log('🔍 Default provider service configured:', service.isConfigured);
       if (service.isConfigured) {
+        console.log('✅ Using default provider for email parsing:', defaultProvider);
         return defaultProvider;
       }
     }
 
     // Priority order for email parsing if no default or default is not available
     const priorities: AIProvider[] = ['gemini', 'openrouter', 'openai', 'perplexity'];
+    console.log('⚠️ Falling back to priority order:', priorities);
     
     for (const provider of priorities) {
       if (this.services.has(provider)) {
         const service = this.services.get(provider)!;
         if (service.isConfigured) {
+          console.log('✅ Using priority provider for email parsing:', provider);
           return provider;
         }
       }
@@ -447,10 +454,12 @@ export class AIServiceManager {
     // Return first available if none match priorities
     for (const [provider, service] of this.services) {
       if (service.isConfigured) {
+        console.log('✅ Using first available provider for email parsing:', provider);
         return provider;
       }
     }
 
+    console.log('⚠️ Using fallback provider: gemini');
     return 'gemini'; // Default fallback
   }
 
