@@ -691,7 +691,8 @@ const SimpleEmailManagement: React.FC = () => {
     const statusFilterValue = statusFilter === 'all' ? undefined : statusFilter;
     console.log('🔍 UI: Status filter:', statusFilterValue);
     
-    const result = await simpleEmailService.getEmails(statusFilterValue, 100);
+    // Only show inbox emails (not processed) to focus on emails that need processing
+    const result = await simpleEmailService.getEmails(statusFilterValue, 100, false);
     console.log('📦 UI: getEmails result:', result);
     
     if (result.error) {

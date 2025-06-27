@@ -81,10 +81,11 @@ class SimpleEmailService {
    */
   async getEmails(
     status?: 'pending' | 'processing' | 'error' | 'processed',
-    limit: number = 100
+    limit: number = 100,
+    includeProcessed: boolean = true
   ): Promise<{ data: EmailItem[] | null; error: string | null }> {
     try {
-      console.log('🔄 Fetching real emails from database (both inbox and processed)');
+      console.log(`🔄 Fetching emails from database (inbox${includeProcessed ? ' and processed' : ' only'})`);
       
       // Get current user session
       const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -96,7 +97,7 @@ class SimpleEmailService {
 
       console.log('✅ User authenticated:', user.id);
       
-      // Query both imap_inbox and imap_processed tables
+      // Always query inbox
       console.log('📡 Querying imap_inbox for pending emails...');
       const { data: inboxEmails, error: inboxError } = await supabase
         .from('imap_inbox')
@@ -105,23 +106,32 @@ class SimpleEmailService {
         .order('received_at', { ascending: false })
         .limit(limit);
 
-      console.log('📡 Querying imap_processed for completed emails...');
-      const { data: processedEmails, error: processedError } = await supabase
-        .from('imap_processed')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('processed_at', { ascending: false })
-        .limit(limit);
+      let processedEmails = null;
+      let processedError = null;
 
-      if (inboxError && processedError) {
-        console.error('❌ Both queries failed:', { inboxError, processedError });
+      // Only query processed emails if requested
+      if (includeProcessed) {
+        console.log('📡 Querying imap_processed for completed emails...');
+        const processedResult = await supabase
+          .from('imap_processed')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('processed_at', { ascending: false })
+          .limit(limit);
+        
+        processedEmails = processedResult.data;
+        processedError = processedResult.error;
+      }
+
+      if (inboxError && (includeProcessed && processedError)) {
+        console.error('❌ Query failed:', { inboxError, processedError });
         return { data: [], error: 'Database query failed' };
       }
 
-      // Combine results from both tables
+      // Combine results from both tables (if processed emails are included)
       const allEmails = [
         ...(inboxEmails || []).map(email => ({ ...email, source: 'inbox' })),
-        ...(processedEmails || []).map(email => ({ ...email, source: 'processed', received_at: email.processed_at || email.received_at }))
+        ...(includeProcessed && processedEmails ? processedEmails.map(email => ({ ...email, source: 'processed', received_at: email.processed_at || email.received_at })) : [])
       ];
 
       console.log(`📧 Found ${inboxEmails?.length || 0} emails in inbox, ${processedEmails?.length || 0} in processed`);
