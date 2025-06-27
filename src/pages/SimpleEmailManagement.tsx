@@ -1878,61 +1878,67 @@ const SimpleEmailManagement: React.FC = () => {
             </EmailDetail>
 
             {/* AI Parsing Status */}
-            {parsedData && (
-              <div style={{
-                background: parsedData.aiParsed 
-                  ? (parsedData.confidence && parsedData.confidence > 0.7 ? '#dcfce7' : '#fef3c7')
-                  : '#f3f4f6',
-                border: `1px solid ${parsedData.aiParsed 
-                  ? (parsedData.confidence && parsedData.confidence > 0.7 ? '#16a34a' : '#eab308')
-                  : '#9ca3af'}`,
-                borderRadius: '8px',
-                padding: '0.75rem',
-                marginBottom: '1rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem'
-              }}>
-                {parsedData.aiParsed ? (
-                  <>
-                    <span style={{ fontSize: '1.2rem' }}>🤖</span>
-                    <div>
-                      <DetailLabel style={{ 
-                        margin: 0, 
-                        color: parsedData.confidence && parsedData.confidence > 0.7 ? '#15803d' : '#a16207',
-                        fontWeight: 600
+            <div style={{
+              background: parsedData?.aiParsed 
+                ? (parsedData.confidence && parsedData.confidence > 0.7 ? '#dcfce7' : '#fef3c7')
+                : '#fee2e2',
+              border: `1px solid ${parsedData?.aiParsed 
+                ? (parsedData.confidence && parsedData.confidence > 0.7 ? '#16a34a' : '#eab308')
+                : '#ef4444'}`,
+              borderRadius: '8px',
+              padding: '0.75rem',
+              marginBottom: '1rem'
+            }}>
+              {parsedData?.aiParsed ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{ fontSize: '1.2rem' }}>🤖</span>
+                  <div>
+                    <DetailLabel style={{ 
+                      margin: 0, 
+                      color: parsedData.confidence && parsedData.confidence > 0.7 ? '#15803d' : '#a16207',
+                      fontWeight: 600
+                    }}>
+                      AI Extracted {parsedData.parsingType === 'trading' ? 'Trading' : 'Basic'} Transaction
+                    </DetailLabel>
+                    {parsedData.confidence && (
+                      <div style={{ 
+                        fontSize: '0.875rem', 
+                        color: parsedData.confidence > 0.7 ? '#15803d' : '#a16207',
+                        marginTop: '0.25rem'
                       }}>
-                        AI Extracted {parsedData.parsingType === 'trading' ? 'Trading' : 'Basic'} Transaction
-                      </DetailLabel>
-                      {parsedData.confidence && (
-                        <div style={{ 
-                          fontSize: '0.875rem', 
-                          color: parsedData.confidence > 0.7 ? '#15803d' : '#a16207',
-                          marginTop: '0.25rem'
-                        }}>
-                          Confidence: {Math.round(parsedData.confidence * 100)}%
-                          {parsedData.confidence > 0.8 && ' (High)'}
-                          {parsedData.confidence > 0.5 && parsedData.confidence <= 0.8 && ' (Medium)'}
-                          {parsedData.confidence <= 0.5 && ' (Low)'}
-                        </div>
-                      )}
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <span style={{ fontSize: '1.2rem' }}>📝</span>
-                    <div>
-                      <DetailLabel style={{ margin: 0, color: '#6b7280', fontWeight: 600 }}>
-                        Manual Entry Required
-                      </DetailLabel>
-                      <div style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}>
-                        AI parsing failed - using basic pattern matching
+                        Confidence: {Math.round(parsedData.confidence * 100)}%
+                        {parsedData.confidence > 0.8 && ' (High)'}
+                        {parsedData.confidence > 0.5 && parsedData.confidence <= 0.8 && ' (Medium)'}
+                        {parsedData.confidence <= 0.5 && ' (Low)'}
                       </div>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                    <span style={{ fontSize: '1.2rem' }}>❌</span>
+                    <DetailLabel style={{ margin: 0, color: '#991b1b', fontWeight: 600 }}>
+                      AI Parsing Failed
+                    </DetailLabel>
+                  </div>
+                  <div style={{ fontSize: '0.875rem', color: '#991b1b', marginBottom: '0.5rem' }}>
+                    Unable to automatically extract transaction data from this email.
+                  </div>
+                  <div style={{ 
+                    fontSize: '0.75rem', 
+                    color: '#7f1d1d', 
+                    background: '#fef2f2', 
+                    padding: '0.5rem',
+                    borderRadius: '4px',
+                    fontFamily: 'monospace'
+                  }}>
+                    <strong>Common causes:</strong> API quota exceeded, unsupported email format, or non-financial content.
+                    Check console for detailed error messages.
+                  </div>
+                </div>
+              )}
+            </div>
 
             {parsedData ? (
               <>
