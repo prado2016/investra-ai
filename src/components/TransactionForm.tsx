@@ -16,6 +16,9 @@ interface TransactionFormData {
   quantity: string;
   price: string;
   notes: string;
+  currency: string; // Added missing property
+  assetType: string; // Added missing property
+  totalAmount: string; // Added missing property
   [key: string]: unknown;
 }
 

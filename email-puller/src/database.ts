@@ -40,7 +40,7 @@ export interface EmailData {
   raw_content?: string;
   text_content?: string;
   html_content?: string;
-  attachments_info?: any[];
+  attachments_info?: { filename: string; contentType: string; size: number; }[];
   email_size?: number;
   priority?: 'low' | 'normal' | 'high';
   status?: 'pending' | 'processing' | 'error';
@@ -88,7 +88,14 @@ export class Database {
     lastError?: string
   ): Promise<void> {
     try {
-      const updateData: any = {
+      type UpdateData = {
+        sync_status: ImapConfiguration['sync_status'];
+        last_sync_at: string;
+        updated_at: string;
+        last_error?: string | null;
+      };
+
+      const updateData: UpdateData = {
         sync_status: status,
         last_sync_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
@@ -424,7 +431,7 @@ export class Database {
    */
   async testConnection(): Promise<boolean> {
     try {
-      const { data, error } = await this.client
+      const { data: _data, error } = await this.client
         .from('profiles')
         .select('count')
         .limit(1);

@@ -21,10 +21,16 @@ export interface ParsedEmail {
   receivedAt: Date;
   textContent?: string;
   htmlContent?: string;
-  attachments: any[];
+  attachments: AttachmentInfo[];
   size: number;
   rawContent: string;
   uid: number; // Add UID for tracking
+}
+
+export interface AttachmentInfo {
+  filename?: string;
+  contentType?: string;
+  size?: number;
 }
 
 export class ImapClient {
@@ -113,7 +119,7 @@ export class ImapClient {
       }
 
       // Create the folder
-      await (this.client as any).mailboxCreate(folderName);
+      await (this.client as ImapFlow).mailboxCreate(folderName);
       logger.info(`Successfully created folder: ${folderName}`);
 
     } catch (error) {
@@ -146,7 +152,7 @@ export class ImapClient {
       const uidSet = uids.join(',');
       logger.info(`Moving ${uids.length} emails to ${folderName}`);
       
-      await (this.client as any).messageMove(uidSet, folderName, { uid: true });
+      await (this.client as ImapFlow).messageMove(uidSet, folderName, { uid: true });
       logger.info(`Successfully moved ${uids.length} emails to ${folderName}`);
 
     } catch (error) {
@@ -182,7 +188,7 @@ export class ImapClient {
       await this.ensureFolder(folderName);
 
       // Move all messages (use sequence numbers 1:*)
-      await (this.client as any).messageMove('1:*', folderName);
+      await (this.client as ImapFlow).messageMove('1:*', folderName);
       logger.info(`Successfully moved all ${totalMessages} emails to ${folderName}`);
       
       return totalMessages;
@@ -258,7 +264,7 @@ export class ImapClient {
   /**
    * Parse a raw IMAP message into our email format
    */
-  private async parseMessage(message: any): Promise<ParsedEmail | null> {
+  private async parseMessage(message: { seq: number; source: Buffer; uid: number; size: number; internalDate: Date; }): Promise<ParsedEmail | null> {
     try {
       if (!message.source) {
         logger.warn(`Message ${message.seq} has no source content`);

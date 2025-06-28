@@ -6,7 +6,7 @@
 import { logger } from './logger.js';
 import { database } from './database.js';
 import { ImapClient } from './imap-client.js';
-import { config } from './config.js';
+
 
 const PROCESSED_FOLDER = 'Investra/Processed';
 
@@ -54,7 +54,7 @@ async function cleanSlate() {
         if (movedCount > 0) {
           try {
             // Get all emails for this user from imap_inbox
-            const { data: inboxEmails, error } = await (database as any).client
+            const { data: inboxEmails, error } = await database.client
               .from('imap_inbox')
               .select('message_id')
               .eq('user_id', imapConfig.user_id);
@@ -62,7 +62,7 @@ async function cleanSlate() {
             if (error) {
               logger.warn(`Failed to get inbox emails for database archiving: ${error.message}`);
             } else if (inboxEmails && inboxEmails.length > 0) {
-              const messageIds = inboxEmails.map((email: any) => email.message_id);
+              const messageIds = inboxEmails.map((email: { message_id: string }) => email.message_id);
               const removedCount = await database.removeProcessedEmails(messageIds, imapConfig.user_id);
               logger.info(`✅ ${imapConfig.gmail_email}: ${removedCount} emails removed from database inbox`);
             }

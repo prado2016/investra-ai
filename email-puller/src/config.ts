@@ -58,7 +58,7 @@ export const config: EmailPullerConfig = {
   
   // Logging
   enableLogging: process.env.ENABLE_LOGGING !== 'false',
-  logLevel: (process.env.LOG_LEVEL as any) || 'info',
+  logLevel: (process.env.LOG_LEVEL as EmailPullerConfig['logLevel']) || 'info',
   
   // Runtime
   runOnce: process.env.RUN_ONCE === 'true',

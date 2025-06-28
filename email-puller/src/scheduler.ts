@@ -9,7 +9,7 @@ import { EmailSyncManager } from './sync-manager.js';
 
 export class EmailScheduler {
   private syncManager: EmailSyncManager;
-  private scheduledTask: any = null;
+  private scheduledTask: cron.ScheduledTask | null = null;
   private isRunning = false;
 
   constructor() {
