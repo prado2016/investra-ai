@@ -221,6 +221,19 @@ try {
   console.error('Failed to initialize Supabase client:', error);
 }
 
+// Initialize service role client for admin operations (bypasses RLS)
+let supabaseServiceRole: any = null;
+try {
+  const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjYnV3aHBpcHBoZHNzcWp3Z2ZtIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0ODg3NTg2MSwiZXhwIjoyMDY0NDUxODYxfQ.Tf9CrI7XB9UHcx3FZH5BGu9EmyNS3rX4UIiPuKhU-5I';
+  supabaseServiceRole = createClient(
+    SUPABASE_URL || 'https://placeholder.supabase.co',
+    SERVICE_ROLE_KEY
+  );
+  console.log('Supabase service role client initialized');
+} catch (error) {
+  console.error('Failed to initialize Supabase service role client:', error);
+}
+
 /**
  * Fetch user's IMAP configuration from the database
  */
@@ -1197,6 +1210,25 @@ app.post('/api/email/process', async (req, res) => {
 // IMAP service status - now returns real data
 app.get('/api/imap/status', async (req, res) => {
   try {
+    // Get actual email count from database using service role (bypasses RLS)
+    let totalEmailCount = 0;
+    try {
+      // Count emails from both imap_inbox and imap_processed tables
+      const { count: inboxCount } = await supabaseServiceRole
+        .from('imap_inbox')
+        .select('*', { count: 'exact', head: true });
+
+      const { count: processedCount } = await supabaseServiceRole
+        .from('imap_processed')
+        .select('*', { count: 'exact', head: true });
+
+      totalEmailCount = (inboxCount || 0) + (processedCount || 0);
+      logger.info(`📊 Email count: ${inboxCount || 0} in inbox + ${processedCount || 0} processed = ${totalEmailCount} total`);
+    } catch (countError) {
+      logger.warn('Failed to get email count from database:', countError);
+      totalEmailCount = 0; // Fallback to 0 if query fails
+    }
+
     // Return real IMAP status with actual stats
     const status = {
       status: 'running',
@@ -1204,7 +1236,7 @@ app.get('/api/imap/status', async (req, res) => {
       uptime: Date.now() - serverStartTime,
       startedAt: new Date(serverStartTime).toISOString(),
       lastSync: new Date(Date.now() - 2 * 60 * 1000).toISOString(), // 2 minutes ago
-      emailsProcessed: 47,
+      emailsProcessed: totalEmailCount,
       config: {
         server: 'imap.gmail.com',
         port: 993,
