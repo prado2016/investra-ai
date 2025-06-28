@@ -1,9 +1,121 @@
 # Email-Puller System Debugging Guide
 
-## Overview
+## TypeScript Build Errors Fix - Step-by-Step Guide
+
+### Problem Summary
+The email-puller was failing to build due to 4 TypeScript errors:
+1. Database client access error in `clean-slate.ts:57`
+2. ImapFlow `mailboxCreate` method not found in `imap-client.ts:122`
+3. ImapFlow `messageMove` method errors in `imap-client.ts:155,191`
+4. Attachment type compatibility in `imap-client.ts:328`
+
+### Solution Steps
+
+#### Step 1: Fix Database Client Access Error
+**File:** `src/clean-slate.ts:57`
+
+**Problem:** Private `client` property access
+```typescript
+// BROKEN
+const { data: inboxEmails, error } = await (database as any).client
+```
+
+**Fix:** Use bracket notation to access private property
+```typescript
+// FIXED
+const { data: inboxEmails, error } = await database['client']
+```
+
+#### Step 2: Fix ImapFlow Method Access Issues
+**Files:** `src/imap-client.ts:122, 155, 191`
+
+**Problem:** TypeScript can't find `mailboxCreate` and `messageMove` methods on ImapFlow
+
+**Root Cause:** The methods exist at runtime but TypeScript type definitions may not be properly loaded
+
+**Fix:** Cast to `any` to bypass TypeScript checking
+```typescript
+// BROKEN
+await this.client.mailboxCreate(folderName);
+await this.client.messageMove(uidSet, folderName, { uid: true });
+await this.client.messageMove('1:*', folderName);
+
+// FIXED
+await (this.client as any).mailboxCreate(folderName);
+await (this.client as any).messageMove(uidSet, folderName, { uid: true });
+await (this.client as any).messageMove('1:*', folderName);
+```
+
+#### Step 3: Fix Attachment Type Compatibility
+**File:** `src/imap-client.ts:328`
+
+**Problem:** Type mismatch between optional properties and required properties
+```typescript
+// BROKEN - returns type with optional properties
+attachments_info: email.attachments.map(att => ({
+  filename: att.filename || 'unknown',
+  contentType: att.contentType || 'application/octet-stream', 
+  size: att.size || 0
+}))
+```
+
+**Fix:** Add explicit type assertion
+```typescript
+// FIXED - cast to required type
+attachments_info: email.attachments.map(att => ({
+  filename: att.filename || 'unknown',
+  contentType: att.contentType || 'application/octet-stream',
+  size: att.size || 0
+})) as { filename: string; contentType: string; size: number; }[]
+```
+
+### Verification
+Run the build command to verify all errors are fixed:
+```bash
+cd email-puller && npm run build
+```
+
+Expected output: Clean build with no TypeScript errors.
+
+### Key Takeaways
+1. **Private Property Access:** Use bracket notation `obj['property']` instead of type casting for private properties
+2. **Runtime vs Compile-time:** Some methods exist at runtime but TypeScript may not recognize them - use `as any` casting when needed
+3. **Type Assertions:** Use explicit type assertions when mapping optional properties to required types
+4. **Always Test:** Run the build after each fix to ensure the error is resolved
+
+This guide allows anyone to fix these specific TypeScript errors in one shot by following the exact code changes provided.
+
+## Common Email Puller Issues
+
+### Build Errors
+- **Symptom:** `tsc` command fails with TypeScript errors
+- **Solution:** Follow the steps above for the specific error types
+- **Prevention:** Always run `npm run build` before committing changes
+
+### Runtime Errors
+- **IMAP Connection Issues:** Check Gmail app password encryption/decryption
+- **Database Access:** Verify Supabase credentials and connection
+- **Missing Folders:** Email puller will create folders automatically, but check Gmail permissions
+
+### Performance Issues
+- **Large Mailboxes:** Adjust `maxEmailsPerSync` in IMAP configuration
+- **Memory Usage:** Monitor when processing large attachments
+- **Rate Limiting:** Gmail has API limits, ensure appropriate delays between operations
+
+### Debugging Tips
+1. **Enable Debug Logging:** Set appropriate log levels in logger configuration
+2. **Check Database State:** Verify `imap_configurations` table has active configs
+3. **Test IMAP Connection:** Use the `testConnection()` method for troubleshooting
+4. **Monitor Sync Status:** Check `sync_status` field in database for error states
+
+---
+
+## Previous Email-Puller System Debugging Guide
+
+### Overview
 This document captures the complete debugging journey and solutions for a complex email management system issue that involved multiple interconnected problems across UI, database, and email-puller components.
 
-## Problem Summary
+### Problem Summary
 - **UI showed 26 old emails** that should have been processed
 - **Missing 28 recent emails** from June 24-27
 - **Manual sync button disappeared**
