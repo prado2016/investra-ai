@@ -1213,7 +1213,7 @@ export async function triggerManualEmailSync(): Promise<{ success: boolean; data
 // Database-driven manual sync trigger function (NO AUTHENTICATION ISSUES!)
 export async function triggerManualSyncViaDatabase(): Promise<{ success: boolean; data?: any; error?: string }> {
   try {
-    console.log('🔄 Triggering manual sync via database...');
+    console.log('🔄 Triggering manual sync via database with email-puller restart...');
     
     // Get current user
     const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -1228,12 +1228,41 @@ export async function triggerManualSyncViaDatabase(): Promise<{ success: boolean
 
     console.log('✅ User authenticated for database sync:', user.email);
     
-    // Insert sync request into database
+    // Step 1: Restart the email-puller service to ensure latest code is running
+    console.log('🔄 Step 1: Restarting email-puller service...');
+    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://10.0.0.89:3001';
+    
+    try {
+      const restartResponse = await fetch(`${apiBaseUrl}/api/imap/restart`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        signal: AbortSignal.timeout(15000) // 15 second timeout for restart
+      });
+      
+      if (restartResponse.ok) {
+        const restartResult = await restartResponse.json();
+        console.log('✅ Email-puller restart initiated:', restartResult.message);
+        
+        // Wait a few seconds for the service to restart before creating sync request
+        console.log('⏳ Waiting for service restart...');
+        await new Promise(resolve => setTimeout(resolve, 5000)); // 5 second wait
+      } else {
+        console.warn('⚠️ Restart request failed but continuing with sync:', restartResponse.status);
+      }
+    } catch (restartError) {
+      console.warn('⚠️ Email-puller restart failed but continuing with sync:', restartError);
+      // Continue with sync even if restart fails - the old process might still work
+    }
+    
+    // Step 2: Insert sync request into database
+    console.log('📝 Step 2: Creating sync request in database...');
     const { data: syncRequest, error: insertError } = await supabase
       .from('sync_requests')
       .insert({
         user_id: user.id,
-        request_type: 'manual_sync',
+        request_type: 'manual_sync_with_restart',
         status: 'pending'
       })
       .select()
@@ -1247,7 +1276,7 @@ export async function triggerManualSyncViaDatabase(): Promise<{ success: boolean
       };
     }
 
-    console.log('✅ Sync request created:', syncRequest.id);
+    console.log('✅ Sync request created with restart:', syncRequest.id);
     
     // Poll for completion with timeout
     let attempts = 0;
