@@ -11,9 +11,11 @@ import { logger } from './logger.js';
 import { database } from './database.js';
 import { emailScheduler } from './scheduler.js';
 import { emailSyncManager } from './sync-manager.js';
+import { SyncRequestMonitor } from './sync-request-monitor.js';
 
 class EmailPuller {
   private isShuttingDown = false;
+  private syncMonitor?: SyncRequestMonitor;
 
   /**
    * Initialize and start the email puller
@@ -127,6 +129,18 @@ class EmailPuller {
       // Start the scheduler
       emailScheduler.start();
 
+      // Start the database sync request monitor
+      this.syncMonitor = new SyncRequestMonitor();
+      this.syncMonitor.start();
+      logger.info('✅ Database sync request monitor started');
+
+      // Setup daily cleanup of old sync requests
+      setInterval(() => {
+        if (this.syncMonitor) {
+          this.syncMonitor.cleanupOldRequests(7);
+        }
+      }, 24 * 60 * 60 * 1000); // Daily cleanup
+
       // Run initial sync
       logger.info('🔄 Running initial email sync');
       try {
@@ -170,6 +184,12 @@ class EmailPuller {
         // Stop scheduler
         emailScheduler.stop();
         logger.info('✅ Scheduler stopped');
+
+        // Stop sync monitor
+        if (this.syncMonitor) {
+          this.syncMonitor.stop();
+          logger.info('✅ Sync monitor stopped');
+        }
 
         // Wait a moment for any ongoing operations
         await new Promise(resolve => setTimeout(resolve, 2000));

@@ -25,7 +25,7 @@ import { Button } from '../components/ui/Button';
 import { EmailConfigurationPanel } from '../components/EmailConfigurationPanel';
 import { useNotifications } from '../hooks/useNotifications';
 import { useSupabasePortfolios } from '../hooks/useSupabasePortfolios';
-import { simpleEmailService, parseEmailForTransaction, triggerManualEmailSync } from '../services/simpleEmailService';
+import { simpleEmailService, parseEmailForTransaction, triggerManualSyncViaDatabase } from '../services/simpleEmailService';
 import type { EmailItem, EmailStats, EmailPullerStatus } from '../services/simpleEmailService';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useAuth } from '../contexts/AuthProvider';
@@ -771,20 +771,30 @@ const SimpleEmailManagement: React.FC = () => {
   const handleManualSync = async () => {
     setManualSyncing(true);
     try {
-      console.log('🔄 Starting manual email sync...');
-      const result = await triggerManualEmailSync();
+      console.log('🔄 Starting database-driven manual email sync...');
+      
+      // Use the new database-driven trigger (NO AUTHENTICATION ISSUES!)
+      const result = await triggerManualSyncViaDatabase();
       
       if (result.success) {
-        success('Manual Sync Triggered', 'Email puller service has been notified to start immediate sync');
-        console.log('✅ Manual sync trigger successful:', result.data);
+        success('Manual Sync Triggered', 'Email sync request submitted via database. Check emails in a few moments.');
+        console.log('✅ Database sync trigger successful:', result.data);
         
-        // Refresh data after a short delay to see if sync completed
+        // Refresh data after sync completes (or timeout)
         setTimeout(async () => {
+          console.log('🔄 Refreshing email data after sync...');
           await loadData();
-        }, 2000);
+        }, 3000);
+        
+        // Additional refresh after longer delay in case sync takes time
+        setTimeout(async () => {
+          console.log('🔄 Second refresh check...');
+          await loadData();
+        }, 10000);
+        
       } else {
-        error('Manual Sync Failed', result.error || 'Failed to trigger manual sync');
-        console.error('❌ Manual sync trigger failed:', result.error);
+        error('Manual Sync Failed', result.error || 'Failed to trigger database sync');
+        console.error('❌ Database sync trigger failed:', result.error);
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
