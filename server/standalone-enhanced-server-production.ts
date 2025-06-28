@@ -4,13 +4,42 @@
  * No external workspace dependencies
  */
 
+// CRITICAL: Load environment variables FIRST, before any imports that need them
+import * as dotenv from 'dotenv';
+
+// Load environment variables from multiple locations
+dotenv.config(); // Current directory
+dotenv.config({ path: '../.env.local' }); // Parent directory for local development
+dotenv.config({ path: '../.env' }); // Parent directory for production
+
+// Ensure Supabase environment variables are available for the auth middleware
+// Set them early before any imports that might need them
+if (!process.env.SUPABASE_URL && process.env.VITE_SUPABASE_URL) {
+  process.env.SUPABASE_URL = process.env.VITE_SUPABASE_URL;
+  console.log('✅ Set SUPABASE_URL from VITE_SUPABASE_URL');
+}
+if (!process.env.SUPABASE_ANON_KEY && process.env.VITE_SUPABASE_ANON_KEY) {
+  process.env.SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY;
+  console.log('✅ Set SUPABASE_ANON_KEY from VITE_SUPABASE_ANON_KEY');
+}
+
+// Debug Supabase configuration
+console.log('🔧 Supabase config debug (early):', {
+  hasSupabaseUrl: !!process.env.SUPABASE_URL,
+  hasViteUrl: !!process.env.VITE_SUPABASE_URL,
+  hasSupabaseKey: !!process.env.SUPABASE_ANON_KEY,
+  hasViteKey: !!process.env.VITE_SUPABASE_ANON_KEY,
+  urlPreview: process.env.SUPABASE_URL ? `${process.env.SUPABASE_URL.substring(0, 30)}...` : 'none',
+  keyPreview: process.env.SUPABASE_ANON_KEY ? `${process.env.SUPABASE_ANON_KEY.substring(0, 30)}...` : 'none'
+});
+
+// Now import other modules that might need environment variables
 import express from 'express';
 import cors from 'cors';
 // import helmet from 'helmet'; // Commented out for deployment compatibility
 import rateLimit from 'express-rate-limit';
 import { createClient } from '@supabase/supabase-js';
 import winston from 'winston';
-import * as dotenv from 'dotenv';
 // Removed unused imports: fs and path
 import { createServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
@@ -79,11 +108,6 @@ if (!authLoaded) {
   };
 }
 
-// Load environment variables from multiple locations
-dotenv.config(); // Current directory
-dotenv.config({ path: '../.env.local' }); // Parent directory for local development
-dotenv.config({ path: '../.env' }); // Parent directory for production
-
 // Initialize Sentry for error tracking
 if (process.env.SENTRY_DSN) {
   Sentry.init({
@@ -108,26 +132,6 @@ if (process.env.SENTRY_DSN) {
   console.warn('⚠️ SENTRY_DSN not found - Sentry will not be initialized for server');
 }
 
-// Ensure Supabase environment variables are available for the auth middleware
-// Set them early before any imports that might need them
-if (!process.env.SUPABASE_URL && process.env.VITE_SUPABASE_URL) {
-  process.env.SUPABASE_URL = process.env.VITE_SUPABASE_URL;
-  console.log('✅ Set SUPABASE_URL from VITE_SUPABASE_URL');
-}
-if (!process.env.SUPABASE_ANON_KEY && process.env.VITE_SUPABASE_ANON_KEY) {
-  process.env.SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY;
-  console.log('✅ Set SUPABASE_ANON_KEY from VITE_SUPABASE_ANON_KEY');
-}
-
-// Debug Supabase configuration
-console.log('🔧 Supabase config debug:', {
-  hasSupabaseUrl: !!process.env.SUPABASE_URL,
-  hasViteUrl: !!process.env.VITE_SUPABASE_URL,
-  hasSupabaseKey: !!process.env.SUPABASE_ANON_KEY,
-  hasViteKey: !!process.env.VITE_SUPABASE_ANON_KEY,
-  urlPreview: process.env.SUPABASE_URL ? `${process.env.SUPABASE_URL.substring(0, 30)}...` : 'none',
-  keyPreview: process.env.SUPABASE_ANON_KEY ? `${process.env.SUPABASE_ANON_KEY.substring(0, 30)}...` : 'none'
-});
 
 // Types for standalone server
 interface EmailProcessingResult {
