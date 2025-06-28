@@ -1066,28 +1066,48 @@ export async function triggerManualEmailSync(): Promise<{ success: boolean; data
     try {
       console.log('🔄 Triggering manual email sync...');
       
-      // Get fresh authentication token from Supabase (this auto-refreshes if needed)
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      // Force a session refresh to ensure we have a valid token
+      const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
       
-      if (authError || !user) {
-        console.error('❌ Authentication failed:', authError?.message);
+      if (refreshError) {
+        console.error('❌ Session refresh failed:', refreshError?.message);
         return { 
           success: false, 
-          error: 'Authentication required. Please log in again.' 
+          error: 'Session refresh failed. Please log in again.' 
         };
       }
 
-      // Get fresh session with potentially refreshed token
-      const { data: { session } } = await supabase.auth.getSession();
+      // Use the refreshed session
+      const session = refreshedSession;
       const token = session?.access_token;
+      
+      if (!session || !token) {
+        console.error('❌ No valid session after refresh');
+        return { 
+          success: false, 
+          error: 'No valid session. Please log in again.' 
+        };
+      }
+
+      // Verify user from the refreshed session
+      const user = session.user;
+      if (!user) {
+        console.error('❌ No user in refreshed session');
+        return { 
+          success: false, 
+          error: 'No user found. Please log in again.' 
+        };
+      }
       
       console.log('🔐 Auth debug:', { 
         hasSession: !!session, 
         hasToken: !!token, 
         tokenLength: token?.length,
         tokenPreview: token ? `${token.substring(0, 20)}...` : 'none',
-        sessionUser: session?.user?.email,
-        userFromAuth: user?.email
+        sessionUser: user?.email,
+        userId: user?.id,
+        tokenType: session?.token_type,
+        expiresAt: session?.expires_at ? new Date(session.expires_at * 1000).toISOString() : 'none'
       });
       
       if (!token) {
