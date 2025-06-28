@@ -6,10 +6,10 @@
 
 import { SupabaseService } from '../supabaseService';
 import { debug } from '../../utils/debug';
-import type { 
-  Transaction as DBTransaction, 
-  Position as DBPosition, 
-  Asset as DBAsset 
+import type {
+  Transaction as DBTransaction,
+  Position as DBPosition,
+  Asset as DBAsset
 } from '../../lib/database/types';
 
 // Enhanced transaction type with asset data
@@ -17,7 +17,7 @@ export interface EnhancedTransaction extends DBTransaction {
   asset: DBAsset;
 }
 
-// Enhanced position type with asset data  
+// Enhanced position type with asset data
 export interface EnhancedPosition extends DBPosition {
   asset: DBAsset;
 }
@@ -60,6 +60,13 @@ export interface PLServiceOptions {
   threshold?: number; // Threshold for neutral vs positive/negative
 }
 
+// Represents a buy transaction in the FIFO queue
+interface BuyQueueItem {
+  quantity: number;
+  price: number;
+  transaction: EnhancedTransaction;
+}
+
 export class DailyPLAnalyticsService {
   private readonly DEFAULT_THRESHOLD = 0.01; // $0.01 threshold for neutral
 
@@ -82,70 +89,18 @@ export class DailyPLAnalyticsService {
       }, 'DailyPL');
       console.log('🔍 DAILY_PL_DEBUG: getMonthlyPLData called:', { year, month, portfolioId, timestamp: new Date().toISOString() });
 
-      // Get all transactions for the portfolio
-      const transactionsResult = await SupabaseService.transaction.getTransactions(portfolioId);
+      // Get all transactions for the portfolio, sorted by date
+      const transactionsResult = await SupabaseService.transaction.getTransactions(portfolioId, { sortBy: 'transaction_date', ascending: true });
       if (!transactionsResult.success) {
         console.error('❌ dailyPLService: Failed to fetch transactions for month data:', transactionsResult.error);
         return { data: null, error: `Failed to fetch transactions: ${transactionsResult.error}` };
       }
 
-      // Get all positions for the portfolio
-      const positionsResult = await SupabaseService.position.getPositions(portfolioId);
-      if (!positionsResult.success) {
-        console.error('❌ dailyPLService: Failed to fetch positions for month data:', positionsResult.error);
-        return { data: null, error: `Failed to fetch positions: ${positionsResult.error}` };
-      }
-
       const transactions = transactionsResult.data || [];
-      const positions = positionsResult.data || [];
-
-      // Log the fetched data with specific focus on target date
-      debug.info('Fetched portfolio data for analysis', {
-        totalTransactions: transactions.length,
-        totalPositions: positions.length,
-        april28Transactions: transactions.filter(t => {
-          const dateStr = typeof t.transaction_date === 'string' 
-            ? t.transaction_date.split('T')[0] 
-            : new Date(t.transaction_date).toISOString().split('T')[0];
-          return dateStr === '2025-04-28';
-        }).length,
-        sampleTransactions: transactions.slice(0, 3).map(t => ({
-          id: t.id,
-          date: t.transaction_date,
-          type: t.transaction_type,
-          symbol: t.asset?.symbol
-        }))
-      }, 'DailyPL');
-      
-      // Enhanced console logging for immediate visibility
-      const april28Count = transactions.filter(t => {
-        const dateStr = typeof t.transaction_date === 'string' 
-          ? t.transaction_date.split('T')[0] 
-          : new Date(t.transaction_date).toISOString().split('T')[0];
-        return dateStr === '2025-04-28';
-      }).length;
-      
-      console.log('🔍 DAILY_PL_DEBUG: Fetched data analysis:', {
-        totalTransactions: transactions.length,
-        april28TransactionCount: april28Count,
-        sampleDates: transactions.slice(0, 5).map(t => ({
-          date: t.transaction_date,
-          symbol: t.asset?.symbol
-        })),
-        timestamp: new Date().toISOString()
-      });
-
-      console.log('🔍 dailyPLService: Processing monthly data:', {
-        totalTransactions: transactions.length,
-        totalPositions: positions.length,
-        year,
-        month: month + 1, // Display as 1-12 instead of 0-11
-        monthName: new Date(year, month).toLocaleString('default', { month: 'long' })
-      });
 
       // Handle completely empty portfolio gracefully
-      if (transactions.length === 0 && positions.length === 0) {
-        console.log('ℹ️ dailyPLService: No transactions or positions, creating empty month summary');
+      if (transactions.length === 0) {
+        console.log('ℹ️ dailyPLService: No transactions, creating empty month summary');
         const emptyMonthSummary: MonthlyPLSummary = {
           year,
           month,
@@ -166,11 +121,10 @@ export class DailyPLAnalyticsService {
       }
 
       // Calculate monthly P/L data
-      const monthlyData = await this.calculateMonthlyPL(
+      const monthlyData = this.calculateMonthlyPL(
         year,
         month,
         transactions,
-        positions,
         options
       );
 
@@ -184,23 +138,22 @@ export class DailyPLAnalyticsService {
   }
 
   /**
-   * Calculate daily P/L data for a specific month
+   * Calculate daily P/L data for a specific month using a stateful FIFO queue.
    */
-  private async calculateMonthlyPL(
+  private calculateMonthlyPL(
     year: number,
     month: number,
     transactions: EnhancedTransaction[],
-    positions: EnhancedPosition[],
     options?: PLServiceOptions
-  ): Promise<MonthlyPLSummary> {
+  ): MonthlyPLSummary {
     const threshold = options?.threshold || this.DEFAULT_THRESHOLD;
-    const startOfMonth = new Date(year, month, 1);
-    const endOfMonth = new Date(year, month + 1, 0);
-    
+    const startOfMonth = new Date(Date.UTC(year, month, 1));
+    const endOfMonth = new Date(Date.UTC(year, month + 1, 0));
+
     const dailyData: DailyPLData[] = [];
     let totalMonthlyPL = 0;
     let totalRealizedPL = 0;
-    let totalUnrealizedPL = 0;
+    let totalUnrealizedPL = 0; // Placeholder
     let totalDividends = 0;
     let totalFees = 0;
     let totalVolume = 0;
@@ -209,34 +162,157 @@ export class DailyPLAnalyticsService {
     let profitableDays = 0;
     let lossDays = 0;
 
+    // FIFO queue for buys, stateful across the month
+    const buyQueue = new Map<string, BuyQueueItem[]>();
+
+    // Pre-populate the buy queue with transactions before the start of the month
+    for (const t of transactions) {
+        const transactionDate = new Date(t.transaction_date);
+        if (transactionDate < startOfMonth) {
+            if (t.transaction_type === 'buy') {
+                const symbol = t.asset.symbol;
+                if (!buyQueue.has(symbol)) {
+                    buyQueue.set(symbol, []);
+                }
+                buyQueue.get(symbol)!.push({
+                    quantity: t.quantity,
+                    price: t.price,
+                    transaction: t,
+                });
+            } else if (t.transaction_type === 'sell') {
+                // Process sells before the month to adjust the queue
+                let remainingQty = t.quantity;
+                const symbol = t.asset.symbol;
+                const queue = buyQueue.get(symbol);
+
+                if (queue) {
+                    while (remainingQty > 0 && queue.length > 0) {
+                        const buyItem = queue[0];
+                        const matchedQty = Math.min(buyItem.quantity, remainingQty);
+                        buyItem.quantity -= matchedQty;
+                        remainingQty -= matchedQty;
+                        if (buyItem.quantity === 0) {
+                            queue.shift();
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+
     // Iterate through each day of the month
-    for (let day = 1; day <= endOfMonth.getDate(); day++) {
-      const currentDate = new Date(year, month, day);
-      const dayData = await this.calculateDayPL(
-        currentDate,
-        transactions,
-        positions,
-        threshold
-      );
-      
+    for (let day = 1; day <= endOfMonth.getUTCDate(); day++) {
+      const currentDate = new Date(Date.UTC(year, month, day));
+      const dateString = currentDate.toISOString().split('T')[0];
+
+      const dayTransactions = transactions.filter(t => {
+        const tDate = new Date(t.transaction_date).toISOString().split('T')[0];
+        return tDate === dateString;
+      });
+
+      let realizedPL = 0;
+      let dividendIncome = 0;
+      let dailyTotalFees = 0;
+      let tradeVolume = 0;
+      let netCashFlow = 0;
+
+      // Process buys for the day
+      const dayBuys = dayTransactions.filter(t => t.transaction_type === 'buy');
+      for (const buy of dayBuys) {
+        const symbol = buy.asset.symbol;
+        if (!buyQueue.has(symbol)) {
+          buyQueue.set(symbol, []);
+        }
+        buyQueue.get(symbol)!.push({
+          quantity: buy.quantity,
+          price: buy.price,
+          transaction: buy,
+        });
+        tradeVolume += buy.total_amount;
+        dailyTotalFees += buy.fees || 0;
+        netCashFlow -= buy.total_amount;
+      }
+
+      // Process sells for the day
+      const daySells = dayTransactions.filter(t => t.transaction_type === 'sell');
+      for (const sell of daySells) {
+        let remainingQty = sell.quantity;
+        const symbol = sell.asset.symbol;
+        const queue = buyQueue.get(symbol);
+
+        tradeVolume += sell.total_amount;
+        dailyTotalFees += sell.fees || 0;
+        netCashFlow += sell.total_amount;
+
+        if (queue) {
+          while (remainingQty > 0 && queue.length > 0) {
+            const buyItem = queue[0];
+            const matchedQty = Math.min(buyItem.quantity, remainingQty);
+
+            realizedPL += (sell.price - buyItem.price) * matchedQty;
+
+            buyItem.quantity -= matchedQty;
+            remainingQty -= matchedQty;
+
+            if (buyItem.quantity === 0) {
+              queue.shift();
+            }
+          }
+        }
+        if (remainingQty > 0) {
+            debug.warn(`Unmatched sell quantity for ${symbol}`, {
+                unmatchedQuantity: remainingQty,
+                transactionId: sell.id,
+            }, 'DailyPL');
+        }
+      }
+
+      // Process dividends and other transactions
+      const dayDividends = dayTransactions.filter(t => t.transaction_type === 'dividend');
+      for (const dividend of dayDividends) {
+        dividendIncome += dividend.total_amount;
+        dailyTotalFees += dividend.fees || 0;
+        netCashFlow += dividend.total_amount;
+      }
+
+      const hasTransactions = dayTransactions.length > 0;
+      const totalPL = realizedPL + dividendIncome - dailyTotalFees;
+      const colorCategory = this.determineColorCategory(totalPL, hasTransactions, threshold);
+
+      const dayData: DailyPLData = {
+        date: dateString,
+        dayOfMonth: day,
+        totalPL,
+        realizedPL,
+        unrealizedPL: 0, // Placeholder
+        dividendIncome,
+        totalFees: dailyTotalFees,
+        tradeVolume,
+        transactionCount: dayTransactions.length,
+        netCashFlow,
+        hasTransactions,
+        colorCategory,
+        transactions: dayTransactions,
+      };
+
       dailyData.push(dayData);
-      
+
       // Accumulate monthly totals
-      totalMonthlyPL += dayData.totalPL;
-      totalRealizedPL += dayData.realizedPL;
-      totalUnrealizedPL += dayData.unrealizedPL;
-      totalDividends += dayData.dividendIncome;
-      totalFees += dayData.totalFees;
-      totalVolume += dayData.tradeVolume;
-      totalTransactions += dayData.transactionCount;
-      
-      if (dayData.hasTransactions) {
+      totalMonthlyPL += totalPL;
+      totalRealizedPL += realizedPL;
+      totalDividends += dividendIncome;
+      totalFees += dailyTotalFees;
+      totalVolume += tradeVolume;
+      totalTransactions += dayTransactions.length;
+
+      if (hasTransactions) {
         daysWithTransactions++;
       }
-      
-      if (dayData.totalPL > threshold) {
+
+      if (totalPL > threshold) {
         profitableDays++;
-      } else if (dayData.totalPL < -threshold) {
+      } else if (totalPL < -threshold) {
         lossDays++;
       }
     }
@@ -255,274 +331,8 @@ export class DailyPLAnalyticsService {
       totalTransactions,
       daysWithTransactions,
       profitableDays,
-      lossDays
+      lossDays,
     };
-  }
-
-  /**
-   * Calculate P/L data for a specific day
-   */
-  private processDayTrades(
-    dayTransactions: EnhancedTransaction[],
-    _positions: EnhancedPosition[]
-  ): { realizedPL: number; remainingTransactions: EnhancedTransaction[] } {
-    let realizedPL = 0;
-    const remainingTransactions: EnhancedTransaction[] = [];
-    const tradesBySymbol: { [symbol: string]: EnhancedTransaction[] } = {};
-
-    for (const t of dayTransactions) {
-      const symbol = t.asset.symbol;
-      if (!tradesBySymbol[symbol]) {
-        tradesBySymbol[symbol] = [];
-      }
-      tradesBySymbol[symbol].push(t);
-    }
-
-    for (const symbol in tradesBySymbol) {
-      const trades = tradesBySymbol[symbol];
-      const buys = trades.filter(t => t.transaction_type === 'buy').sort((a, b) => a.total_amount - b.total_amount);
-      const sells = trades.filter(t => t.transaction_type === 'sell').sort((a, b) => a.total_amount - b.total_amount);
-
-      while (buys.length > 0 && sells.length > 0) {
-        const buy = buys.shift()!;
-        const sell = sells.shift()!;
-        
-        const matchedQuantity = Math.min(buy.quantity, sell.quantity);
-        const buyPrice = buy.price;
-        const sellPrice = sell.price;
-
-        realizedPL += (sellPrice - buyPrice) * matchedQuantity;
-
-        if (buy.quantity > matchedQuantity) {
-          buys.unshift({ ...buy, quantity: buy.quantity - matchedQuantity });
-        }
-        if (sell.quantity > matchedQuantity) {
-          sells.unshift({ ...sell, quantity: sell.quantity - matchedQuantity });
-        }
-      }
-      remainingTransactions.push(...buys, ...sells);
-    }
-
-    return { realizedPL, remainingTransactions };
-  }
-
-  private async calculateDayPL(
-    date: Date,
-    transactions: EnhancedTransaction[],
-    positions: EnhancedPosition[],
-    threshold: number
-  ): Promise<DailyPLData> {
-    const dateString = date.toISOString().split('T')[0]; // YYYY-MM-DD
-    
-    // Log the day calculation inputs for troubleshooting
-    debug.debug('Calculating daily P/L for specific date', {
-      targetDate: date.toISOString(),
-      targetDateString: dateString,
-      totalTransactions: transactions.length,
-      sampleTransactions: transactions.slice(0, 3).map(t => ({
-        id: t.id,
-        date: t.transaction_date,
-        type: t.transaction_type,
-        symbol: t.asset?.symbol
-      }))
-    }, 'DailyPL');
-    
-    // Filter transactions for this specific day
-    const dayTransactions = transactions.filter(transaction => {
-      // Since transaction_date is a DATE type from PostgreSQL,
-      // Supabase returns it as a string in YYYY-MM-DD format
-      let transactionDateString: string;
-      
-      if (typeof transaction.transaction_date === 'string') {
-        // If it's a string (which it should be from Supabase), just extract the date part
-        transactionDateString = transaction.transaction_date.includes('T') 
-          ? transaction.transaction_date.split('T')[0]
-          : transaction.transaction_date;
-      } else {
-        // Fallback: if it's somehow a Date object, convert it properly
-        const transactionDate = new Date(transaction.transaction_date);
-        transactionDateString = transactionDate.toISOString().split('T')[0];
-      }
-      
-      const matches = transactionDateString === dateString;
-      
-      // Log detailed transaction filtering for specific target date
-      if (dateString === '2025-04-28') {
-        debug.debug('Transaction date filtering for April 28, 2025', {
-          transactionId: transaction.id,
-          originalDate: transaction.transaction_date,
-          extractedDate: transactionDateString,
-          targetDate: dateString,
-          matches,
-          symbol: transaction.asset?.symbol
-        }, 'DailyPL');
-      }
-      
-      return matches;
-    });
-
-    const hasTransactions = dayTransactions.length > 0;
-    
-    // Log the transaction filtering results
-    if (dateString === '2025-04-28') {
-      debug.info('Transaction filtering results for April 28, 2025', {
-        totalTransactions: transactions.length,
-        filteredTransactions: dayTransactions.length,
-        filteredTransactionIds: dayTransactions.map(t => t.id),
-        hasTransactions
-      }, 'DailyPL');
-      
-      // Enhanced console logging for immediate visibility
-      console.log('🔍 DAILY_PL_DEBUG: April 28, 2025 filtering results:', {
-        dateString,
-        totalTransactionsAvailable: transactions.length,
-        filteredForDay: dayTransactions.length,
-        hasTransactions,
-        sampleFilteredTransactions: dayTransactions.slice(0, 3).map(t => ({
-          id: t.id,
-          date: t.transaction_date,
-          type: t.transaction_type,
-          symbol: t.asset?.symbol,
-          amount: t.quantity
-        })),
-        timestamp: new Date().toISOString()
-      });
-    }
-
-    // Calculate daily metrics
-    let realizedPL = 0;
-    let dividendIncome = 0;
-    let totalFees = 0;
-    let tradeVolume = 0;
-    let netCashFlow = 0;
-
-    const { realizedPL: dayTradePL, remainingTransactions } = this.processDayTrades(dayTransactions, positions);
-    realizedPL += dayTradePL;
-
-    // Process each transaction
-    remainingTransactions.forEach(transaction => {
-      const totalAmount = transaction.total_amount;
-      const fees = transaction.fees || 0;
-      
-      totalFees += fees;
-      
-      switch (transaction.transaction_type) {
-        case 'buy': {
-          tradeVolume += totalAmount;
-          netCashFlow -= totalAmount; // Cash outflow
-          break;
-        }
-          
-        case 'sell': {
-          tradeVolume += totalAmount;
-          netCashFlow += totalAmount; // Cash inflow
-          
-          // P/L for sells is now handled by FIFO logic below
-          break;
-        }
-          
-        case 'dividend': {
-          dividendIncome += totalAmount;
-          netCashFlow += totalAmount; // Cash inflow
-          break;
-        }
-        
-        case 'option_expired': {
-          // When an option expires, we need to check if it was a short or long position
-          const position = positions.find(p => p.asset_id === transaction.asset_id);
-          if (position) {
-            if (position.quantity < 0) {
-              // This was a short position that expired - we keep the premium (profit)
-              // The original sell premium is already counted in realized P/L
-              // No additional P/L calculation needed for expiration
-            } else {
-              // This was a long position that expired - loss equals the premium paid
-              const premiumLoss = position.quantity * position.average_cost_basis;
-              realizedPL -= premiumLoss; // Loss from expired long option
-            }
-          }
-          break;
-        }
-          
-        default:
-          // Handle other transaction types as needed
-          break;
-      }
-    });
-
-    const sells = remainingTransactions.filter(t => t.transaction_type === 'sell');
-    if (sells.length > 0) {
-      realizedPL += await this.calculateFIFOPL(sells, transactions);
-    }
-
-    // For unrealized P/L, we would need current market prices
-    // This is simplified - in practice, you'd fetch current prices
-    const unrealizedPL = 0; // Placeholder
-
-    const totalPL = realizedPL + unrealizedPL + dividendIncome - totalFees;
-    const colorCategory = this.determineColorCategory(totalPL, hasTransactions, threshold);
-
-    const result = {
-      date: dateString,
-      dayOfMonth: date.getDate(),
-      totalPL,
-      realizedPL,
-      unrealizedPL,
-      dividendIncome,
-      totalFees,
-      tradeVolume,
-      transactionCount: dayTransactions.length,
-      netCashFlow,
-      hasTransactions,
-      colorCategory,
-      transactions: dayTransactions
-    };
-
-    // Log final result for April 28, 2025
-    if (dateString === '2025-04-28') {
-      console.log('🔍 DAILY_PL_DEBUG: Final result for April 28, 2025:', {
-        ...result,
-        timestamp: new Date().toISOString()
-      });
-    }
-
-    return result;
-  }
-
-  /**
-   * Determine color category for calendar day styling
-   */
-  private async calculateFIFOPL(
-    sellTransactions: EnhancedTransaction[],
-    allTransactions: EnhancedTransaction[]
-  ): Promise<number> {
-    let realizedPL = 0;
-    const buys = allTransactions.filter(t => t.transaction_type === 'buy').sort((a, b) => new Date(a.transaction_date).getTime() - new Date(b.transaction_date).getTime());
-
-    for (const sell of sellTransactions) {
-      let sellQuantity = sell.quantity;
-      const sellPrice = sell.price;
-
-      for (const buy of buys) {
-        if (buy.asset.symbol !== sell.asset.symbol || buy.quantity === 0) {
-          continue;
-        }
-
-        const matchQuantity = Math.min(sellQuantity, buy.quantity);
-        const buyPrice = buy.price;
-
-        realizedPL += (sellPrice - buyPrice) * matchQuantity;
-
-        buy.quantity -= matchQuantity;
-        sellQuantity -= matchQuantity;
-
-        if (sellQuantity === 0) {
-          break;
-        }
-      }
-    }
-
-    return realizedPL;
   }
 
   private determineColorCategory(
@@ -566,62 +376,27 @@ export class DailyPLAnalyticsService {
     options?: PLServiceOptions
   ): Promise<{ data: DailyPLData | null; error: string | null }> {
     try {
-      console.log('🔍 dailyPLService.getDayPLDetails called:', { 
-        portfolioId, 
-        date: date.toISOString(), 
-        dateString: date.toISOString().split('T')[0] 
+      console.log('🔍 dailyPLService.getDayPLDetails called:', {
+        portfolioId,
+        date: date.toISOString(),
+        dateString: date.toISOString().split('T')[0]
       });
 
-      // Get transactions for the portfolio
-      const transactionsResult = await SupabaseService.transaction.getTransactions(portfolioId);
-      if (!transactionsResult.success) {
-        console.error('❌ dailyPLService: Failed to fetch transactions:', transactionsResult.error);
-        return { data: null, error: `Failed to fetch transactions: ${transactionsResult.error}` };
+      const year = date.getUTCFullYear();
+      const month = date.getUTCMonth();
+
+      const monthlyResult = await this.getMonthlyPLData(portfolioId, year, month, options);
+
+      if (monthlyResult.error || !monthlyResult.data) {
+          return { data: null, error: monthlyResult.error || "Failed to compute monthly data." };
       }
 
-      // Get positions for the portfolio
-      const positionsResult = await SupabaseService.position.getPositions(portfolioId);
-      if (!positionsResult.success) {
-        console.error('❌ dailyPLService: Failed to fetch positions:', positionsResult.error);
-        return { data: null, error: `Failed to fetch positions: ${positionsResult.error}` };
+      const dateString = date.toISOString().split('T')[0];
+      const dayData = monthlyResult.data.dailyData.find(d => d.date === dateString);
+
+      if (!dayData) {
+          return { data: null, error: `No data found for date ${dateString}`};
       }
-
-      const transactions = transactionsResult.data || [];
-      const positions = positionsResult.data || [];
-
-      console.log('🔍 dailyPLService: Data fetched successfully:', {
-        transactionCount: transactions.length,
-        positionCount: positions.length
-      });
-
-      // Handle empty data gracefully
-      if (transactions.length === 0 && positions.length === 0) {
-        console.log('ℹ️ dailyPLService: No transactions or positions found, returning empty day data');
-        const emptyDayData: DailyPLData = {
-          date: date.toISOString().split('T')[0],
-          dayOfMonth: date.getDate(),
-          totalPL: 0,
-          realizedPL: 0,
-          unrealizedPL: 0,
-          dividendIncome: 0,
-          totalFees: 0,
-          tradeVolume: 0,
-          transactionCount: 0,
-          netCashFlow: 0,
-          hasTransactions: false,
-          colorCategory: 'no-transactions',
-          transactions: []
-        };
-        return { data: emptyDayData, error: null };
-      }
-
-      const threshold = options?.threshold || this.DEFAULT_THRESHOLD;
-      const dayData = await this.calculateDayPL(
-        date,
-        transactionsResult.data,
-        positionsResult.data,
-        threshold
-      );
 
       return { data: dayData, error: null };
     } catch (error) {
@@ -645,10 +420,10 @@ export class DailyPLAnalyticsService {
   ): Promise<{ data: MonthlyPLSummary[] | null; error: string | null }> {
     try {
       const results: MonthlyPLSummary[] = [];
-      
+
       let currentYear = startYear;
       let currentMonth = startMonth;
-      
+
       while (currentYear < endYear || (currentYear === endYear && currentMonth <= endMonth)) {
         const monthData = await this.getMonthlyPLData(
           portfolioId,
@@ -656,13 +431,13 @@ export class DailyPLAnalyticsService {
           currentMonth,
           options
         );
-        
+
         if (!monthData.data) {
           return { data: null, error: monthData.error };
         }
-        
+
         results.push(monthData.data);
-        
+
         // Move to next month
         currentMonth++;
         if (currentMonth > 11) {
@@ -670,7 +445,7 @@ export class DailyPLAnalyticsService {
           currentYear++;
         }
       }
-      
+
       return { data: results, error: null };
     } catch (error) {
       return {
@@ -683,21 +458,21 @@ export class DailyPLAnalyticsService {
   /**
    * Get service information and capabilities
    */
-  getServiceInfo(): { 
-    version: string; 
+  getServiceInfo(): {
+    version: string;
     supportedFeatures: string[];
     integration: string;
   } {
     return {
-      version: '2.0.0',
+      version: '2.1.0', // Updated version
       integration: 'Supabase',
       supportedFeatures: [
-        'Daily P/L calculation from Supabase data',
+        'Daily P/L calculation with stateful FIFO logic',
         'Monthly P/L aggregation',
         'Color categorization for calendar display',
         'Multi-month trend analysis',
         'Transaction volume calculation',
-        'Realized/Unrealized P/L breakdown',
+        'Realized P/L breakdown',
         'Dividend income tracking',
         'Trading fees calculation',
         'Net cash flow analysis'
