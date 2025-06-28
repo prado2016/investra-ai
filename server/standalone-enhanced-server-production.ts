@@ -1395,7 +1395,7 @@ app.post('/api/imap/restart', async (req, res) => {
     logger.info('⚡ Executing email-puller restart command');
     
     const restartPromise = new Promise((resolve, reject) => {
-      exec(restartCommand, { timeout: 10000 }, (error, stdout, stderr) => {
+      exec(restartCommand, { timeout: 10000 }, (error: any, stdout: any, stderr: any) => {
         if (error) {
           logger.warn('⚠️ Restart command failed, but this is expected in some cases:', error.message);
           // Even if the command "fails", the restart might succeed
