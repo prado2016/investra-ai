@@ -26,6 +26,7 @@ import { EmailConfigurationPanel } from '../components/EmailConfigurationPanel';
 import { useNotifications } from '../hooks/useNotifications';
 import { useSupabasePortfolios } from '../hooks/useSupabasePortfolios';
 import { simpleEmailService, parseEmailForTransaction, triggerManualSyncViaDatabase } from '../services/simpleEmailService';
+import { supabase } from '../lib/supabase';
 import type { EmailItem, EmailStats, EmailPullerStatus } from '../services/simpleEmailService';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useAuth } from '../contexts/AuthProvider';
@@ -662,6 +663,7 @@ const SimpleEmailManagement: React.FC = () => {
   const [parsedData, setParsedData] = useState<any>(null);
   const [parsingStage, setParsingStage] = useState<'idle' | 'analyzing' | 'extracting' | 'validating' | 'complete' | 'error'>('idle');
   const [parsingError, setParsingError] = useState<string | null>(null);
+  const [configPanelCollapsed, setConfigPanelCollapsed] = useState(false);
   const [transactionForm, setTransactionForm] = useState({
     // Trading transaction fields
     portfolioId: '',
@@ -737,12 +739,61 @@ const SimpleEmailManagement: React.FC = () => {
   };
 
   const loadStats = async () => {
-    const result = await simpleEmailService.getEmailStats();
-    
-    if (result.error) {
-      console.error('Failed to load stats:', result.error);
-    } else {
-      setStats(result.data || { total: 0, pending: 0, processing: 0, error: 0 });
+    try {
+      console.log('📊 Loading real email stats from database...');
+      
+      // Get authenticated user
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        console.error('❌ No authenticated user for stats');
+        setStats({ total: 0, pending: 0, processing: 0, error: 0 });
+        return;
+      }
+
+      // Get counts from both tables directly
+      const { count: inboxCount } = await supabase
+        .from('imap_inbox')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+
+      const { count: processedCount } = await supabase
+        .from('imap_processed')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+
+      // Count pending emails (status = 'pending' in inbox)
+      const { count: pendingCount } = await supabase
+        .from('imap_inbox')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('status', 'pending');
+
+      // Count error emails (status = 'error' in inbox)
+      const { count: errorCount } = await supabase
+        .from('imap_inbox')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('status', 'error');
+
+      const realStats = {
+        total: (inboxCount || 0) + (processedCount || 0),
+        pending: pendingCount || 0,
+        processing: 0, // No emails currently processing
+        error: errorCount || 0
+      };
+
+      console.log('✅ Real email stats loaded:', realStats);
+      setStats(realStats);
+      
+    } catch (error) {
+      console.error('❌ Failed to load real stats:', error);
+      // Fallback to API stats
+      const result = await simpleEmailService.getEmailStats();
+      if (result.error) {
+        console.error('Failed to load fallback stats:', result.error);
+      } else {
+        setStats(result.data || { total: 0, pending: 0, processing: 0, error: 0 });
+      }
     }
   };
 
@@ -1541,28 +1592,45 @@ const SimpleEmailManagement: React.FC = () => {
               <StatusIcon $status="connected">
                 <CheckCircle size={16} />
               </StatusIcon>
-              <div>
-                <StatusText style={{ fontSize: '0.875rem' }}>Email Configuration Details</StatusText>
-                <StatusDetails style={{ marginTop: '0.25rem' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem' }}>
-                    <div><strong>Provider:</strong> {pullerStatus.configuration.provider}</div>
-                    <div><strong>Email:</strong> {pullerStatus.configuration.emailAddress}</div>
-                    <div><strong>Server:</strong> {pullerStatus.configuration.host}:{pullerStatus.configuration.port}</div>
-                    <div><strong>Auto Import:</strong> {pullerStatus.configuration.autoImportEnabled ? 'Enabled' : 'Disabled'}</div>
-                    {pullerStatus.configuration.lastTested && (
-                      <div><strong>Last Sync:</strong> {formatDate(pullerStatus.configuration.lastTested)} ({pullerStatus.configuration.lastSyncStatus})</div>
-                    )}
-                    {pullerStatus.configuration.syncInterval && (
-                      <div><strong>Sync Interval:</strong> {pullerStatus.configuration.syncInterval} minutes</div>
-                    )}
-                    {pullerStatus.configuration.emailsSynced && (
-                      <div><strong>Total Synced:</strong> {pullerStatus.configuration.emailsSynced} emails</div>
-                    )}
-                    {pullerStatus.configuration.maxEmailsPerSync && (
-                      <div><strong>Max Per Sync:</strong> {pullerStatus.configuration.maxEmailsPerSync} emails</div>
-                    )}
-                  </div>
-                </StatusDetails>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }} onClick={() => setConfigPanelCollapsed(!configPanelCollapsed)}>
+                  <StatusText style={{ fontSize: '0.875rem' }}>Email Configuration Details</StatusText>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    style={{ 
+                      minWidth: 'auto', 
+                      padding: '0.25rem 0.5rem',
+                      fontSize: '0.75rem',
+                      background: 'transparent',
+                      border: '1px solid #d1d5db'
+                    }}
+                  >
+                    {configPanelCollapsed ? 'Show' : 'Hide'}
+                  </Button>
+                </div>
+                {!configPanelCollapsed && (
+                  <StatusDetails style={{ marginTop: '0.5rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem' }}>
+                      <div><strong>Provider:</strong> {pullerStatus.configuration.provider}</div>
+                      <div><strong>Email:</strong> {pullerStatus.configuration.emailAddress}</div>
+                      <div><strong>Server:</strong> {pullerStatus.configuration.host}:{pullerStatus.configuration.port}</div>
+                      <div><strong>Auto Import:</strong> {pullerStatus.configuration.autoImportEnabled ? 'Enabled' : 'Disabled'}</div>
+                      {pullerStatus.configuration.lastTested && (
+                        <div><strong>Last Sync:</strong> {formatDate(pullerStatus.configuration.lastTested)} ({pullerStatus.configuration.lastSyncStatus})</div>
+                      )}
+                      {pullerStatus.configuration.syncInterval && (
+                        <div><strong>Sync Interval:</strong> {pullerStatus.configuration.syncInterval} minutes</div>
+                      )}
+                      {pullerStatus.configuration.emailsSynced && (
+                        <div><strong>Total Synced:</strong> {pullerStatus.configuration.emailsSynced} emails</div>
+                      )}
+                      {pullerStatus.configuration.maxEmailsPerSync && (
+                        <div><strong>Max Per Sync:</strong> {pullerStatus.configuration.maxEmailsPerSync} emails</div>
+                      )}
+                    </div>
+                  </StatusDetails>
+                )}
               </div>
             </StatusInfo>
           </StatusHeader>
