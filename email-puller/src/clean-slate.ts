@@ -54,7 +54,7 @@ async function cleanSlate() {
         if (movedCount > 0) {
           try {
             // Get all emails for this user from imap_inbox
-            const { data: inboxEmails, error } = await database.client
+            const { data: inboxEmails, error } = await database['client']
               .from('imap_inbox')
               .select('message_id')
               .eq('user_id', imapConfig.user_id);
