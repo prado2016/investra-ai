@@ -116,7 +116,8 @@ export class DailyPLAnalyticsService {
           totalTransactions: 0,
           daysWithTransactions: 0,
           profitableDays: 0,
-          lossDays: 0
+          lossDays: 0,
+          orphanTransactions: []
         };
         return { data: emptyMonthSummary, error: null };
       }
