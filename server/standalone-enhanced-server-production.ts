@@ -109,12 +109,25 @@ if (process.env.SENTRY_DSN) {
 }
 
 // Ensure Supabase environment variables are available for the auth middleware
+// Set them early before any imports that might need them
 if (!process.env.SUPABASE_URL && process.env.VITE_SUPABASE_URL) {
   process.env.SUPABASE_URL = process.env.VITE_SUPABASE_URL;
+  console.log('✅ Set SUPABASE_URL from VITE_SUPABASE_URL');
 }
 if (!process.env.SUPABASE_ANON_KEY && process.env.VITE_SUPABASE_ANON_KEY) {
   process.env.SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY;
+  console.log('✅ Set SUPABASE_ANON_KEY from VITE_SUPABASE_ANON_KEY');
 }
+
+// Debug Supabase configuration
+console.log('🔧 Supabase config debug:', {
+  hasSupabaseUrl: !!process.env.SUPABASE_URL,
+  hasViteUrl: !!process.env.VITE_SUPABASE_URL,
+  hasSupabaseKey: !!process.env.SUPABASE_ANON_KEY,
+  hasViteKey: !!process.env.VITE_SUPABASE_ANON_KEY,
+  urlPreview: process.env.SUPABASE_URL ? `${process.env.SUPABASE_URL.substring(0, 30)}...` : 'none',
+  keyPreview: process.env.SUPABASE_ANON_KEY ? `${process.env.SUPABASE_ANON_KEY.substring(0, 30)}...` : 'none'
+});
 
 // Types for standalone server
 interface EmailProcessingResult {
