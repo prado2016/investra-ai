@@ -5,7 +5,7 @@ import { InputField, SelectField } from './FormFields';
 import { PriceInput } from './PriceInput';
 import { useForm } from '../hooks/useForm';
 import { useSupabasePortfolios } from '../hooks/useSupabasePortfolios';
-import type { Transaction, TransactionType } from '../types/portfolio';
+import type { Transaction, TransactionType, Currency, AssetType } from '../types/portfolio';
 import SymbolInput from './SymbolInput';
 
 interface TransactionFormData {
@@ -16,8 +16,8 @@ interface TransactionFormData {
   quantity: string;
   price: string;
   notes: string;
-  currency: string; // Added missing property
-  assetType: string; // Added missing property
+  currency: Currency; // Added missing property
+  assetType: AssetType; // Added missing property
   totalAmount: string; // Added missing property
   [key: string]: unknown;
 }
@@ -65,7 +65,10 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     })(),
     quantity: initialData?.quantity?.toString() || '',
     price: initialData?.price?.toString() || '',
-    notes: initialData?.notes || ''
+    notes: initialData?.notes || '',
+    currency: initialData?.currency || 'USD', // Default to USD
+    assetType: initialData?.assetType || 'stock', // Default to stock
+    totalAmount: initialData?.totalAmount?.toString() || ''
   };
 
   const form = useForm({
@@ -116,6 +119,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         quantity: parseFloat(values.quantity) || 0,
         price: parseFloat(values.price) || 0,
         notes: values.notes.trim() || undefined,
+        currency: values.currency as Currency,
+        assetType: values.assetType as AssetType,
+        totalAmount: parseFloat(values.quantity) * parseFloat(values.price),
       };
 
       return await onSave(transaction);

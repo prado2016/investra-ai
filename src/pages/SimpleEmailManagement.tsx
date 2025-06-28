@@ -389,16 +389,7 @@ const StatusBadge = styled.span<{ $status: 'pending' | 'processing' | 'error' | 
             background: #991b1b;
             color: #fee2e2;
           `;
-        case 'processed':
-          return `
-            background: #065f46;
-            color: #d1fae5;
-          `;
-        case 'processed':
-          return `
-            background: #065f46;
-            color: #d1fae5;
-          `;
+        
         case 'processed':
           return `
             background: #065f46;

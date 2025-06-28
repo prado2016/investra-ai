@@ -45,6 +45,32 @@ const TransactionsPage: React.FC = () => {
   // Debounce fetch to prevent excessive API calls
   const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Fetch transactions when portfolio changes
+  const fetchTransactions = useCallback(async () => {
+    if (!activePortfolio?.id) {
+      return;
+    }
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const response = await TransactionService.getTransactions(filters.portfolioId, filters.dateRange);
+      if (response.success) {
+        setTransactions(response.data);
+      } else {
+        setError(response.error);
+        notify.error('Failed to fetch transactions: ' + response.error);
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+      setError(errorMsg);
+      notify.error('Failed to fetch transactions: ' + errorMsg);
+    } finally {
+      setLoading(false);
+    }
+  }, [activePortfolio?.id, filters]);
+
   // Fetch fund movements when portfolio changes
   const fetchFundMovements = useCallback(async () => {
     if (!activePortfolio?.id) {
@@ -112,8 +138,7 @@ const TransactionsPage: React.FC = () => {
       const errorMsg = err instanceof Error ? err.message : 'Unknown error';
       notify.error('Failed to fetch fund movements: ' + errorMsg);
     }
-  }, [activePortfolio?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-  // notify is intentionally excluded as it should be stable
+  }, [activePortfolio?.id]); // notify is intentionally excluded as it should be stable
 
   useEffect(() => {
     if (activePortfolio?.id) {
@@ -135,56 +160,7 @@ const TransactionsPage: React.FC = () => {
         clearTimeout(fetchTimeoutRef.current);
       }
     };
-  }, [activePortfolio?.id, filters, fetchTransactions, fetchFundMovements]); // Added filters, fetchTransactions, fetchFundMovements to dependencies
-
-  // Fetch transactions when portfolio changes
-  const fetchTransactions = useCallback(async () => {
-    if (!activePortfolio?.id) {
-      return;
-    }
-    
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const response = await TransactionService.getTransactions(filters.portfolioId, filters.dateRange);
-      if (response.success) {
-        setTransactions(response.data);
-      } else {
-        setError(response.error);
-        notify.error('Failed to fetch transactions: ' + response.error);
-      }
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Unknown error';
-      setError(errorMsg);
-      notify.error('Failed to fetch transactions: ' + errorMsg);
-    } finally {
-      setLoading(false);
-    }
-  }, [activePortfolio?.id, filters]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (activePortfolio?.id) {
-      // Clear previous timeout if any
-      if (fetchTimeoutRef.current) {
-        clearTimeout(fetchTimeoutRef.current);
-      }
-
-      // Set up a debounced fetch to prevent rate limiting
-      fetchTimeoutRef.current = setTimeout(() => {
-        fetchTransactions();
-        fetchFundMovements();
-      }, 300); // 300ms debounce time
-    }
-    
-    // Cleanup timeout on unmount
-    return () => {
-      if (fetchTimeoutRef.current) {
-        clearTimeout(fetchTimeoutRef.current);
-      }
-    };
-  }, [activePortfolio?.id, filters, fetchTransactions, fetchFundMovements]); // eslint-disable-line react-hooks/exhaustive-deps
-  // fetchTransactions is intentionally excluded to prevent dependency cycles
+  }, [activePortfolio?.id, filters, fetchTransactions, fetchFundMovements]);
 
   const handleEditFundMovement = (fundMovement: FundMovementWithMetadata) => {
     setEditingFundMovement(fundMovement);
