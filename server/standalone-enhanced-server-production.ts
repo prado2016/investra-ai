@@ -307,12 +307,12 @@ async function fetchEmailsForManualReview(config: IMAPConfig, limit = 50): Promi
     const lock = await client.getMailboxLock('INBOX');
     
     try {
-      // Search for recent emails from Wealthsimple (both read and unread)
+      // Search for recent emails from Wealthsimple AND forwarded emails from Gmail
       const lastWeek = new Date();
       lastWeek.setDate(lastWeek.getDate() - 7);
 
-      // Use ImapFlow search string format
-      const searchQuery = `SINCE ${lastWeek.toISOString().split('T')[0].replace(/-/g, '-')} FROM "wealthsimple"`;
+      // Use ImapFlow search string format - search for both direct Wealthsimple and Gmail
+      const searchQuery = `SINCE ${lastWeek.toISOString().split('T')[0].replace(/-/g, '-')} (FROM "wealthsimple" OR FROM "eduprado@gmail.com")`;
 
       const emails: Array<{
         id: string;
@@ -746,8 +746,67 @@ class StandaloneEmailProcessingService {
   // Simplified Wealthsimple email parser
   private static async parseWealthsimpleEmail(subject: string, from: string, htmlContent: string, textContent?: string) {
     try {
-      // Basic Wealthsimple email pattern recognition
-      const content = textContent || htmlContent;
+      // Handle both direct Wealthsimple emails and forwarded emails from Gmail
+      let content = textContent || htmlContent;
+      let effectiveFrom = from;
+      let effectiveSubject = subject;
+      
+      // Check if this is a forwarded email from Gmail
+      if (from.toLowerCase().includes('gmail.com')) {
+        logger.info('🔄 Detected forwarded email from Gmail, extracting original content');
+        
+        // Look for forwarded email patterns and extract original content
+        // Common forwarding patterns: "---------- Forwarded message ----------"
+        const forwardPatterns = [
+          /---------- Forwarded message ----------([\s\S]*)/i,
+          /Begin forwarded message:([\s\S]*)/i,
+          /From:.*wealthsimple[\s\S]*([\s\S]*)/i,
+          /Forwarded from.*wealthsimple([\s\S]*)/i
+        ];
+        
+        for (const pattern of forwardPatterns) {
+          const match = content.match(pattern);
+          if (match && match[1]) {
+            content = match[1];
+            logger.info('✅ Extracted forwarded content');
+            break;
+          }
+        }
+        
+        // Look for original subject in forwarded content
+        const subjectMatch = content.match(/Subject:\s*(.+?)(?:\n|\r)/i);
+        if (subjectMatch && subjectMatch[1]) {
+          effectiveSubject = subjectMatch[1].trim();
+          logger.info(`📧 Extracted original subject: ${effectiveSubject}`);
+        }
+        
+        // Look for original sender in forwarded content
+        const fromMatch = content.match(/From:\s*(.+?)(?:\n|\r)/i);
+        if (fromMatch && fromMatch[1] && fromMatch[1].toLowerCase().includes('wealthsimple')) {
+          effectiveFrom = fromMatch[1].trim();
+          logger.info(`👤 Extracted original sender: ${effectiveFrom}`);
+        }
+      }
+      
+      // Validate that this is actually a Wealthsimple-related email
+      const isWealthsimpleContent = 
+        content.toLowerCase().includes('wealthsimple') ||
+        effectiveSubject.toLowerCase().includes('wealthsimple') ||
+        effectiveFrom.toLowerCase().includes('wealthsimple') ||
+        content.toLowerCase().includes('trade confirmation') ||
+        content.toLowerCase().includes('dividend payment');
+      
+      if (!isWealthsimpleContent) {
+        return {
+          success: false,
+          data: null,
+          error: 'Email does not appear to contain Wealthsimple content'
+        };
+      }
+      
+      logger.info(`📊 Processing ${from.includes('gmail.com') ? 'forwarded' : 'direct'} Wealthsimple email: ${effectiveSubject}`);
+      
+      // Basic Wealthsimple email pattern recognition using extracted content
       
       // Extract transaction type
       let transactionType: 'buy' | 'sell' | 'dividend' = 'buy';
@@ -784,8 +843,9 @@ class StandaloneEmailProcessingService {
           currency: 'CAD',
           transactionDate: new Date().toISOString().split('T')[0],
           accountType: 'TFSA',
-          subject,
-          fromEmail: from,
+          subject: effectiveSubject,
+          fromEmail: effectiveFrom,
+          originalForwarder: from.includes('gmail.com') ? from : null,
           rawContent: content,
           confidence: 0.8,
           parseMethod: 'basic_pattern_matching'
