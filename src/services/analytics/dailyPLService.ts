@@ -90,7 +90,7 @@ export class DailyPLAnalyticsService {
       console.log('🔍 DAILY_PL_DEBUG: getMonthlyPLData called:', { year, month, portfolioId, timestamp: new Date().toISOString() });
 
       // Get all transactions for the portfolio, sorted by date
-      const transactionsResult = await SupabaseService.transaction.getTransactions(portfolioId, { sortBy: 'transaction_date', ascending: true });
+      const transactionsResult = await SupabaseService.transaction.getTransactions(portfolioId);
       if (!transactionsResult.success) {
         console.error('❌ dailyPLService: Failed to fetch transactions for month data:', transactionsResult.error);
         return { data: null, error: `Failed to fetch transactions: ${transactionsResult.error}` };

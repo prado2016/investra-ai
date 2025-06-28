@@ -373,6 +373,8 @@ Rules for extraction:
 6. Price: Extract price per share/contract 
 7. Total amount: Calculate or extract total transaction value
 8. Fees: Extract commission, trading fees, regulatory fees
+   - For OPTIONS ONLY: If no fees are explicitly mentioned, calculate as quantity * 0.75 (standard options fee per contract)
+   - For STOCKS: Use only explicitly mentioned fees
 9. Currency: Default to USD unless specified (CAD, EUR, etc.)
 10. Date: Convert any date format to YYYY-MM-DD
 11. Confidence: Rate 0-1 based on how certain you are about the extracted data
@@ -392,6 +394,12 @@ CRITICAL FOR OPTIONS:
 - Strike price format: pad with zeros to 8 digits, last 3 digits are decimals
 - Examples: $140.00 → 00140000, $15.50 → 00015500, $1000.00 → 01000000
 - If you cannot determine all option details, set assetType to "stock" and use underlying ticker only
+
+CRITICAL FOR OPTIONS FEES:
+- When assetType is "option" and no explicit fees are mentioned in the email, ALWAYS calculate fees as: quantity * 0.75
+- Example: If quantity is 10 contracts and no fees are mentioned, set fees to 7.50 (10 * 0.75)
+- Only use the 0.75 per contract fee for options when fees are not explicitly stated
+- If fees are explicitly mentioned in the email, use those instead of the calculated amount
 
 Return only valid JSON, no additional text.`;
   }
