@@ -53,6 +53,7 @@ export interface MonthlyPLSummary {
   daysWithTransactions: number;
   profitableDays: number;
   lossDays: number;
+  orphanTransactions: EnhancedTransaction[];
 }
 
 export interface PLServiceOptions {
@@ -161,6 +162,7 @@ export class DailyPLAnalyticsService {
     let daysWithTransactions = 0;
     let profitableDays = 0;
     let lossDays = 0;
+    const orphanTransactions: EnhancedTransaction[] = [];
 
     // FIFO queue for buys, stateful across the month
     const buyQueue = new Map<string, BuyQueueItem[]>();
@@ -264,7 +266,9 @@ export class DailyPLAnalyticsService {
             debug.warn(`Unmatched sell quantity for ${symbol}`, {
                 unmatchedQuantity: remainingQty,
                 transactionId: sell.id,
+                transactionDate: sell.transaction_date,
             }, 'DailyPL');
+            orphanTransactions.push({ ...sell, quantity: remainingQty });
         }
       }
 
@@ -332,6 +336,7 @@ export class DailyPLAnalyticsService {
       daysWithTransactions,
       profitableDays,
       lossDays,
+      orphanTransactions,
     };
   }
 

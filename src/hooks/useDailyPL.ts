@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { dailyPLAnalyticsService, type MonthlyPLSummary, type DailyPLData, type PLServiceOptions } from '../services/analytics/dailyPLService';
+import { dailyPLAnalyticsService, type MonthlyPLSummary, type DailyPLData, type PLServiceOptions, type EnhancedTransaction } from '../services/analytics/dailyPLService';
 
 interface UseDailyPLOptions extends PLServiceOptions {
   portfolioId?: string;
@@ -17,6 +17,7 @@ interface UseDailyPLReturn {
   dailyData: DailyPLData[];
   loading: boolean;
   error: string | null;
+  orphanTransactions: EnhancedTransaction[];
   refreshData: () => Promise<void>;
   getMonthData: (year: number, month: number) => Promise<void>;
   getDayDetails: (date: Date) => Promise<DailyPLData | null>;
@@ -34,6 +35,7 @@ export function useDailyPL(
   const [monthlyData, setMonthlyData] = useState<MonthlyPLSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [orphanTransactions, setOrphanTransactions] = useState<EnhancedTransaction[]>([]);
 
   // Use current month/year if not provided
   const currentDate = new Date();
@@ -57,8 +59,10 @@ export function useDailyPL(
       if (result.error) {
         setError(result.error);
         setMonthlyData(null);
+        setOrphanTransactions([]);
       } else {
         setMonthlyData(result.data);
+        setOrphanTransactions(result.data?.orphanTransactions || []);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error occurred');
@@ -108,6 +112,7 @@ export function useDailyPL(
     dailyData: monthlyData?.dailyData || [],
     loading,
     error,
+    orphanTransactions,
     refreshData,
     getMonthData,
     getDayDetails

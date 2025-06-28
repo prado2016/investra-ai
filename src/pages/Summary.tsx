@@ -4,6 +4,8 @@ import MonthlyCalendar from '../components/MonthlyCalendar';
 import PortfolioCreationForm from '../components/PortfolioCreationForm';
 import { usePortfolios } from '../contexts/PortfolioContext';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { useDailyPL } from '../hooks/useDailyPL';
+import OrphanTransactionsPanel from '../components/OrphanTransactionsPanel';
 import type { DailyPLData } from '../services/analytics/dailyPLService';
 
 const PageContainer = styled.div`
@@ -189,6 +191,7 @@ const Summary: React.FC = () => {
   const { portfolios, activePortfolio, loading: portfoliosLoading, error: portfoliosError, setActivePortfolio, refreshPortfolios } = usePortfolios();
   const [selectedDayData, setSelectedDayData] = useState<DailyPLData | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const { orphanTransactions } = useDailyPL(activePortfolio?.id || '');
 
   // Set page title
   usePageTitle('Summary', { subtitle: 'Portfolio Performance' });
@@ -318,6 +321,10 @@ const Summary: React.FC = () => {
           portfolioId={activePortfolio.id}
           onDayClick={handleDayClick}
         />
+      )}
+
+      {activePortfolio && orphanTransactions.length > 0 && (
+        <OrphanTransactionsPanel transactions={orphanTransactions} />
       )}
 
       <DayDetailsModal $isOpen={isModalOpen}>
