@@ -389,6 +389,21 @@ const StatusBadge = styled.span<{ $status: 'pending' | 'processing' | 'error' | 
             background: #991b1b;
             color: #fee2e2;
           `;
+        case 'processed':
+          return `
+            background: #065f46;
+            color: #d1fae5;
+          `;
+        case 'processed':
+          return `
+            background: #065f46;
+            color: #d1fae5;
+          `;
+        case 'processed':
+          return `
+            background: #065f46;
+            color: #d1fae5;
+          `;
         default:
           return `
             background: #374151;
@@ -1925,91 +1940,342 @@ const SimpleEmailManagement: React.FC = () => {
             {/* Success State - Side by Side */}
             {parsingStage === 'complete' && parsedData?.aiParsed && (
               <>
-                {/* Show extracted information */}
                 <div style={{ 
-                  background: '#f0fdf4', 
-                  border: '1px solid #bbf7d0', 
+                  background: '#dcfce7', 
+                  border: '2px solid #16a34a', 
                   borderRadius: '8px', 
                   padding: '1rem', 
-                  marginBottom: '1.5rem' 
+                  marginBottom: '1.5rem',
+                  textAlign: 'center'
                 }}>
-                  <DetailLabel style={{ color: '#166534', marginBottom: '1rem' }}>
-                    📊 Automatically Extracted Trading Information
-                  </DetailLabel>
-                  
-                  {/* Trading transaction data */}
-                  {parsedData.symbol && (
-                    <EmailDetail>
-                      <DetailLabel>Symbol</DetailLabel>
-                      <DetailValue>{parsedData.symbol}</DetailValue>
-                    </EmailDetail>
-                  )}
-                  
-                  {parsedData.assetType && (
-                    <EmailDetail>
-                      <DetailLabel>Asset Type</DetailLabel>
-                      <DetailValue>{parsedData.assetType}</DetailValue>
-                    </EmailDetail>
-                  )}
-                  
-                  {parsedData.transactionType && (
-                    <EmailDetail>
-                      <DetailLabel>Transaction Type</DetailLabel>
-                      <DetailValue>{parsedData.transactionType}</DetailValue>
-                    </EmailDetail>
-                  )}
-                  
-                  {parsedData.portfolioName && (
-                    <EmailDetail>
-                      <DetailLabel>Portfolio</DetailLabel>
-                      <DetailValue>{parsedData.portfolioName}</DetailValue>
-                    </EmailDetail>
-                  )}
-                  
-                  {parsedData.quantity && (
-                    <EmailDetail>
-                      <DetailLabel>Quantity</DetailLabel>
-                      <DetailValue>{parsedData.quantity} {parsedData.assetType === 'option' ? 'contracts' : 'shares'}</DetailValue>
-                    </EmailDetail>
-                  )}
-                  
-                  {parsedData.price && (
-                    <EmailDetail>
-                      <DetailLabel>Price</DetailLabel>
-                      <DetailValue>${parsedData.price}</DetailValue>
-                    </EmailDetail>
-                  )}
-                  
-                  {parsedData.totalAmount && (
-                    <EmailDetail>
-                      <DetailLabel>Total Amount</DetailLabel>
-                      <DetailValue>${parsedData.totalAmount}</DetailValue>
-                    </EmailDetail>
-                  )}
-                  
-                  {parsedData.fees && (
-                    <EmailDetail>
-                      <DetailLabel>Fees</DetailLabel>
-                      <DetailValue>${parsedData.fees}</DetailValue>
-                    </EmailDetail>
-                  )}
-                  
-                  {parsedData.currency && (
-                    <EmailDetail>
-                      <DetailLabel>Currency</DetailLabel>
-                      <DetailValue>{parsedData.currency}</DetailValue>
-                    </EmailDetail>
-                  )}
-                  
-                  {parsedData.transactionDate && (
-                    <EmailDetail>
-                      <DetailLabel>Date</DetailLabel>
-                      <DetailValue>{parsedData.transactionDate}</DetailValue>
-                    </EmailDetail>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                    <span style={{ fontSize: '1.5rem' }}>🎉</span>
+                    <DetailLabel style={{ margin: 0, color: '#15803d', fontSize: '1.125rem', fontWeight: '600' }}>
+                      Transaction Successfully Extracted!
+                    </DetailLabel>
+                  </div>
+                  {parsedData.confidence && (
+                    <div style={{ fontSize: '0.875rem', color: '#15803d', marginTop: '0.5rem' }}>
+                      Confidence: {Math.round(parsedData.confidence * 100)}%
+                    </div>
                   )}
                 </div>
 
-                <div>✅ Success! Data extracted and ready for review.</div>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: '2rem',
+                  marginTop: '1.5rem'
+                }}>
+                  {/* Left Panel - AI Extracted Data */}
+                  <div style={{
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    padding: '1.5rem'
+                  }}>
+                    <DetailLabel style={{ fontSize: '1.125rem', fontWeight: '600', marginBottom: '1rem' }}>
+                      📊 AI Extracted Data
+                    </DetailLabel>
+                    
+                    {parsedData.symbol && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 0', borderBottom: '1px solid #e5e7eb' }}>
+                        <span style={{ fontWeight: '500', color: '#6b7280' }}>Symbol</span>
+                        <span style={{ fontWeight: '600', color: '#111827' }}>{parsedData.symbol}</span>
+                      </div>
+                    )}
+                    
+                    {parsedData.assetType && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 0', borderBottom: '1px solid #e5e7eb' }}>
+                        <span style={{ fontWeight: '500', color: '#6b7280' }}>Asset Type</span>
+                        <span style={{ fontWeight: '600', color: '#111827' }}>{parsedData.assetType}</span>
+                      </div>
+                    )}
+                    
+                    {parsedData.transactionType && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 0', borderBottom: '1px solid #e5e7eb' }}>
+                        <span style={{ fontWeight: '500', color: '#6b7280' }}>Transaction Type</span>
+                        <span style={{ fontWeight: '600', color: '#111827' }}>{parsedData.transactionType}</span>
+                      </div>
+                    )}
+                    
+                    {parsedData.portfolioName && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 0', borderBottom: '1px solid #e5e7eb' }}>
+                        <span style={{ fontWeight: '500', color: '#6b7280' }}>Portfolio</span>
+                        <span style={{ fontWeight: '600', color: '#111827' }}>{parsedData.portfolioName}</span>
+                      </div>
+                    )}
+                    
+                    {parsedData.quantity && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 0', borderBottom: '1px solid #e5e7eb' }}>
+                        <span style={{ fontWeight: '500', color: '#6b7280' }}>Quantity</span>
+                        <span style={{ fontWeight: '600', color: '#111827' }}>{parsedData.quantity} {parsedData.assetType === 'option' ? 'contracts' : 'shares'}</span>
+                      </div>
+                    )}
+                    
+                    {parsedData.price && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 0', borderBottom: '1px solid #e5e7eb' }}>
+                        <span style={{ fontWeight: '500', color: '#6b7280' }}>Price</span>
+                        <span style={{ fontWeight: '600', color: '#111827' }}>${parsedData.price}</span>
+                      </div>
+                    )}
+                    
+                    {parsedData.totalAmount && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 0', borderBottom: '1px solid #e5e7eb' }}>
+                        <span style={{ fontWeight: '500', color: '#6b7280' }}>Total Amount</span>
+                        <span style={{ fontWeight: '600', color: '#111827' }}>${parsedData.totalAmount}</span>
+                      </div>
+                    )}
+                    
+                    {parsedData.fees && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 0', borderBottom: '1px solid #e5e7eb' }}>
+                        <span style={{ fontWeight: '500', color: '#6b7280' }}>Fees</span>
+                        <span style={{ fontWeight: '600', color: '#111827' }}>${parsedData.fees}</span>
+                      </div>
+                    )}
+                    
+                    {parsedData.currency && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 0', borderBottom: '1px solid #e5e7eb' }}>
+                        <span style={{ fontWeight: '500', color: '#6b7280' }}>Currency</span>
+                        <span style={{ fontWeight: '600', color: '#111827' }}>{parsedData.currency}</span>
+                      </div>
+                    )}
+                    
+                    {parsedData.transactionDate && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 0' }}>
+                        <span style={{ fontWeight: '500', color: '#6b7280' }}>Date</span>
+                        <span style={{ fontWeight: '600', color: '#111827' }}>{parsedData.transactionDate}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right Panel - Review & Edit Form */}
+                  <div style={{
+                    background: '#ffffff',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    padding: '1.5rem'
+                  }}>
+                    <DetailLabel style={{ fontSize: '1.125rem', fontWeight: '600', marginBottom: '1rem' }}>
+                      ✏️ Review & Edit
+                    </DetailLabel>
+                    
+                    <div style={{ marginBottom: '1.5rem' }}>
+                      <label style={{ display: 'block', fontWeight: '600', color: '#374151', marginBottom: '0.5rem', fontSize: '0.875rem' }}>
+                        Portfolio *
+                      </label>
+                      <select
+                        value={transactionForm.portfolioId}
+                        onChange={(e) => setTransactionForm(prev => ({ ...prev, portfolioId: e.target.value }))}
+                        style={{
+                          width: '100%',
+                          padding: '0.75rem',
+                          border: '1px solid #d1d5db',
+                          borderRadius: '8px',
+                          fontSize: '0.875rem',
+                          background: 'white'
+                        }}
+                      >
+                        <option value="">Select Portfolio</option>
+                        {portfolios.map(portfolio => (
+                          <option key={portfolio.id} value={portfolio.id}>
+                            {portfolio.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+                      <div>
+                        <label style={{ display: 'block', fontWeight: '600', color: '#374151', marginBottom: '0.5rem', fontSize: '0.875rem' }}>
+                          Symbol *
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g., AAPL"
+                          value={transactionForm.symbol}
+                          onChange={(e) => setTransactionForm(prev => ({ ...prev, symbol: e.target.value.toUpperCase() }))}
+                          style={{
+                            width: '100%',
+                            padding: '0.75rem',
+                            border: '1px solid #d1d5db',
+                            borderRadius: '8px',
+                            fontSize: '0.875rem'
+                          }}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', fontWeight: '600', color: '#374151', marginBottom: '0.5rem', fontSize: '0.875rem' }}>
+                          Asset Type *
+                        </label>
+                        <select
+                          value={transactionForm.assetType}
+                          onChange={(e) => setTransactionForm(prev => ({ ...prev, assetType: e.target.value as 'stock' | 'option' }))}
+                          style={{
+                            width: '100%',
+                            padding: '0.75rem',
+                            border: '1px solid #d1d5db',
+                            borderRadius: '8px',
+                            fontSize: '0.875rem',
+                            background: 'white'
+                          }}
+                        >
+                          <option value="stock">Stock</option>
+                          <option value="option">Option</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+                      <div>
+                        <label style={{ display: 'block', fontWeight: '600', color: '#374151', marginBottom: '0.5rem', fontSize: '0.875rem' }}>
+                          Transaction Type *
+                        </label>
+                        <select
+                          value={transactionForm.transactionType}
+                          onChange={(e) => setTransactionForm(prev => ({ ...prev, transactionType: e.target.value as 'buy' | 'sell' }))}
+                          style={{
+                            width: '100%',
+                            padding: '0.75rem',
+                            border: '1px solid #d1d5db',
+                            borderRadius: '8px',
+                            fontSize: '0.875rem',
+                            background: 'white'
+                          }}
+                        >
+                          <option value="buy">Buy</option>
+                          <option value="sell">Sell</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', fontWeight: '600', color: '#374151', marginBottom: '0.5rem', fontSize: '0.875rem' }}>
+                          Currency
+                        </label>
+                        <select
+                          value={transactionForm.currency}
+                          onChange={(e) => setTransactionForm(prev => ({ ...prev, currency: e.target.value }))}
+                          style={{
+                            width: '100%',
+                            padding: '0.75rem',
+                            border: '1px solid #d1d5db',
+                            borderRadius: '8px',
+                            fontSize: '0.875rem',
+                            background: 'white'
+                          }}
+                        >
+                          <option value="USD">USD</option>
+                          <option value="CAD">CAD</option>
+                          <option value="EUR">EUR</option>
+                          <option value="GBP">GBP</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+                      <div>
+                        <label style={{ display: 'block', fontWeight: '600', color: '#374151', marginBottom: '0.5rem', fontSize: '0.875rem' }}>
+                          Quantity * {transactionForm.assetType === 'option' && '(contracts)'}
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          placeholder={transactionForm.assetType === 'option' ? '1' : '100'}
+                          value={transactionForm.quantity}
+                          onChange={(e) => setTransactionForm(prev => ({ ...prev, quantity: e.target.value }))}
+                          style={{
+                            width: '100%',
+                            padding: '0.75rem',
+                            border: '1px solid #d1d5db',
+                            borderRadius: '8px',
+                            fontSize: '0.875rem'
+                          }}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', fontWeight: '600', color: '#374151', marginBottom: '0.5rem', fontSize: '0.875rem' }}>
+                          Price per {transactionForm.assetType === 'option' ? 'Contract' : 'Share'} *
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={transactionForm.price}
+                          onChange={(e) => setTransactionForm(prev => ({ ...prev, price: e.target.value }))}
+                          style={{
+                            width: '100%',
+                            padding: '0.75rem',
+                            border: '1px solid #d1d5db',
+                            borderRadius: '8px',
+                            fontSize: '0.875rem'
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+                      <div>
+                        <label style={{ display: 'block', fontWeight: '600', color: '#374151', marginBottom: '0.5rem', fontSize: '0.875rem' }}>
+                          Total Amount
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          placeholder="Auto-calculated"
+                          value={transactionForm.totalAmount}
+                          onChange={(e) => setTransactionForm(prev => ({ ...prev, totalAmount: e.target.value }))}
+                          style={{
+                            width: '100%',
+                            padding: '0.75rem',
+                            border: '1px solid #d1d5db',
+                            borderRadius: '8px',
+                            fontSize: '0.875rem'
+                          }}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', fontWeight: '600', color: '#374151', marginBottom: '0.5rem', fontSize: '0.875rem' }}>
+                          Fees
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={transactionForm.fees}
+                          onChange={(e) => setTransactionForm(prev => ({ ...prev, fees: e.target.value }))}
+                          style={{
+                            width: '100%',
+                            padding: '0.75rem',
+                            border: '1px solid #d1d5db',
+                            borderRadius: '8px',
+                            fontSize: '0.875rem'
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: '1.5rem' }}>
+                      <label style={{ display: 'block', fontWeight: '600', color: '#374151', marginBottom: '0.5rem', fontSize: '0.875rem' }}>
+                        Date *
+                      </label>
+                      <input
+                        type="date"
+                        value={transactionForm.date}
+                        onChange={(e) => setTransactionForm(prev => ({ ...prev, date: e.target.value }))}
+                        style={{
+                          width: '100%',
+                          padding: '0.75rem',
+                          border: '1px solid #d1d5db',
+                          borderRadius: '8px',
+                          fontSize: '0.875rem'
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
               </>
             )}
 

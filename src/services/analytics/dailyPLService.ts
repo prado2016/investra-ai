@@ -66,12 +66,12 @@ export class DailyPLAnalyticsService {
   /**
    * Get daily P/L data for a specific portfolio and month
    */
-  '''  async getMonthlyPLData(
+  async getMonthlyPLData(
     portfolioId: string,
     year: number,
     month: number, // 0-11 (January = 0)
     options?: PLServiceOptions
-  ): Promise<{ data: MonthlyPLSummary | null; error: string | null }> {'''
+  ): Promise<{ data: MonthlyPLSummary | null; error: string | null }> {
       try {
       // Log the service call with detailed information
       debug.info('Daily P/L service called for monthly data', {
@@ -165,14 +165,14 @@ export class DailyPLAnalyticsService {
         return { data: emptyMonthSummary, error: null };
       }
 
-      '''      // Calculate monthly P/L data
+      // Calculate monthly P/L data
       const monthlyData = await this.calculateMonthlyPL(
         year,
         month,
         transactions,
         positions,
         options
-      );'''
+      );
 
       return { data: monthlyData, error: null };
     } catch (error) {
@@ -186,7 +186,7 @@ export class DailyPLAnalyticsService {
   /**
    * Calculate daily P/L data for a specific month
    */
-  '''  private async calculateMonthlyPL(
+  private async calculateMonthlyPL(
     year: number,
     month: number,
     transactions: EnhancedTransaction[],
@@ -257,14 +257,14 @@ export class DailyPLAnalyticsService {
       profitableDays,
       lossDays
     };
-  }'''
+  }
 
   /**
    * Calculate P/L data for a specific day
    */
-  '''  private processDayTrades(
+  private processDayTrades(
     dayTransactions: EnhancedTransaction[],
-    positions: EnhancedPosition[]
+    _positions: EnhancedPosition[]
   ): { realizedPL: number; remainingTransactions: EnhancedTransaction[] } {
     let realizedPL = 0;
     const remainingTransactions: EnhancedTransaction[] = [];
@@ -306,12 +306,12 @@ export class DailyPLAnalyticsService {
     return { realizedPL, remainingTransactions };
   }
 
-  '''  '''  private async calculateDayPL(
+  private async calculateDayPL(
     date: Date,
     transactions: EnhancedTransaction[],
     positions: EnhancedPosition[],
     threshold: number
-  ): Promise<DailyPLData> {''''''''
+  ): Promise<DailyPLData> {
     const dateString = date.toISOString().split('T')[0]; // YYYY-MM-DD
     
     // Log the day calculation inputs for troubleshooting
@@ -396,7 +396,7 @@ export class DailyPLAnalyticsService {
     let tradeVolume = 0;
     let netCashFlow = 0;
 
-    '''    const { realizedPL: dayTradePL, remainingTransactions } = this.processDayTrades(dayTransactions, positions);
+    const { realizedPL: dayTradePL, remainingTransactions } = this.processDayTrades(dayTransactions, positions);
     realizedPL += dayTradePL;
 
     // Process each transaction
@@ -448,16 +448,16 @@ export class DailyPLAnalyticsService {
           // Handle other transaction types as needed
           break;
       }
-    });'''
+    });
 
-    '''    const sells = remainingTransactions.filter(t => t.transaction_type === 'sell');
+    const sells = remainingTransactions.filter(t => t.transaction_type === 'sell');
     if (sells.length > 0) {
       realizedPL += await this.calculateFIFOPL(sells, transactions);
     }
 
     // For unrealized P/L, we would need current market prices
     // This is simplified - in practice, you'd fetch current prices
-    const unrealizedPL = 0; // Placeholder'''
+    const unrealizedPL = 0; // Placeholder
 
     const totalPL = realizedPL + unrealizedPL + dividendIncome - totalFees;
     const colorCategory = this.determineColorCategory(totalPL, hasTransactions, threshold);
@@ -492,7 +492,7 @@ export class DailyPLAnalyticsService {
   /**
    * Determine color category for calendar day styling
    */
-  '''  private async calculateFIFOPL(
+  private async calculateFIFOPL(
     sellTransactions: EnhancedTransaction[],
     allTransactions: EnhancedTransaction[]
   ): Promise<number> {
@@ -525,7 +525,7 @@ export class DailyPLAnalyticsService {
     return realizedPL;
   }
 
-  private determineColorCategory('''
+  private determineColorCategory(
     totalPL: number,
     hasTransactions: boolean,
     threshold: number
@@ -616,12 +616,12 @@ export class DailyPLAnalyticsService {
       }
 
       const threshold = options?.threshold || this.DEFAULT_THRESHOLD;
-      '''      const dayData = await this.calculateDayPL(
+      const dayData = await this.calculateDayPL(
         date,
         transactionsResult.data,
         positionsResult.data,
         threshold
-      );'''
+      );
 
       return { data: dayData, error: null };
     } catch (error) {

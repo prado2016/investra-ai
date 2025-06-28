@@ -31,6 +31,6 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["src/**/*", "src/types/**/*", "*.d.ts", "@types/**/*"],
+  "include": ["src/**/*", "src/types/**/*", "*.d.ts", "@types/**/*", "./@types"],
   "exclude": ["src/**/*.test.*", "src/**/*.spec.*", "src/test/"]
 }
