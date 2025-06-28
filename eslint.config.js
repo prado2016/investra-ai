@@ -27,6 +27,7 @@ export default [
       'email-puller/dist/', // Explicitly ignore email-puller's dist
       'server/dist/', // Explicitly ignore server's dist
       'server/ecosystem.config.js', // Ignore PM2 config file
+      '**/*.d.ts', // Ignore all declaration files
     ],
   },
   // Base JavaScript rules
@@ -62,6 +63,7 @@ export default [
         btoa: 'readonly',
         atob: 'readonly',
         crypto: 'readonly',
+        process: 'readonly', // Add process for browser environment
       },
     },
     rules: {
@@ -83,6 +85,10 @@ export default [
       parserOptions: {
         project: './tsconfig.app.json',
         tsconfigRootDir: __dirname,
+      },
+      globals: {
+        ...globals.browser,
+        ...globals.node,
       },
     },
     rules: {
@@ -244,6 +250,19 @@ export default [
       'no-prototype-builtins': 'off',
       '@typescript-eslint/no-require-imports': 'off',
       'no-useless-escape': 'off',
+    },
+  },
+
+  // JavaScript test files
+  {
+    files: ['test-auth.js', 'test-server-auth.js'],
+    languageOptions: {
+      globals: {
+        console: 'readonly',
+      },
+    },
+    rules: {
+      'no-undef': 'off',
     },
   },
 

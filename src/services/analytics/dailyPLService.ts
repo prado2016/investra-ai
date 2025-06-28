@@ -155,7 +155,7 @@ export class DailyPLAnalyticsService {
     const dailyData: DailyPLData[] = [];
     let totalMonthlyPL = 0;
     let totalRealizedPL = 0;
-    let totalUnrealizedPL = 0; // Placeholder
+    const totalUnrealizedPL = 0; // Placeholder
     let totalDividends = 0;
     let totalFees = 0;
     let totalVolume = 0;

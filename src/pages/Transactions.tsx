@@ -1,23 +1,26 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { usePortfolios } from '../contexts/PortfolioContext';
 import { usePageTitle } from '../hooks/usePageTitle';
-import { TransactionService, FundMovementService } from '../services/supabaseService';
+import { TransactionService, FundMovementService, AssetService } from '../services/supabaseService';
 import { useNotify } from '../hooks/useNotify';
-// TransactionForm component was removed during cleanup
+import TransactionForm from '../components/TransactionForm';
 import TransactionList from '../components/TransactionList.tsx';
 import TransactionEditModal from '../components/TransactionEditModal.tsx';
 import FundMovementForm from '../components/FundMovementForm.tsx';
 import FundMovementList from '../components/FundMovementList.tsx';
 import FundMovementEditModal from '../components/FundMovementEditModal.tsx';
-import { Plus, TrendingUp, DollarSign, ArrowUpDown, ChevronDown, ChevronUp } from 'lucide-react';
-import type { TransactionType, FundMovement, FundMovementType, FundMovementStatus, Currency } from '../types/portfolio';
+import { Plus, TrendingUp, DollarSign, ArrowUpDown, ChevronDown, ChevronUp, Filter } from 'lucide-react';
+import { SelectField } from '../components/FormFields';
+import { useSupabasePortfolios } from '../hooks/useSupabasePortfolios';
+import type { Transaction, TransactionType, FundMovement, FundMovementType, FundMovementStatus, Currency } from '../types/portfolio';
 import type { TransactionWithAsset } from '../components/TransactionList';
 import type { FundMovementWithMetadata } from '../components/FundMovementList';
 import '../styles/transactions-layout.css';
 
 // Enhanced Transactions page with improved styling and contrast
 const TransactionsPage: React.FC = () => {
-  const { activePortfolio, loading: portfoliosLoading } = usePortfolios();
+  const { activePortfolio } = usePortfolios();
+  const { portfolios, loading: portfoliosLoading } = useSupabasePortfolios();
   
   // Set dynamic page title
   usePageTitle('Transactions', { 
@@ -34,6 +37,10 @@ const TransactionsPage: React.FC = () => {
   const [editingFundMovement, setEditingFundMovement] = useState<FundMovementWithMetadata | null>(null);
   const [showFundMovementEditModal, setShowFundMovementEditModal] = useState(false);
   const [isTransactionFormMinimized, setIsTransactionFormMinimized] = useState(false);
+  const [filters, setFilters] = useState({
+    portfolioId: activePortfolio?.id || 'all',
+    dateRange: 'all',
+  });
   
   // Debounce fetch to prevent excessive API calls
   const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -48,7 +55,7 @@ const TransactionsPage: React.FC = () => {
     setError(null);
     
     try {
-      const response = await TransactionService.getTransactions(activePortfolio.id);
+      const response = await TransactionService.getTransactions(filters.portfolioId, filters.dateRange);
       if (response.success) {
         setTransactions(response.data);
       } else {
@@ -62,7 +69,29 @@ const TransactionsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [activePortfolio?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activePortfolio?.id, filters]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (activePortfolio?.id) {
+      // Clear previous timeout if any
+      if (fetchTimeoutRef.current) {
+        clearTimeout(fetchTimeoutRef.current);
+      }
+
+      // Set up a debounced fetch to prevent rate limiting
+      fetchTimeoutRef.current = setTimeout(() => {
+        fetchTransactions();
+        fetchFundMovements();
+      }, 300); // 300ms debounce time
+    }
+    
+    // Cleanup timeout on unmount
+    return () => {
+      if (fetchTimeoutRef.current) {
+        clearTimeout(fetchTimeoutRef.current);
+      }
+    };
+  }, [activePortfolio?.id, filters, fetchTransactions, fetchFundMovements]); // Added filters, fetchTransactions, fetchFundMovements to dependencies
 
   // Fetch fund movements when portfolio changes
   const fetchFundMovements = useCallback(async () => {
@@ -154,7 +183,7 @@ const TransactionsPage: React.FC = () => {
         clearTimeout(fetchTimeoutRef.current);
       }
     };
-  }, [activePortfolio?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activePortfolio?.id, filters, fetchTransactions, fetchFundMovements]); // eslint-disable-line react-hooks/exhaustive-deps
   // fetchTransactions is intentionally excluded to prevent dependency cycles
 
   const handleEditFundMovement = (fundMovement: FundMovementWithMetadata) => {
@@ -267,8 +296,6 @@ const TransactionsPage: React.FC = () => {
     }
   };
 
-  // Removed handleSaveTransaction - TransactionForm component was removed
-  /*
   const handleSaveTransaction = async (transactionData: Omit<Transaction, 'id' | 'assetId' | 'createdAt' | 'updatedAt'>): Promise<boolean> => {
     if (!activePortfolio?.id) {
       notify.error('No portfolio selected');
@@ -322,7 +349,6 @@ const TransactionsPage: React.FC = () => {
       setLoading(false);
     }
   };
-  */
 
   const handleDeleteTransaction = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this transaction?')) {
@@ -527,14 +553,7 @@ const TransactionsPage: React.FC = () => {
               </div>
             </div>
             
-            {!isTransactionFormMinimized && (
-              <div className="enhanced-form-wrapper">
-                <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                  TransactionForm component was removed during cleanup.
-                  Use the email parsing system to import transactions.
-                </div>
-              </div>
-            )}
+            <TransactionForm onSave={handleSaveTransaction} loading={loading} />
           </div>
 
           {/* Recent Transactions Section */}
@@ -552,6 +571,34 @@ const TransactionsPage: React.FC = () => {
             </div>
             
             <div className="enhanced-transactions-wrapper">
+              <div className="filter-controls" style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
+                <SelectField
+                  id="portfolio-filter"
+                  name="portfolio-filter"
+                  label="Filter by Portfolio"
+                  value={filters.portfolioId}
+                  onChange={(e) => setFilters({ ...filters, portfolioId: e.target.value })}
+                  options={[
+                    { value: 'all', label: 'All Portfolios' },
+                    ...(portfolios || []).map(p => ({ value: p.id, label: p.name }))
+                  ]}
+                  disabled={portfoliosLoading}
+                />
+                <SelectField
+                  id="date-range-filter"
+                  name="date-range-filter"
+                  label="Filter by Date"
+                  value={filters.dateRange}
+                  onChange={(e) => setFilters({ ...filters, dateRange: e.target.value })}
+                  options={[
+                    { value: 'all', label: 'All Time' },
+                    { value: 'last7days', label: 'Last 7 Days' },
+                    { value: 'last30days', label: 'Last 30 Days' },
+                    { value: 'last90days', label: 'Last 90 Days' },
+                    { value: 'thisYear', label: 'This Year' },
+                  ]}
+                />
+              </div>
               <TransactionList
                 transactions={transactions}
                 loading={loading}

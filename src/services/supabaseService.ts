@@ -5,6 +5,7 @@
  */
 
 import { supabase } from '../lib/supabase'
+import { format, subDays, startOfDay } from 'date-fns';
 import { enhancedSupabase } from '../lib/enhancedSupabase'
 import { portfolioRateLimiter, transactionRateLimiter } from '../utils/rateLimiter'
 import { emergencyStop } from '../utils/emergencyStop'
@@ -1369,7 +1370,7 @@ export class TransactionService {
   /**
    * Get all transactions for a portfolio
    */
-  static async getTransactions(portfolioId: string): Promise<ServiceListResponse<Transaction & { asset: Asset }>> {
+  static async getTransactions(portfolioId: string, dateRange: string = 'all'): Promise<ServiceListResponse<Transaction & { asset: Asset }>> {
     // Use mock service in test mode
     if (shouldUseMockServices()) {
       return MockServices.TransactionService.getTransactions(portfolioId);
@@ -1406,15 +1407,47 @@ export class TransactionService {
 
       // Use enhanced client with retry logic
       const result = await enhancedSupabase.queryWithRetry(
-        async (client) => await client
-          .from('transactions')
-          .select(`
-            *,
-            asset:assets(*)
-          `)
-          .eq('portfolio_id', portfolioId)
-          .order('transaction_date', { ascending: false }),
-        'getTransactions'
+        async (client) => {
+          let query = client
+            .from('transactions')
+            .select(`
+              *,
+              asset:assets(*)
+            `)
+            .order('transaction_date', { ascending: false });
+
+          if (portfolioId !== 'all') {
+            query = query.eq('portfolio_id', portfolioId);
+          }
+
+          const today = startOfDay(new Date());
+          let startDate: Date | undefined;
+
+          switch (dateRange) {
+            case 'last7days':
+              startDate = subDays(today, 7);
+              break;
+            case 'last30days':
+              startDate = subDays(today, 30);
+              break;
+            case 'last90days':
+              startDate = subDays(today, 90);
+              break;
+            case 'thisYear':
+              startDate = new Date(today.getFullYear(), 0, 1);
+              break;
+            case 'all':
+            default:
+              // No date filter
+              break;
+          }
+
+          if (startDate) {
+            query = query.gte('transaction_date', format(startDate, 'yyyy-MM-dd'));
+          }
+          
+          return query;
+        }, 'getTransactions'
       );
 
       const { data, error } = result as { data: (Transaction & { asset: Asset })[] | null; error: Error | null };
