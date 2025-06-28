@@ -383,7 +383,7 @@ class SimpleEmailService {
               },
               configuration: {
                 provider: 'gmail',
-                emailAddress: apiData.config?.username || 'transactions@investra.com',
+                emailAddress: apiData.config?.username || 'investra.transactions@gmail.com',
                 host: apiData.config?.server || 'imap.gmail.com',
                 port: apiData.config?.port || 993,
                 autoImportEnabled: apiData.status === 'running',

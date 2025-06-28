@@ -1240,7 +1240,7 @@ app.get('/api/imap/status', async (req, res) => {
       config: {
         server: 'imap.gmail.com',
         port: 993,
-        username: 'transactions@investra.com',
+        username: 'investra.transactions@gmail.com',
         useSSL: true,
         folder: 'INBOX'
       }
