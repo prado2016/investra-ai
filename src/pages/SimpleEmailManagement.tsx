@@ -1203,13 +1203,28 @@ const SimpleEmailManagement: React.FC = () => {
     setBulkProcessing(false);
     setBulkCancelled(false);
     
-    // Refresh email list to show updated statuses
+    // Refresh email list to show updated statuses with multiple attempts
+    console.log('🔄 Refreshing email list after bulk processing...');
+    
+    // Immediate refresh
     await loadEmails();
+    
+    // Additional refresh after short delay to ensure database commits are complete
+    setTimeout(async () => {
+      console.log('🔄 Second refresh to ensure processed emails are cleared...');
+      await loadEmails();
+    }, 1000);
+    
+    // Final refresh after longer delay
+    setTimeout(async () => {
+      console.log('🔄 Final refresh to confirm email list is updated...');
+      await loadEmails();
+    }, 3000);
     
     if (wasCancelled) {
       error('Bulk Processing Cancelled', `Processing stopped by user. Processed ${processed} emails, ${errors} failed`);
     } else if (errors === 0) {
-      success('Bulk Processing Complete', `Successfully processed ${processed} emails`);
+      success('Bulk Processing Complete', `Successfully processed ${processed} emails. Processed emails have been cleared from the list.`);
     } else {
       error('Bulk Processing Complete', `Processed ${processed} emails, ${errors} failed`);
     }
