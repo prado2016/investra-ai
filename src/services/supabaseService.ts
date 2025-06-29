@@ -1361,6 +1361,69 @@ export class PositionService {
       }
     }
   }
+
+  /**
+   * Detect if an option transaction is a covered call
+   */
+  static async detectCoveredCall(
+    portfolioId: string,
+    optionSymbol: string,
+    transactionType: string,
+    quantity: number
+  ): Promise<string | null> {
+    try {
+      // Only check for option sell transactions
+      if (transactionType !== 'sell') {
+        return null;
+      }
+
+      // Parse option symbol to get underlying stock symbol
+      const underlyingSymbol = this.extractUnderlyingFromOption(optionSymbol);
+      if (!underlyingSymbol) {
+        return null;
+      }
+
+      // Check if user owns enough shares of underlying stock
+      const { data: positions } = await this.getPositions(portfolioId);
+      const underlyingPosition = positions.find(
+        position => position.asset.symbol === underlyingSymbol && position.asset.asset_type === 'stock'
+      );
+
+      const sharesNeeded = quantity * 100; // 1 option contract = 100 shares
+      
+      if (underlyingPosition && underlyingPosition.quantity >= sharesNeeded) {
+        return 'covered_call';
+      }
+
+      return null; // Likely naked call or insufficient shares
+    } catch (error) {
+      console.error('Error detecting covered call:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Extract underlying stock symbol from option symbol
+   * Example: "NVDL240315C00061000" -> "NVDL"
+   */
+  private static extractUnderlyingFromOption(optionSymbol: string): string | null {
+    // Standard option format: SYMBOL + YYMMDD + C/P + STRIKE (8 digits)
+    const optionPattern = /^([A-Z]{1,6})\d{6}[CP]\d{8}$/;
+    const match = optionSymbol.match(optionPattern);
+    
+    if (match) {
+      return match[1]; // Return the underlying symbol
+    }
+
+    // Fallback: if it contains known option indicators, try to extract base symbol
+    if (optionSymbol.includes('C') || optionSymbol.includes('P')) {
+      // Try to find where the symbol part ends (before date/strike info)
+      const symbolMatch = optionSymbol.match(/^([A-Z]{1,6})/);
+      return symbolMatch ? symbolMatch[1] : null;
+    }
+
+    return null;
+  }
 }
 
 /**
@@ -1523,7 +1586,14 @@ export class TransactionService {
     transactionType: TransactionType,
     quantity: number,
     price: number,
-    transactionDate: string
+    transactionDate: string,
+    options?: {
+      fees?: number;
+      currency?: string;
+      notes?: string;
+      strategyType?: string;
+      assetSymbol?: string;
+    }
   ): Promise<ServiceResponse<Transaction>> {
     // Production mode validation
     const isProduction = process.env.NODE_ENV === 'production' ||
@@ -1559,6 +1629,22 @@ export class TransactionService {
     console.log('✅ Using real database transaction service');
 
     try {
+      // Auto-detect covered call strategy if not provided
+      let finalStrategyType = options?.strategyType;
+      
+      if (!finalStrategyType && options?.assetSymbol && transactionType === 'sell') {
+        const detectedStrategy = await PositionService.detectCoveredCall(
+          portfolioId,
+          options.assetSymbol,
+          transactionType,
+          quantity
+        );
+        if (detectedStrategy) {
+          finalStrategyType = detectedStrategy;
+          console.log(`✅ Auto-detected strategy: ${finalStrategyType} for ${options.assetSymbol}`);
+        }
+      }
+
       const { data, error } = await supabase
         .from('transactions')
         .insert({
@@ -1568,6 +1654,10 @@ export class TransactionService {
           quantity,
           price,
           total_amount: quantity * price,
+          fees: options?.fees || 0,
+          currency: options?.currency || 'USD',
+          notes: options?.notes,
+          strategy_type: finalStrategyType,
           transaction_date: transactionDate
         })
         .select()
@@ -1585,7 +1675,7 @@ export class TransactionService {
         transactionType,
         quantity,
         price,
-        0 // fees - not provided in this method signature
+        options?.fees || 0
       );
 
       if (!positionUpdateResult.success) {

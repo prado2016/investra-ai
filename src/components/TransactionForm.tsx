@@ -5,7 +5,7 @@ import { InputField, SelectField } from './FormFields';
 import { PriceInput } from './PriceInput';
 import { useForm } from '../hooks/useForm';
 import { useSupabasePortfolios } from '../hooks/useSupabasePortfolios';
-import type { Transaction, TransactionType, Currency, AssetType } from '../types/portfolio';
+import type { Transaction, TransactionType, Currency, AssetType, OptionStrategyType } from '../types/portfolio';
 import SymbolInput from './SymbolInput';
 
 interface TransactionFormData {
@@ -19,6 +19,7 @@ interface TransactionFormData {
   currency: Currency; // Added missing property
   assetType: AssetType; // Added missing property
   totalAmount: string; // Added missing property
+  strategyType: OptionStrategyType | '';
   [key: string]: unknown;
 }
 
@@ -68,7 +69,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     notes: initialData?.notes || '',
     currency: initialData?.currency || 'USD', // Default to USD
     assetType: initialData?.assetType || 'stock', // Default to stock
-    totalAmount: initialData?.totalAmount?.toString() || ''
+    totalAmount: initialData?.totalAmount?.toString() || '',
+    strategyType: initialData?.strategyType || ''
   };
 
   const form = useForm({
@@ -122,6 +124,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         currency: values.currency as Currency,
         assetType: values.assetType as AssetType,
         totalAmount: parseFloat(values.quantity) * parseFloat(values.price),
+        strategyType: values.strategyType || undefined,
       };
 
       return await onSave(transaction);
@@ -137,8 +140,32 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 
   const transactionTypeOptions = [
     { value: 'buy', label: 'Buy' },
-    { value: 'sell', label: 'Sell' }
+    { value: 'sell', label: 'Sell' },
+    { value: 'dividend', label: 'Dividend' },
+    { value: 'option_expired', label: 'Option Expired' },
+    { value: 'short_option_expired', label: 'Short Option Expired' },
+    { value: 'short_option_assigned', label: 'Short Option Assigned' }
   ];
+
+  const strategyTypeOptions = [
+    { value: '', label: 'Select Strategy (Optional)' },
+    { value: 'covered_call', label: 'Covered Call' },
+    { value: 'naked_call', label: 'Naked Call' },
+    { value: 'cash_secured_put', label: 'Cash Secured Put' },
+    { value: 'protective_put', label: 'Protective Put' },
+    { value: 'long_call', label: 'Long Call' },
+    { value: 'long_put', label: 'Long Put' },
+    { value: 'collar', label: 'Collar' },
+    { value: 'straddle', label: 'Straddle' },
+    { value: 'strangle', label: 'Strangle' },
+    { value: 'iron_condor', label: 'Iron Condor' },
+    { value: 'butterfly', label: 'Butterfly' },
+    { value: 'calendar_spread', label: 'Calendar Spread' }
+  ];
+
+  // Show strategy dropdown only for option transactions and specific transaction types
+  const showStrategyField = form.values.assetType === 'option' && 
+    ['sell', 'buy', 'option_expired', 'short_option_expired', 'short_option_assigned'].includes(form.values.type);
 
   if (!portfoliosLoading && portfolios.length === 0) {
     return null;
@@ -230,6 +257,22 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                 })()}
               />
             </div>
+
+            {showStrategyField && (
+              <div className="horizontal-fields-container">
+                <SelectField
+                  id="strategyType"
+                  name="strategyType"
+                  label="Option Strategy"
+                  value={form.values.strategyType}
+                  onChange={(e) => form.setValue('strategyType', e.target.value as OptionStrategyType | '')}
+                  onBlur={() => form.setFieldTouched('strategyType')}
+                  options={strategyTypeOptions}
+                  error={form.touched.strategyType ? form.errors.strategyType?.message : ''}
+                  disabled={form.isSubmitting || loading}
+                />
+              </div>
+            )}
 
             <div className="horizontal-fields-container">
               <PriceInput

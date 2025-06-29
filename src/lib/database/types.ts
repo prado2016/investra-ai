@@ -1,7 +1,21 @@
 // Database types for Supabase integration
 
 export type AssetType = 'stock' | 'option' | 'forex' | 'crypto' | 'reit' | 'etf'
-export type TransactionType = 'buy' | 'sell' | 'dividend' | 'split' | 'merger' | 'transfer' | 'option_expired'
+export type TransactionType = 'buy' | 'sell' | 'dividend' | 'split' | 'merger' | 'transfer' | 'option_expired' | 'short_option_expired' | 'short_option_assigned'
+
+export type OptionStrategyType = 
+  | 'covered_call'
+  | 'naked_call'
+  | 'cash_secured_put'
+  | 'protective_put'
+  | 'long_call'
+  | 'long_put'
+  | 'collar'
+  | 'straddle'
+  | 'strangle'
+  | 'iron_condor'
+  | 'butterfly'
+  | 'calendar_spread'
 export type CostBasisMethod = 'FIFO' | 'LIFO' | 'AVERAGE_COST' | 'SPECIFIC_LOT'
 
 // Email configuration related types
@@ -79,6 +93,7 @@ export interface Transaction {
   notes: string | null
   external_id: string | null
   broker_name: string | null
+  strategy_type: OptionStrategyType | null
   created_at: string
   updated_at: string
 }

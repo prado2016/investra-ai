@@ -51,6 +51,8 @@ export const useSupabaseTransactions = (portfolioId?: string) => {
     transactionDate: string;
     fees?: number;
     notes?: string;
+    strategyType?: string;
+    currency?: string;
   }) => {
     if (!portfolioId) {
       notify.error('No portfolio selected');
@@ -74,7 +76,14 @@ export const useSupabaseTransactions = (portfolioId?: string) => {
         transactionData.transactionType as TransactionType,
         transactionData.quantity,
         transactionData.price,
-        transactionData.transactionDate
+        transactionData.transactionDate,
+        {
+          fees: transactionData.fees,
+          notes: transactionData.notes,
+          strategyType: transactionData.strategyType,
+          currency: transactionData.currency,
+          assetSymbol: transactionData.assetSymbol // For covered call detection
+        }
       );
 
       if (response.success) {

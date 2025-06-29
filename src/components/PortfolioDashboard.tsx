@@ -21,7 +21,9 @@ import {
   PieChart,
   Activity,
   Target,
-  Zap
+  Zap,
+  Shield,
+  TrendingUp as OptionsIcon
 } from 'lucide-react';
 import { usePortfolios } from '../contexts/PortfolioContext';
 import PortfolioSelector from './PortfolioSelector';
@@ -440,7 +442,14 @@ const PortfolioDashboard: React.FC<PortfolioDashboardProps> = ({
       totalDividends: 0,
       recentTransactions: activeTransactions
         .sort((a, b) => new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime())
-        .slice(0, 5)
+        .slice(0, 5),
+      // Option strategy statistics
+      optionStrategies: {
+        coveredCalls: 0,
+        totalPremiumCollected: 0,
+        activeStrategies: 0,
+        strategyCounts: {} as Record<string, number>
+      }
     };
 
     activeTransactions.forEach(transaction => {
@@ -456,6 +465,26 @@ const PortfolioDashboard: React.FC<PortfolioDashboardProps> = ({
         case 'dividend':
           stats.totalDividends += transaction.total_amount;
           break;
+      }
+
+      // Track option strategy statistics
+      if (transaction.strategy_type) {
+        stats.optionStrategies.activeStrategies++;
+        
+        // Count each strategy type
+        if (!stats.optionStrategies.strategyCounts[transaction.strategy_type]) {
+          stats.optionStrategies.strategyCounts[transaction.strategy_type] = 0;
+        }
+        stats.optionStrategies.strategyCounts[transaction.strategy_type]++;
+        
+        // Track covered calls specifically
+        if (transaction.strategy_type === 'covered_call') {
+          stats.optionStrategies.coveredCalls++;
+          // For covered calls (selling), we collect premium
+          if (transaction.transaction_type === 'sell') {
+            stats.optionStrategies.totalPremiumCollected += transaction.total_amount;
+          }
+        }
       }
     });
 
@@ -628,6 +657,53 @@ const PortfolioDashboard: React.FC<PortfolioDashboardProps> = ({
                   {emailStatus.message}
                 </EmailStatusIndicator>
               </StatCard>
+
+              {/* Option Strategy Statistics */}
+              {portfolioStats.optionStrategies.activeStrategies > 0 && (
+                <>
+                  <StatCard>
+                    <StatHeader>
+                      <StatTitle>Covered Calls</StatTitle>
+                      <StatIcon $color="#8b5cf6">
+                        <Shield size={16} />
+                      </StatIcon>
+                    </StatHeader>
+                    <StatValue>{portfolioStats.optionStrategies.coveredCalls}</StatValue>
+                    <StatChange $positive={portfolioStats.optionStrategies.coveredCalls > 0}>
+                      <OptionsIcon size={14} />
+                      {portfolioStats.optionStrategies.coveredCalls > 0 ? 'Active positions' : 'No positions'}
+                    </StatChange>
+                  </StatCard>
+
+                  <StatCard>
+                    <StatHeader>
+                      <StatTitle>Premium Collected</StatTitle>
+                      <StatIcon $color="#10b981">
+                        <DollarSign size={16} />
+                      </StatIcon>
+                    </StatHeader>
+                    <StatValue>{formatCurrency(portfolioStats.optionStrategies.totalPremiumCollected)}</StatValue>
+                    <StatChange $positive={portfolioStats.optionStrategies.totalPremiumCollected > 0}>
+                      <TrendingUp size={14} />
+                      From covered calls
+                    </StatChange>
+                  </StatCard>
+
+                  <StatCard>
+                    <StatHeader>
+                      <StatTitle>Option Strategies</StatTitle>
+                      <StatIcon $color="#f59e0b">
+                        <Target size={16} />
+                      </StatIcon>
+                    </StatHeader>
+                    <StatValue>{portfolioStats.optionStrategies.activeStrategies}</StatValue>
+                    <StatChange $positive={true}>
+                      <Activity size={14} />
+                      {Object.keys(portfolioStats.optionStrategies.strategyCounts).length} strategy types
+                    </StatChange>
+                  </StatCard>
+                </>
+              )}
             </StatsGrid>
           </PortfolioSection>
         )}
