@@ -1680,18 +1680,21 @@ export class TransactionService {
             
           console.log('🧪 Update without select error:', updateOnlyError);
           
-          // Since update is blocked by RLS, try deleting the imap_processed records instead
-          console.log('🗑️ Attempting to delete imap_processed records since update is blocked');
-          const { data: deletedRecords, error: deleteError } = await supabase
-            .from('imap_processed')
-            .delete()
-            .in('id', recordIds)
-            .select('id');
+          // Try to call cleanup function - it should exist or we'll get a clear error
+          console.log('🔧 Attempting to call cleanup function to bypass RLS');
+          const { data: functionResult, error: functionError } = await supabase
+            .rpc('cleanup_transaction_references', { 
+              target_transaction_id: transactionId 
+            });
             
-          console.log('🗑️ Deleted imap_processed records:', deletedRecords);
-          console.log('🗑️ Delete error:', deleteError);
+          console.log('🔧 Function result:', functionResult);
+          console.log('🔧 Function error:', functionError);
           
-          // Fallback: try the update anyway
+          if (functionResult && functionResult > 0) {
+            console.log(`✅ Successfully cleaned up ${functionResult} imap_processed references using database function`);
+          }
+          
+          // If function doesn't exist, try direct update as fallback
           const { data: updatedRecords, error: updateError } = await supabase
             .from('imap_processed')
             .update({ transaction_id: null })
