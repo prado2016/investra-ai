@@ -1657,11 +1657,14 @@ export class TransactionService {
           console.log('🧪 Test select before update:', testSelect);
           console.log('🧪 Test select error:', testError);
           
-          // Update the references to NULL
+          // Try updating by ID instead of transaction_id to bypass potential RLS issues
+          const recordIds = testSelect?.map(record => record.id) || [];
+          console.log('🎯 Attempting to update records by ID:', recordIds);
+          
           const { data: updatedRecords, error: updateError } = await supabase
             .from('imap_processed')
             .update({ transaction_id: null })
-            .eq('transaction_id', transactionId)
+            .in('id', recordIds)
             .select('id, transaction_id');
 
           if (updateError) {
