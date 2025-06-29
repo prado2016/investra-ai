@@ -68,6 +68,11 @@ interface BuyQueueItem {
   transaction: EnhancedTransaction;
 }
 
+// Helper function to calculate total available quantity for a symbol
+function getTotalAvailableQuantity(buyLots: BuyQueueItem[]): number {
+  return buyLots.reduce((total, lot) => total + lot.quantity, 0);
+}
+
 export class DailyPLAnalyticsService {
   private readonly DEFAULT_THRESHOLD = 0.01; // $0.01 threshold for neutral
 
@@ -183,12 +188,26 @@ export class DailyPLAnalyticsService {
                     transaction: t,
                 });
             } else if (t.transaction_type === 'sell') {
-                // Process sells before the month to adjust the queue
-                let remainingQty = t.quantity;
+                // Process sells before the month to adjust the queue with validation
                 const symbol = t.asset.symbol;
+                const quantityToSell = t.quantity;
                 const queue = buyQueue.get(symbol);
-
-                if (queue) {
+                
+                // Validate available quantity before processing historical sells
+                const availableQuantity = queue ? getTotalAvailableQuantity(queue) : 0;
+                
+                if (availableQuantity < quantityToSell) {
+                  console.warn(`❌ Invalid historical SELL: insufficient quantity for ${symbol} on ${t.transaction_date}`, {
+                    symbol,
+                    requestedQuantity: quantityToSell,
+                    availableQuantity,
+                    transactionId: t.id,
+                    date: t.transaction_date
+                  });
+                  // Add to orphan transactions but continue processing
+                  orphanTransactions.push(t);
+                } else if (queue) {
+                    let remainingQty = quantityToSell;
                     while (remainingQty > 0 && queue.length > 0) {
                         const buyItem = queue[0];
                         const matchedQty = Math.min(buyItem.quantity, remainingQty);
@@ -237,39 +256,67 @@ export class DailyPLAnalyticsService {
         netCashFlow -= buy.total_amount;
       }
 
-      // Process sells for the day
+      // Process sells for the day with symbol validation
       const daySells = dayTransactions.filter(t => t.transaction_type === 'sell');
       for (const sell of daySells) {
-        let remainingQty = sell.quantity;
         const symbol = sell.asset.symbol;
+        const quantityToSell = sell.quantity;
         const queue = buyQueue.get(symbol);
 
+        // Validate that we have sufficient quantity for this symbol
+        const availableQuantity = queue ? getTotalAvailableQuantity(queue) : 0;
+        
+        if (availableQuantity < quantityToSell) {
+          console.warn(`❌ Invalid SELL: insufficient quantity for ${symbol} on ${dateString}`, {
+            symbol,
+            requestedQuantity: quantityToSell,
+            availableQuantity,
+            transactionId: sell.id,
+            date: dateString
+          });
+          debug.warn(`Invalid SELL: insufficient quantity for ${symbol}`, {
+            symbol,
+            requestedQuantity: quantityToSell,
+            availableQuantity,
+            transactionId: sell.id,
+            transactionDate: sell.transaction_date,
+          }, 'DailyPL');
+          
+          // Add to orphan transactions and skip processing
+          orphanTransactions.push(sell);
+          continue;
+        }
+
+        // Process valid sell transaction
+        let remainingQty = quantityToSell;
+        
         tradeVolume += sell.total_amount;
         dailyTotalFees += sell.fees || 0;
         netCashFlow += sell.total_amount;
 
-        if (queue) {
-          while (remainingQty > 0 && queue.length > 0) {
-            const buyItem = queue[0];
-            const matchedQty = Math.min(buyItem.quantity, remainingQty);
+        // Match SELL to FIFO BUYs
+        while (remainingQty > 0 && queue!.length > 0) {
+          const buyItem = queue![0];
+          const matchedQty = Math.min(buyItem.quantity, remainingQty);
 
-            realizedPL += (sell.price - buyItem.price) * matchedQty;
+          realizedPL += (sell.price - buyItem.price) * matchedQty;
 
-            buyItem.quantity -= matchedQty;
-            remainingQty -= matchedQty;
+          buyItem.quantity -= matchedQty;
+          remainingQty -= matchedQty;
 
-            if (buyItem.quantity === 0) {
-              queue.shift();
-            }
+          if (buyItem.quantity === 0) {
+            queue!.shift();
           }
         }
+        
+        // This should not happen due to our validation above, but kept as safety check
         if (remainingQty > 0) {
-            debug.warn(`Unmatched sell quantity for ${symbol}`, {
-                unmatchedQuantity: remainingQty,
-                transactionId: sell.id,
-                transactionDate: sell.transaction_date,
-            }, 'DailyPL');
-            orphanTransactions.push({ ...sell, quantity: remainingQty });
+          debug.warn(`Unexpected unmatched sell quantity for ${symbol} after validation`, {
+            unmatchedQuantity: remainingQty,
+            transactionId: sell.id,
+            transactionDate: sell.transaction_date,
+          }, 'DailyPL');
+          orphanTransactions.push({ ...sell, quantity: remainingQty });
         }
       }
 
