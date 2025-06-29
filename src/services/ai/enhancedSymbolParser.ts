@@ -242,6 +242,30 @@ export class EnhancedAISymbolParser {
           strikePrice: 250,
           optionType: 'put'
         }
+      },
+      'nvdl jun 20 $61 call': {
+        originalQuery: query,
+        parsedSymbol: 'NVDL250620C00061000',
+        confidence: 0.9,
+        type: 'option',
+        metadata: {
+          underlying: 'NVDL',
+          expirationDate: '2025-06-20',
+          strikePrice: 61,
+          optionType: 'call'
+        }
+      },
+      'nvdl june 20 $61 call': {
+        originalQuery: query,
+        parsedSymbol: 'NVDL250620C00061000',
+        confidence: 0.9,
+        type: 'option',
+        metadata: {
+          underlying: 'NVDL',
+          expirationDate: '2025-06-20',
+          strikePrice: 61,
+          optionType: 'call'
+        }
       }
     };
 

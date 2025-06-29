@@ -89,3 +89,5 @@ test-*.mjs
 
 # E2E test auth files
 src/test/e2e/.auth/ 
+# Sentry Config File
+.env.sentry-build-plugin

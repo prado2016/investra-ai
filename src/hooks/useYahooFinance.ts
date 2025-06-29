@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { yahooFinanceBrowserService } from '../services/yahooFinanceBrowserService';
 import { useNetwork } from './useNetwork';
-import { useNotify } from './useNotify';
 import { useRetry } from './useRetry';
 import type { AssetType } from '../utils/assetCategorization';
 
@@ -43,20 +42,12 @@ export function useQuote(symbol: string, options: UseQuoteOptions = {}) {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const network = useNetwork();
-  const notify = useNotify();
   
+  // DISABLE retries for single quote to prevent loops
   const retry = useRetry({
-    maxAttempts: 3,
-    baseDelay: 2000,
-    retryCondition: (err: unknown) => {
-      const errorStr = (err as Error)?.message?.toLowerCase() || '';
-      return network.isOnline && (
-        errorStr.includes('network') ||
-        errorStr.includes('timeout') ||
-        errorStr.includes('fetch') ||
-        errorStr.includes('5') // 5xx status codes
-      );
-    }
+    maxAttempts: 1, // No retries
+    baseDelay: 0,
+    retryCondition: () => false // Never retry
   });
 
   const fetchQuote = useCallback(async () => {
@@ -86,9 +77,9 @@ export function useQuote(symbol: string, options: UseQuoteOptions = {}) {
         setError(errorMessage);
         setData(null);
         
-        // Only show notification for non-network errors when online
+        // Log error instead of showing notification to prevent dependencies
         if (network.isOnline && !errorMessage.toLowerCase().includes('network')) {
-          notify.warning('Data Update Failed', errorMessage);
+          console.warn('Yahoo Finance API data update failed:', errorMessage);
         }
       }
     } catch (err) {
@@ -103,12 +94,14 @@ export function useQuote(symbol: string, options: UseQuoteOptions = {}) {
                             errorMessage.toLowerCase().includes('timeout');
       
       if (!isNetworkError) {
-        notify.apiError(err, 'Failed to fetch quote data');
+        console.error('Yahoo Finance API error (non-network):', err);
+      } else {
+        console.warn('Yahoo Finance API network error:', errorMessage);
       }
     } finally {
       setLoading(false);
     }
-  }, [symbol, enabled, useCache, network.isOnline, notify, retry]);
+  }, [symbol, enabled, useCache, network.isOnline, retry]);
 
   // Initial fetch
   useEffect(() => {
@@ -155,21 +148,15 @@ export function useQuotes(symbols: string[], options: UseQuotesOptions = {}) {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const network = useNetwork();
-  const notify = useNotify();
   
-  const retry = useRetry({
-    maxAttempts: 3,
-    baseDelay: 2000,
-    retryCondition: (err: unknown) => {
-      const errorStr = (err as Error)?.message?.toLowerCase() || '';
-      return network.isOnline && (
-        errorStr.includes('network') ||
-        errorStr.includes('timeout') ||
-        errorStr.includes('fetch') ||
-        errorStr.includes('5') // 5xx status codes
-      );
-    }
-  });
+  // DISABLE retries completely for Yahoo Finance API to prevent loops
+  const retryConfig = {
+    maxAttempts: 1, // No retries - single attempt only
+    baseDelay: 0,
+    retryCondition: () => false // Never retry
+  };
+  
+  const retry = useRetry(retryConfig);
 
   const fetchQuotes = useCallback(async () => {
     if (!symbols.length || !enabled) return;
@@ -197,8 +184,9 @@ export function useQuotes(symbols: string[], options: UseQuotesOptions = {}) {
         setError(errorMessage);
         setData([]);
         
+        // Log error instead of showing notification to prevent dependencies
         if (network.isOnline && !errorMessage.toLowerCase().includes('network')) {
-          notify.warning('Data Update Failed', errorMessage);
+          console.warn('Yahoo Finance API data update failed:', errorMessage);
         }
       }
     } catch (err) {
@@ -208,15 +196,18 @@ export function useQuotes(symbols: string[], options: UseQuotesOptions = {}) {
       
       const isNetworkError = errorMessage.toLowerCase().includes('network') || 
                             errorMessage.toLowerCase().includes('fetch') ||
-                            errorMessage.toLowerCase().includes('timeout');
+                            errorMessage.toLowerCase().includes('timeout') ||
+                            errorMessage.toLowerCase().includes('insufficient_resources');
       
       if (!isNetworkError) {
-        notify.apiError(err, 'Failed to fetch quotes data');
+        console.error('Yahoo Finance API error (non-network):', err);
+      } else {
+        console.warn('Yahoo Finance API network error:', errorMessage);
       }
     } finally {
       setLoading(false);
     }
-  }, [symbols, enabled, useCache, network.isOnline, notify, retry]);
+  }, [symbols, enabled, useCache, network.isOnline, retry]);
 
   // Initial fetch - only run if enabled
   useEffect(() => {

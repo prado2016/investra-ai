@@ -111,9 +111,9 @@ const EmailIntegrationSettings: React.FC = () => {
     {
       key: 'sender_whitelist',
       label: 'Sender Whitelist',
-      description: 'Comma-separated list of allowed sender emails or domains (e.g., @wealthsimple.com)',
+      description: 'Comma-separated list of allowed sender emails or domains (e.g., @wealthsimple.com, personal@gmail.com)',
       type: 'textarea',
-      placeholder: '@wealthsimple.com, @questrade.com, notifications@bank.com',
+      placeholder: '@wealthsimple.com, @questrade.com, eduprado@gmail.com, @gmail.com',
       group: 'Email Filtering'
     },
     {

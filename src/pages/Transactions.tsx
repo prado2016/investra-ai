@@ -1,15 +1,17 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { usePortfolios } from '../contexts/PortfolioContext';
 import { usePageTitle } from '../hooks/usePageTitle';
-import { TransactionService, AssetService, FundMovementService } from '../services/supabaseService';
+import { TransactionService, FundMovementService, AssetService } from '../services/supabaseService';
 import { useNotify } from '../hooks/useNotify';
-import TransactionForm from '../components/TransactionForm.tsx';
+import TransactionForm from '../components/TransactionForm';
 import TransactionList from '../components/TransactionList.tsx';
 import TransactionEditModal from '../components/TransactionEditModal.tsx';
 import FundMovementForm from '../components/FundMovementForm.tsx';
 import FundMovementList from '../components/FundMovementList.tsx';
 import FundMovementEditModal from '../components/FundMovementEditModal.tsx';
 import { Plus, TrendingUp, DollarSign, ArrowUpDown, ChevronDown, ChevronUp } from 'lucide-react';
+import { SelectField } from '../components/FormFields';
+import { useSupabasePortfolios } from '../hooks/useSupabasePortfolios';
 import type { Transaction, TransactionType, FundMovement, FundMovementType, FundMovementStatus, Currency } from '../types/portfolio';
 import type { TransactionWithAsset } from '../components/TransactionList';
 import type { FundMovementWithMetadata } from '../components/FundMovementList';
@@ -17,7 +19,8 @@ import '../styles/transactions-layout.css';
 
 // Enhanced Transactions page with improved styling and contrast
 const TransactionsPage: React.FC = () => {
-  const { activePortfolio, loading: portfoliosLoading } = usePortfolios();
+  const { activePortfolio } = usePortfolios();
+  const { portfolios, loading: portfoliosLoading } = useSupabasePortfolios();
   
   // Set dynamic page title
   usePageTitle('Transactions', { 
@@ -34,6 +37,10 @@ const TransactionsPage: React.FC = () => {
   const [editingFundMovement, setEditingFundMovement] = useState<FundMovementWithMetadata | null>(null);
   const [showFundMovementEditModal, setShowFundMovementEditModal] = useState(false);
   const [isTransactionFormMinimized, setIsTransactionFormMinimized] = useState(false);
+  const [filters, setFilters] = useState({
+    portfolioId: activePortfolio?.id || 'all',
+    dateRange: 'all',
+  });
   
   // Debounce fetch to prevent excessive API calls
   const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -48,7 +55,7 @@ const TransactionsPage: React.FC = () => {
     setError(null);
     
     try {
-      const response = await TransactionService.getTransactions(activePortfolio.id);
+      const response = await TransactionService.getTransactions(filters.portfolioId, filters.dateRange);
       if (response.success) {
         setTransactions(response.data);
       } else {
@@ -62,7 +69,7 @@ const TransactionsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [activePortfolio?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activePortfolio?.id, filters]);
 
   // Fetch fund movements when portfolio changes
   const fetchFundMovements = useCallback(async () => {
@@ -131,8 +138,7 @@ const TransactionsPage: React.FC = () => {
       const errorMsg = err instanceof Error ? err.message : 'Unknown error';
       notify.error('Failed to fetch fund movements: ' + errorMsg);
     }
-  }, [activePortfolio?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-  // notify is intentionally excluded as it should be stable
+  }, [activePortfolio?.id]); // notify is intentionally excluded as it should be stable
 
   useEffect(() => {
     if (activePortfolio?.id) {
@@ -154,8 +160,7 @@ const TransactionsPage: React.FC = () => {
         clearTimeout(fetchTimeoutRef.current);
       }
     };
-  }, [activePortfolio?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-  // fetchTransactions is intentionally excluded to prevent dependency cycles
+  }, [activePortfolio?.id, filters, fetchTransactions, fetchFundMovements]);
 
   const handleEditFundMovement = (fundMovement: FundMovementWithMetadata) => {
     setEditingFundMovement(fundMovement);
@@ -232,6 +237,13 @@ const TransactionsPage: React.FC = () => {
     quantity: number;
     price: number;
     transaction_date: string;
+    fees?: number;
+    currency?: string;
+    notes?: string;
+    settlement_date?: string;
+    exchange_rate?: number;
+    broker_name?: string;
+    external_id?: string;
   }) => {
     if (!editingTransaction) return;
 
@@ -248,7 +260,14 @@ const TransactionsPage: React.FC = () => {
           quantity: updatedData.quantity,
           price: updatedData.price,
           total_amount: totalAmount,
-          transaction_date: updatedData.transaction_date
+          transaction_date: updatedData.transaction_date,
+          fees: updatedData.fees,
+          currency: updatedData.currency,
+          notes: updatedData.notes,
+          ...(updatedData.settlement_date && { settlement_date: updatedData.settlement_date }),
+          exchange_rate: updatedData.exchange_rate,
+          broker_name: updatedData.broker_name,
+          external_id: updatedData.external_id
         }
       );
       
@@ -524,14 +543,7 @@ const TransactionsPage: React.FC = () => {
               </div>
             </div>
             
-            {!isTransactionFormMinimized && (
-              <div className="enhanced-form-wrapper">
-                <TransactionForm
-                  onSave={handleSaveTransaction}
-                  onCancel={() => {}} // No cancel needed for add-only form
-                />
-              </div>
-            )}
+            <TransactionForm onSave={handleSaveTransaction} loading={loading} />
           </div>
 
           {/* Recent Transactions Section */}
@@ -549,6 +561,34 @@ const TransactionsPage: React.FC = () => {
             </div>
             
             <div className="enhanced-transactions-wrapper">
+              <div className="filter-controls" style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
+                <SelectField
+                  id="portfolio-filter"
+                  name="portfolio-filter"
+                  label="Filter by Portfolio"
+                  value={filters.portfolioId}
+                  onChange={(e) => setFilters({ ...filters, portfolioId: e.target.value })}
+                  options={[
+                    { value: 'all', label: 'All Portfolios' },
+                    ...(portfolios || []).map(p => ({ value: p.id, label: p.name }))
+                  ]}
+                  disabled={portfoliosLoading}
+                />
+                <SelectField
+                  id="date-range-filter"
+                  name="date-range-filter"
+                  label="Filter by Date"
+                  value={filters.dateRange}
+                  onChange={(e) => setFilters({ ...filters, dateRange: e.target.value })}
+                  options={[
+                    { value: 'all', label: 'All Time' },
+                    { value: 'last7days', label: 'Last 7 Days' },
+                    { value: 'last30days', label: 'Last 30 Days' },
+                    { value: 'last90days', label: 'Last 90 Days' },
+                    { value: 'thisYear', label: 'This Year' },
+                  ]}
+                />
+              </div>
               <TransactionList
                 transactions={transactions}
                 loading={loading}

@@ -10,10 +10,14 @@ import type {
   SymbolLookupRequest,
   SymbolLookupResponse,
   FinancialAnalysisRequest,
-  FinancialAnalysisResponse
+  FinancialAnalysisResponse,
+  EmailParsingRequest,
+  EmailParsingResponse
 } from '../../types/ai';
 import { GeminiAIService } from './geminiService';
-import { ApiKeyService } from '../apiKeyService';
+import { OpenRouterAIService } from './openrouterService';
+// import { ApiKeyService } from '../apiKeyService'; // TODO: Re-enable when database is set up
+import { ApiKeyStorage } from '../../utils/apiKeyStorage';
 
 export class AIServiceManager {
   private services: Map<AIProvider, IAIService> = new Map();
@@ -36,11 +40,23 @@ export class AIServiceManager {
       // Get API key from storage if not provided in config
       let apiKey = config?.apiKey;
       if (!apiKey) {
-        const activeKey = await ApiKeyService.getActiveKeyForProvider(provider);
-        if (activeKey) {
-          // Use the service method to get decrypted key
-          apiKey = await ApiKeyService.getDecryptedApiKey(activeKey.id);
-        }
+        // For now, use direct environment variable access (same as EnhancedSymbolInput)
+        // This bypasses the database requirement until proper API key management is set up
+        apiKey = ApiKeyStorage.getApiKeyWithFallback(provider) || undefined;
+        
+        // TODO: Uncomment this when api_keys table is properly set up in database
+        // try {
+        //   // Try database first
+        //   const activeKey = await ApiKeyService.getActiveKeyForProvider(provider);
+        //   if (activeKey) {
+        //     // Use the service method to get decrypted key
+        //     apiKey = await ApiKeyService.getDecryptedApiKey(activeKey.id);
+        //   }
+        // } catch (dbError) {
+        //   console.warn(`Database API key lookup failed for ${provider}, using fallback:`, dbError);
+        //   // Fallback to ApiKeyStorage utility (localStorage + env vars)
+        //   apiKey = ApiKeyStorage.getApiKeyWithFallback(provider) || undefined;
+        // }
       }
 
       if (!apiKey) {
@@ -181,6 +197,7 @@ export class AIServiceManager {
     const results: Record<AIProvider, { success: boolean; error?: string; latency?: number }> = {
       openai: { success: false },
       gemini: { success: false },
+      openrouter: { success: false },
       perplexity: { success: false }
     };
     
@@ -196,6 +213,61 @@ export class AIServiceManager {
     }
 
     return results;
+  }
+
+  /**
+   * Email parsing using the best available AI service
+   */
+  async parseEmailForTransaction(
+    request: EmailParsingRequest,
+    preferredProvider?: AIProvider
+  ): Promise<EmailParsingResponse> {
+    const provider = preferredProvider || this.getBestProviderForEmailParsing();
+    let service = this.getService(provider);
+
+    // If service is not available, try to initialize it
+    if (!service) {
+      console.log(`AI service not initialized for ${provider}, attempting to initialize...`);
+      const initialized = await this.initializeService(provider);
+      if (initialized) {
+        service = this.getService(provider);
+      }
+    }
+
+    if (!service) {
+      return {
+        success: false,
+        confidence: 0,
+        parsingType: 'unknown',
+        error: `No AI service available for provider: ${provider}`,
+        timestamp: new Date()
+      };
+    }
+
+    try {
+      return await service.parseEmailForTransaction(request);
+    } catch (error) {
+      // Try fallback provider if available
+      const fallbackProvider = this.getFallbackProvider(provider);
+      if (fallbackProvider) {
+        const fallbackService = this.getService(fallbackProvider);
+        if (fallbackService) {
+          try {
+            return await fallbackService.parseEmailForTransaction(request);
+          } catch (fallbackError) {
+            console.error('Fallback service also failed:', fallbackError);
+          }
+        }
+      }
+
+      return {
+        success: false,
+        confidence: 0,
+        parsingType: 'unknown',
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        timestamp: new Date()
+      };
+    }
   }
 
   /**
@@ -292,6 +364,8 @@ export class AIServiceManager {
         // TODO: Implement OpenAI service
         console.warn('OpenAI service not yet implemented');
         return null;
+      case 'openrouter':
+        return new OpenRouterAIService(config);
       case 'perplexity':
         // TODO: Implement Perplexity service
         console.warn('Perplexity service not yet implemented');
@@ -304,7 +378,7 @@ export class AIServiceManager {
 
   private getBestProviderForSymbolLookup(): AIProvider {
     // Priority order for symbol lookup
-    const priorities: AIProvider[] = ['gemini', 'perplexity', 'openai'];
+    const priorities: AIProvider[] = ['gemini', 'openrouter', 'perplexity', 'openai'];
     
     for (const provider of priorities) {
       if (this.services.has(provider)) {
@@ -327,7 +401,7 @@ export class AIServiceManager {
 
   private getBestProviderForAnalysis(): AIProvider {
     // Priority order for financial analysis
-    const priorities: AIProvider[] = ['gemini', 'openai', 'perplexity'];
+    const priorities: AIProvider[] = ['gemini', 'openrouter', 'openai', 'perplexity'];
     
     for (const provider of priorities) {
       if (this.services.has(provider)) {
@@ -348,11 +422,53 @@ export class AIServiceManager {
     return 'gemini'; // Default fallback
   }
 
+  private getBestProviderForEmailParsing(): AIProvider {
+    // First, try to get the user's default provider
+    const defaultProvider = ApiKeyStorage.getDefaultProvider() as AIProvider;
+    console.log('🔍 Default provider from storage:', defaultProvider);
+    console.log('🔍 Available services:', Array.from(this.services.keys()));
+    
+    if (defaultProvider && this.services.has(defaultProvider)) {
+      const service = this.services.get(defaultProvider)!;
+      console.log('🔍 Default provider service configured:', service.isConfigured);
+      if (service.isConfigured) {
+        console.log('✅ Using default provider for email parsing:', defaultProvider);
+        return defaultProvider;
+      }
+    }
+
+    // Priority order for email parsing if no default or default is not available
+    const priorities: AIProvider[] = ['gemini', 'openrouter', 'openai', 'perplexity'];
+    console.log('⚠️ Falling back to priority order:', priorities);
+    
+    for (const provider of priorities) {
+      if (this.services.has(provider)) {
+        const service = this.services.get(provider)!;
+        if (service.isConfigured) {
+          console.log('✅ Using priority provider for email parsing:', provider);
+          return provider;
+        }
+      }
+    }
+
+    // Return first available if none match priorities
+    for (const [provider, service] of this.services) {
+      if (service.isConfigured) {
+        console.log('✅ Using first available provider for email parsing:', provider);
+        return provider;
+      }
+    }
+
+    console.log('⚠️ Using fallback provider: gemini');
+    return 'gemini'; // Default fallback
+  }
+
   private getFallbackProvider(currentProvider: AIProvider): AIProvider | null {
     const fallbackMap: Record<AIProvider, AIProvider[]> = {
-      'gemini': ['openai', 'perplexity'],
-      'openai': ['gemini', 'perplexity'],
-      'perplexity': ['gemini', 'openai']
+      'gemini': ['openrouter', 'openai', 'perplexity'],
+      'openai': ['gemini', 'openrouter', 'perplexity'],
+      'openrouter': ['gemini', 'openai', 'perplexity'],
+      'perplexity': ['gemini', 'openrouter', 'openai']
     };
 
     const fallbacks = fallbackMap[currentProvider] || [];

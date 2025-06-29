@@ -2,9 +2,18 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { resolve } from 'path'
+import { sentryVitePlugin } from '@sentry/vite-plugin'
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    // Add Sentry plugin for sourcemap upload (only in production)
+    process.env.NODE_ENV === 'production' && process.env.SENTRY_AUTH_TOKEN && sentryVitePlugin({
+      org: process.env.SENTRY_ORG,
+      project: process.env.SENTRY_PROJECT,
+      authToken: process.env.SENTRY_AUTH_TOKEN,
+    })
+  ].filter(Boolean),
   resolve: {
     alias: {
       '@': resolve(__dirname, './src'),

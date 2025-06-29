@@ -1,118 +1,76 @@
-import React, { useRef } from 'react';
-import { Loader } from 'lucide-react';
+
+import React, { useState, useEffect } from 'react';
+import { Loader, ChevronDown, ChevronUp } from 'lucide-react';
 import { InputField, SelectField } from './FormFields';
 import { PriceInput } from './PriceInput';
-import { SymbolInput } from './SymbolInput';
 import { useForm } from '../hooks/useForm';
 import { useSupabasePortfolios } from '../hooks/useSupabasePortfolios';
-import { detectAssetType } from '../utils/assetCategorization';
-import type { Transaction, AssetType, TransactionType, Currency } from '../types/portfolio';
-import type { SymbolLookupResult } from '../types/ai';
+import type { Transaction, TransactionType, Currency, AssetType, OptionStrategyType } from '../types/portfolio';
+import SymbolInput from './SymbolInput';
 
 interface TransactionFormData {
   portfolioId: string;
   assetSymbol: string;
-  assetType: AssetType;
   type: TransactionType;
+  date: string;
   quantity: string;
   price: string;
-  totalAmount: string;
-  fees: string;
-  currency: Currency;
-  date: string;
   notes: string;
-  [key: string]: unknown; // Index signature for compatibility
+  currency: Currency; // Added missing property
+  assetType: AssetType; // Added missing property
+  totalAmount: string; // Added missing property
+  strategyType: OptionStrategyType | '';
+  [key: string]: unknown;
 }
 
 interface TransactionFormProps {
   initialData?: Transaction | null;
   onSave: (transaction: Omit<Transaction, 'id' | 'assetId' | 'createdAt' | 'updatedAt'>) => Promise<boolean> | boolean;
-  onCancel: () => void;
+  onCancel?: () => void;
   loading?: boolean;
 }
 
 const TransactionForm: React.FC<TransactionFormProps> = ({
   initialData,
   onSave,
-  onCancel,
   loading = false
 }) => {
   const { portfolios, activePortfolio, loading: portfoliosLoading } = useSupabasePortfolios();
-  
-  // Create ref for symbol input reset functionality
-  const symbolInputResetRef = useRef<(() => void) | null>(null);
-  
-  // Helper function to get display quantity (contracts for options, shares for others)
-  const getDisplayQuantity = (): string => {
-    if (!initialData?.quantity) return '';
-    // Convert shares back to contracts for display if it's an option
-    if (initialData.assetType === 'option') {
-      return (initialData.quantity / 100).toString();
-    }
-    return initialData.quantity.toString();
-  };
+  const [isMinimized, setIsMinimized] = useState(false);
 
-  // Helper function to format initial date
-  const getInitialDate = (): string => {
-    // If editing an existing transaction, use its date
-    if (initialData?.date) {
-      try {
-        const date = initialData.date;
-        
-        if (date instanceof Date) {
-          return date.toISOString().split('T')[0];
-        }
-        
-        // Handle string format
-        const dateStr = date as string;
-        return dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
-      } catch (error) {
-        console.warn('Error parsing date:', error);
-      }
-    }
-    
-    // For new transactions, always use today's date
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const day = String(today.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
-
-  // Helper function to get fresh initial values for form reset
-  const getFreshInitialValues = (): TransactionFormData => ({
-    portfolioId: activePortfolio?.id || '',
+  const initialValues: TransactionFormData = {
+    portfolioId: initialData?.portfolioId || activePortfolio?.id || '',
     assetSymbol: '',
-    assetType: 'stock',
-    type: 'buy',
-    quantity: '',
-    price: '',
-    totalAmount: '',
-    fees: '',
-    currency: 'USD',
+    type: initialData?.type || 'buy',
     date: (() => {
-      // Always use today's date for fresh form
+      if (initialData?.date) {
+        const dateValue = initialData.date;
+        if (dateValue instanceof Date) {
+          const year = dateValue.getFullYear();
+          const month = String(dateValue.getMonth() + 1).padStart(2, '0');
+          const day = String(dateValue.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+        }
+        const dateStr = String(dateValue);
+        if (dateStr.includes('T')) {
+          return dateStr.split('T')[0];
+        }
+        return dateStr;
+      }
+      
       const today = new Date();
       const year = today.getFullYear();
       const month = String(today.getMonth() + 1).padStart(2, '0');
       const day = String(today.getDate()).padStart(2, '0');
       return `${year}-${month}-${day}`;
     })(),
-    notes: ''
-  });
-
-  const initialValues: TransactionFormData = {
-    portfolioId: initialData?.portfolioId || '',
-    assetSymbol: initialData?.assetSymbol || '',
-    assetType: initialData?.assetType || 'stock',
-    type: initialData?.type || 'buy',
-    quantity: getDisplayQuantity(),
+    quantity: initialData?.quantity?.toString() || '',
     price: initialData?.price?.toString() || '',
+    notes: initialData?.notes || '',
+    currency: initialData?.currency || 'USD', // Default to USD
+    assetType: initialData?.assetType || 'stock', // Default to stock
     totalAmount: initialData?.totalAmount?.toString() || '',
-    fees: initialData?.fees?.toString() || '',
-    currency: initialData?.currency || 'USD',
-    date: getInitialDate(),
-    notes: initialData?.notes || ''
+    strategyType: initialData?.strategyType || ''
   };
 
   const form = useForm({
@@ -122,67 +80,10 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         required: 'Portfolio is required'
       },
       assetSymbol: {
-        required: 'Symbol is required',
-        minLength: 1,
-        maxLength: 200
+        required: 'Symbol is required'
       },
-      quantity: {
-        required: 'Quantity is required',
-        positive: 'Quantity must be greater than 0',
-        number: true
-      },
-      price: {
-        number: true,
-        custom: (value, formData) => {
-          // Check if value is provided when required
-          if (!value && value !== 0 && value !== '0') {
-            return 'Price is required';
-          }
-          
-          // For option_expired transactions, price must be 0
-          if (formData.type === 'option_expired') {
-            const numValue = Number(value);
-            if (numValue !== 0) {
-              return 'Price must be 0 for expired options';
-            }
-          } else {
-            // For all other transactions, price must be positive
-            const numValue = Number(value);
-            if (isNaN(numValue) || numValue <= 0) {
-              return 'Price must be greater than 0';
-            }
-          }
-          return true;
-        }
-      },
-      totalAmount: {
-        required: 'Total amount is required',
-        number: true,
-        custom: (value, formData) => {
-          // Check if value is provided when required
-          if (!value && value !== 0 && value !== '0') {
-            return 'Total amount is required';
-          }
-          
-          // For option_expired transactions, total amount can be 0
-          if (formData.type === 'option_expired') {
-            const numValue = Number(value);
-            if (isNaN(numValue) || numValue !== 0) {
-              return 'Total amount must be 0 for expired options';
-            }
-          } else {
-            // For all other transactions, total amount must be positive
-            const numValue = Number(value);
-            if (isNaN(numValue) || numValue <= 0) {
-              return 'Total amount must be greater than 0';
-            }
-          }
-          return true;
-        }
-      },
-      fees: {
-        number: 'Fees must be a valid number',
-        min: 0
+      type: {
+        required: 'Transaction type is required'
       },
       date: {
         required: 'Date is required',
@@ -194,406 +95,246 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           }
           return true;
         }
+      },
+      quantity: {
+        required: 'Quantity is required',
+        positive: 'Quantity must be greater than 0',
+        number: true
+      },
+      price: {
+        required: 'Price is required',
+        positive: 'Price must be greater than 0',
+        number: true
       }
     },
     validateOnChange: true,
     validateOnBlur: true,
     onSubmit: async (values) => {
-      // Convert option contracts to shares for storage
-      const inputQuantity = parseFloat(values.quantity);
-      const actualQuantity = values.assetType === 'option' ? inputQuantity * 100 : inputQuantity;
-      
       const transaction: Omit<Transaction, 'id' | 'assetId' | 'createdAt' | 'updatedAt'> = {
         portfolioId: values.portfolioId,
-        assetSymbol: values.assetSymbol.toUpperCase().trim(),
-        assetType: values.assetType,
+        assetSymbol: values.assetSymbol,
         type: values.type,
-        quantity: actualQuantity, // Store as shares (contracts * 100 for options)
-        price: parseFloat(values.price),
-        totalAmount: parseFloat(values.totalAmount),
-        fees: values.fees ? parseFloat(values.fees) : 0,
-        currency: values.currency,
         date: (() => {
-          // Parse the date string and create a Date object that preserves the local date
           const [year, month, day] = values.date.split('-').map(Number);
-          return new Date(year, month - 1, day); // month is 0-indexed
+          return new Date(year, month - 1, day);
         })(),
-        notes: values.notes.trim() || undefined
+        quantity: parseFloat(values.quantity) || 0,
+        price: parseFloat(values.price) || 0,
+        notes: values.notes.trim() || undefined,
+        currency: values.currency as Currency,
+        assetType: values.assetType as AssetType,
+        totalAmount: parseFloat(values.quantity) * parseFloat(values.price),
+        strategyType: values.strategyType || undefined,
       };
 
-      const result = await onSave(transaction);
-      
-      // Reset symbol input AI state and form on successful submission
-      if (result) {
-        // Reset the symbol input AI state first
-        if (symbolInputResetRef.current) {
-          symbolInputResetRef.current();
-        }
-        
-        // For add transactions (no initial data), reset form to fresh state
-        if (!initialData) {
-          form.reset(getFreshInitialValues());
-        }
-      }
-      
-      return result;
+      return await onSave(transaction);
     }
   });
 
-  // Auto-detect and set asset type when symbol changes
-  const handleSymbolChange = (value: string, metadata?: SymbolLookupResult) => {
-    // Set the symbol value
-    form.setValue('assetSymbol', value);
-    
-    // Auto-detect asset type from AI metadata or symbol pattern
-    let detectedType: AssetType | null = null;
-    
-    // First, try to use AI-detected asset type from metadata
-    if (metadata?.assetType) {
-      detectedType = metadata.assetType;
-    } else if (value.trim()) {
-      // Fallback to pattern-based detection
-      detectedType = detectAssetType(value.trim().toUpperCase());
-    }
-    
-    // Only auto-set if we detected 'stock' or 'option' as requested
-    if (detectedType === 'stock' || detectedType === 'option') {
-      // Only change if current asset type is different to avoid unnecessary updates
-      if (form.values.assetType !== detectedType) {
-        form.setValue('assetType', detectedType);
-      }
-    }
-    
-    // Auto-detect currency for Canadian symbols (.TO suffix)
-    const upperSymbol = value.trim().toUpperCase();
-    if (upperSymbol.includes('.TO')) {
-      // Set currency to CAD for Toronto Stock Exchange symbols
-      if (form.values.currency !== 'CAD') {
-        form.setValue('currency', 'CAD');
-      }
-    }
-  };
-
-  // Auto-calculate total amount when quantity, price, asset type, or transaction type changes
-  React.useEffect(() => {
-    const quantity = parseFloat(form.values.quantity);
-    const price = parseFloat(form.values.price);
-    const assetType = form.values.assetType;
-    const transactionType = form.values.type;
-    
-    // For option expired transactions, force price to zero
-    if (assetType === 'option' && transactionType === 'option_expired') {
-      if (form.values.price !== '0') {
-        form.setValue('price', '0');
-      }
-      // Calculate total amount with zero price
-      if (!isNaN(quantity) && quantity > 0) {
-        form.setValue('totalAmount', '0.00');
-        form.setValue('fees', '0.00'); // No fees for expired options
-      }
-      return;
-    }
-    
-    if (!isNaN(quantity) && !isNaN(price) && quantity > 0 && price >= 0) {
-      let total: number;
-      let fees = 0;
-      
-      if (assetType === 'option') {
-        // For options: quantity is in contracts, each contract = 100 shares
-        // Fees are $0.75 per contract (except for expired options)
-        const actualShares = quantity * 100;
-        fees = quantity * 0.75;
-        total = (actualShares * price) - fees; // Subtract fees from total
-        
-        // Auto-set fees for options
-        form.setValue('fees', fees.toFixed(2));
-      } else {
-        // For stocks and other assets: standard calculation
-        total = quantity * price;
-        // Keep existing fees value or default to 0
-        if (!form.values.fees) {
-          form.setValue('fees', '0');
-        }
-      }
-      
-      form.setValue('totalAmount', total.toFixed(2));
-    }
-  }, [form.values.quantity, form.values.price, form.values.assetType, form.values.type, form]);
-
-  // Handle asset type changes to reset fees and recalculate
-  React.useEffect(() => {
-    const assetType = form.values.assetType;
-    
-    if (assetType === 'option') {
-      // For options, fees will be auto-calculated in the quantity/price effect
-      // Force recalculation by triggering the other effect
-      const quantity = parseFloat(form.values.quantity);
-      if (!isNaN(quantity) && quantity > 0) {
-        const fees = quantity * 0.75;
-        form.setValue('fees', fees.toFixed(2));
-      }
-    } else {
-      // For non-options, reset fees to 0 if they were auto-calculated
-      if (!initialData && form.values.fees && parseFloat(form.values.fees) > 0) {
-        form.setValue('fees', '0');
-      }
-    }
-  }, [form.values.assetType, form.values.quantity, initialData, form]);
-
-  // Auto-set price to 0 when option_expired is selected
-  React.useEffect(() => {
-    if (form.values.type === 'option_expired' && form.values.price !== '0') {
-      form.setValue('price', '0');
-    }
-  }, [form.values.type, form.values.price, form]);
-
-  // Auto-select first portfolio when portfolios load and no portfolio is selected
-  React.useEffect(() => {
+  useEffect(() => {
     if (!form.values.portfolioId && portfolios.length > 0 && !initialData?.portfolioId) {
       const defaultPortfolio = activePortfolio || portfolios[0];
       form.setValue('portfolioId', defaultPortfolio.id);
     }
   }, [portfolios, activePortfolio, form.values.portfolioId, initialData?.portfolioId, form]);
 
-  // Generate transaction type options based on asset type
-  const getTransactionTypeOptions = () => {
-    const baseOptions = [
-      { value: 'buy', label: 'Buy' },
-      { value: 'sell', label: 'Sell' },
-      { value: 'dividend', label: 'Dividend' }
-    ];
-
-    // Add option-specific transaction types
-    if (form.values.assetType === 'option') {
-      baseOptions.push({ value: 'option_expired', label: 'Option Expired' });
-    }
-
-    return baseOptions;
-  };
-
-  const transactionTypeOptions = getTransactionTypeOptions();
-
-  const assetTypeOptions = [
-    { value: 'stock', label: 'Stock' },
-    { value: 'etf', label: 'ETF' },
-    { value: 'option', label: 'Option' },
-    { value: 'crypto', label: 'Crypto' },
-    { value: 'forex', label: 'Forex' },
-    { value: 'reit', label: 'REIT' }
+  const transactionTypeOptions = [
+    { value: 'buy', label: 'Buy' },
+    { value: 'sell', label: 'Sell' },
+    { value: 'dividend', label: 'Dividend' },
+    { value: 'option_expired', label: 'Option Expired' },
+    { value: 'short_option_expired', label: 'Short Option Expired' },
+    { value: 'short_option_assigned', label: 'Short Option Assigned' }
   ];
 
-  // Show error if no portfolios are available
+  const strategyTypeOptions = [
+    { value: '', label: 'Select Strategy (Optional)' },
+    { value: 'covered_call', label: 'Covered Call' },
+    { value: 'naked_call', label: 'Naked Call' },
+    { value: 'cash_secured_put', label: 'Cash Secured Put' },
+    { value: 'protective_put', label: 'Protective Put' },
+    { value: 'long_call', label: 'Long Call' },
+    { value: 'long_put', label: 'Long Put' },
+    { value: 'collar', label: 'Collar' },
+    { value: 'straddle', label: 'Straddle' },
+    { value: 'strangle', label: 'Strangle' },
+    { value: 'iron_condor', label: 'Iron Condor' },
+    { value: 'butterfly', label: 'Butterfly' },
+    { value: 'calendar_spread', label: 'Calendar Spread' }
+  ];
+
+  // Show strategy dropdown only for option transactions and specific transaction types
+  const showStrategyField = form.values.assetType === 'option' && 
+    ['sell', 'buy', 'option_expired', 'short_option_expired', 'short_option_assigned'].includes(form.values.type);
+
   if (!portfoliosLoading && portfolios.length === 0) {
-    return (
-      <div className="form-container">
-        <div className="status-indicator neutral" style={{ 
-          padding: 'var(--space-6)', 
-          textAlign: 'center', 
-          background: 'var(--color-warning-50)', 
-          border: '1px solid var(--color-warning-200)', 
-          borderRadius: 'var(--radius-lg)',
-          margin: 'var(--space-4) 0'
-        }}>
-          <h3 style={{ color: 'var(--color-warning-700)', margin: '0 0 var(--space-4) 0' }}>
-            No Portfolios Available
-          </h3>
-          <p style={{ color: 'var(--color-warning-700)', margin: '0 0 var(--space-4) 0' }}>
-            You need to create a portfolio before adding transactions.
-          </p>
-          <button 
-            type="button" 
-            className="btn btn-primary"
-            onClick={onCancel}
-          >
-            Go Back to Create Portfolio
-          </button>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   return (
-    <form className="form-container" onSubmit={form.handleSubmit}>
-      <div className="horizontal-fields-container">
-        <SelectField
-          id="portfolioId"
-          name="portfolioId"
-          label="Portfolio"
-          value={form.values.portfolioId}
-          onChange={(e) => form.setValue('portfolioId', e.target.value)}
-          options={portfolios.map(p => ({ value: p.id, label: p.name }))}
-          error={form.touched.portfolioId ? form.errors.portfolioId?.message : ''}
-          disabled={portfoliosLoading || portfolios.length === 0}
-          required
-        />
-        <SymbolInput
-          id="assetSymbol"
-          name="assetSymbol"
-          label="Symbol"
-          value={form.values.assetSymbol}
-          onChange={handleSymbolChange}
-          onBlur={() => form.setFieldTouched('assetSymbol')}
-          error={form.touched.assetSymbol ? form.errors.assetSymbol?.message : ''}
-          required
-          disabled={form.isSubmitting || loading}
-          enableAI={true}
-          showAIButton={true}
-          showSuggestions={true}
-          showValidation={true}
-          assetType={form.values.assetType}
-          onReset={symbolInputResetRef}
-        />
+    <div className="enhanced-form-section">
+      <div className="enhanced-section-header" style={{ cursor: 'pointer' }} onClick={() => setIsMinimized(!isMinimized)}>
+        <div className="enhanced-section-header-content">
+          <div className="enhanced-section-text">
+            <h2 className="enhanced-section-title">Add Transaction</h2>
+            <p className="enhanced-section-subtitle">
+              Enter transaction details to add to your portfolio
+            </p>
+          </div>
+          {isMinimized ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
+        </div>
       </div>
-      <div className="horizontal-fields-container">
-        <SelectField
-          id="assetType"
-          name="assetType"
-          label="Asset Type"
-          value={form.values.assetType}
-          onChange={(e) => form.setValue('assetType', e.target.value as AssetType)}
-          onBlur={() => form.setFieldTouched('assetType')}
-          options={assetTypeOptions}
-          error={form.touched.assetType ? form.errors.assetType?.message : ''}
-          required
-          disabled={form.isSubmitting || loading}
-        />
-        <SelectField
-          id="type"
-          name="type"
-          label="Transaction Type"
-          value={form.values.type}
-          onChange={(e) => form.setValue('type', e.target.value as TransactionType)}
-          onBlur={() => form.setFieldTouched('type')}
-          options={transactionTypeOptions}
-          error={form.touched.type ? form.errors.type?.message : ''}
-          required
-          disabled={form.isSubmitting || loading}
-        />
-        <InputField
-          id="date"
-          name="date"
-          label="Date"
-          type="date"
-          value={form.values.date}
-          onChange={(value) => form.setValue('date', value)}
-          onBlur={() => form.setFieldTouched('date')}
-          error={form.touched.date ? form.errors.date?.message : ''}
-          required
-          disabled={form.isSubmitting || loading}
-          max={(() => {
-            // Use local date to avoid timezone issues
-            const today = new Date();
-            const year = today.getFullYear();
-            const month = String(today.getMonth() + 1).padStart(2, '0');
-            const day = String(today.getDate()).padStart(2, '0');
-            return `${year}-${month}-${day}`;
-          })()}
-        />
-      </div>
-      <div className="horizontal-fields-container">
-        <InputField
-          id="quantity"
-          name="quantity"
-          label={form.values.assetType === 'option' ? 'Contracts' : 'Quantity'}
-          type="number"
-          placeholder={form.values.assetType === 'option' ? 'e.g., 10 contracts' : 'e.g., 100.1234'}
-          value={form.values.quantity}
-          onChange={(value) => form.setValue('quantity', value)}
-          onBlur={() => form.setFieldTouched('quantity')}
-          error={form.touched.quantity ? form.errors.quantity?.message : ''}
-          required
-          disabled={form.isSubmitting || loading}
-          min={0}
-          step={form.values.assetType === 'option' ? 1 : 0.0001}
-        />
-        <PriceInput
-          id="price"
-          name="price"
-          label={form.values.assetType === 'option' ? 'Price per Share' : 'Price per Share'}
-          value={form.values.price}
-          onChange={(value) => form.setValue('price', value)}
-          onBlur={() => form.setFieldTouched('price')}
-          error={form.touched.price ? form.errors.price?.message : ''}
-          required={form.values.type !== 'option_expired'}
-          disabled={form.isSubmitting || loading || (form.values.assetType === 'option' && form.values.type === 'option_expired')}
-          assetType={form.values.assetType}
-          placeholder={form.values.type === 'option_expired' ? '0.00 (auto-set)' : undefined}
-          allowZero={form.values.type === 'option_expired'}
-        />
-      </div>
-      <div className="horizontal-fields-container">
-        <PriceInput
-          id="totalAmount"
-          name="totalAmount"
-          label="Total Amount"
-          value={form.values.totalAmount}
-          onChange={(value) => form.setValue('totalAmount', value)}
-          onBlur={() => form.setFieldTouched('totalAmount')}
-          error={form.touched.totalAmount ? form.errors.totalAmount?.message : ''}
-          disabled
-          required
-        />
-        <PriceInput
-          id="fees"
-          name="fees"
-          label="Fees"
-          value={form.values.fees}
-          onChange={(value) => form.setValue('fees', value)}
-          onBlur={() => form.setFieldTouched('fees')}
-          error={form.touched.fees ? form.errors.fees?.message : ''}
-          disabled={form.isSubmitting || loading || form.values.assetType === 'option'}
-        />
-        <SelectField
-          id="currency"
-          name="currency"
-          label="Currency"
-          value={form.values.currency}
-          onChange={(e) => form.setValue('currency', e.target.value as Currency)}
-          onBlur={() => form.setFieldTouched('currency')}
-          options={[
-            { value: 'USD', label: 'USD ($)' },
-            { value: 'CAD', label: 'CAD (C$)' },
-            { value: 'EUR', label: 'EUR (€)' },
-            { value: 'GBP', label: 'GBP (£)' },
-            { value: 'JPY', label: 'JPY (¥)' }
-          ]}
-          error={form.touched.currency ? form.errors.currency?.message : ''}
-          required
-          disabled={form.isSubmitting || loading}
-        />
-      </div>
-      <div className="horizontal-fields-container">
-        <InputField
-          id="notes"
-          name="notes"
-          label="Notes"
-          type="textarea"
-          placeholder="e.g., Initial investment in tech stocks"
-          value={form.values.notes}
-          onChange={(value) => form.setValue('notes', value)}
-          onBlur={() => form.setFieldTouched('notes')}
-          error={form.touched.notes ? form.errors.notes?.message : ''}
-          disabled={form.isSubmitting || loading}
-        />
-      </div>
-      <div className="form-actions">
-        <button 
-          type="submit" 
-          className="btn btn-primary"
-          disabled={form.isSubmitting || loading || !form.isValid}
-          style={{ 
-            width: '100%', 
-            minHeight: 'var(--input-height)',
-            alignSelf: 'flex-end'
-          }}
-        >
-          {(form.isSubmitting || loading) && (
-            <Loader size={16} className="loading-spinner" />
-          )}
-          {initialData ? 'Update Transaction' : 'Add Transaction'}
-        </button>
-      </div>
-    </form>
+      
+      {!isMinimized && (
+        <div className="enhanced-form-wrapper">
+          <form className="form-container" onSubmit={form.handleSubmit}>
+            <div className="horizontal-fields-container">
+              <SelectField
+                id="portfolioId"
+                name="portfolioId"
+                label="Portfolio"
+                value={form.values.portfolioId}
+                onChange={(e) => form.setValue('portfolioId', e.target.value)}
+                options={portfolios.map(p => ({ value: p.id, label: p.name }))}
+                error={form.touched.portfolioId ? form.errors.portfolioId?.message : ''}
+                disabled={portfoliosLoading || portfolios.length === 0}
+                required
+              />
+              <SymbolInput
+                id="assetSymbol"
+                name="assetSymbol"
+                label="Symbol"
+                value={form.values.assetSymbol}
+                onChange={(value, metadata) => {
+                  form.setValue('assetSymbol', value);
+                  // Auto-fill asset type if AI provides it
+                  if (metadata?.assetType) {
+                    form.setValue('assetType', metadata.assetType);
+                  }
+                }}
+                onBlur={() => form.setFieldTouched('assetSymbol')}
+                error={form.touched.assetSymbol ? form.errors.assetSymbol?.message : ''}
+                required
+                disabled={form.isSubmitting || loading}
+                enableAI={true}
+                showAIButton={true}
+                showSuggestions={true}
+                showValidation={true}
+                placeholder="Enter symbol or natural language (e.g., 'NVDL Jun 20 $61 CALL')"
+              />
+            </div>
+
+            <div className="horizontal-fields-container">
+              <SelectField
+                id="type"
+                name="type"
+                label="Transaction Type"
+                value={form.values.type}
+                onChange={(e) => form.setValue('type', e.target.value as TransactionType)}
+                onBlur={() => form.setFieldTouched('type')}
+                options={transactionTypeOptions}
+                error={form.touched.type ? form.errors.type?.message : ''}
+                required
+                disabled={form.isSubmitting || loading}
+              />
+              <InputField
+                id="date"
+                name="date"
+                label="Date"
+                type="date"
+                value={form.values.date}
+                onChange={(value) => form.setValue('date', value)}
+                onBlur={() => form.setFieldTouched('date')}
+                error={form.touched.date ? form.errors.date?.message : ''}
+                required
+                disabled={form.isSubmitting || loading}
+                max={(() => {
+                  const today = new Date();
+                  const year = today.getFullYear();
+                  const month = String(today.getMonth() + 1).padStart(2, '0');
+                  const day = String(today.getDate()).padStart(2, '0');
+                  return `${year}-${month}-${day}`;
+                })()}
+              />
+            </div>
+
+            {showStrategyField && (
+              <div className="horizontal-fields-container">
+                <SelectField
+                  id="strategyType"
+                  name="strategyType"
+                  label="Option Strategy"
+                  value={form.values.strategyType}
+                  onChange={(e) => form.setValue('strategyType', e.target.value as OptionStrategyType | '')}
+                  onBlur={() => form.setFieldTouched('strategyType')}
+                  options={strategyTypeOptions}
+                  error={form.touched.strategyType ? form.errors.strategyType?.message : ''}
+                  disabled={form.isSubmitting || loading}
+                />
+              </div>
+            )}
+
+            <div className="horizontal-fields-container">
+              <PriceInput
+                id="quantity"
+                name="quantity"
+                label="Quantity"
+                value={form.values.quantity}
+                onChange={(value) => form.setValue('quantity', value)}
+                onBlur={() => form.setFieldTouched('quantity')}
+                error={form.touched.quantity ? form.errors.quantity?.message : ''}
+                required
+                disabled={form.isSubmitting || loading}
+              />
+              <PriceInput
+                id="price"
+                name="price"
+                label="Price"
+                value={form.values.price}
+                onChange={(value) => form.setValue('price', value)}
+                onBlur={() => form.setFieldTouched('price')}
+                error={form.touched.price ? form.errors.price?.message : ''}
+                required
+                disabled={form.isSubmitting || loading}
+              />
+            </div>
+
+            <div className="horizontal-fields-container">
+              <InputField
+                id="notes"
+                name="notes"
+                label="Notes"
+                type="textarea"
+                placeholder="Additional notes about this transaction"
+                value={form.values.notes}
+                onChange={(value) => form.setValue('notes', value)}
+                onBlur={() => form.setFieldTouched('notes')}
+                error={form.touched.notes ? form.errors.notes?.message : ''}
+                disabled={form.isSubmitting || loading}
+              />
+            </div>
+
+            <div className="form-actions">
+              <button 
+                type="submit" 
+                className="btn btn-primary"
+                disabled={form.isSubmitting || loading || !form.isValid}
+                style={{ 
+                  width: '100%', 
+                  minHeight: 'var(--input-height)',
+                  alignSelf: 'flex-end'
+                }}
+              >
+                {(form.isSubmitting || loading) && (
+                  <Loader size={16} className="loading-spinner" />
+                )}
+                {initialData ? 'Update Transaction' : 'Add Transaction'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+    </div>
   );
 };
 

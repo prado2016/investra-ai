@@ -1,0 +1,128 @@
+name: Simplified Deployment
+
+on:
+  push:
+    branches: [main, master]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.github/workflows-archive-*/**'
+
+env:
+  NODE_VERSION: '18'
+  FRONTEND_BUILD_DIR: dist
+  FRONTEND_DEPLOY_DIR: /var/www/investra
+  EMAIL_PULLER_DEPLOY_DIR: /opt/investra/email-puller
+
+jobs:
+  build-and-deploy:
+    name: Build and Deploy
+    runs-on: self-hosted
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+
+    - name: Install frontend dependencies
+      run: npm ci
+
+    - name: Build frontend
+      run: npm run build
+
+    - name: Backup current frontend
+      run: |
+        if [ -d "${{ env.FRONTEND_DEPLOY_DIR }}" ]; then
+          BACKUP_DIR="${{ env.FRONTEND_DEPLOY_DIR }}.backup.$(date +%Y%m%d_%H%M%S)"
+          cp -r "${{ env.FRONTEND_DEPLOY_DIR }}" "$BACKUP_DIR"
+          echo "✅ Frontend backup created: $BACKUP_DIR"
+        fi
+
+    - name: Deploy frontend
+      run: |
+        if [ -d "${{ env.FRONTEND_BUILD_DIR }}" ]; then
+          rsync -av --delete "${{ env.FRONTEND_BUILD_DIR }}/" "${{ env.FRONTEND_DEPLOY_DIR }}/"
+          echo "✅ Frontend deployed to ${{ env.FRONTEND_DEPLOY_DIR }}"
+        else
+          echo "❌ Build directory not found"
+          exit 1
+        fi
+
+    - name: Build and deploy email puller (if exists)
+      run: |
+        if [ -d "email-puller" ]; then
+          echo "📧 Building email puller..."
+          cd email-puller
+          npm ci
+          npm run build
+          
+          # Create deployment directory
+          mkdir -p "${{ env.EMAIL_PULLER_DEPLOY_DIR }}"
+          
+          # Deploy email puller
+          if [ -f "dist/imap-puller.js" ]; then
+            cp "dist/imap-puller.js" "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/"
+            cp "package.json" "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/"
+            chown -R investra:investra "${{ env.EMAIL_PULLER_DEPLOY_DIR }}" || true
+            chmod 755 "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/imap-puller.js"
+            
+            # Restart service
+            pm2 stop investra-email-puller || true
+            pm2 delete investra-email-puller || true
+            cd "${{ env.EMAIL_PULLER_DEPLOY_DIR }}"
+            pm2 start imap-puller.js --name investra-email-puller
+            pm2 save
+            
+            echo "✅ Email puller deployed and restarted"
+          else
+            echo "⚠️  Email puller build not found"
+          fi
+        else
+          echo "ℹ️  Email puller directory not found - skipping"
+        fi
+
+    - name: Health checks
+      run: |
+        echo "🔍 Running health checks..."
+        
+        # Frontend health check
+        sleep 3
+        if curl -f -s "http://localhost/" > /dev/null; then
+          echo "✅ Frontend health check passed"
+        else
+          echo "⚠️  Frontend health check failed (may be expected)"
+        fi
+        
+        # Email puller health check (if deployed)
+        if pm2 list | grep -q "investra-email-puller"; then
+          if pm2 list | grep -q "investra-email-puller.*online"; then
+            echo "✅ Email puller service running"
+          else
+            echo "⚠️  Email puller service not running properly"
+            pm2 logs investra-email-puller --lines 5 || true
+          fi
+        else
+          echo "ℹ️  Email puller service not found (may not be deployed yet)"
+        fi
+
+    - name: Deployment summary
+      run: |
+        echo "🚀 Simplified Deployment Summary"
+        echo "================================"
+        echo "Commit: ${{ github.sha }}"
+        echo "Branch: ${{ github.ref_name }}"
+        echo "Triggered by: ${{ github.actor }}"
+        echo ""
+        echo "✅ Frontend deployed to ${{ env.FRONTEND_DEPLOY_DIR }}"
+        if [ -d "email-puller" ]; then
+          echo "✅ Email puller processed"
+        else
+          echo "ℹ️  Email puller not yet available"
+        fi
+        echo ""
+        echo "🎯 Deployment completed successfully"

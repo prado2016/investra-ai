@@ -296,7 +296,7 @@ function getDefaultConfigurations(): ConfigurationData {
       auto_start: false,
       batch_size: 10,
       processing_interval: 5,
-      sender_whitelist: '@wealthsimple.com',
+      sender_whitelist: '@wealthsimple.com, eduprado@gmail.com, @gmail.com',
       subject_filters: 'transaction, trade, order, confirmation',
       exclude_promotional: true,
       retry_attempts: 3,

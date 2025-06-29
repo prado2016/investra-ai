@@ -2,16 +2,24 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from './database/types'
 import { registerSupabaseInstance } from '../utils/supabaseInstanceTracker'
 
-// Cross-platform environment variable support
-const supabaseUrl = typeof import.meta !== 'undefined' && import.meta.env 
-  ? import.meta.env.VITE_SUPABASE_URL 
-  : process.env.VITE_SUPABASE_URL
+// Cross-platform environment variable support with fallback
+const supabaseUrl = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_URL) ||
+  process.env.VITE_SUPABASE_URL ||
+  'https://ecbuwhpipphdssqjwgfm.supabase.co'; // Fallback for production
 
-const supabaseKey = typeof import.meta !== 'undefined' && import.meta.env 
-  ? import.meta.env.VITE_SUPABASE_ANON_KEY 
-  : process.env.VITE_SUPABASE_ANON_KEY
+const supabaseKey = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_ANON_KEY) ||
+  process.env.VITE_SUPABASE_ANON_KEY ||
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjYnV3aHBpcHBoZHNzcWp3Z2ZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg4NzU4NjEsImV4cCI6MjA2NDQ1MTg2MX0.QMWhB6lpgO3YRGg5kGKz7347DZzRcDiQ6QLupznZi1E'; // Fallback for production
+
+// Log successful Supabase initialization
+console.log('🔐 Supabase configured:', {
+  url: supabaseUrl ? `${supabaseUrl.substring(0, 30)}...` : 'MISSING',
+  hasKey: !!supabaseKey,
+  source: import.meta?.env?.VITE_SUPABASE_URL ? 'environment' : 'fallback'
+});
 
 if (!supabaseUrl || !supabaseKey) {
+  console.error('❌ Supabase configuration error:', { supabaseUrl, supabaseKey });
   throw new Error('Missing Supabase environment variables. Please check VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY')
 }
 

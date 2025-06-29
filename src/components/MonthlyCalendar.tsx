@@ -269,9 +269,9 @@ const MonthlyCalendar: React.FC<MonthlyCalendarProps> = ({
     return date.toLocaleString('default', { month: 'long', year: 'numeric' });
   }, [selectedYear, selectedMonth]);
 
-  const getDayVariant = (netCashFlow: number): 'positive' | 'negative' | 'neutral' => {
-    if (Math.abs(netCashFlow) <= 0.01) return 'neutral';
-    return netCashFlow > 0 ? 'positive' : 'negative';
+  const getDayVariant = (totalPL: number): 'positive' | 'negative' | 'neutral' => {
+    if (Math.abs(totalPL) <= 0.01) return 'neutral';
+    return totalPL > 0 ? 'positive' : 'negative';
   };
 
   const calendarDays = useMemo(() => {
@@ -402,8 +402,8 @@ const MonthlyCalendar: React.FC<MonthlyCalendarProps> = ({
             
             {dayData && (
               <>
-                <CashFlowAmount variant={getDayVariant(dayData.netCashFlow)}>
-                  {formatCurrency(dayData.netCashFlow)}
+                <CashFlowAmount variant={getDayVariant(dayData.totalPL)}>
+                  {formatCurrency(dayData.totalPL)}
                 </CashFlowAmount>
                 {dayData.transactionCount > 0 && (
                   <TransactionCount>

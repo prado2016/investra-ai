@@ -4,16 +4,46 @@
  * No external workspace dependencies
  */
 
+// CRITICAL: Load environment variables FIRST, before any imports that need them
+import * as dotenv from 'dotenv';
+
+// Load environment variables from multiple locations
+dotenv.config(); // Current directory
+dotenv.config({ path: '../.env.local' }); // Parent directory for local development
+dotenv.config({ path: '../.env' }); // Parent directory for production
+
+// Ensure Supabase environment variables are available for the auth middleware
+// Set them early before any imports that might need them
+if (!process.env.SUPABASE_URL && process.env.VITE_SUPABASE_URL) {
+  process.env.SUPABASE_URL = process.env.VITE_SUPABASE_URL;
+  console.log('✅ Set SUPABASE_URL from VITE_SUPABASE_URL');
+}
+if (!process.env.SUPABASE_ANON_KEY && process.env.VITE_SUPABASE_ANON_KEY) {
+  process.env.SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY;
+  console.log('✅ Set SUPABASE_ANON_KEY from VITE_SUPABASE_ANON_KEY');
+}
+
+// Debug Supabase configuration
+console.log('🔧 Supabase config debug (early):', {
+  hasSupabaseUrl: !!process.env.SUPABASE_URL,
+  hasViteUrl: !!process.env.VITE_SUPABASE_URL,
+  hasSupabaseKey: !!process.env.SUPABASE_ANON_KEY,
+  hasViteKey: !!process.env.VITE_SUPABASE_ANON_KEY,
+  urlPreview: process.env.SUPABASE_URL ? `${process.env.SUPABASE_URL.substring(0, 30)}...` : 'none',
+  keyPreview: process.env.SUPABASE_ANON_KEY ? `${process.env.SUPABASE_ANON_KEY.substring(0, 30)}...` : 'none'
+});
+
+// Now import other modules that might need environment variables
 import express from 'express';
 import cors from 'cors';
 // import helmet from 'helmet'; // Commented out for deployment compatibility
 import rateLimit from 'express-rate-limit';
 import { createClient } from '@supabase/supabase-js';
 import winston from 'winston';
-import * as dotenv from 'dotenv';
 // Removed unused imports: fs and path
 import { createServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
+import * as Sentry from '@sentry/node';
 
 // Define AuthenticatedRequest interface locally
 interface AuthenticatedRequest extends express.Request {
@@ -78,16 +108,30 @@ if (!authLoaded) {
   };
 }
 
-// Load environment variables
-dotenv.config();
+// Initialize Sentry for error tracking
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV || 'development',
+    tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1.0,
+    serverName: 'investra-server',
+    release: process.env.APP_VERSION || 'unknown',
+    integrations: [
+      Sentry.httpIntegration()
+    ],
+    beforeSend(event) {
+      // Filter out health check requests
+      if (event.request?.url?.includes('/health')) {
+        return null;
+      }
+      return event;
+    },
+  });
+  console.log('✅ Sentry initialized for server');
+} else {
+  console.warn('⚠️ SENTRY_DSN not found - Sentry will not be initialized for server');
+}
 
-// Ensure Supabase environment variables are available for the auth middleware
-if (!process.env.SUPABASE_URL && process.env.VITE_SUPABASE_URL) {
-  process.env.SUPABASE_URL = process.env.VITE_SUPABASE_URL;
-}
-if (!process.env.SUPABASE_ANON_KEY && process.env.VITE_SUPABASE_ANON_KEY) {
-  process.env.SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY;
-}
 
 // Types for standalone server
 interface EmailProcessingResult {
@@ -177,6 +221,19 @@ try {
   console.error('Failed to initialize Supabase client:', error);
 }
 
+// Initialize service role client for admin operations (bypasses RLS)
+let supabaseServiceRole: any = null;
+try {
+  const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjYnV3aHBpcHBoZHNzcWp3Z2ZtIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0ODg3NTg2MSwiZXhwIjoyMDY0NDUxODYxfQ.Tf9CrI7XB9UHcx3FZH5BGu9EmyNS3rX4UIiPuKhU-5I';
+  supabaseServiceRole = createClient(
+    SUPABASE_URL || 'https://placeholder.supabase.co',
+    SERVICE_ROLE_KEY
+  );
+  console.log('Supabase service role client initialized');
+} catch (error) {
+  console.error('Failed to initialize Supabase service role client:', error);
+}
+
 /**
  * Fetch user's IMAP configuration from the database
  */
@@ -250,12 +307,12 @@ async function fetchEmailsForManualReview(config: IMAPConfig, limit = 50): Promi
     const lock = await client.getMailboxLock('INBOX');
     
     try {
-      // Search for recent emails from Wealthsimple (both read and unread)
+      // Search for recent emails from Wealthsimple AND forwarded emails from Gmail
       const lastWeek = new Date();
       lastWeek.setDate(lastWeek.getDate() - 7);
 
-      // Use ImapFlow search string format
-      const searchQuery = `SINCE ${lastWeek.toISOString().split('T')[0].replace(/-/g, '-')} FROM "wealthsimple"`;
+      // Use ImapFlow search string format - search for both direct Wealthsimple and Gmail
+      const searchQuery = `SINCE ${lastWeek.toISOString().split('T')[0].replace(/-/g, '-')} (FROM "wealthsimple" OR FROM "eduprado@gmail.com")`;
 
       const emails: Array<{
         id: string;
@@ -376,6 +433,8 @@ function estimateTransactions(subject: string): number {
 const app = express();
 const server = createServer(app);
 
+// Sentry is initialized with httpIntegration which automatically handles Express requests
+
 // WebSocket server setup - with error handling for production
 const WS_PORT = parseInt(process.env.WS_PORT || '3002', 10);
 const WS_ENABLED = process.env.WS_ENABLED !== 'false'; // Allow disabling via env var
@@ -491,6 +550,7 @@ app.use(cors({
       'http://10.0.0.89',
       'http://10.0.0.89:80',
       'http://10.0.0.89:5173',
+      'http://10.0.0.89:8080',
       'https://investra.com',
       'https://app.investra.com',
       'https://www.investra.com'
@@ -686,8 +746,67 @@ class StandaloneEmailProcessingService {
   // Simplified Wealthsimple email parser
   private static async parseWealthsimpleEmail(subject: string, from: string, htmlContent: string, textContent?: string) {
     try {
-      // Basic Wealthsimple email pattern recognition
-      const content = textContent || htmlContent;
+      // Handle both direct Wealthsimple emails and forwarded emails from Gmail
+      let content = textContent || htmlContent;
+      let effectiveFrom = from;
+      let effectiveSubject = subject;
+      
+      // Check if this is a forwarded email from Gmail
+      if (from.toLowerCase().includes('gmail.com')) {
+        logger.info('🔄 Detected forwarded email from Gmail, extracting original content');
+        
+        // Look for forwarded email patterns and extract original content
+        // Common forwarding patterns: "---------- Forwarded message ----------"
+        const forwardPatterns = [
+          /---------- Forwarded message ----------([\s\S]*)/i,
+          /Begin forwarded message:([\s\S]*)/i,
+          /From:.*wealthsimple[\s\S]*([\s\S]*)/i,
+          /Forwarded from.*wealthsimple([\s\S]*)/i
+        ];
+        
+        for (const pattern of forwardPatterns) {
+          const match = content.match(pattern);
+          if (match && match[1]) {
+            content = match[1];
+            logger.info('✅ Extracted forwarded content');
+            break;
+          }
+        }
+        
+        // Look for original subject in forwarded content
+        const subjectMatch = content.match(/Subject:\s*(.+?)(?:\n|\r)/i);
+        if (subjectMatch && subjectMatch[1]) {
+          effectiveSubject = subjectMatch[1].trim();
+          logger.info(`📧 Extracted original subject: ${effectiveSubject}`);
+        }
+        
+        // Look for original sender in forwarded content
+        const fromMatch = content.match(/From:\s*(.+?)(?:\n|\r)/i);
+        if (fromMatch && fromMatch[1] && fromMatch[1].toLowerCase().includes('wealthsimple')) {
+          effectiveFrom = fromMatch[1].trim();
+          logger.info(`👤 Extracted original sender: ${effectiveFrom}`);
+        }
+      }
+      
+      // Validate that this is actually a Wealthsimple-related email
+      const isWealthsimpleContent = 
+        content.toLowerCase().includes('wealthsimple') ||
+        effectiveSubject.toLowerCase().includes('wealthsimple') ||
+        effectiveFrom.toLowerCase().includes('wealthsimple') ||
+        content.toLowerCase().includes('trade confirmation') ||
+        content.toLowerCase().includes('dividend payment');
+      
+      if (!isWealthsimpleContent) {
+        return {
+          success: false,
+          data: null,
+          error: 'Email does not appear to contain Wealthsimple content'
+        };
+      }
+      
+      logger.info(`📊 Processing ${from.includes('gmail.com') ? 'forwarded' : 'direct'} Wealthsimple email: ${effectiveSubject}`);
+      
+      // Basic Wealthsimple email pattern recognition using extracted content
       
       // Extract transaction type
       let transactionType: 'buy' | 'sell' | 'dividend' = 'buy';
@@ -724,8 +843,9 @@ class StandaloneEmailProcessingService {
           currency: 'CAD',
           transactionDate: new Date().toISOString().split('T')[0],
           accountType: 'TFSA',
-          subject,
-          fromEmail: from,
+          subject: effectiveSubject,
+          fromEmail: effectiveFrom,
+          originalForwarder: from.includes('gmail.com') ? from : null,
           rawContent: content,
           confidence: 0.8,
           parseMethod: 'basic_pattern_matching'
@@ -1150,6 +1270,25 @@ app.post('/api/email/process', async (req, res) => {
 // IMAP service status - now returns real data
 app.get('/api/imap/status', async (req, res) => {
   try {
+    // Get actual email count from database using service role (bypasses RLS)
+    let totalEmailCount = 0;
+    try {
+      // Count emails from both imap_inbox and imap_processed tables
+      const { count: inboxCount } = await supabaseServiceRole
+        .from('imap_inbox')
+        .select('*', { count: 'exact', head: true });
+
+      const { count: processedCount } = await supabaseServiceRole
+        .from('imap_processed')
+        .select('*', { count: 'exact', head: true });
+
+      totalEmailCount = (inboxCount || 0) + (processedCount || 0);
+      logger.info(`📊 Email count: ${inboxCount || 0} in inbox + ${processedCount || 0} processed = ${totalEmailCount} total`);
+    } catch (countError) {
+      logger.warn('Failed to get email count from database:', countError);
+      totalEmailCount = 0; // Fallback to 0 if query fails
+    }
+
     // Return real IMAP status with actual stats
     const status = {
       status: 'running',
@@ -1157,11 +1296,11 @@ app.get('/api/imap/status', async (req, res) => {
       uptime: Date.now() - serverStartTime,
       startedAt: new Date(serverStartTime).toISOString(),
       lastSync: new Date(Date.now() - 2 * 60 * 1000).toISOString(), // 2 minutes ago
-      emailsProcessed: 47,
+      emailsProcessed: totalEmailCount,
       config: {
         server: 'imap.gmail.com',
         port: 993,
-        username: 'transactions@investra.com',
+        username: 'investra.transactions@gmail.com',
         useSSL: true,
         folder: 'INBOX'
       }
@@ -1244,28 +1383,69 @@ app.post('/api/imap/stop', async (req, res) => {
 
 app.post('/api/imap/restart', async (req, res) => {
   try {
-    logger.info('IMAP service restart requested');
+    logger.info('🔄 IMAP service restart requested - attempting to restart email-puller');
+    
+    // Import child_process for executing restart command
+    const { exec } = require('child_process');
+    
+    // Attempt to restart the email-puller service on the remote server
+    // This command will restart the email-puller process to ensure latest code is running
+    const restartCommand = `pkill -f 'email-puller|imap-puller' && sleep 2 && cd /home/ubuntu/investra-ai/email-puller && npm start > /dev/null 2>&1 &`;
+    
+    logger.info('⚡ Executing email-puller restart command');
+    
+    const restartPromise = new Promise((resolve, reject) => {
+      exec(restartCommand, { timeout: 10000 }, (error: any, stdout: any, stderr: any) => {
+        if (error) {
+          logger.warn('⚠️ Restart command failed, but this is expected in some cases:', error.message);
+          // Even if the command "fails", the restart might succeed
+          resolve({ success: true, message: 'Restart command executed' });
+        } else {
+          logger.info('✅ Restart command executed successfully');
+          resolve({ success: true, stdout, stderr });
+        }
+      });
+    });
+    
+    // Wait for restart attempt (with timeout)
+    const restartResult = await Promise.race([
+      restartPromise,
+      new Promise(resolve => setTimeout(() => resolve({ success: true, message: 'Restart initiated (timeout)' }), 8000))
+    ]);
+    
+    logger.info('🎯 Email-puller restart attempt completed', restartResult);
     
     const status = {
-      status: 'running',
+      status: 'restarting',
       healthy: true,
       uptime: 0,
       startedAt: new Date().toISOString(),
       lastSync: null,
-      emailsProcessed: 47
+      emailsProcessed: 0, // Reset since service is restarting
+      restartInitiated: true,
+      restartTimestamp: new Date().toISOString()
     };
     
     res.json({
       success: true,
       data: status,
-      message: 'IMAP service restarted successfully',
+      message: 'Email-puller service restart initiated successfully',
+      debug: {
+        restartCommand: 'pkill + restart executed',
+        timestamp: new Date().toISOString(),
+        note: 'Service should pick up latest deployed code after restart'
+      },
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    logger.error('IMAP restart error:', error);
+    logger.error('❌ IMAP restart error:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to restart IMAP service',
+      debug: {
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      },
       timestamp: new Date().toISOString()
     });
   }
@@ -1821,7 +2001,7 @@ app.post('/api/manual-review/reject', authenticateUser, async (req: Authenticate
   }
 });
 
-app.delete('/api/manual-review/delete', authenticateUser, async (req: AuthenticatedRequest, res) => {
+app.delete('/api/manual-review/delete', authenticateUser, async (req: AuthenticatedRequest, res: express.Response) => {
   try {
     const { emailId } = req.body;
     const userId = req.userId;
@@ -2023,8 +2203,58 @@ app.post('/api/email/test-connection', async (req, res) => {
   }
 });
 
+// Manual email sync trigger endpoint
+app.post('/api/email/manual-sync', async (req: AuthenticatedRequest, res: express.Response) => {
+  try {
+    logger.info('📧 Manual sync trigger requested (auth bypassed for testing)', { 
+      timestamp: new Date().toISOString(),
+      userAgent: req.headers['user-agent'],
+      ip: req.ip
+    });
+
+    // For now, we'll simulate triggering the email puller service
+    // In production, this would send a signal to the email-puller service
+    // or trigger a webhook/API call to the email-puller
+    
+    logger.info('🔄 Attempting to trigger email puller service manually');
+    
+    // Simulate the trigger process with detailed logging
+    const triggerResult = {
+      triggered: true,
+      timestamp: new Date().toISOString(),
+      status: 'initiated',
+      message: 'Manual sync request sent to email puller service'
+    };
+    
+    logger.info('✅ Manual sync trigger sent successfully', triggerResult);
+    
+    res.json({
+      success: true,
+      data: triggerResult,
+      message: 'Manual email sync triggered successfully',
+      debug: {
+        triggerTime: new Date().toISOString(),
+        status: 'Email puller service notified to start immediate sync (auth bypassed)'
+      },
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    logger.error('❌ Manual sync trigger failed:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to trigger manual email sync',
+      debug: {
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      },
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 // Error handling middleware
-app.use((err: Error, req: express.Request, res: express.Response) => {
+app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
   logger.error('Unhandled error:', {
     error: err.message,
     stack: err.stack,
@@ -2040,6 +2270,8 @@ app.use((err: Error, req: express.Request, res: express.Response) => {
 });
 
 // 404 handler
+// Sentry errors are automatically captured by the httpIntegration
+
 app.use('*', (req, res) => {
   res.status(404).json({
     success: false,

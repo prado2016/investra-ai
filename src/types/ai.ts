@@ -68,7 +68,7 @@ export interface MarketInsightsResponse {
 }
 
 // AI Provider types
-export type AIProvider = 'gemini' | 'openai' | 'perplexity';
+export type AIProvider = 'gemini' | 'openai' | 'openrouter' | 'perplexity';
 
 // Asset types (copied from portfolio types to avoid circular dependencies)
 export type AssetType = 'stock' | 'option' | 'forex' | 'crypto' | 'reit' | 'etf';
@@ -207,6 +207,41 @@ export interface UsageMetrics {
   timestamp: Date;
 }
 
+// Email parsing types
+export interface EmailParsingRequest {
+  emailContent: string;
+  emailSubject: string;
+  emailFrom?: string;
+  receivedAt?: string;
+  context?: string;
+}
+
+export interface EmailParsingExtractedData {
+  portfolioName?: string;
+  symbol?: string;
+  assetType?: 'stock' | 'option';
+  transactionType?: 'buy' | 'sell';
+  quantity?: number;
+  price?: number;
+  totalAmount?: number;
+  fees?: number;
+  currency?: string;
+  transactionDate?: string; // YYYY-MM-DD format
+  notes?: string;
+}
+
+export interface EmailParsingResponse {
+  success: boolean;
+  extractedData?: EmailParsingExtractedData;
+  confidence: number; // 0-1 scale
+  parsingType: 'trading' | 'basic' | 'unknown';
+  error?: string;
+  timestamp: Date;
+  tokensUsed?: number;
+  processingTime?: number;
+  rawData?: any; // For audit trail
+}
+
 // AI Service interface
 export interface IAIService {
   readonly provider: AIProvider;
@@ -217,6 +252,9 @@ export interface IAIService {
   
   // Financial analysis
   analyzeFinancialData(request: FinancialAnalysisRequest): Promise<FinancialAnalysisResponse>;
+  
+  // Email parsing
+  parseEmailForTransaction(request: EmailParsingRequest): Promise<EmailParsingResponse>;
   
   // Health check
   testConnection(): Promise<{ success: boolean; error?: string; latency?: number }>;

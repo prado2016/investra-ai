@@ -3,6 +3,7 @@ import type { ErrorInfo, ReactNode } from 'react';
 import styled from 'styled-components';
 import { Card, Button, Alert } from './ui';
 import { RefreshCw, AlertTriangle, Home, Bug } from 'lucide-react';
+import { captureError } from '../lib/sentry';
 
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -145,23 +146,24 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 
   private logErrorToService = (error: Error, errorInfo: ErrorInfo) => {
-    // Placeholder for error logging service integration
+    // Send error to Sentry with additional context
     const errorData = {
       errorId: this.state.errorId,
-      message: error.message,
-      stack: error.stack,
       componentStack: errorInfo.componentStack,
       userAgent: navigator.userAgent,
       url: window.location.href,
       timestamp: new Date().toISOString(),
     };
 
-    // In a real app, you would send this to services like:
-    // - Sentry: Sentry.captureException(error, { extra: errorData });
-    // - LogRocket: LogRocket.captureException(error);
-    // - Bugsnag: Bugsnag.notify(error, event => { event.addMetadata('errorBoundary', errorData); });
+    // Capture error in Sentry with context
+    captureError(error, {
+      errorBoundary: errorData,
+      errorInfo: {
+        componentStack: errorInfo.componentStack,
+      }
+    });
     
-    console.log('Error logged:', errorData);
+    console.log('Error logged to Sentry:', errorData);
   };
 
   private handleRetry = () => {

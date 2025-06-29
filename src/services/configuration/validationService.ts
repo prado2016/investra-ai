@@ -420,10 +420,10 @@ export class ConfigurationValidationService {
             field: 'validation',
             message: `Validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
             code: 'VALIDATION_ERROR',
-            severity: 'critical' as const
+            severity: 'critical'
           }],
           warnings: []
-        }] as const
+        } as ValidationResult] as const
       }
     })
 

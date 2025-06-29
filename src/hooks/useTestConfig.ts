@@ -58,6 +58,7 @@ export const getMockTransactions = (): TransactionWithAsset[] => [
     notes: 'Test purchase of Apple stock',
     external_id: null,
     broker_name: 'Test Broker',
+    strategy_type: null,
     created_at: '2024-06-01T10:00:00Z',
     updated_at: '2024-06-01T10:00:00Z',
     asset: {
@@ -92,6 +93,7 @@ export const getMockTransactions = (): TransactionWithAsset[] => [
     notes: 'Test purchase of Google stock',
     external_id: null,
     broker_name: 'Test Broker',
+    strategy_type: null,
     created_at: '2024-06-02T10:00:00Z',
     updated_at: '2024-06-02T10:00:00Z',
     asset: {
@@ -126,6 +128,7 @@ export const getMockTransactions = (): TransactionWithAsset[] => [
     notes: 'Test purchase of VTI ETF',
     external_id: null,
     broker_name: 'Test Broker',
+    strategy_type: null,
     created_at: '2024-06-03T10:00:00Z',
     updated_at: '2024-06-03T10:00:00Z',
     asset: {

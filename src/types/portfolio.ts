@@ -1,6 +1,20 @@
 // Duplicate types to avoid module resolution issues
 export type AssetType = 'stock' | 'option' | 'forex' | 'crypto' | 'reit' | 'etf';
-export type TransactionType = 'buy' | 'sell' | 'dividend' | 'split' | 'merger' | 'option_expired';
+export type TransactionType = 'buy' | 'sell' | 'dividend' | 'split' | 'merger' | 'option_expired' | 'short_option_expired' | 'short_option_assigned';
+
+export type OptionStrategyType = 
+  | 'covered_call'
+  | 'naked_call'
+  | 'cash_secured_put'
+  | 'protective_put'
+  | 'long_call'
+  | 'long_put'
+  | 'collar'
+  | 'straddle'
+  | 'strangle'
+  | 'iron_condor'
+  | 'butterfly'
+  | 'calendar_spread';
 export type Currency = 'USD' | 'EUR' | 'GBP' | 'JPY' | 'CAD' | 'AUD' | 'CHF' | 'CNY' | 'BTC' | 'ETH';
 export type CostBasisMethod = 'FIFO' | 'LIFO' | 'AVERAGE_COST' | 'SPECIFIC_LOT';
 
@@ -60,6 +74,7 @@ export interface Transaction {
   strikePrice?: number;
   expirationDate?: Date;
   optionType?: 'call' | 'put';
+  strategyType?: OptionStrategyType;
   
   // For forex
   exchangeRate?: number;

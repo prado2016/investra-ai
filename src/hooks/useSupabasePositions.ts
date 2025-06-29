@@ -13,6 +13,20 @@ import type { Position as FrontendPosition, Currency } from '../types/portfolio'
  * Convert database Position to frontend Position format
  */
 function mapDbPositionToFrontend(dbPosition: DbPosition & { asset: Asset }): FrontendPosition {
+  // Calculate initial current price from total cost basis and quantity
+  const initialCurrentPrice = dbPosition.quantity > 0 ? dbPosition.total_cost_basis / dbPosition.quantity : dbPosition.average_cost_basis;
+  
+  // Initial market value equals cost basis (will be updated with real-time prices)
+  const initialMarketValue = dbPosition.total_cost_basis;
+  
+  // Initial unrealized P&L is 0 since market value equals cost basis
+  const unrealizedPL = initialMarketValue - dbPosition.total_cost_basis;
+  const unrealizedPLPercent = dbPosition.total_cost_basis > 0 ? (unrealizedPL / dbPosition.total_cost_basis) * 100 : 0;
+  
+  // Calculate total return including realized P&L
+  const totalReturn = dbPosition.realized_pl + unrealizedPL;
+  const totalReturnPercent = dbPosition.total_cost_basis > 0 ? (totalReturn / dbPosition.total_cost_basis) * 100 : 0;
+
   return {
     id: dbPosition.id,
     assetId: dbPosition.asset_id,
@@ -22,14 +36,13 @@ function mapDbPositionToFrontend(dbPosition: DbPosition & { asset: Asset }): Fro
     quantity: dbPosition.quantity,
     averageCostBasis: dbPosition.average_cost_basis,
     totalCostBasis: dbPosition.total_cost_basis,
-    // Calculate current market value (we'll need to get real-time prices)
-    currentMarketValue: dbPosition.total_cost_basis, // Fallback to cost basis
-    currentPrice: dbPosition.average_cost_basis, // Fallback to average cost
-    unrealizedPL: 0, // Will be calculated with real-time prices
-    unrealizedPLPercent: 0,
+    currentMarketValue: initialMarketValue,
+    currentPrice: initialCurrentPrice,
+    unrealizedPL,
+    unrealizedPLPercent,
     realizedPL: dbPosition.realized_pl,
-    totalReturn: dbPosition.realized_pl, // For now, just realized P&L
-    totalReturnPercent: 0,
+    totalReturn,
+    totalReturnPercent,
     currency: dbPosition.asset.currency as Currency,
     openDate: new Date(dbPosition.open_date),
     lastTransactionDate: new Date(dbPosition.updated_at),

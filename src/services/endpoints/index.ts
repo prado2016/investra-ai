@@ -28,51 +28,52 @@ export {
   type EndpointConfig
 } from './symbolLookupEndpoint';
 
-// Email Processing API (Task 6)
-export { 
-  EmailAPI,
-  EmailProcessingAPI,
-  EmailStatusAPI,
-  EmailManagementAPI,
-  EmailAPIMiddleware
-} from './emailAPI';
+// Email Processing API (removed - system redesigned)
+// export { 
+//   EmailAPI,
+//   EmailProcessingAPI,
+//   EmailStatusAPI,
+//   EmailManagementAPI,
+//   EmailAPIMiddleware
+// } from './emailAPI';
 
-// IMAP Service API (Task 7)
-export { 
-  IMAPServiceAPI,
-  type IMAPServiceStatusResponse,
-  type IMAPServiceConfigResponse,
-  type IMAPConnectionTestResponse,
-  type IMAPProcessEmailsResponse
-} from './imapServiceAPI';
+// IMAP Service API (removed - system redesigned)
+// export { 
+//   IMAPServiceAPI,
+//   type IMAPServiceStatusResponse,
+//   type IMAPServiceConfigResponse,
+//   type IMAPConnectionTestResponse,
+//   type IMAPProcessEmailsResponse
+// } from './imapServiceAPI';
 
-export type {
-  APIResponse,
-  EmailProcessRequest,
-  BatchEmailProcessRequest,
-  EmailProcessResponse,
-  BatchProcessResponse,
-  ProcessingStatus,
-  ProcessingHistoryResponse,
-  ProcessingStatsResponse,
-  HealthCheckResponse,
-  ImportJob,
-  ImportJobCreateRequest,
-  ImportJobListResponse,
-  RetryRequest,
-  RetryResponse,
-  ReviewManagementRequest,
-  ReviewManagementResponse,
-  AuthResult,
-  RateLimitConfig,
-  ValidationSchema,
-  RequestContext
-} from './emailAPI';
+// Email types removed - system redesigned
+// export type {
+//   APIResponse,
+//   EmailProcessRequest,
+//   BatchEmailProcessRequest,
+//   EmailProcessResponse,
+//   BatchProcessResponse,
+//   ProcessingStatus,
+//   ProcessingHistoryResponse,
+//   ProcessingStatsResponse,
+//   HealthCheckResponse,
+//   ImportJob,
+//   ImportJobCreateRequest,
+//   ImportJobListResponse,
+//   RetryRequest,
+//   RetryResponse,
+//   ReviewManagementRequest,
+//   ReviewManagementResponse,
+//   AuthResult,
+//   RateLimitConfig,
+//   ValidationSchema,
+//   RequestContext
+// } from './emailAPI';
 
-export { EmailAPISchemas, RateLimitConfigs } from './emailAPI';
+// export { EmailAPISchemas, RateLimitConfigs } from './emailAPI';
 
 // Re-export defaults for convenience
 export { default as PortfolioAPIDefault } from './portfolioAPI';
 export { default as AISymbolLookupAPIDefault } from './aiSymbolLookupAPI';
-export { default as EmailAPIDefault } from './emailAPI';
-export { default as IMAPServiceAPIDefault } from './imapServiceAPI';
+// export { default as EmailAPIDefault } from './emailAPI';
+// export { default as IMAPServiceAPIDefault } from './imapServiceAPI';

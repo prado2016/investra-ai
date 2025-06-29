@@ -14,22 +14,16 @@ import Breadcrumb from './components/Breadcrumb';
 import NotificationContainer from './components/NotificationContainer';
 import PortfolioDebugInfo from './components/PortfolioDebugInfo';
 import { OfflineIndicator } from './components/NetworkStatus';
-import DebugPanel from './components/DebugPanel';
-import ConnectionHealthDebug from './components/ConnectionHealthDebug';
-import CircuitBreakerReset from './components/CircuitBreakerReset';
 import ApiMonitoringDashboard from './components/ApiMonitoringDashboard';
-import EmergencyReload from './components/EmergencyReload';
 import AuthComponent from './components/auth/AuthComponent';
 import Dashboard from './pages/Dashboard';
 import Positions from './pages/Positions';
 import Transactions from './pages/Transactions';
 import Summary from './pages/Summary';
 import Settings from './pages/Settings';
-import EmailManagement from './pages/EmailManagement';
+import SimpleEmailManagement from './pages/SimpleEmailManagement';
 import Notifications from './pages/Notifications';
 import DebugLogs from './pages/DebugLogs';
-import EncryptionServiceTest from './components/EncryptionServiceTest';
-import RealtimeConnectionTest from './components/RealtimeConnectionTest';
 import { debug, ErrorTracker, isDev } from './utils/debug';
 import './styles/App.css';
 
@@ -39,11 +33,7 @@ const ConditionalDebugComponents: React.FC = () => {
   
   return (
     <>
-      {settings.showDebugPanel && <DebugPanel />}
-      {settings.showConnectionHealth && <ConnectionHealthDebug />}
-      {settings.showCircuitBreakerReset && <CircuitBreakerReset />}
       {settings.showApiMonitoring && <ApiMonitoringDashboard />}
-      {settings.showEmergencyReload && <EmergencyReload />}
       {settings.showPortfolioDebug && <PortfolioDebugInfo />}
     </>
   );
@@ -175,12 +165,10 @@ function AppContent() {
               <Route path="/transactions" element={<Transactions />} />
               <Route path="/summary" element={<Summary />} />
               <Route path="/daily-summary" element={<Navigate to="/summary" replace />} />
-              <Route path="/email-management" element={<EmailManagement />} />
+              <Route path="/email-management" element={<SimpleEmailManagement />} />
               <Route path="/notifications" element={<Notifications />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/debug-logs" element={<DebugLogs />} />
-              <Route path="/encryption-test" element={<EncryptionServiceTest />} />
-              <Route path="/realtime-test" element={<RealtimeConnectionTest />} />
             </Routes>
           </main>
         </div>
@@ -216,12 +204,10 @@ function AppContent() {
             <Route path="/transactions" element={<Transactions />} />
             <Route path="/summary" element={<Summary />} />
             <Route path="/daily-summary" element={<Navigate to="/summary" replace />} />
-            <Route path="/email-management" element={<EmailManagement />} />
+            <Route path="/email-management" element={<SimpleEmailManagement />} />
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/debug-logs" element={<DebugLogs />} />
-            <Route path="/encryption-test" element={<EncryptionServiceTest />} />
-            <Route path="/realtime-test" element={<RealtimeConnectionTest />} />
           </Routes>
         </main>
         <ConditionalDebugComponents />

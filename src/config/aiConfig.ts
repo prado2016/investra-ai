@@ -27,6 +27,16 @@ export const AI_SERVICE_DEFAULTS: Record<AIProvider, Partial<AIServiceConfig>> =
     enableCaching: true,
     cacheExpiryMinutes: 60
   },
+  openrouter: {
+    model: 'anthropic/claude-3.5-sonnet',
+    maxTokens: 8192,
+    temperature: 0.1,
+    timeout: 30000,
+    rateLimitPerHour: 200,
+    rateLimitPerDay: 2000,
+    enableCaching: true,
+    cacheExpiryMinutes: 60
+  },
   perplexity: {
     model: 'llama-3.1-sonar-small-128k-online',
     maxTokens: 4096,
@@ -51,6 +61,15 @@ export const AI_MODELS: Record<AIProvider, string[]> = {
     'gpt-4',
     'gpt-3.5-turbo',
     'gpt-3.5-turbo-16k'
+  ],
+  openrouter: [
+    'anthropic/claude-3.5-sonnet',
+    'anthropic/claude-3-haiku',
+    'openai/gpt-4o',
+    'openai/gpt-4-turbo',
+    'meta-llama/llama-3.1-405b-instruct',
+    'meta-llama/llama-3.1-70b-instruct',
+    'google/gemini-pro-1.5'
   ],
   perplexity: [
     'llama-3.1-sonar-small-128k-online',
@@ -81,6 +100,13 @@ export const AI_CAPABILITIES: Record<AIProvider, {
     multiLanguage: true,
     imageAnalysis: true
   },
+  openrouter: {
+    symbolLookup: true,
+    financialAnalysis: true,
+    realTimeData: false,
+    multiLanguage: true,
+    imageAnalysis: true
+  },
   perplexity: {
     symbolLookup: true,
     financialAnalysis: true,
@@ -102,6 +128,11 @@ export const AI_COSTS: Record<AIProvider, { input: number; output: number; curre
     output: 0.03,    // $0.03 per 1K output tokens (GPT-4)
     currency: 'USD'
   },
+  openrouter: {
+    input: 0.003,    // $0.003 per 1K input tokens (Claude-3.5-Sonnet via OpenRouter)
+    output: 0.015,   // $0.015 per 1K output tokens (Claude-3.5-Sonnet via OpenRouter)
+    currency: 'USD'
+  },
   perplexity: {
     input: 0.002,    // $0.002 per 1K input tokens
     output: 0.006,   // $0.006 per 1K output tokens
@@ -111,11 +142,11 @@ export const AI_COSTS: Record<AIProvider, { input: number; output: number; curre
 
 // Feature priorities by use case
 export const FEATURE_PRIORITIES: Record<string, AIProvider[]> = {
-  symbolLookup: ['gemini', 'perplexity', 'openai'],
-  financialAnalysis: ['gemini', 'openai', 'perplexity'],
-  quickQueries: ['gemini', 'openai', 'perplexity'],
-  detailedAnalysis: ['openai', 'gemini', 'perplexity'],
-  realTimeData: ['perplexity', 'gemini', 'openai']
+  symbolLookup: ['gemini', 'openrouter', 'perplexity', 'openai'],
+  financialAnalysis: ['gemini', 'openrouter', 'openai', 'perplexity'],
+  quickQueries: ['gemini', 'openrouter', 'openai', 'perplexity'],
+  detailedAnalysis: ['openrouter', 'openai', 'gemini', 'perplexity'],
+  realTimeData: ['perplexity', 'gemini', 'openrouter', 'openai']
 };
 
 // Validation rules

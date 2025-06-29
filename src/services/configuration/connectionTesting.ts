@@ -4,7 +4,7 @@
  * Includes IMAP, Database (Supabase), and AI services testing
  */
 
-import { ImapFlow } from 'imapflow'
+import ImapFlow from 'imapflow'
 import { createClient } from '@supabase/supabase-js'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import type { 
@@ -67,8 +67,19 @@ export class ConnectionTestingService {
       const mailboxLock = await client.getMailboxLock('INBOX')
       try {
         // Try to list some messages to verify read access
-        const messages = await client.fetch('1:5', { envelope: true })
-        const messageCount = Array.from(messages).length
+        const messages = client.fetch('1:5', { 
+          envelope: true, 
+          uid: true, 
+          flags: true, 
+          bodyStructure: false, 
+          source: false 
+        })
+        const messageArray = []
+        for await (const message of messages) {
+          messageArray.push(message)
+          if (messageArray.length >= 5) break; // Limit to 5 messages
+        }
+        const messageCount = messageArray.length
         
         await client.logout()
         

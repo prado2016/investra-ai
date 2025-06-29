@@ -13,10 +13,11 @@ import {
   ArrowUpDown, 
   CreditCard 
 } from 'lucide-react';
+import Sparkline from './Sparkline';
 import { formatCurrency } from '../utils/formatting';
 
 // Styled Components
-const SummaryCard = styled.div`
+const SummaryCard = styled.div<{ $isClickable?: boolean }>`
   background: white;
   border-radius: 12px;
   padding: 1.5rem;
@@ -24,10 +25,13 @@ const SummaryCard = styled.div`
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   transition: transform 0.2s, box-shadow 0.2s;
 
-  &:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  }
+  ${props => props.$isClickable && `
+    cursor: pointer;
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+  `}
 `;
 
 const CardHeader = styled.div`
@@ -92,6 +96,8 @@ interface SummaryBoxProps {
   isPrivacyMode?: boolean;
   currency?: string;
   format?: 'currency' | 'number' | 'percentage';
+  sparklineData?: { value: number }[];
+  onClick?: () => void; // New: Make card clickable
 }
 
 // Main Summary Box Component
@@ -104,7 +110,9 @@ export const SummaryBox: React.FC<SummaryBoxProps> = ({
   iconColor,
   isPrivacyMode = false,
   currency = 'USD',
-  format = 'currency'
+  format = 'currency',
+  sparklineData,
+  onClick
 }) => {
   const formatValue = (val: number) => {
     if (isPrivacyMode) return '••••••';
@@ -125,7 +133,7 @@ export const SummaryBox: React.FC<SummaryBoxProps> = ({
   const isNegative = value < 0;
 
   return (
-    <SummaryCard>
+    <SummaryCard onClick={onClick} $isClickable={!!onClick}>
       <CardHeader>
         <CardIcon $color={iconColor}>
           {icon}
@@ -151,6 +159,12 @@ export const SummaryBox: React.FC<SummaryBoxProps> = ({
           )}
         </CardSubtitle>
       )}
+
+      {sparklineData && !isPrivacyMode && (
+        <div style={{ marginTop: '1rem' }}>
+          <Sparkline data={sparklineData} color={iconColor} />
+        </div>
+      )}
     </SummaryCard>
   );
 };
@@ -161,23 +175,39 @@ export const TotalDailyPLBox: React.FC<{
   value: number; 
   isPrivacyMode?: boolean; 
   trend?: number;
-}> = ({ value, isPrivacyMode, trend }) => (
-  <SummaryBox
-    title="Total Daily P&L"
-    value={value}
-    subtitle="Today's performance"
-    trend={trend}
-    icon={<TrendingUp size={20} />}
-    iconColor={value >= 0 ? '#16a34a' : '#dc2626'}
-    isPrivacyMode={isPrivacyMode}
-  />
-);
+  onClick?: () => void;
+}> = ({ value, isPrivacyMode, trend, onClick }) => {
+  const mockSparklineData = [
+    { value: -100 },
+    { value: 200 },
+    { value: 150 },
+    { value: 300 },
+    { value: 250 },
+    { value: 400 },
+    { value: value },
+  ];
+
+  return (
+    <SummaryBox
+      title="Total Daily P&L"
+      value={value}
+      subtitle="Today's performance"
+      trend={trend}
+      icon={<TrendingUp size={20} />}
+      iconColor={value >= 0 ? '#16a34a' : '#dc2626'}
+      isPrivacyMode={isPrivacyMode}
+      sparklineData={mockSparklineData}
+      onClick={onClick}
+    />
+  );
+};
 
 export const RealizedPLBox: React.FC<{ 
   value: number; 
   isPrivacyMode?: boolean;
   subtitle?: string;
-}> = ({ value, isPrivacyMode, subtitle }) => (
+  onClick?: () => void;
+}> = ({ value, isPrivacyMode, subtitle, onClick }) => (
   <SummaryBox
     title="Realized P&L"
     value={value}
@@ -185,6 +215,7 @@ export const RealizedPLBox: React.FC<{
     icon={<Target size={20} />}
     iconColor="#3b82f6"
     isPrivacyMode={isPrivacyMode}
+    onClick={onClick}
   />
 );
 
@@ -192,7 +223,8 @@ export const UnrealizedPLBox: React.FC<{
   value: number; 
   isPrivacyMode?: boolean;
   subtitle?: string;
-}> = ({ value, isPrivacyMode, subtitle }) => (
+  onClick?: () => void;
+}> = ({ value, isPrivacyMode, subtitle, onClick }) => (
   <SummaryBox
     title="Unrealized P&L"
     value={value}
@@ -200,6 +232,7 @@ export const UnrealizedPLBox: React.FC<{
     icon={<Activity size={20} />}
     iconColor="#8b5cf6"
     isPrivacyMode={isPrivacyMode}
+    onClick={onClick}
   />
 );
 
@@ -207,7 +240,8 @@ export const DividendIncomeBox: React.FC<{
   value: number; 
   isPrivacyMode?: boolean;
   subtitle?: string;
-}> = ({ value, isPrivacyMode, subtitle }) => (
+  onClick?: () => void;
+}> = ({ value, isPrivacyMode, subtitle, onClick }) => (
   <SummaryBox
     title="Dividend Income"
     value={value}
@@ -215,6 +249,7 @@ export const DividendIncomeBox: React.FC<{
     icon={<DollarSign size={20} />}
     iconColor="#10b981"
     isPrivacyMode={isPrivacyMode}
+    onClick={onClick}
   />
 );
 
@@ -222,7 +257,8 @@ export const TradingFeesBox: React.FC<{
   value: number; 
   isPrivacyMode?: boolean;
   subtitle?: string;
-}> = ({ value, isPrivacyMode, subtitle }) => (
+  onClick?: () => void;
+}> = ({ value, isPrivacyMode, subtitle, onClick }) => (
   <SummaryBox
     title="Trading Fees"
     value={value}
@@ -230,6 +266,7 @@ export const TradingFeesBox: React.FC<{
     icon={<CreditCard size={20} />}
     iconColor="#ef4444"
     isPrivacyMode={isPrivacyMode}
+    onClick={onClick}
   />
 );
 
@@ -237,7 +274,8 @@ export const TradeVolumeBox: React.FC<{
   value: number; 
   isPrivacyMode?: boolean;
   subtitle?: string;
-}> = ({ value, isPrivacyMode, subtitle }) => (
+  onClick?: () => void;
+}> = ({ value, isPrivacyMode, subtitle, onClick }) => (
   <SummaryBox
     title="Trade Volume"
     value={value}
@@ -245,6 +283,7 @@ export const TradeVolumeBox: React.FC<{
     icon={<ArrowUpDown size={20} />}
     iconColor="#f59e0b"
     isPrivacyMode={isPrivacyMode}
+    onClick={onClick}
   />
 );
 
@@ -252,7 +291,8 @@ export const NetCashFlowBox: React.FC<{
   value: number; 
   isPrivacyMode?: boolean;
   subtitle?: string;
-}> = ({ value, isPrivacyMode, subtitle }) => (
+  onClick?: () => void;
+}> = ({ value, isPrivacyMode, subtitle, onClick }) => (
   <SummaryBox
     title="Net Cash Flow"
     value={value}
@@ -260,6 +300,42 @@ export const NetCashFlowBox: React.FC<{
     icon={<TrendingUp size={20} />}
     iconColor="#06b6d4"
     isPrivacyMode={isPrivacyMode}
+    onClick={onClick}
+  />
+);
+
+export const NetDepositsBox: React.FC<{ 
+  value: number; 
+  isPrivacyMode?: boolean;
+  subtitle?: string;
+  onClick?: () => void;
+}> = ({ value, isPrivacyMode, subtitle, onClick }) => (
+  <SummaryBox
+    title="Net Deposits"
+    value={value}
+    subtitle={subtitle || "Total cash added/removed"}
+    icon={<DollarSign size={20} />}
+    iconColor="#22c55e"
+    isPrivacyMode={isPrivacyMode}
+    onClick={onClick}
+  />
+);
+
+export const TimeWeightedReturnRateBox: React.FC<{ 
+  value: number; 
+  isPrivacyMode?: boolean;
+  subtitle?: string;
+  onClick?: () => void;
+}> = ({ value, isPrivacyMode, subtitle, onClick }) => (
+  <SummaryBox
+    title="Time-Weighted Return"
+    value={value}
+    subtitle={subtitle || "Annualized performance (TWR)"}
+    icon={<Activity size={20} />}
+    iconColor="#f97316"
+    isPrivacyMode={isPrivacyMode}
+    format="percentage"
+    onClick={onClick}
   />
 );
 
@@ -268,16 +344,31 @@ export const TotalReturnBox: React.FC<{
   isPrivacyMode?: boolean;
   subtitle?: string;
   percentValue?: number;
-}> = ({ value, isPrivacyMode, subtitle, percentValue }) => (
-  <SummaryBox
-    title="Total Return"
-    value={value}
-    subtitle={subtitle || "All-time portfolio performance"}
-    trend={percentValue}
-    icon={<TrendingUp size={20} />}
-    iconColor={value >= 0 ? '#16a34a' : '#dc2626'}
-    isPrivacyMode={isPrivacyMode}
-  />
-);
+  onClick?: () => void;
+}> = ({ value, isPrivacyMode, subtitle, percentValue, onClick }) => {
+  const mockSparklineData = [
+    { value: 10000 },
+    { value: 10500 },
+    { value: 11000 },
+    { value: 10800 },
+    { value: 11500 },
+    { value: 12000 },
+    { value: value },
+  ];
+
+  return (
+    <SummaryBox
+      title="Total Return"
+      value={value}
+      subtitle={subtitle || "All-time portfolio performance"}
+      trend={percentValue}
+      icon={<TrendingUp size={20} />}
+      iconColor={value >= 0 ? '#16a34a' : '#dc2626'}
+      isPrivacyMode={isPrivacyMode}
+      sparklineData={mockSparklineData}
+      onClick={onClick}
+    />
+  );
+};
 
 export default SummaryBox;

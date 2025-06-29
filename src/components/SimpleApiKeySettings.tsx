@@ -7,7 +7,7 @@ import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { Key, Save, Eye, EyeOff, TestTube, CheckCircle, AlertCircle, Loader } from 'lucide-react';
 import { InputField, PasswordField, SelectField } from './FormFields';
-import { AIServiceManager } from '../utils/aiServiceManager';
+import { AIServiceManager } from '../services/ai/aiServiceManager';
 
 const SettingsContainer = styled.div`
   max-width: 600px;
@@ -116,6 +116,7 @@ const KeyDisplay = styled.code`
 const API_PROVIDERS = [
   { value: 'gemini', label: 'Google Gemini AI' },
   { value: 'openai', label: 'OpenAI GPT' },
+  { value: 'openrouter', label: 'OpenRouter' },
   { value: 'yahoo_finance', label: 'Yahoo Finance' },
   { value: 'perplexity', label: 'Perplexity AI' }
 ];
@@ -124,14 +125,17 @@ interface StoredApiKey {
   provider: string;
   keyName: string;
   apiKey: string;
+  model?: string;
   createdAt: string;
   isActive: boolean;
+  isDefault: boolean;
 }
 
 const SimpleApiKeySettings: React.FC = () => {
   const [provider, setProvider] = useState('gemini');
   const [keyName, setKeyName] = useState('');
   const [apiKey, setApiKey] = useState('');
+  const [model, setModel] = useState('');
   const [storedKeys, setStoredKeys] = useState<StoredApiKey[]>([]);
   const [revealedKeys, setRevealedKeys] = useState<Set<string>>(new Set());
   const [saveStatus, setSaveStatus] = useState<{ success: boolean; message: string } | null>(null);
@@ -152,7 +156,7 @@ const SimpleApiKeySettings: React.FC = () => {
     }
   }, []);
 
-  const handleSaveApiKey = () => {
+  const handleSaveApiKey = async () => {
     if (!keyName.trim()) {
       setSaveStatus({ success: false, message: 'Please enter a name for this API key' });
       return;
@@ -168,8 +172,10 @@ const SimpleApiKeySettings: React.FC = () => {
         provider,
         keyName: keyName.trim(),
         apiKey: apiKey.trim(),
+        model: model.trim() || undefined,
         createdAt: new Date().toISOString(),
-        isActive: true
+        isActive: true,
+        isDefault: false
       };
 
       // Check if key with same name already exists
@@ -179,9 +185,9 @@ const SimpleApiKeySettings: React.FC = () => {
 
       let updatedKeys;
       if (existingIndex >= 0) {
-        // Update existing key
+        // Update existing key, preserve isDefault status
         updatedKeys = [...storedKeys];
-        updatedKeys[existingIndex] = newKey;
+        updatedKeys[existingIndex] = { ...newKey, isDefault: updatedKeys[existingIndex].isDefault };
         setSaveStatus({ success: true, message: 'API key updated successfully!' });
       } else {
         // Add new key
@@ -194,11 +200,25 @@ const SimpleApiKeySettings: React.FC = () => {
       setStoredKeys(updatedKeys);
 
       // Reinitialize AI services with new API keys
-      AIServiceManager.reinitializeServices();
+      try {
+        const aiManager = AIServiceManager.getInstance();
+        console.log('Reinitializing AI services with updated API keys...');
+        
+        // Reinitialize services to pick up new API keys from localStorage
+        await aiManager.initializeService('gemini');
+        if (newKey.provider === 'openai') {
+          await aiManager.initializeService('openai');
+        }
+        
+        console.log('✅ AI services reinitialized successfully');
+      } catch (error) {
+        console.error('❌ Error reinitializing services:', error);
+      }
 
       // Clear form
       setKeyName('');
       setApiKey('');
+      setModel('');
 
       // Clear status after 3 seconds
       setTimeout(() => setSaveStatus(null), 3000);
@@ -210,20 +230,54 @@ const SimpleApiKeySettings: React.FC = () => {
     }
   };
 
+  const setAsDefault = (targetKey: StoredApiKey) => {
+    const updatedKeys = storedKeys.map(key => ({
+      ...key,
+      isDefault: key.provider === targetKey.provider && key.keyName === targetKey.keyName
+    }));
+    
+    localStorage.setItem('stock_tracker_api_keys', JSON.stringify(updatedKeys));
+    setStoredKeys(updatedKeys);
+    setSaveStatus({ success: true, message: `Set "${targetKey.keyName}" as default for ${targetKey.provider}` });
+    setTimeout(() => setSaveStatus(null), 3000);
+  };
+
+  const getModelPlaceholder = (provider: string) => {
+    switch (provider) {
+      case 'gemini': return 'e.g., gemini-1.5-flash, gemini-1.5-pro';
+      case 'openai': return 'e.g., gpt-4o, gpt-3.5-turbo';
+      case 'openrouter': return 'e.g., anthropic/claude-3.5-sonnet, meta-llama/llama-3.1-405b';
+      case 'perplexity': return 'e.g., llama-3.1-sonar-large-128k-online';
+      default: return 'Enter model name (optional)';
+    }
+  };
+
+  const getKeyFormatHelp = (provider: string) => {
+    switch (provider) {
+      case 'gemini': return 'Starts with "AI" (e.g., AIzaSy...)';
+      case 'openai': return 'Starts with "sk-" (e.g., sk-...)';
+      case 'openrouter': return 'Starts with "sk-or-" (e.g., sk-or-...)';
+      case 'perplexity': return 'Starts with "pplx-" (e.g., pplx-...)';
+      default: return '';
+    }
+  };
+
   const handleTestApiKey = async (keyToTest: StoredApiKey) => {
     const keyId = `${keyToTest.provider}_${keyToTest.keyName}`;
     setTestingKey(keyId);
 
     try {
-      // Simple validation test
+      console.log(`🧪 Testing ${keyToTest.provider} API key: ${keyToTest.keyName}`);
+      
+      // Basic format validation first
       if (keyToTest.apiKey.length < 10) {
         throw new Error('API key appears to be too short');
       }
 
-      // Basic format validation
       const formatTests = {
         gemini: (key: string) => key.startsWith('AI') && key.length > 20,
         openai: (key: string) => key.startsWith('sk-') && key.length > 40,
+        openrouter: (key: string) => key.startsWith('sk-or-') && key.length > 40,
         yahoo_finance: (key: string) => key.length > 10,
         perplexity: (key: string) => key.startsWith('pplx-') || key.length > 20
       };
@@ -233,19 +287,53 @@ const SimpleApiKeySettings: React.FC = () => {
         throw new Error(`API key format doesn't match expected pattern for ${keyToTest.provider}`);
       }
 
-      // Simulate API test delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      console.log(`✅ Format validation passed for ${keyToTest.provider}`);
 
-      setTestResults(prev => ({
-        ...prev,
-        [keyId]: { success: true, message: 'API key format is valid and ready to use!' }
-      }));
+      // Actually test the API connection
+      const aiManager = AIServiceManager.getInstance();
+      
+      // Initialize the service with the test key
+      const initialized = await aiManager.initializeService(keyToTest.provider as any, {
+        apiKey: keyToTest.apiKey,
+        model: keyToTest.provider === 'gemini' ? 'gemini-1.5-flash' : undefined
+      });
+
+      if (!initialized) {
+        throw new Error('Failed to initialize AI service');
+      }
+
+      console.log(`🔌 Service initialized for ${keyToTest.provider}, testing connection...`);
+
+      // Get the service and test connection
+      const service = aiManager.getService(keyToTest.provider as any);
+      if (!service) {
+        throw new Error('Service not available after initialization');
+      }
+
+      // Test actual connection
+      const testResult = await service.testConnection();
+      console.log(`🔍 Connection test result:`, testResult);
+
+      if (testResult.success) {
+        const latencyInfo = testResult.latency ? ` (${testResult.latency}ms)` : '';
+        setTestResults(prev => ({
+          ...prev,
+          [keyId]: { 
+            success: true, 
+            message: `✅ API connection successful!${latencyInfo}` 
+          }
+        }));
+        console.log(`✅ ${keyToTest.provider} API test successful!`);
+      } else {
+        throw new Error(testResult.error || 'Connection test failed');
+      }
 
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Test failed with unknown error';
+      console.error(`❌ ${keyToTest.provider} API test failed:`, message);
       setTestResults(prev => ({
         ...prev,
-        [keyId]: { success: false, message }
+        [keyId]: { success: false, message: `❌ ${message}` }
       }));
     } finally {
       setTestingKey(null);
@@ -314,7 +402,17 @@ const SimpleApiKeySettings: React.FC = () => {
             value={apiKey}
             onChange={setApiKey}
             placeholder="Enter your API key here"
-            helpText="Your API key will be stored securely in your browser"
+            helpText={`${getKeyFormatHelp(provider)} - Your API key will be stored securely in your browser`}
+          />
+        </FormGroup>
+
+        <FormGroup>
+          <InputField
+            label="Model (Optional)"
+            value={model}
+            onChange={setModel}
+            placeholder={getModelPlaceholder(provider)}
+            helpText="Specify which model to use with this API key (leave empty for provider default)"
           />
         </FormGroup>
 
@@ -333,24 +431,110 @@ const SimpleApiKeySettings: React.FC = () => {
         </ActionButtons>
       </ApiKeyCard>
 
+      {/* Default Keys Summary */}
+      {storedKeys.length > 0 && (
+        <div style={{ marginBottom: '2rem' }}>
+          <h3 style={{ margin: '2rem 0 1rem 0', color: '#374151' }}>Current Default Keys</h3>
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
+            gap: '1rem' 
+          }}>
+            {API_PROVIDERS.map(provider => {
+              const defaultKey = storedKeys.find(key => key.provider === provider.value && key.isDefault);
+              return (
+                <div key={provider.value} style={{
+                  background: defaultKey ? '#f0fdf4' : '#f9fafb',
+                  border: `1px solid ${defaultKey ? '#bbf7d0' : '#e5e7eb'}`,
+                  borderRadius: '8px',
+                  padding: '1rem'
+                }}>
+                  <div style={{ 
+                    fontSize: '0.875rem', 
+                    fontWeight: '600', 
+                    color: '#374151',
+                    marginBottom: '0.5rem'
+                  }}>
+                    {provider.label}
+                  </div>
+                  {defaultKey ? (
+                    <div>
+                      <div style={{ fontSize: '0.875rem', color: '#166534' }}>
+                        ✅ {defaultKey.keyName}
+                      </div>
+                      {defaultKey.model && (
+                        <div style={{ 
+                          fontSize: '0.75rem', 
+                          color: '#166534', 
+                          fontFamily: 'monospace',
+                          marginTop: '0.25rem'
+                        }}>
+                          {defaultKey.model}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                      No default key set
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Stored API Keys */}
       {storedKeys.length > 0 && (
         <div>
-          <h3 style={{ margin: '2rem 0 1rem 0', color: '#374151' }}>Stored API Keys</h3>
+          <h3 style={{ margin: '2rem 0 1rem 0', color: '#374151' }}>All Stored API Keys</h3>
           {storedKeys.map((key, index) => {
             const keyId = `${key.provider}_${key.keyName}`;
             return (
               <ApiKeyCard key={index}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                  <div>
-                    <h4 style={{ margin: 0, color: '#374151' }}>{key.keyName}</h4>
-                    <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.875rem', color: '#6b7280' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                      <h4 style={{ margin: 0, color: '#374151' }}>{key.keyName}</h4>
+                      {key.isDefault && (
+                        <span style={{ 
+                          background: '#dcfce7', 
+                          color: '#166534', 
+                          fontSize: '0.75rem', 
+                          padding: '0.125rem 0.5rem', 
+                          borderRadius: '12px',
+                          fontWeight: '500'
+                        }}>
+                          Default
+                        </span>
+                      )}
+                    </div>
+                    <p style={{ margin: '0', fontSize: '0.875rem', color: '#6b7280' }}>
                       {API_PROVIDERS.find(p => p.value === key.provider)?.label || key.provider}
+                      {key.model && (
+                        <span style={{ marginLeft: '0.5rem', fontFamily: 'monospace', background: '#f3f4f6', padding: '0.125rem 0.25rem', borderRadius: '4px' }}>
+                          {key.model}
+                        </span>
+                      )}
+                    </p>
+                    <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.75rem', color: '#9ca3af' }}>
+                      Created: {new Date(key.createdAt).toLocaleDateString()}
                     </p>
                   </div>
-                  <Button onClick={() => deleteApiKey(index)} style={{ color: '#ef4444' }}>
-                    Delete
-                  </Button>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    {!key.isDefault && (
+                      <Button 
+                        onClick={() => setAsDefault(key)}
+                        style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem', color: '#059669' }}
+                      >
+                        Set Default
+                      </Button>
+                    )}
+                    <Button onClick={() => deleteApiKey(index)} style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem', color: '#ef4444' }}>
+                      Delete
+                    </Button>
+                  </div>
                 </div>
 
                 <FormGroup>

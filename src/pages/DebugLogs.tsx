@@ -1,5 +1,5 @@
 import React from 'react';
-import InlineLogViewer from '../components/InlineLogViewer';
+// InlineLogViewer component was removed during cleanup
 import { debug } from '../utils/debug';
 
 const DebugLogsPage: React.FC = () => {
@@ -57,12 +57,10 @@ const DebugLogsPage: React.FC = () => {
         </div>
 
         <div className="card-content">
-          <InlineLogViewer 
-            height="600px" 
-            showControls={true}
-            autoScroll={true}
-            maxLogs={1000}
-          />
+          <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+            InlineLogViewer component was removed during cleanup. 
+            Use browser dev tools console for debugging.
+          </div>
         </div>
       </div>
 

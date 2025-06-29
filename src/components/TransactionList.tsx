@@ -471,6 +471,9 @@ const TransactionList: React.FC<TransactionListProps> = ({
   const [filterType, setFilterType] = useState<string>('all');
   const [filterAsset, setFilterAsset] = useState<string>('all');
   const [filterSymbol, setFilterSymbol] = useState<string>('');
+  const [filterDateRange, setFilterDateRange] = useState<string>('all');
+  const [customStartDate, setCustomStartDate] = useState<string>('');
+  const [customEndDate, setCustomEndDate] = useState<string>('');
 
   const filteredTransactions = useMemo(() => {
     return transactions.filter(transaction => {
@@ -479,9 +482,65 @@ const TransactionList: React.FC<TransactionListProps> = ({
       const symbolMatch = !filterSymbol || 
         transaction.asset?.symbol?.toLowerCase().includes(filterSymbol.toLowerCase());
       
-      return typeMatch && assetMatch && symbolMatch;
+      // Date range filtering
+      let dateMatch = true;
+      if (filterDateRange !== 'all') {
+        const transactionDate = new Date(transaction.transaction_date);
+        const today = new Date();
+        const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        
+        switch (filterDateRange) {
+          case 'today': {
+            dateMatch = transactionDate >= todayStart;
+            break;
+          }
+          case '7days': {
+            const sevenDaysAgo = new Date(todayStart);
+            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+            dateMatch = transactionDate >= sevenDaysAgo;
+            break;
+          }
+          case '30days': {
+            const thirtyDaysAgo = new Date(todayStart);
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+            dateMatch = transactionDate >= thirtyDaysAgo;
+            break;
+          }
+          case '90days': {
+            const ninetyDaysAgo = new Date(todayStart);
+            ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+            dateMatch = transactionDate >= ninetyDaysAgo;
+            break;
+          }
+          case 'thisYear': {
+            const yearStart = new Date(today.getFullYear(), 0, 1);
+            dateMatch = transactionDate >= yearStart;
+            break;
+          }
+          case 'custom': {
+            if (customStartDate && customEndDate) {
+              const startDate = new Date(customStartDate);
+              const endDate = new Date(customEndDate);
+              endDate.setHours(23, 59, 59, 999); // Include the entire end date
+              dateMatch = transactionDate >= startDate && transactionDate <= endDate;
+            } else if (customStartDate) {
+              const startDate = new Date(customStartDate);
+              dateMatch = transactionDate >= startDate;
+            } else if (customEndDate) {
+              const endDate = new Date(customEndDate);
+              endDate.setHours(23, 59, 59, 999);
+              dateMatch = transactionDate <= endDate;
+            }
+            break;
+          }
+          default:
+            dateMatch = true;
+        }
+      }
+      
+      return typeMatch && assetMatch && symbolMatch && dateMatch;
     });
-  }, [transactions, filterType, filterAsset, filterSymbol]);
+  }, [transactions, filterType, filterAsset, filterSymbol, filterDateRange, customStartDate, customEndDate]);
 
   const sortedTransactions = useMemo(() => {
     return [...filteredTransactions].sort((a, b) => 
@@ -535,6 +594,36 @@ const TransactionList: React.FC<TransactionListProps> = ({
           value={filterSymbol}
           onChange={(e) => setFilterSymbol(e.target.value)}
         />
+        
+        <FilterSelect
+          value={filterDateRange}
+          onChange={(e) => setFilterDateRange(e.target.value)}
+        >
+          <option value="all">All Dates</option>
+          <option value="today">Today</option>
+          <option value="7days">Last 7 Days</option>
+          <option value="30days">Last 30 Days</option>
+          <option value="90days">Last 90 Days</option>
+          <option value="thisYear">This Year</option>
+          <option value="custom">Custom Range</option>
+        </FilterSelect>
+        
+        {filterDateRange === 'custom' && (
+          <>
+            <FilterInput
+              type="date"
+              placeholder="Start Date"
+              value={customStartDate}
+              onChange={(e) => setCustomStartDate(e.target.value)}
+            />
+            <FilterInput
+              type="date"
+              placeholder="End Date"
+              value={customEndDate}
+              onChange={(e) => setCustomEndDate(e.target.value)}
+            />
+          </>
+        )}
       </FilterBar>
 
       {recentTransactions.length === 0 ? (

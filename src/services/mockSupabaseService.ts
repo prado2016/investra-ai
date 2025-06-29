@@ -68,6 +68,7 @@ class MockTransactionService {
       notes: 'Mock transaction created in test mode',
       external_id: null,
       broker_name: 'Test Broker',
+      strategy_type: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       asset: this.mockAssets[0] // Use first mock asset as default

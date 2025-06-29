@@ -22,7 +22,7 @@ const ModalContent = styled.div`
   border-radius: var(--radius-lg);
   padding: var(--space-6);
   width: 90%;
-  max-width: 500px;
+  max-width: 600px;
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: var(--shadow-lg);
@@ -169,6 +169,19 @@ const InfoText = styled.p`
   margin: 0 0 var(--space-4) 0;
 `;
 
+const SectionTitle = styled.h3`
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  margin: var(--space-6) 0 var(--space-3) 0;
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border-secondary);
+  
+  &:first-of-type {
+    margin-top: 0;
+  }
+`;
+
 interface TransactionEditModalProps {
   transaction: TransactionWithAsset;
   isOpen: boolean;
@@ -178,6 +191,13 @@ interface TransactionEditModalProps {
     quantity: number;
     price: number;
     transaction_date: string;
+    fees?: number;
+    currency?: string;
+    notes?: string;
+    settlement_date?: string;
+    exchange_rate?: number;
+    broker_name?: string;
+    external_id?: string;
   }) => Promise<void>;
 }
 
@@ -191,7 +211,14 @@ export const TransactionEditModal: React.FC<TransactionEditModalProps> = ({
     transaction_type: transaction.transaction_type || 'buy',
     quantity: transaction.quantity?.toString() || '',
     price: transaction.price?.toString() || '',
-    transaction_date: transaction.transaction_date?.split('T')[0] || ''
+    transaction_date: transaction.transaction_date?.split('T')[0] || '',
+    fees: transaction.fees?.toString() || '0',
+    currency: transaction.currency || 'USD',
+    notes: transaction.notes || '',
+    settlement_date: transaction.settlement_date?.split('T')[0] || '',
+    exchange_rate: transaction.exchange_rate?.toString() || '1',
+    broker_name: transaction.broker_name || '',
+    external_id: transaction.external_id || ''
   });
   const [saving, setSaving] = useState(false);
 
@@ -209,7 +236,14 @@ export const TransactionEditModal: React.FC<TransactionEditModalProps> = ({
         transaction_type: formData.transaction_type,
         quantity: parseFloat(formData.quantity),
         price: parseFloat(formData.price),
-        transaction_date: formData.transaction_date
+        transaction_date: formData.transaction_date,
+        fees: formData.fees ? parseFloat(formData.fees) : 0,
+        currency: formData.currency,
+        notes: formData.notes || undefined,
+        settlement_date: formData.settlement_date || undefined,
+        exchange_rate: formData.exchange_rate ? parseFloat(formData.exchange_rate) : 1,
+        broker_name: formData.broker_name || undefined,
+        external_id: formData.external_id || undefined
       });
       onClose();
     } catch (error) {
@@ -251,6 +285,8 @@ export const TransactionEditModal: React.FC<TransactionEditModalProps> = ({
         </InfoText>
 
         <Form onSubmit={handleSubmit}>
+          <SectionTitle>Basic Transaction Details</SectionTitle>
+          
           <FieldGroup>
             <Label>Transaction Type *</Label>
             <Select 
@@ -305,9 +341,94 @@ export const TransactionEditModal: React.FC<TransactionEditModalProps> = ({
             />
           </FieldGroup>
 
+          <SectionTitle>Financial Details</SectionTitle>
+          
+          <FieldGroup>
+            <Label>Fees</Label>
+            <Input
+              type="number"
+              step="0.01"
+              min="0"
+              value={formData.fees}
+              onChange={(e) => handleChange('fees', e.target.value)}
+              placeholder="Enter transaction fees (e.g., 1.50)"
+            />
+          </FieldGroup>
+
+          <FieldGroup>
+            <Label>Currency</Label>
+            <Select
+              value={formData.currency}
+              onChange={(e) => handleChange('currency', e.target.value)}
+            >
+              <option value="USD">USD</option>
+              <option value="EUR">EUR</option>
+              <option value="GBP">GBP</option>
+              <option value="CAD">CAD</option>
+              <option value="JPY">JPY</option>
+              <option value="AUD">AUD</option>
+              <option value="CHF">CHF</option>
+              <option value="CNY">CNY</option>
+            </Select>
+          </FieldGroup>
+
+          <FieldGroup>
+            <Label>Settlement Date</Label>
+            <Input
+              type="date"
+              value={formData.settlement_date}
+              onChange={(e) => handleChange('settlement_date', e.target.value)}
+              max={new Date().toISOString().split('T')[0]}
+            />
+          </FieldGroup>
+
+          <FieldGroup>
+            <Label>Exchange Rate</Label>
+            <Input
+              type="number"
+              step="0.000001"
+              min="0"
+              value={formData.exchange_rate}
+              onChange={(e) => handleChange('exchange_rate', e.target.value)}
+              placeholder="Exchange rate (e.g., 1.0 for same currency)"
+            />
+          </FieldGroup>
+
+          <FieldGroup>
+            <Label>Broker Name</Label>
+            <Input
+              type="text"
+              value={formData.broker_name}
+              onChange={(e) => handleChange('broker_name', e.target.value)}
+              placeholder="Enter broker name (e.g., Fidelity, TD Ameritrade)"
+            />
+          </FieldGroup>
+
+          <SectionTitle>Additional Information</SectionTitle>
+          
+          <FieldGroup>
+            <Label>External ID</Label>
+            <Input
+              type="text"
+              value={formData.external_id}
+              onChange={(e) => handleChange('external_id', e.target.value)}
+              placeholder="External reference ID or order number"
+            />
+          </FieldGroup>
+
+          <FieldGroup>
+            <Label>Notes</Label>
+            <Input
+              type="text"
+              value={formData.notes}
+              onChange={(e) => handleChange('notes', e.target.value)}
+              placeholder="Additional notes about this transaction"
+            />
+          </FieldGroup>
+
           {totalAmount > 0 && (
             <InfoText>
-              Total Amount: {formatCurrency(totalAmount, transaction.currency || 'USD')}
+              Total Amount: {formatCurrency(totalAmount, formData.currency || 'USD')}
             </InfoText>
           )}
 

@@ -44,7 +44,6 @@
     "monitoring-api.ts",
     "production-server.ts",
     "standalone-enhanced-server.ts",
-    "middleware/**/*",
     "routes/**/*"
   ]
 }

@@ -1,0 +1,274 @@
+name: Manual Production Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Type of release'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+          - hotfix
+      deploy_frontend:
+        description: 'Deploy frontend platform'
+        required: false
+        default: true
+        type: boolean
+      deploy_email_puller:
+        description: 'Deploy email puller service'
+        required: false
+        default: false
+        type: boolean
+      release_notes:
+        description: 'Release notes or description'
+        required: false
+        default: 'Manual production release'
+        type: string
+
+env:
+  NODE_VERSION: '18'
+  FRONTEND_BUILD_DIR: dist
+  FRONTEND_DEPLOY_DIR: /var/www/investra
+  EMAIL_PULLER_DEPLOY_DIR: /opt/investra/email-puller
+
+jobs:
+  pre-release-checks:
+    name: Pre-Release Validation
+    runs-on: ubuntu-latest
+    
+    outputs:
+      can_deploy: ${{ steps.validation.outputs.can_deploy }}
+      version: ${{ steps.version.outputs.version }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run validation checks
+      id: validation
+      run: |
+        echo "🔍 Running pre-release validation..."
+        
+        # Check if builds are successful
+        FRONTEND_BUILD_SUCCESS=false
+        EMAIL_PULLER_BUILD_SUCCESS=false
+        
+        # Test frontend build
+        if npm run build; then
+          FRONTEND_BUILD_SUCCESS=true
+          echo "✅ Frontend build successful"
+        else
+          echo "❌ Frontend build failed"
+        fi
+        
+        # Test email puller build
+        if [ -d "email-puller" ]; then
+          cd email-puller
+          if npm ci && npm run build; then
+            EMAIL_PULLER_BUILD_SUCCESS=true
+            echo "✅ Email puller build successful"
+          else
+            echo "❌ Email puller build failed"
+          fi
+          cd ..
+        else
+          echo "ℹ️  Email puller directory not found (may not exist yet)"
+          EMAIL_PULLER_BUILD_SUCCESS=true  # Allow deployment without email puller for now
+        fi
+        
+        # Determine if deployment can proceed
+        CAN_DEPLOY=false
+        if [[ "${{ github.event.inputs.deploy_frontend }}" == "true" && "$FRONTEND_BUILD_SUCCESS" == "true" ]]; then
+          CAN_DEPLOY=true
+        elif [[ "${{ github.event.inputs.deploy_email_puller }}" == "true" && "$EMAIL_PULLER_BUILD_SUCCESS" == "true" ]]; then
+          CAN_DEPLOY=true
+        elif [[ "${{ github.event.inputs.deploy_frontend }}" == "false" && "${{ github.event.inputs.deploy_email_puller }}" == "false" ]]; then
+          echo "⚠️  No deployment targets selected"
+        fi
+        
+        echo "can_deploy=$CAN_DEPLOY" >> $GITHUB_OUTPUT
+
+    - name: Generate version
+      id: version
+      run: |
+        CURRENT_VERSION=$(node -p "require('./package.json').version" 2>/dev/null || echo "1.0.0")
+        RELEASE_TYPE="${{ github.event.inputs.release_type }}"
+        
+        # Simple version bump logic
+        IFS='.' read -ra VERSION_PARTS <<< "$CURRENT_VERSION"
+        MAJOR=${VERSION_PARTS[0]}
+        MINOR=${VERSION_PARTS[1]}
+        PATCH=${VERSION_PARTS[2]}
+        
+        case $RELEASE_TYPE in
+          "major")
+            MAJOR=$((MAJOR + 1))
+            MINOR=0
+            PATCH=0
+            ;;
+          "minor")
+            MINOR=$((MINOR + 1))
+            PATCH=0
+            ;;
+          "patch"|"hotfix")
+            PATCH=$((PATCH + 1))
+            ;;
+        esac
+        
+        NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+        echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+        echo "🏷️  Version: $CURRENT_VERSION → $NEW_VERSION"
+
+  deploy-frontend:
+    name: Deploy Frontend Platform
+    runs-on: self-hosted
+    needs: pre-release-checks
+    if: needs.pre-release-checks.outputs.can_deploy == 'true' && github.event.inputs.deploy_frontend == 'true'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Build frontend
+      run: npm run build
+
+    - name: Backup current frontend
+      run: |
+        if [ -d "${{ env.FRONTEND_DEPLOY_DIR }}" ]; then
+          BACKUP_DIR="${{ env.FRONTEND_DEPLOY_DIR }}.backup.$(date +%Y%m%d_%H%M%S)"
+          cp -r "${{ env.FRONTEND_DEPLOY_DIR }}" "$BACKUP_DIR"
+          echo "✅ Frontend backup created: $BACKUP_DIR"
+        fi
+
+    - name: Deploy frontend
+      run: |
+        if [ -d "${{ env.FRONTEND_BUILD_DIR }}" ]; then
+          rsync -av --delete "${{ env.FRONTEND_BUILD_DIR }}/" "${{ env.FRONTEND_DEPLOY_DIR }}/"
+          echo "✅ Frontend deployed to ${{ env.FRONTEND_DEPLOY_DIR }}"
+        else
+          echo "❌ Build directory not found"
+          exit 1
+        fi
+
+    - name: Frontend health check
+      run: |
+        sleep 5
+        if curl -f -s "http://localhost/" > /dev/null; then
+          echo "✅ Frontend health check passed"
+        else
+          echo "⚠️  Frontend health check failed (may be expected)"
+        fi
+
+  deploy-email-puller:
+    name: Deploy Email Puller Service
+    runs-on: self-hosted
+    needs: pre-release-checks
+    if: needs.pre-release-checks.outputs.can_deploy == 'true' && github.event.inputs.deploy_email_puller == 'true'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+
+    - name: Build email puller
+      run: |
+        cd email-puller
+        npm ci
+        npm run build
+
+    - name: Create deployment directory
+      run: |
+        mkdir -p "${{ env.EMAIL_PULLER_DEPLOY_DIR }}"
+        chown investra:investra "${{ env.EMAIL_PULLER_DEPLOY_DIR }}"
+
+    - name: Deploy email puller
+      run: |
+        cd email-puller
+        if [ -f "dist/imap-puller.js" ]; then
+          cp "dist/imap-puller.js" "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/"
+          cp "package.json" "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/"
+          chown -R investra:investra "${{ env.EMAIL_PULLER_DEPLOY_DIR }}"
+          chmod 755 "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/imap-puller.js"
+          echo "✅ Email puller deployed"
+        else
+          echo "❌ Email puller build not found"
+          exit 1
+        fi
+
+    - name: Restart email puller service
+      run: |
+        cd "${{ env.EMAIL_PULLER_DEPLOY_DIR }}"
+        pm2 stop investra-email-puller || true
+        pm2 delete investra-email-puller || true
+        pm2 start imap-puller.js --name investra-email-puller
+        pm2 save
+        echo "✅ Email puller service restarted"
+
+    - name: Email puller status check
+      run: |
+        sleep 5
+        if pm2 list | grep -q "investra-email-puller.*online"; then
+          echo "✅ Email puller service running"
+        else
+          echo "❌ Email puller service not running"
+          pm2 logs investra-email-puller --lines 10 || true
+          exit 1
+        fi
+
+  release-summary:
+    name: Release Summary
+    runs-on: ubuntu-latest
+    needs: [pre-release-checks, deploy-frontend, deploy-email-puller]
+    if: always()
+    
+    steps:
+    - name: Generate release summary
+      run: |
+        echo "🚀 Production Release Summary"
+        echo "============================"
+        echo "Release Type: ${{ github.event.inputs.release_type }}"
+        echo "Version: ${{ needs.pre-release-checks.outputs.version }}"
+        echo "Release Notes: ${{ github.event.inputs.release_notes }}"
+        echo ""
+        echo "Deployment Status:"
+        echo "Frontend: ${{ github.event.inputs.deploy_frontend == 'true' && '🎯 Deployed' || '⏭️ Skipped' }} (${{ needs.deploy-frontend.result || 'not run' }})"
+        echo "Email Puller: ${{ github.event.inputs.deploy_email_puller == 'true' && '🎯 Deployed' || '⏭️ Skipped' }} (${{ needs.deploy-email-puller.result || 'not run' }})"
+        echo ""
+        echo "Pre-release Checks: ${{ needs.pre-release-checks.result }}"
+        echo ""
+        if [[ "${{ needs.pre-release-checks.result }}" == "success" ]]; then
+          echo "✅ Release completed successfully"
+        else
+          echo "❌ Release failed during validation"
+        fi
+        echo ""
+        echo "Triggered by: ${{ github.actor }}"
+        echo "Commit: ${{ github.sha }}"
+        echo "Branch: ${{ github.ref_name }}"
