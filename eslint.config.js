@@ -180,6 +180,39 @@ export default [
     },
   },
 
+  // JavaScript files in server/
+  {
+    files: ['server/**/*.js'],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+        __dirname: 'readonly',
+        __filename: 'readonly',
+        process: 'readonly',
+        Buffer: 'readonly',
+        setTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearTimeout: 'readonly',
+        clearInterval: 'readonly',
+        console: 'readonly',
+        module: 'readonly',
+        exports: 'readonly',
+        require: 'readonly',
+      },
+    },
+    rules: {
+      'no-unused-vars': 'warn',
+      'no-undef': 'warn',
+      'no-console': 'off',
+      'no-debugger': 'warn',
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unused-vars': 'off',
+      'no-prototype-builtins': 'off',
+      '@typescript-eslint/no-require-imports': 'off',
+      'no-useless-escape': 'off',
+    },
+  },
+
   // TypeScript files in server/
   {
     files: ['server/**/*.ts'],
