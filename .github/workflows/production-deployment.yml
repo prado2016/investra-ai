@@ -99,7 +99,21 @@ jobs:
         sudo rsync -av --delete dist/ "${{ env.FRONTEND_DEPLOY_DIR }}/"
         
         # Set proper permissions
-        sudo chown -R www-data:www-data "${{ env.FRONTEND_DEPLOY_DIR }}"
+        # Use current user if www-data doesn't exist
+        if id "www-data" &>/dev/null; then
+          sudo chown -R www-data:www-data "${{ env.FRONTEND_DEPLOY_DIR }}"
+        else
+          # Fallback to current user or common web server users
+          WEB_USER=$(whoami)
+          if id "nginx" &>/dev/null; then
+            WEB_USER="nginx"
+          elif id "apache" &>/dev/null; then
+            WEB_USER="apache"
+          elif id "www" &>/dev/null; then
+            WEB_USER="www"
+          fi
+          sudo chown -R "$WEB_USER:$WEB_USER" "${{ env.FRONTEND_DEPLOY_DIR }}"
+        fi
         sudo chmod -R 755 "${{ env.FRONTEND_DEPLOY_DIR }}"
         
         echo "✅ Frontend deployed to production"
@@ -126,7 +140,14 @@ jobs:
           sudo cp package.json "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/"
           
           # Set permissions
-          sudo chown -R investra:investra "${{ env.EMAIL_PULLER_DEPLOY_DIR }}"
+          # Use current user if investra user doesn't exist
+          if id "investra" &>/dev/null; then
+            sudo chown -R investra:investra "${{ env.EMAIL_PULLER_DEPLOY_DIR }}"
+          else
+            # Fallback to current user
+            CURRENT_USER=$(whoami)
+            sudo chown -R "$CURRENT_USER:$CURRENT_USER" "${{ env.EMAIL_PULLER_DEPLOY_DIR }}"
+          fi
           sudo chmod 755 "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/imap-puller.js"
           
           echo "✅ Email-puller deployed to production"
