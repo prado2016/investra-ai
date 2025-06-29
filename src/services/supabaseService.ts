@@ -1661,17 +1661,26 @@ export class TransactionService {
           const recordIds = testSelect?.map(record => record.id) || [];
           console.log('🎯 Attempting to update records by ID:', recordIds);
           
-          // Try setting transaction_id to a dummy value first to test if null is the issue
-          const { data: testUpdate, error: testUpdateError } = await supabase
+          // Try direct update using the exact ID we know exists
+          console.log('🧪 Using direct ID update for:', recordIds[0]);
+          const { data: directUpdate, error: directError } = await supabase
             .from('imap_processed')
-            .update({ transaction_id: '00000000-0000-0000-0000-000000000000' })
+            .update({ transaction_id: null })
             .eq('id', recordIds[0])
-            .select('id, transaction_id');
+            .select('*');
             
-          console.log('🧪 Test update with dummy UUID:', testUpdate);
-          console.log('🧪 Test update error:', testUpdateError);
+          console.log('🧪 Direct update result:', directUpdate);
+          console.log('🧪 Direct update error:', directError);
           
-          // If that worked, now try setting to null
+          // Also try without the select to see if that's causing issues
+          const { error: updateOnlyError } = await supabase
+            .from('imap_processed')
+            .update({ transaction_id: null })
+            .eq('id', recordIds[0]);
+            
+          console.log('🧪 Update without select error:', updateOnlyError);
+          
+          // Final attempt with original query
           const { data: updatedRecords, error: updateError } = await supabase
             .from('imap_processed')
             .update({ transaction_id: null })
