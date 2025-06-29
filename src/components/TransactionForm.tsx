@@ -178,11 +178,22 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                 name="assetSymbol"
                 label="Symbol"
                 value={form.values.assetSymbol}
-                onChange={(value) => form.setValue('assetSymbol', value)}
+                onChange={(value, metadata) => {
+                  form.setValue('assetSymbol', value);
+                  // Auto-fill asset type if AI provides it
+                  if (metadata?.assetType) {
+                    form.setValue('assetType', metadata.assetType);
+                  }
+                }}
                 onBlur={() => form.setFieldTouched('assetSymbol')}
                 error={form.touched.assetSymbol ? form.errors.assetSymbol?.message : ''}
                 required
                 disabled={form.isSubmitting || loading}
+                enableAI={true}
+                showAIButton={true}
+                showSuggestions={true}
+                showValidation={true}
+                placeholder="Enter symbol or natural language (e.g., 'NVDL Jun 20 $61 CALL')"
               />
             </div>
 
