@@ -1632,15 +1632,23 @@ export class TransactionService {
         console.log(`📧 Found ${referencingRecords?.length || 0} imap_processed records referencing this transaction`);
         
         if (referencingRecords && referencingRecords.length > 0) {
+          console.log('🔍 Detailed analysis of referencing records:', referencingRecords);
+          
+          // Log details about what we're trying to update
+          console.log(`🔄 Attempting to update imap_processed records with transaction_id: ${transactionId}`);
+          console.log(`🔄 Transaction ID type: ${typeof transactionId}`);
+          console.log(`🔄 Transaction ID length: ${transactionId.length}`);
+          
           // Update the references to NULL
           const { data: updatedRecords, error: updateError } = await supabase
             .from('imap_processed')
             .update({ transaction_id: null })
             .eq('transaction_id', transactionId)
-            .select('id');
+            .select('id, transaction_id');
 
           if (updateError) {
             console.error('❌ Failed to update imap_processed references:', updateError.message);
+            console.error('❌ Update error details:', updateError);
             return { 
               data: null, 
               error: `Cannot delete transaction: Failed to remove email processing references - ${updateError.message}`, 
@@ -1648,7 +1656,8 @@ export class TransactionService {
             };
           }
           
-          console.log(`✅ Successfully updated ${updatedRecords?.length || 0} imap_processed records to remove transaction reference`);
+          console.log(`✅ Update query completed - updated ${updatedRecords?.length || 0} records`);
+          console.log('📊 Updated records details:', updatedRecords);
           
           // Verify the update worked by checking again
           const { data: remainingRefs } = await supabase
