@@ -1639,6 +1639,15 @@ export class TransactionService {
           console.log(`🔄 Transaction ID type: ${typeof transactionId}`);
           console.log(`🔄 Transaction ID length: ${transactionId.length}`);
           
+          // Log the actual transaction_id values from the referencing records for comparison
+          referencingRecords.forEach((record, index) => {
+            console.log(`🔍 Record ${index + 1} transaction_id: "${record.transaction_id}"`);
+            console.log(`🔍 Record ${index + 1} transaction_id type: ${typeof record.transaction_id}`);
+            console.log(`🔍 Record ${index + 1} transaction_id length: ${record.transaction_id?.length}`);
+            console.log(`🔍 Exact match check: ${record.transaction_id === transactionId}`);
+            console.log(`🔍 Trimmed match check: ${record.transaction_id?.trim() === transactionId.trim()}`);
+          });
+          
           // Update the references to NULL
           const { data: updatedRecords, error: updateError } = await supabase
             .from('imap_processed')
