@@ -297,6 +297,9 @@ export function isETF(symbol: string): boolean {
     'VTI', 'VXUS', 'VEA', 'VWO', 'VTV', 'VUG', 'VOO', 'VIG', 'VYM', 'VGIT',
     // iShares
     'IVV', 'IEFA', 'IEMG', 'IJH', 'IJR', 'IXUS', 'ITOT', 'IUSB', 'IUSG', 'IUSV',
+    // Leveraged/Inverse ETFs
+    'NVDL', 'NVDU', 'NVDD', 'SOXL', 'SOXS', 'TQQQ', 'SQQQ', 'SPXL', 'SPXS',
+    'UPRO', 'SPXU', 'TECL', 'TECS', 'FNGU', 'FNGD', 'LABU', 'LABD',
     // Canadian ETFs
     'VTI.TO', 'VXUS.TO', 'VEA.TO', 'TDB902.TO', 'XIC.TO', 'VCN.TO'
   ];
