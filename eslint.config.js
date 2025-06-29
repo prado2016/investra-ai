@@ -266,6 +266,41 @@ export default [
     },
   },
 
+  // Root-level Node.js script files
+  {
+    files: ['*.js'],
+    ignores: ['*.config.js', 'vite.config.js', 'eslint.config.js'],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+        __dirname: 'readonly',
+        __filename: 'readonly',
+        process: 'readonly',
+        Buffer: 'readonly',
+        setTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearTimeout: 'readonly',
+        clearInterval: 'readonly',
+        console: 'readonly',
+        module: 'readonly',
+        exports: 'readonly',
+        require: 'readonly',
+        fetch: 'readonly',
+      },
+    },
+    rules: {
+      'no-unused-vars': 'warn',
+      'no-undef': 'warn',
+      'no-console': 'off',
+      'no-debugger': 'warn',
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unused-vars': 'off',
+      'no-prototype-builtins': 'off',
+      '@typescript-eslint/no-require-imports': 'off',
+      'no-useless-escape': 'off',
+    },
+  },
+
   // Declaration files (d.ts)
   {
     files: ['**/*.d.ts', 'imapflow.d.ts', '@types/**/*.d.ts'],

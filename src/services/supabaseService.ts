@@ -1617,22 +1617,35 @@ export class TransactionService {
     }
 
     try {
+      // First, update any imap_processed records that reference this transaction
+      // Set transaction_id to NULL instead of deleting the email processing record
+      const { error: updateError } = await supabase
+        .from('imap_processed')
+        .update({ transaction_id: null })
+        .eq('transaction_id', transactionId);
+
+      if (updateError) {
+        console.warn('Warning: Failed to update imap_processed references:', updateError.message);
+        // Continue with deletion anyway - this warning is not critical
+      }
+
+      // Now delete the transaction
       const { error } = await supabase
         .from('transactions')
         .delete()
-        .eq('id', transactionId)
+        .eq('id', transactionId);
 
       if (error) {
-        return { data: null, error: error.message, success: false }
+        return { data: null, error: error.message, success: false };
       }
 
-      return { data: true, error: null, success: true }
+      return { data: true, error: null, success: true };
     } catch (error) {
       return { 
         data: null, 
         error: error instanceof Error ? error.message : 'Unknown error', 
         success: false 
-      }
+      };
     }
   }
 
@@ -1650,7 +1663,11 @@ export class TransactionService {
       fees?: number;
       currency?: string;
       transaction_date?: string;
+      settlement_date?: string;
+      exchange_rate?: number;
       notes?: string;
+      broker_name?: string;
+      external_id?: string;
     }
   ): Promise<ServiceResponse<Transaction>> {
     // Use mock service in test mode

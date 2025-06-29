@@ -237,6 +237,13 @@ const TransactionsPage: React.FC = () => {
     quantity: number;
     price: number;
     transaction_date: string;
+    fees?: number;
+    currency?: string;
+    notes?: string;
+    settlement_date?: string;
+    exchange_rate?: number;
+    broker_name?: string;
+    external_id?: string;
   }) => {
     if (!editingTransaction) return;
 
@@ -253,7 +260,14 @@ const TransactionsPage: React.FC = () => {
           quantity: updatedData.quantity,
           price: updatedData.price,
           total_amount: totalAmount,
-          transaction_date: updatedData.transaction_date
+          transaction_date: updatedData.transaction_date,
+          fees: updatedData.fees,
+          currency: updatedData.currency,
+          notes: updatedData.notes,
+          ...(updatedData.settlement_date && { settlement_date: updatedData.settlement_date }),
+          exchange_rate: updatedData.exchange_rate,
+          broker_name: updatedData.broker_name,
+          external_id: updatedData.external_id
         }
       );
       
