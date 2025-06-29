@@ -124,8 +124,12 @@ jobs:
           echo "📧 Building email-puller for production..."
           
           cd email-puller
-          npm ci --production
+          # Install all dependencies (including dev dependencies for build)
+          npm ci
+          # Build the project
           npm run build
+          # Clean up dev dependencies after build
+          npm ci --production
           
           # Create deployment directory
           sudo mkdir -p "${{ env.EMAIL_PULLER_DEPLOY_DIR }}"
