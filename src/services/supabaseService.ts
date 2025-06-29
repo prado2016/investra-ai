@@ -1617,28 +1617,53 @@ export class TransactionService {
     }
 
     try {
-      // First, update any imap_processed records that reference this transaction
-      // Set transaction_id to NULL instead of deleting the email processing record
-      const { error: updateError } = await supabase
+      console.log(`🗑️ Attempting to delete transaction: ${transactionId}`);
+      
+      // First, check if there are any imap_processed records referencing this transaction
+      const { data: referencingRecords, error: checkError } = await supabase
         .from('imap_processed')
-        .update({ transaction_id: null })
+        .select('id, transaction_id')
         .eq('transaction_id', transactionId);
+      
+      if (checkError) {
+        console.warn('⚠️ Could not check imap_processed references:', checkError.message);
+        console.warn('⚠️ This might mean the table does not exist or access is denied');
+      } else {
+        console.log(`📧 Found ${referencingRecords?.length || 0} imap_processed records referencing this transaction`);
+        
+        if (referencingRecords && referencingRecords.length > 0) {
+          // Update the references to NULL
+          const { error: updateError, count } = await supabase
+            .from('imap_processed')
+            .update({ transaction_id: null })
+            .eq('transaction_id', transactionId);
 
-      if (updateError) {
-        console.warn('Warning: Failed to update imap_processed references:', updateError.message);
-        // Continue with deletion anyway - this warning is not critical
+          if (updateError) {
+            console.error('❌ Failed to update imap_processed references:', updateError.message);
+            return { 
+              data: null, 
+              error: `Cannot delete transaction: Failed to remove email processing references - ${updateError.message}`, 
+              success: false 
+            };
+          }
+          
+          console.log(`✅ Successfully updated ${count} imap_processed records to remove transaction reference`);
+        }
       }
 
       // Now delete the transaction
+      console.log(`🗑️ Proceeding to delete transaction: ${transactionId}`);
       const { error } = await supabase
         .from('transactions')
         .delete()
         .eq('id', transactionId);
 
       if (error) {
+        console.error('❌ Failed to delete transaction:', error.message);
         return { data: null, error: error.message, success: false };
       }
 
+      console.log(`✅ Successfully deleted transaction: ${transactionId}`);
       return { data: true, error: null, success: true };
     } catch (error) {
       return { 
