@@ -1648,6 +1648,15 @@ export class TransactionService {
             console.log(`🔍 Trimmed match check: ${record.transaction_id?.trim() === transactionId.trim()}`);
           });
           
+          // Test if we can select the specific records we want to update
+          const { data: testSelect, error: testError } = await supabase
+            .from('imap_processed')
+            .select('id, transaction_id, user_id')
+            .eq('transaction_id', transactionId);
+            
+          console.log('🧪 Test select before update:', testSelect);
+          console.log('🧪 Test select error:', testError);
+          
           // Update the references to NULL
           const { data: updatedRecords, error: updateError } = await supabase
             .from('imap_processed')
