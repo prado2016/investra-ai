@@ -83,7 +83,7 @@ jobs:
         BACKUP_DIR="${{ env.FRONTEND_DEPLOY_DIR }}.backup.$TIMESTAMP"
         
         if [ -d "${{ env.FRONTEND_DEPLOY_DIR }}" ]; then
-          cp -r "${{ env.FRONTEND_DEPLOY_DIR }}" "$BACKUP_DIR"
+          sudo cp -r "${{ env.FRONTEND_DEPLOY_DIR }}" "$BACKUP_DIR"
           echo "backup_dir=$BACKUP_DIR" >> $GITHUB_OUTPUT
           echo "✅ Production backup created: $BACKUP_DIR"
         else
@@ -93,14 +93,14 @@ jobs:
     - name: Deploy frontend to production
       run: |
         # Ensure deployment directory exists
-        mkdir -p "${{ env.FRONTEND_DEPLOY_DIR }}"
+        sudo mkdir -p "${{ env.FRONTEND_DEPLOY_DIR }}"
         
         # Deploy with atomic operation
-        rsync -av --delete dist/ "${{ env.FRONTEND_DEPLOY_DIR }}/"
+        sudo rsync -av --delete dist/ "${{ env.FRONTEND_DEPLOY_DIR }}/"
         
         # Set proper permissions
-        chown -R www-data:www-data "${{ env.FRONTEND_DEPLOY_DIR }}"
-        chmod -R 755 "${{ env.FRONTEND_DEPLOY_DIR }}"
+        sudo chown -R www-data:www-data "${{ env.FRONTEND_DEPLOY_DIR }}"
+        sudo chmod -R 755 "${{ env.FRONTEND_DEPLOY_DIR }}"
         
         echo "✅ Frontend deployed to production"
 
@@ -114,20 +114,20 @@ jobs:
           npm run build
           
           # Create deployment directory
-          mkdir -p "${{ env.EMAIL_PULLER_DEPLOY_DIR }}"
+          sudo mkdir -p "${{ env.EMAIL_PULLER_DEPLOY_DIR }}"
           
           # Backup current email-puller
           if [ -f "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/imap-puller.js" ]; then
-            cp "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/imap-puller.js" "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/imap-puller.js.backup"
+            sudo cp "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/imap-puller.js" "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/imap-puller.js.backup"
           fi
           
           # Deploy email-puller
-          cp dist/imap-puller.js "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/"
-          cp package.json "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/"
+          sudo cp dist/imap-puller.js "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/"
+          sudo cp package.json "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/"
           
           # Set permissions
-          chown -R investra:investra "${{ env.EMAIL_PULLER_DEPLOY_DIR }}"
-          chmod 755 "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/imap-puller.js"
+          sudo chown -R investra:investra "${{ env.EMAIL_PULLER_DEPLOY_DIR }}"
+          sudo chmod 755 "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/imap-puller.js"
           
           echo "✅ Email-puller deployed to production"
         else
@@ -237,7 +237,7 @@ jobs:
         
         if [ -d "$BACKUP_DIR" ]; then
           echo "🔄 Rolling back to previous version..."
-          rsync -av --delete "$BACKUP_DIR/" "${{ env.FRONTEND_DEPLOY_DIR }}/"
+          sudo rsync -av --delete "$BACKUP_DIR/" "${{ env.FRONTEND_DEPLOY_DIR }}/"
           echo "✅ Rollback completed successfully"
         else
           echo "❌ Backup directory not found - manual intervention required"
