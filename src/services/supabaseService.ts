@@ -1636,7 +1636,8 @@ export class TransactionService {
           const { error: updateError, count } = await supabase
             .from('imap_processed')
             .update({ transaction_id: null })
-            .eq('transaction_id', transactionId);
+            .eq('transaction_id', transactionId)
+            .select('*', { count: 'exact' });
 
           if (updateError) {
             console.error('❌ Failed to update imap_processed references:', updateError.message);
@@ -1647,7 +1648,24 @@ export class TransactionService {
             };
           }
           
-          console.log(`✅ Successfully updated ${count} imap_processed records to remove transaction reference`);
+          console.log(`✅ Successfully updated ${count || referencingRecords.length} imap_processed records to remove transaction reference`);
+          
+          // Verify the update worked by checking again
+          const { data: remainingRefs } = await supabase
+            .from('imap_processed')
+            .select('id')
+            .eq('transaction_id', transactionId);
+            
+          if (remainingRefs && remainingRefs.length > 0) {
+            console.error(`❌ Still found ${remainingRefs.length} imap_processed records referencing this transaction after update!`);
+            return { 
+              data: null, 
+              error: `Cannot delete transaction: Still has ${remainingRefs.length} email processing references after attempted cleanup`, 
+              success: false 
+            };
+          }
+          
+          console.log('✅ Verified: No imap_processed records still reference this transaction');
         }
       }
 

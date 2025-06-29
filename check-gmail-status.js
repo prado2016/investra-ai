@@ -29,11 +29,12 @@ async function checkGmailStatus() {
     console.log(`📥 INBOX: ${inboxStatus.messages} total, ${inboxStatus.unseen} unseen`);
 
     // Check processed folder
+    let processedStatus = null;
     try {
       await client.mailboxOpen('Investra/Processed');
-      const processedStatus = await client.status('Investra/Processed', { messages: true });
+      processedStatus = await client.status('Investra/Processed', { messages: true });
       console.log(`✅ Processed folder: ${processedStatus.messages} emails`);
-    } catch (error) {
+    } catch (_error) {
       console.log('❌ Processed folder does not exist or cannot be accessed');
     }
 

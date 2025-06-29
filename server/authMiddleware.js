@@ -21,19 +21,15 @@ const supabaseAuth = SUPABASE_URL && SUPABASE_ANON_KEY ? createClient(SUPABASE_U
 
 // Extend Express Request to include user information
 // interface AuthenticatedRequest extends express.Request {
-  user?: User;
-  userId?: string;
-  body: Record<string, unknown>; // Explicitly include body property
-}
+//   user?: User;
+//   userId?: string;
+//   body: Record<string, unknown>; // Explicitly include body property
+// }
 
 /**
  * Middleware to authenticate requests using Supabase JWT tokens
  */
-const authenticateUser = async (
-  req: AuthenticatedRequest,
-  res: express.Response,
-  next: express.NextFunction
-): Promise<void> => {
+const authenticateUser = async (req, res, next) => {
   try {
     if (!supabaseAuth) {
       res.status(500).json({
@@ -102,11 +98,7 @@ const authenticateUser = async (
  * Optional middleware that allows both authenticated and anonymous requests
  * Sets user info if token is provided and valid, but doesn't reject if missing
  */
-const optionalAuth = async (
-  req: AuthenticatedRequest,
-  res: express.Response,
-  next: express.NextFunction
-): Promise<void> => {
+const optionalAuth = async (req, res, next) => {
   try {
     if (!supabaseAuth) {
       // If Supabase is not configured, continue without authentication
