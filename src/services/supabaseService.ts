@@ -1633,11 +1633,11 @@ export class TransactionService {
         
         if (referencingRecords && referencingRecords.length > 0) {
           // Update the references to NULL
-          const { error: updateError, count } = await supabase
+          const { data: updatedRecords, error: updateError } = await supabase
             .from('imap_processed')
             .update({ transaction_id: null })
             .eq('transaction_id', transactionId)
-            .select('*', { count: 'exact' });
+            .select('id');
 
           if (updateError) {
             console.error('❌ Failed to update imap_processed references:', updateError.message);
@@ -1648,7 +1648,7 @@ export class TransactionService {
             };
           }
           
-          console.log(`✅ Successfully updated ${count || referencingRecords.length} imap_processed records to remove transaction reference`);
+          console.log(`✅ Successfully updated ${updatedRecords?.length || 0} imap_processed records to remove transaction reference`);
           
           // Verify the update worked by checking again
           const { data: remainingRefs } = await supabase
