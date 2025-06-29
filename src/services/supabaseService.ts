@@ -1661,16 +1661,17 @@ export class TransactionService {
           const recordIds = testSelect?.map(record => record.id) || [];
           console.log('🎯 Attempting to update records by ID:', recordIds);
           
-          // Try a simple test update to check permissions
+          // Try setting transaction_id to a dummy value first to test if null is the issue
           const { data: testUpdate, error: testUpdateError } = await supabase
             .from('imap_processed')
-            .update({ notes: 'test_update_' + Date.now() })
+            .update({ transaction_id: '00000000-0000-0000-0000-000000000000' })
             .eq('id', recordIds[0])
-            .select('id, notes');
+            .select('id, transaction_id');
             
-          console.log('🧪 Test update result:', testUpdate);
+          console.log('🧪 Test update with dummy UUID:', testUpdate);
           console.log('🧪 Test update error:', testUpdateError);
           
+          // If that worked, now try setting to null
           const { data: updatedRecords, error: updateError } = await supabase
             .from('imap_processed')
             .update({ transaction_id: null })
