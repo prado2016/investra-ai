@@ -116,7 +116,29 @@ jobs:
         fi
         sudo chmod -R 755 "${{ env.FRONTEND_DEPLOY_DIR }}"
         
+        # Diagnostic information
+        echo "📋 Deployment diagnostic information:"
+        echo "  - Deployed to: ${{ env.FRONTEND_DEPLOY_DIR }}"
+        echo "  - Files deployed:"
+        ls -la "${{ env.FRONTEND_DEPLOY_DIR }}" || echo "Cannot list deployment directory"
+        echo "  - HTML file content check:"
+        head -5 "${{ env.FRONTEND_DEPLOY_DIR }}/index.html" 2>/dev/null || echo "Cannot read index.html"
+        echo "  - Available web directories:"
+        find /var/www -maxdepth 2 -type d 2>/dev/null || echo "Cannot scan /var/www"
+        
         echo "✅ Frontend deployed to production"
+        
+        # Additional web server diagnostics
+        echo "🔍 Web server configuration check:"
+        echo "  - Looking for common web server processes:"
+        ps aux | grep -E "(nginx|apache|httpd)" | grep -v grep || echo "No common web servers found"
+        echo "  - Checking for common web root directories:"
+        for dir in /var/www/html /usr/share/nginx/html /var/www /srv/www /opt/www; do
+          if [ -d "$dir" ]; then
+            echo "    Found: $dir"
+            ls -la "$dir" 2>/dev/null | head -3
+          fi
+        done
 
     - name: Build and deploy email-puller
       run: |
