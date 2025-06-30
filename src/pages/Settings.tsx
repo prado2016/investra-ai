@@ -8,7 +8,7 @@ import { usePageTitle } from '../hooks/usePageTitle';
 import { useDebugSettings } from '../contexts/DebugContext';
 import { SupabaseService } from '../services/supabaseService';
 import ThemeToggle from '../components/ThemeToggle';
-import ApiKeySettings from '../components/SimpleApiKeySettings';
+import DatabaseApiKeySettings from '../components/DatabaseApiKeySettings';
 // GeminiTestComponent was removed during cleanup
 import AccountDestinationManager from '../components/AccountDestinationManager';
 import PortfolioManagementModal from '../components/PortfolioManagementModal';
@@ -623,7 +623,12 @@ const Settings: React.FC = () => {
 
       {/* API Key Management */}
       <Section>
-        <ApiKeySettings />
+        <SectionTitle>API Key Management</SectionTitle>
+        <Description>
+          Manage your API keys for AI services and external data providers. 
+          All keys are stored securely in the database with encryption.
+        </Description>
+        <DatabaseApiKeySettings />
       </Section>
 
       {/* Email-Puller System Configuration */}
