@@ -12,6 +12,7 @@ import ApiKeySettings from '../components/SimpleApiKeySettings';
 // GeminiTestComponent was removed during cleanup
 import AccountDestinationManager from '../components/AccountDestinationManager';
 import PortfolioManagementModal from '../components/PortfolioManagementModal';
+import EmailPullerSystemSettings from './Settings/sections/EmailPullerSystemSettings';
 // EmailDatabaseTest removed - email system redesigned
 // import AIServicesTest from '../components/AIServicesTest';
 // import AISymbolLookupAPITest from '../components/AISymbolLookupAPITest';
@@ -623,6 +624,18 @@ const Settings: React.FC = () => {
       {/* API Key Management */}
       <Section>
         <ApiKeySettings />
+      </Section>
+
+      {/* Email-Puller System Configuration */}
+      <Section>
+        <SectionTitle>Email-Puller System Configuration</SectionTitle>
+        <Description>
+          Configure all email-puller settings through the database. These settings control how emails are 
+          synced from Gmail, processing intervals, logging levels, and more. All changes take effect immediately.
+        </Description>
+        
+        {/* Import the EmailPullerSystemSettings component */}
+        <EmailPullerSystemSettings />
       </Section>
 
       {/* Gemini AI Test - Component removed during cleanup */}
