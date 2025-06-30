@@ -382,7 +382,7 @@ const EnhancedDatabaseApiKeySettings: React.FC = () => {
 
       // Convert to StoredApiKey format
       keyGroups.forEach((keyMap, provider) => {
-        keyMap.forEach((keyData, keyName) => {
+        keyMap.forEach((keyData: any, keyName: string) => {
           keys.push({
             id: `${provider}_${keyName}`,
             provider,

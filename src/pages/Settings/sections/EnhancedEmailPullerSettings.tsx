@@ -16,7 +16,6 @@ import {
   Save,
   Settings,
   Server,
-  Key,
   Copy,
   Eye,
   EyeOff
@@ -402,7 +401,7 @@ const EnhancedEmailPullerSettings: React.FC = () => {
 
       setMessage({ type: 'success', text: 'Configuration saved successfully! Email-puller will use new settings.' });
       setLastUpdated(new Date().toLocaleString());
-      addNotification('Email-puller configuration updated', 'success');
+      addNotification({ title: 'Email-puller configuration updated', type: 'success' });
 
     } catch (error) {
       console.error('Error saving system configuration:', error);
@@ -431,7 +430,7 @@ const EnhancedEmailPullerSettings: React.FC = () => {
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    addNotification('Copied to clipboard', 'success');
+    addNotification({ title: 'Copied to clipboard', type: 'success' });
   };
 
   // Environment variables that email-puller needs
@@ -467,7 +466,7 @@ const EnhancedEmailPullerSettings: React.FC = () => {
           These environment variables are required for the email-puller service to connect to the database and function properly:
         </p>
 
-        <div style={{ display: 'flex', align: 'center', gap: '1rem', marginBottom: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
           <Button 
             onClick={() => setShowSensitiveValues(!showSensitiveValues)}
             style={{ fontSize: '0.875rem' }}
