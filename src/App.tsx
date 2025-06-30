@@ -24,6 +24,7 @@ import Settings from './pages/Settings';
 import SimpleEmailManagement from './pages/SimpleEmailManagement';
 import Notifications from './pages/Notifications';
 import DebugLogs from './pages/DebugLogs';
+import HeatMap from './pages/HeatMap';
 import { debug, ErrorTracker, isDev } from './utils/debug';
 import './styles/App.css';
 
@@ -169,6 +170,7 @@ function AppContent() {
               <Route path="/notifications" element={<Notifications />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/debug-logs" element={<DebugLogs />} />
+              <Route path="/portfolio-summary/heat-map" element={<HeatMap />} />
             </Routes>
           </main>
         </div>
@@ -208,6 +210,7 @@ function AppContent() {
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/debug-logs" element={<DebugLogs />} />
+            <Route path="/portfolio-summary/heat-map" element={<HeatMap />} />
           </Routes>
         </main>
         <ConditionalDebugComponents />

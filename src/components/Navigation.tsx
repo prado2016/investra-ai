@@ -20,6 +20,7 @@ const Navigation: React.FC<NavigationProps> = ({ className }) => {
     { path: '/positions', label: 'Positions', icon: TrendingUp },
     { path: '/transactions', label: 'Transactions', icon: ArrowLeftRight },
     { path: '/summary', label: 'Summary', icon: Calendar },
+    { path: '/portfolio-summary/heat-map', label: 'Heat Map', icon: BarChart3 },
     { path: '/email-management', label: 'Email Import', icon: Mail },
     { path: '/notifications', label: 'Alerts', icon: Bell },
     { path: '/settings', label: 'Settings', icon: Settings },
