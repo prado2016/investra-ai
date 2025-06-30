@@ -536,7 +536,7 @@ const FixedEmailPullerSettings: React.FC = () => {
             {showSensitiveValues ? 'Hide' : 'Show'} Sensitive Values
           </Button>
           <Button 
-            $variant="primary"
+            variant="primary"
             onClick={saveEnvVars} 
             disabled={savingEnv}
             style={{ fontSize: '0.875rem' }}
