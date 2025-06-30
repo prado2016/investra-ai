@@ -166,21 +166,10 @@ jobs:
           sudo cp -r dist/* "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/dist/"
           sudo cp package.json "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/"
           
-          # Create minimal .env file with only Supabase connection (database-driven config)
-          echo "# Database-driven email-puller configuration - Auto-generated" | sudo tee "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
-          echo "# Generated on: $(date)" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
-          echo "# All other settings are managed via system_config table in database" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
-          echo "" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
-          echo "# Supabase Configuration (only required env vars)" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
-          echo "SUPABASE_URL=https://ecbuwhpipphdssqjwgfm.supabase.co" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
-          echo "SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjYnV3aHBpcHBoZHNzcWp3Z2ZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg4NzU4NjEsImV4cCI6MjA2NDQ1MTg2MX0.QMWhB6lpgO3YRGg5kGKz7347DZzRcDiQ6QLupznZi1E" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
-          echo "" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
-          echo "# Optional: Error tracking" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
-          echo "SENTRY_DSN=https://ec940c0318e64b067fc945804f5cd7b4@o4509556303265792.ingest.us.sentry.io/4509556308574208" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
-          echo "NODE_ENV=production" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
-          echo "" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
-          echo "# All other settings (sync intervals, logging, etc.) are configured" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
-          echo "# via the web UI at Settings -> Email-Puller System" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
+          # Update .env file with database-stored environment variables
+          echo "🔄 Updating email-puller .env with database-stored environment variables..."
+          export EMAIL_PULLER_DEPLOY_DIR="${{ env.EMAIL_PULLER_DEPLOY_DIR }}"
+          node .github/workflows/update-email-puller-env.js
           
           # Set permissions
           # Use current user if investra user doesn't exist
