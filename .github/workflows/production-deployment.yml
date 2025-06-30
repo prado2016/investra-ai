@@ -175,7 +175,7 @@ jobs:
             CURRENT_USER=$(whoami)
             sudo chown -R "$CURRENT_USER:$CURRENT_USER" "${{ env.EMAIL_PULLER_DEPLOY_DIR }}"
           fi
-          sudo chmod 755 "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/imap-puller.js"
+          sudo chmod 755 "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/dist/imap-puller.js"
           
           echo "✅ Email-puller deployed to production"
         else
