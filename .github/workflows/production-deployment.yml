@@ -140,10 +140,10 @@ jobs:
           fi
         done
 
-    - name: Build and deploy email-puller
+    - name: Build and deploy database-driven email-puller
       run: |
         if [ -d "email-puller" ]; then
-          echo "📧 Building email-puller for production..."
+          echo "📧 Building database-driven email-puller for production..."
           
           cd email-puller
           # Install all dependencies (including dev dependencies for build)
@@ -166,22 +166,21 @@ jobs:
           sudo cp -r dist/* "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/dist/"
           sudo cp package.json "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/"
           
-          # Create .env file with correct Supabase configuration
-          echo "# Email-puller environment configuration - Auto-generated" | sudo tee "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
+          # Create minimal .env file with only Supabase connection (database-driven config)
+          echo "# Database-driven email-puller configuration - Auto-generated" | sudo tee "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
           echo "# Generated on: $(date)" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
+          echo "# All other settings are managed via system_config table in database" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
           echo "" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
-          echo "# Supabase Configuration (from main app)" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
-          echo "SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
-          echo "SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }}" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
+          echo "# Supabase Configuration (only required env vars)" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
+          echo "SUPABASE_URL=https://ecbuwhpipphdssqjwgfm.supabase.co" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
+          echo "SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjYnV3aHBpcHBoZHNzcWp3Z2ZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg4NzU4NjEsImV4cCI6MjA2NDQ1MTg2MX0.QMWhB6lpgO3YRGg5kGKz7347DZzRcDiQ6QLupznZi1E" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
           echo "" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
-          echo "# Email encryption key for decrypting stored Gmail passwords" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
-          echo "EMAIL_ENCRYPTION_KEY=${{ secrets.EMAIL_ENCRYPTION_KEY }}" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
+          echo "# Optional: Error tracking" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
+          echo "SENTRY_DSN=https://ec940c0318e64b067fc945804f5cd7b4@o4509556303265792.ingest.us.sentry.io/4509556308574208" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
+          echo "NODE_ENV=production" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
           echo "" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
-          echo "# Optional runtime configuration" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
-          echo "ENABLE_LOGGING=true" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
-          echo "LOG_LEVEL=info" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
-          echo "SYNC_INTERVAL_MINUTES=30" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
-          echo "MAX_EMAILS_PER_SYNC=50" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
+          echo "# All other settings (sync intervals, logging, etc.) are configured" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
+          echo "# via the web UI at Settings -> Email-Puller System" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
           
           # Set permissions
           # Use current user if investra user doesn't exist
@@ -194,7 +193,9 @@ jobs:
           fi
           sudo chmod 755 "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/dist/imap-puller.js"
           
-          echo "✅ Email-puller deployed to production"
+          echo "✅ Database-driven email-puller deployed to production"
+          echo "📊 Configuration: Database-driven via system_config table"
+          echo "🎨 UI Settings: Available at Settings -> Email-Puller System"
         else
           echo "ℹ️ Email-puller not found - skipping"
         fi
