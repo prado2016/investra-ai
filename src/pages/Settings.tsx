@@ -8,10 +8,10 @@ import { usePageTitle } from '../hooks/usePageTitle';
 import { useDebugSettings } from '../contexts/DebugContext';
 import { SupabaseService } from '../services/supabaseService';
 import ThemeToggle from '../components/ThemeToggle';
-import EnhancedDatabaseApiKeySettings from '../components/EnhancedDatabaseApiKeySettings';
+import FixedDatabaseApiKeySettings from '../components/FixedDatabaseApiKeySettings';
 import AccountDestinationManager from '../components/AccountDestinationManager';
 import PortfolioManagementModal from '../components/PortfolioManagementModal';
-import EnhancedEmailPullerSettings from './Settings/sections/EnhancedEmailPullerSettings';
+import FixedEmailPullerSettings from './Settings/sections/FixedEmailPullerSettings';
 // EmailDatabaseTest removed - email system redesigned
 // import AIServicesTest from '../components/AIServicesTest';
 // import AISymbolLookupAPITest from '../components/AISymbolLookupAPITest';
@@ -627,7 +627,7 @@ const Settings: React.FC = () => {
           Manage your API keys for AI services and external data providers. 
           All keys are stored securely in the database with encryption.
         </Description>
-        <EnhancedDatabaseApiKeySettings />
+        <FixedDatabaseApiKeySettings />
       </Section>
 
       {/* Email-Puller System Configuration */}
@@ -638,7 +638,7 @@ const Settings: React.FC = () => {
           Includes database-driven configuration, environment setup, and service management.
         </Description>
         
-        <EnhancedEmailPullerSettings />
+        <FixedEmailPullerSettings />
       </Section>
 
       {/* Gemini AI Test - Component removed during cleanup */}
