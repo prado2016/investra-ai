@@ -8,11 +8,10 @@ import { usePageTitle } from '../hooks/usePageTitle';
 import { useDebugSettings } from '../contexts/DebugContext';
 import { SupabaseService } from '../services/supabaseService';
 import ThemeToggle from '../components/ThemeToggle';
-import DatabaseApiKeySettings from '../components/DatabaseApiKeySettings';
-// GeminiTestComponent was removed during cleanup
+import EnhancedDatabaseApiKeySettings from '../components/EnhancedDatabaseApiKeySettings';
 import AccountDestinationManager from '../components/AccountDestinationManager';
 import PortfolioManagementModal from '../components/PortfolioManagementModal';
-import EmailPullerSystemSettings from './Settings/sections/EmailPullerSystemSettings';
+import EnhancedEmailPullerSettings from './Settings/sections/EnhancedEmailPullerSettings';
 // EmailDatabaseTest removed - email system redesigned
 // import AIServicesTest from '../components/AIServicesTest';
 // import AISymbolLookupAPITest from '../components/AISymbolLookupAPITest';
@@ -628,19 +627,18 @@ const Settings: React.FC = () => {
           Manage your API keys for AI services and external data providers. 
           All keys are stored securely in the database with encryption.
         </Description>
-        <DatabaseApiKeySettings />
+        <EnhancedDatabaseApiKeySettings />
       </Section>
 
       {/* Email-Puller System Configuration */}
       <Section>
         <SectionTitle>Email-Puller System Configuration</SectionTitle>
         <Description>
-          Configure all email-puller settings through the database. These settings control how emails are 
-          synced from Gmail, processing intervals, logging levels, and more. All changes take effect immediately.
+          Configure all email-puller settings, view essential environment variables, and monitor deployment status.
+          Includes database-driven configuration, environment setup, and service management.
         </Description>
         
-        {/* Import the EmailPullerSystemSettings component */}
-        <EmailPullerSystemSettings />
+        <EnhancedEmailPullerSettings />
       </Section>
 
       {/* Gemini AI Test - Component removed during cleanup */}
