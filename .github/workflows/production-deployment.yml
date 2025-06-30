@@ -11,7 +11,7 @@ on:
 env:
   NODE_VERSION: '18'
   PRODUCTION_URL: 'https://investra.ai'
-  FRONTEND_DEPLOY_DIR: '/var/www/investra'
+  FRONTEND_DEPLOY_DIR: '/usr/share/nginx/html'
   EMAIL_PULLER_DEPLOY_DIR: '/opt/investra/email-puller'
 
 jobs:
