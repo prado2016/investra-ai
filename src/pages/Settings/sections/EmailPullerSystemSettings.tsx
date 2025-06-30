@@ -9,7 +9,6 @@ import {
   Mail,
   Clock,
   Database,
-  Shield,
   AlertCircle,
   CheckCircle,
   Loader2,
