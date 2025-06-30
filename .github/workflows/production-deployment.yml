@@ -166,18 +166,22 @@ jobs:
           sudo cp -r dist/* "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/dist/"
           sudo cp package.json "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/"
           
-          # Create .env file with placeholder values (needs manual configuration)
-          echo "# Email-puller environment configuration" | sudo tee "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
-          echo "# IMPORTANT: Update these values with your actual Gmail credentials" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
+          # Create .env file with correct Supabase configuration
+          echo "# Email-puller environment configuration - Auto-generated" | sudo tee "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
+          echo "# Generated on: $(date)" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
           echo "" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
-          echo "# Supabase Configuration" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
-          echo "SUPABASE_URL=your_supabase_url_here" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
-          echo "SUPABASE_ANON_KEY=your_supabase_anon_key_here" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
-          echo "SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_here" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
+          echo "# Supabase Configuration (from main app)" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
+          echo "SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
+          echo "SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }}" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
           echo "" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
-          echo "# Gmail IMAP Configuration" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
-          echo "GMAIL_EMAIL=your_gmail_email_here" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
-          echo "GMAIL_APP_PASSWORD=your_gmail_app_password_here" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
+          echo "# Email encryption key for decrypting stored Gmail passwords" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
+          echo "EMAIL_ENCRYPTION_KEY=${{ secrets.EMAIL_ENCRYPTION_KEY }}" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
+          echo "" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
+          echo "# Optional runtime configuration" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
+          echo "ENABLE_LOGGING=true" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
+          echo "LOG_LEVEL=info" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
+          echo "SYNC_INTERVAL_MINUTES=30" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
+          echo "MAX_EMAILS_PER_SYNC=50" | sudo tee -a "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null
           
           # Set permissions
           # Use current user if investra user doesn't exist
@@ -198,11 +202,11 @@ jobs:
     - name: Restart production services
       run: |
         # Restart email-puller service if it exists
-        if [ -d "email-puller" ] && [ -f "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/imap-puller.js" ]; then
+        if [ -d "email-puller" ] && [ -f "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/dist/imap-puller.js" ]; then
           cd "${{ env.EMAIL_PULLER_DEPLOY_DIR }}"
           
           # Graceful restart
-          pm2 reload investra-email-puller || pm2 start imap-puller.js --name investra-email-puller
+          pm2 reload investra-email-puller || pm2 start dist/imap-puller.js --name investra-email-puller
           pm2 save
           
           echo "✅ Email-puller service restarted"
