@@ -157,12 +157,13 @@ jobs:
           sudo mkdir -p "${{ env.EMAIL_PULLER_DEPLOY_DIR }}"
           
           # Backup current email-puller
-          if [ -f "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/imap-puller.js" ]; then
-            sudo cp "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/imap-puller.js" "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/imap-puller.js.backup"
+          if [ -f "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/dist/imap-puller.js" ]; then
+            sudo cp "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/dist/imap-puller.js" "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/dist/imap-puller.js.backup"
           fi
           
           # Deploy email-puller
-          sudo cp dist/imap-puller.js "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/"
+          sudo mkdir -p "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/dist"
+          sudo cp dist/imap-puller.js "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/dist/"
           sudo cp package.json "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/"
           
           # Set permissions
