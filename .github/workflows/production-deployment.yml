@@ -163,8 +163,26 @@ jobs:
           
           # Deploy email-puller
           sudo mkdir -p "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/dist"
-          sudo cp dist/imap-puller.js "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/dist/"
+          sudo cp -r dist/* "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/dist/"
           sudo cp package.json "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/"
+          
+          # Create .env file with placeholder values (needs manual configuration)
+          sudo tee "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/.env" > /dev/null << 'EOF'
+# Email-puller environment configuration
+# IMPORTANT: Update these values with your actual Gmail credentials
+
+# Supabase Configuration
+SUPABASE_URL=your_supabase_url_here
+SUPABASE_ANON_KEY=your_supabase_anon_key_here
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_here
+
+# Gmail IMAP Configuration  
+GMAIL_EMAIL=your_gmail_email_here
+GMAIL_APP_PASSWORD=your_gmail_app_password_here
+
+# Optional: Sentry monitoring
+SENTRY_DSN=your_sentry_dsn_here
+EOF
           
           # Set permissions
           # Use current user if investra user doesn't exist
