@@ -3,13 +3,13 @@
  * This script runs during GitHub Actions deployment
  */
 
-const { createClient } = require('@supabase/supabase-js');
-const fs = require('fs');
-const path = require('path');
+import { createClient } from '@supabase/supabase-js';
+import fs from 'fs';
+import path from 'path';
 
 // Hardcoded Supabase credentials for initial connection
 const SUPABASE_URL = 'https://ecbuwhpipphdssqjwgfm.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjYnV3aHBpcHBoZHNzcWp3Z2ZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjgxMzY4OTAsImV4cCI6MjA0MzcxMjg5MH0.4iQNsNUNcUIj7xPUEBEMECrNYSu64Ncd86ByUQiYeD4';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjYnV3aHBpcHBoZHNzcWp3Z2ZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg4NzU4NjEsImV4cCI6MjA2NDQ1MTg2MX0.QMWhB6lpgO3YRGg5kGKz7347DZzRcDiQ6QLupznZi1E';
 
 async function updateEmailPullerEnv() {
   console.log('🔄 Starting email-puller .env update process...');
@@ -81,16 +81,14 @@ NODE_ENV=${envVars.NODE_ENV || 'production'}
 }
 
 // Run the script
-if (require.main === module) {
-  updateEmailPullerEnv()
-    .then(() => {
-      console.log('🎉 Script completed successfully');
-      process.exit(0);
-    })
-    .catch((error) => {
-      console.error('💥 Script failed:', error);
-      process.exit(1);
-    });
-}
+updateEmailPullerEnv()
+  .then(() => {
+    console.log('🎉 Script completed successfully');
+    process.exit(0);
+  })
+  .catch((error) => {
+    console.error('💥 Script failed:', error);
+    process.exit(1);
+  });
 
-module.exports = { updateEmailPullerEnv };
+export { updateEmailPullerEnv };
