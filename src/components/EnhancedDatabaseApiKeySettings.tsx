@@ -688,7 +688,7 @@ const EnhancedDatabaseApiKeySettings: React.FC = () => {
               </HelpText>
             </FormGroup>
 
-            {API_PROVIDERS.find(p => p.value === newKey.provider)?.modelOptions.length! > 0 && (
+            {(API_PROVIDERS.find(p => p.value === newKey.provider)?.modelOptions.length || 0) > 0 && (
               <FormGroup>
                 <Label>Model</Label>
                 <Select
