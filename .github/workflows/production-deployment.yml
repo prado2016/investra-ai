@@ -169,7 +169,9 @@ jobs:
           # Update .env file with database-stored environment variables
           echo "🔄 Updating email-puller .env with database-stored environment variables..."
           export EMAIL_PULLER_DEPLOY_DIR="${{ env.EMAIL_PULLER_DEPLOY_DIR }}"
+          cd ..
           node .github/workflows/update-email-puller-env.js
+          cd email-puller
           
           # Set permissions
           # Use current user if investra user doesn't exist
