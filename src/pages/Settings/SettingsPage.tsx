@@ -20,6 +20,7 @@ import {
   Activity,
   Shield,
   Server,
+  Settings,
   Settings as SettingsIcon,
   Save,
   TestTube,
@@ -37,6 +38,7 @@ import { useNotifications } from '../../hooks/useNotifications';
 // Import setting sections
 import SettingsLayout from './components/SettingsLayout';
 import EmailIntegrationSettings from './sections/EmailIntegrationSettings';
+import EmailPullerSystemSettings from './sections/EmailPullerSystemSettings';
 import AIServicesSettings from './sections/AIServicesSettings';
 import DatabaseSettings from './sections/DatabaseSettings';
 import MonitoringSettings from './sections/MonitoringSettings';
@@ -213,6 +215,14 @@ const settingSections: SettingSection[] = [
     component: EmailIntegrationSettings,
     description: 'Configure IMAP settings and email processing rules',
     badge: 'Core'
+  },
+  {
+    id: 'email-puller',
+    label: 'Email-Puller System',
+    icon: Settings,
+    component: EmailPullerSystemSettings,
+    description: 'Configure database-driven email-puller system settings',
+    badge: 'System'
   },
   {
     id: 'ai',
