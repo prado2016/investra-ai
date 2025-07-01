@@ -323,6 +323,7 @@ export const TextareaField: React.FC<TextareaFieldProps> = ({
   id,
   name,
   label,
+  value,
   error,
   success,
   helpText,

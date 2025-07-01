@@ -73,11 +73,11 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({
   // Event subscription helpers
   const subscribeToPortfolios = useCallback((callback: (event: RealtimeEvent<Portfolio>) => void) => {
     const wrappedCallback = (event: RealtimeEvent<Portfolio>) => {
-      setLastEvent(event)
-      callback(event)
-    }
-    return realtimeService.onPortfolioChange(wrappedCallback)
-  }, [])
+      setLastEvent(event);
+      callback(event);
+    };
+    return realtimeService.onPortfolioChange(wrappedCallback);
+  }, []);
 
   const subscribeToPositions = useCallback((callback: (event: RealtimeEvent<Position>) => void) => {
     const wrappedCallback = (event: RealtimeEvent<Position>) => {

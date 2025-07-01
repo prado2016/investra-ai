@@ -49,7 +49,7 @@ interface CustomSelectProps {
   onChange: (value: string) => void;
 }
 
-const CustomSelect: React.FC<CustomSelectProps> = ({ options, onChange }) => {
+const CustomSelect: React.FC<CustomSelectProps> = ({ options, value, onChange }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   const handleSelect = (selectedValue: string) => {
