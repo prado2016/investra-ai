@@ -3,6 +3,7 @@
  * Production-ready process management with environment variables and monitoring
  */
 
+/* eslint-disable no-undef */
 module.exports = {
   apps: [
     {

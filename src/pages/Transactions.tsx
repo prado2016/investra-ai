@@ -53,13 +53,13 @@ const TransactionsPage: React.FC = () => {
   // Filter transactions based on current filters
   const filteredTransactions = transactions.filter(transaction => {
     // Portfolio filter
-    if (filters.portfolioId !== 'all' && transaction.portfolioId !== filters.portfolioId) {
+    if (filters.portfolioId !== 'all' && transaction.portfolio_id !== filters.portfolioId) {
       return false;
     }
 
     // Asset type filter
     if (filters.assetType !== 'all') {
-      const assetType = transaction.asset?.assetType || 'stock';
+      const assetType = transaction.asset?.asset_type || 'stock';
       if (assetType !== filters.assetType) {
         return false;
       }
@@ -75,7 +75,7 @@ const TransactionsPage: React.FC = () => {
     }
 
     // Date range filter
-    const transactionDate = new Date(transaction.date);
+    const transactionDate = new Date(transaction.transaction_date);
     const now = new Date();
     
     if (filters.dateRange === 'custom') {
@@ -106,13 +106,13 @@ const TransactionsPage: React.FC = () => {
   const exportToCSV = () => {
     const headers = ['Date', 'Symbol', 'Type', 'Quantity', 'Price', 'Total', 'Portfolio'];
     const csvData = filteredTransactions.map(t => [
-      t.date,
+      t.transaction_date,
       t.asset?.symbol || '',
-      t.type,
+      t.transaction_type,
       t.quantity,
       t.price,
-      t.totalAmount,
-      portfolios?.find(p => p.id === t.portfolioId)?.name || ''
+      t.total_amount,
+      portfolios?.find(p => p.id === t.portfolio_id)?.name || ''
     ]);
     
     const csvContent = [headers, ...csvData]
@@ -130,8 +130,8 @@ const TransactionsPage: React.FC = () => {
 
   const exportToTXT = () => {
     const txtContent = filteredTransactions.map(t => {
-      const portfolio = portfolios?.find(p => p.id === t.portfolioId)?.name || 'Unknown';
-      return `${t.date} | ${t.asset?.symbol || 'N/A'} | ${t.type.toUpperCase()} | Qty: ${t.quantity} | Price: $${t.price} | Total: $${t.totalAmount} | Portfolio: ${portfolio}`;
+      const portfolio = portfolios?.find(p => p.id === t.portfolio_id)?.name || 'Unknown';
+      return `${t.transaction_date} | ${t.asset?.symbol || 'N/A'} | ${t.transaction_type.toUpperCase()} | Qty: ${t.quantity} | Price: $${t.price} | Total: $${t.total_amount} | Portfolio: ${portfolio}`;
     }).join('\n');
     
     const blob = new Blob([txtContent], { type: 'text/plain' });
@@ -169,7 +169,7 @@ const TransactionsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [activePortfolio?.id, filters.portfolioId]);
+  }, [activePortfolio?.id, filters.portfolioId, notify]);
 
   // Fetch fund movements when portfolio changes
   const fetchFundMovements = useCallback(async () => {
@@ -238,7 +238,7 @@ const TransactionsPage: React.FC = () => {
       const errorMsg = err instanceof Error ? err.message : 'Unknown error';
       notify.error('Failed to fetch fund movements: ' + errorMsg);
     }
-  }, [activePortfolio?.id]); // notify is intentionally excluded as it should be stable
+  }, [activePortfolio?.id, notify]);
 
   useEffect(() => {
     if (activePortfolio?.id) {
