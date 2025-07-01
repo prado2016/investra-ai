@@ -104,36 +104,59 @@ async function fixDatabaseSchema() {
       }
     }
 
-    // Check sync requests table
-    console.log('🔍 Checking sync requests...');
+    // Check sync requests table with multiple possible names
+    console.log('🔍 Checking sync requests tables...');
     
-    // First check what columns exist in sync_requests
-    const { data: syncRequestsSample, error: syncSampleError } = await supabase
-      .from('sync_requests')
-      .select('*')
-      .limit(1);
-
-    if (syncSampleError) {
-      console.error('❌ Failed to check sync requests table:', syncSampleError);
-      console.log('💡 sync_requests table may not exist or have access issues');
-    } else {
-      console.log(`📊 Found ${syncRequestsSample?.length || 0} sample sync requests`);
-      if (syncRequestsSample && syncRequestsSample.length > 0) {
-        console.log('📋 Sync requests table columns:', Object.keys(syncRequestsSample[0]));
-      }
+    const possibleTables = ['sync_requests', 'imap_sync_requests', 'email_sync_requests'];
+    
+    for (const tableName of possibleTables) {
+      console.log(`📋 Checking table: ${tableName}`);
       
-      // Now get recent requests
-      const { data: syncRequests, error: syncError } = await supabase
-        .from('sync_requests')
+      const { data: tableData, error: tableError } = await supabase
+        .from(tableName)
         .select('*')
-        .order('id', { ascending: false })
         .limit(5);
 
-      if (!syncError && syncRequests) {
-        console.log(`📊 Found ${syncRequests.length} recent sync requests`);
-        if (syncRequests.length > 0) {
-          console.log('Latest request:', syncRequests[0]);
+      if (tableError) {
+        console.log(`  ❌ ${tableName}: ${tableError.message}`);
+      } else {
+        console.log(`  ✅ ${tableName}: Found ${tableData?.length || 0} records`);
+        if (tableData && tableData.length > 0) {
+          console.log(`  📋 Sample record:`, tableData[0]);
+          console.log(`  📋 Available columns:`, Object.keys(tableData[0]));
         }
+      }
+    }
+    
+    // Try to trigger a sync request to see what happens
+    console.log('🔍 Testing sync request creation...');
+    
+    const { data: testSyncRequest, error: testSyncError } = await supabase
+      .from('sync_requests')
+      .insert({
+        user_id: '1845c30a-4f89-49bb-aeb9-bc292752e07a',
+        request_type: 'diagnostic_test',
+        status: 'pending'
+      })
+      .select()
+      .single();
+
+    if (testSyncError) {
+      console.error('❌ Test sync request creation failed:', testSyncError);
+    } else {
+      console.log('✅ Test sync request created successfully:', testSyncRequest.id);
+      
+      // Immediately check if it still exists
+      const { data: verifySync, error: verifyError } = await supabase
+        .from('sync_requests')
+        .select('*')
+        .eq('id', testSyncRequest.id)
+        .single();
+        
+      if (verifyError) {
+        console.log('❌ Test sync request disappeared immediately:', verifyError.message);
+      } else {
+        console.log('✅ Test sync request still exists:', verifySync);
       }
     }
 
