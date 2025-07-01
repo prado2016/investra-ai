@@ -645,7 +645,7 @@ const TransactionList: React.FC<TransactionListProps> = ({
             <div>Actions</div>
           </TableHeader>
           
-          <div style={{ maxHeight: '600px', overflowY: 'auto' }}>
+          <div>
             {recentTransactions
               .filter(transaction => transaction && transaction.id) // Filter out invalid transactions
               .map((transaction) => (

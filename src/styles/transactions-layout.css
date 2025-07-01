@@ -118,7 +118,6 @@
   background: var(--bg-card, #ffffff); /* Use --bg-card for consistency */
   border: 1px solid var(--border-primary, var(--color-gray-200)); /* UPDATED FALLBACK */
   border-radius: 8px;
-  overflow: hidden;
 }
 
 .enhanced-section-header {
@@ -228,7 +227,6 @@
 /* Standardize container heights for consistent layout */
 .enhanced-form-section,
 .enhanced-transactions-section {
-  min-height: 500px; /* Minimum height for consistency */
   display: flex;
   flex-direction: column;
 }
