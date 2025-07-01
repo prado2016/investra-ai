@@ -13,7 +13,7 @@ import { Plus, TrendingUp, DollarSign, ArrowUpDown, ChevronDown, ChevronUp, Chev
 import { SelectField } from '../components/FormFields';
 import { useSupabasePortfolios } from '../hooks/useSupabasePortfolios';
 import type { Transaction, TransactionType, FundMovement, FundMovementType, FundMovementStatus, Currency } from '../types/portfolio';
-import type { UnifiedEntry, UnifiedTransactionEntry, UnifiedFundMovementEntry } from '../types/unifiedEntry';
+import type { UnifiedEntry, UnifiedTransactionEntry, UnifiedFundMovementEntry, UnifiedEntryType } from '../types/unifiedEntry';
 import { startOfDay, subDays, startOfYear } from 'date-fns';
 import '../styles/transactions-layout.css';
 
@@ -31,8 +31,10 @@ const TransactionsPage: React.FC = () => {
   const [unifiedEntries, setUnifiedEntries] = useState<UnifiedEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [editingEntry, setEditingEntry] = useState<UnifiedEntry | null>(null);
+  const [editingTransaction, setEditingTransaction] = useState<UnifiedTransactionEntry | null>(null);
+  const [editingFundMovement, setEditingFundMovement] = useState<UnifiedFundMovementEntry | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showFundMovementEditModal, setShowFundMovementEditModal] = useState(false);
   const [isTransactionFormMinimized, setIsTransactionFormMinimized] = useState(false);
   const [isTransactionFormCollapsed, setIsTransactionFormCollapsed] = useState(false);
   const [filters, setFilters] = useState({
@@ -156,22 +158,27 @@ const TransactionsPage: React.FC = () => {
       'External ID',
       'Settlement Date'
     ];
-    const csvData = filteredTransactions.map(t => [
-      t.transaction_date,
-      t.asset?.symbol || '',
-      t.transaction_type,
-      t.quantity,
-      t.price,
-      t.fees || 0,
-      t.total_amount,
-      t.currency,
-      portfolios?.find(p => p.id === t.portfolio_id)?.name || '',
-      t.notes || '',
-      t.strategy_type || '',
-      t.broker_name || '',
-      t.external_id || '',
-      t.settlement_date || '',
-    ]);
+    const csvData = filteredEntries
+      .filter(entry => entry.type === 'transaction')
+      .map(entry => {
+        const t = entry as UnifiedTransactionEntry;
+        return [
+          t.date.toISOString().split('T')[0],
+          t.assetSymbol || '',
+          t.transactionType,
+          t.quantity,
+          t.price,
+          t.fees || 0,
+          t.amount,
+          t.currency,
+          portfolios?.find(p => p.id === t.portfolioId)?.name || '',
+          t.notes || '',
+          t.strategyType || '',
+          t.brokerName || '',
+          t.externalId || '',
+          t.settlementDate || '',
+        ];
+      });
     
     const csvContent = [headers, ...csvData]
       .map(row => row.map(field => `"${String(field).replace(/"/g, '""')}"`).join(','))
@@ -189,24 +196,27 @@ const TransactionsPage: React.FC = () => {
   };
 
   const exportToTXT = () => {
-    const txtContent = filteredTransactions.map(t => {
-      const portfolio = portfolios?.find(p => p.id === t.portfolio_id)?.name || 'Unknown';
-      return `Date: ${t.transaction_date}
-Symbol: ${t.asset?.symbol || 'N/A'}
-Type: ${t.transaction_type.toUpperCase()}
+    const txtContent = filteredEntries
+      .filter(entry => entry.type === 'transaction')
+      .map(entry => {
+        const t = entry as UnifiedTransactionEntry;
+        const portfolio = portfolios?.find(p => p.id === t.portfolioId)?.name || 'Unknown';
+        return `Date: ${t.date.toISOString().split('T')[0]}
+Symbol: ${t.assetSymbol || 'N/A'}
+Type: ${t.transactionType.toUpperCase()}
 Quantity: ${t.quantity}
 Price: ${t.price}
 Fees: ${t.fees || 0}
-Total Amount: ${t.total_amount}
+Total Amount: ${t.amount}
 Currency: ${t.currency}
 Portfolio: ${portfolio}
 Notes: ${t.notes || ''}
-Strategy Type: ${t.strategy_type || ''}
-Broker Name: ${t.broker_name || ''}
-External ID: ${t.external_id || ''}
-Settlement Date: ${t.settlement_date || ''}
+Strategy Type: ${t.strategyType || ''}
+Broker Name: ${t.brokerName || ''}
+External ID: ${t.externalId || ''}
+Settlement Date: ${t.settlementDate || ''}
 ----------------------------------------`;
-    }).join('\n\n');
+      }).join('\n\n');
     
     const blob = new Blob([txtContent], { type: 'text/plain;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -343,6 +353,9 @@ Settlement Date: ${t.settlement_date || ''}
   const handleCloseEditModal = () => {
     setEditingTransaction(null);
     setShowEditModal(false);
+  };
+
+  const handleCloseFundMovementEditModal = () => {
     setEditingFundMovement(null);
     setShowFundMovementEditModal(false);
   };
@@ -737,7 +750,7 @@ Settlement Date: ${t.settlement_date || ''}
                 <div className="transaction-stats">
                   <div className="stat-item">
                     <Hash size={16} />
-                    <span>{filteredTransactions.length} transactions</span>
+                    <span>{filteredEntries.length} entries</span>
                   </div>
                   <div className="export-buttons">
                     <button onClick={exportToCSV} className="export-button" title="Export to CSV">
@@ -882,11 +895,45 @@ Settlement Date: ${t.settlement_date || ''}
             
             <div className="enhanced-transactions-wrapper">
               <FundMovementList
-                fundMovements={fundMovements}
+                fundMovements={filteredEntries
+                  .filter(entry => entry.type === 'fund_movement')
+                  .map(entry => {
+                    const fm = entry as UnifiedFundMovementEntry;
+                    return {
+                      id: fm.id,
+                      portfolioId: fm.portfolioId,
+                      date: fm.date,
+                      type: fm.fundMovementType,
+                      amount: fm.amount,
+                      currency: fm.currency,
+                      status: fm.status,
+                      fees: 0,
+                      notes: fm.notes,
+                      originalAmount: fm.originalAmount,
+                      originalCurrency: fm.originalCurrency,
+                      convertedAmount: fm.convertedAmount,
+                      convertedCurrency: fm.convertedCurrency,
+                      exchangeRate: fm.exchangeRate,
+                      exchangeFees: fm.exchangeFees,
+                      account: fm.account,
+                      fromAccount: fm.fromAccount,
+                      toAccount: fm.toAccount,
+                      createdAt: fm.createdAt,
+                      updatedAt: fm.updatedAt
+                    };
+                  })}
                 loading={loading}
                 error={error}
-                onEdit={handleEditFundMovement}
-                onDelete={handleDeleteFundMovement}
+                onEdit={(movement) => {
+                  const unifiedEntry = filteredEntries.find(entry => 
+                    entry.type === 'fund_movement' && entry.id === movement.id
+                  ) as UnifiedFundMovementEntry;
+                  if (unifiedEntry) {
+                    setEditingFundMovement(unifiedEntry);
+                    setShowFundMovementEditModal(true);
+                  }
+                }}
+                onDelete={(id) => handleDeleteEntry(id, 'fund_movement')}
               />
             </div>
           </div>
