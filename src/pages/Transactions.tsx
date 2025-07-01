@@ -15,6 +15,7 @@ import { useSupabasePortfolios } from '../hooks/useSupabasePortfolios';
 import type { Transaction, TransactionType, FundMovement, FundMovementType, FundMovementStatus, Currency } from '../types/portfolio';
 import type { TransactionWithAsset } from '../components/TransactionList';
 import type { FundMovementWithMetadata } from '../components/FundMovementList';
+import { startOfDay, subDays, startOfYear } from 'date-fns';
 import '../styles/transactions-layout.css';
 
 // Enhanced Transactions page with improved styling and contrast
@@ -88,15 +89,24 @@ const TransactionsPage: React.FC = () => {
         if (transactionDate > toDate) return false;
       }
     } else if (filters.dateRange !== 'all') {
-      const daysAgo = {
-        'last7days': 7,
-        'last30days': 30,
-        'last90days': 90,
-        'thisYear': new Date().getDate() + (new Date().getMonth() * 30) + 1
-      }[filters.dateRange] || 0;
-      
-      const cutoffDate = new Date(now.getTime() - daysAgo * 24 * 60 * 60 * 1000);
-      if (transactionDate < cutoffDate) return false;
+      let cutoffDate: Date;
+      switch (filters.dateRange) {
+        case 'last7days':
+          cutoffDate = subDays(now, 7);
+          break;
+        case 'last30days':
+          cutoffDate = subDays(now, 30);
+          break;
+        case 'last90days':
+          cutoffDate = subDays(now, 90);
+          break;
+        case 'thisYear':
+          cutoffDate = startOfYear(now);
+          break;
+        default:
+          return true; // Should not happen with current filter options
+      }
+      if (transactionDate < startOfDay(cutoffDate)) return false;
     }
 
     return true;
@@ -104,42 +114,82 @@ const TransactionsPage: React.FC = () => {
 
   // Export functions
   const exportToCSV = () => {
-    const headers = ['Date', 'Symbol', 'Type', 'Quantity', 'Price', 'Total', 'Portfolio'];
+    const headers = [
+      'Date',
+      'Symbol',
+      'Type',
+      'Quantity',
+      'Price',
+      'Fees',
+      'Total Amount',
+      'Currency',
+      'Portfolio',
+      'Notes',
+      'Strategy Type',
+      'Broker Name',
+      'External ID',
+      'Settlement Date'
+    ];
     const csvData = filteredTransactions.map(t => [
       t.transaction_date,
       t.asset?.symbol || '',
       t.transaction_type,
       t.quantity,
       t.price,
+      t.fees || 0,
       t.total_amount,
-      portfolios?.find(p => p.id === t.portfolio_id)?.name || ''
+      t.currency,
+      portfolios?.find(p => p.id === t.portfolio_id)?.name || '',
+      t.notes || '',
+      t.strategy_type || '',
+      t.broker_name || '',
+      t.external_id || '',
+      t.settlement_date || '',
     ]);
     
     const csvContent = [headers, ...csvData]
-      .map(row => row.map(field => `"${field}"`).join(','))
+      .map(row => row.map(field => `"${String(field).replace(/"/g, '""')}"`).join(','))
       .join('\n');
     
-    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = `transactions_${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a); // Required for Firefox
     a.click();
+    document.body.removeChild(a); // Clean up
     URL.revokeObjectURL(url);
   };
 
   const exportToTXT = () => {
     const txtContent = filteredTransactions.map(t => {
       const portfolio = portfolios?.find(p => p.id === t.portfolio_id)?.name || 'Unknown';
-      return `${t.transaction_date} | ${t.asset?.symbol || 'N/A'} | ${t.transaction_type.toUpperCase()} | Qty: ${t.quantity} | Price: $${t.price} | Total: $${t.total_amount} | Portfolio: ${portfolio}`;
-    }).join('\n');
+      return `Date: ${t.transaction_date}
+Symbol: ${t.asset?.symbol || 'N/A'}
+Type: ${t.transaction_type.toUpperCase()}
+Quantity: ${t.quantity}
+Price: ${t.price}
+Fees: ${t.fees || 0}
+Total Amount: ${t.total_amount}
+Currency: ${t.currency}
+Portfolio: ${portfolio}
+Notes: ${t.notes || ''}
+Strategy Type: ${t.strategy_type || ''}
+Broker Name: ${t.broker_name || ''}
+External ID: ${t.external_id || ''}
+Settlement Date: ${t.settlement_date || ''}
+----------------------------------------`;
+    }).join('\n\n');
     
-    const blob = new Blob([txtContent], { type: 'text/plain' });
+    const blob = new Blob([txtContent], { type: 'text/plain;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = `transactions_${new Date().toISOString().split('T')[0]}.txt`;
+    document.body.appendChild(a); // Required for Firefox
     a.click();
+    document.body.removeChild(a); // Clean up
     URL.revokeObjectURL(url);
   };
 
