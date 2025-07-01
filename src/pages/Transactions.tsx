@@ -9,7 +9,7 @@ import TransactionEditModal from '../components/TransactionEditModal.tsx';
 import FundMovementForm from '../components/FundMovementForm.tsx';
 import FundMovementList from '../components/FundMovementList.tsx';
 import FundMovementEditModal from '../components/FundMovementEditModal.tsx';
-import { Plus, TrendingUp, DollarSign, ArrowUpDown, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, TrendingUp, DollarSign, ArrowUpDown, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Download, Filter, Hash } from 'lucide-react';
 import { SelectField } from '../components/FormFields';
 import { useSupabasePortfolios } from '../hooks/useSupabasePortfolios';
 import type { Transaction, TransactionType, FundMovement, FundMovementType, FundMovementStatus, Currency } from '../types/portfolio';
@@ -37,13 +37,111 @@ const TransactionsPage: React.FC = () => {
   const [editingFundMovement, setEditingFundMovement] = useState<FundMovementWithMetadata | null>(null);
   const [showFundMovementEditModal, setShowFundMovementEditModal] = useState(false);
   const [isTransactionFormMinimized, setIsTransactionFormMinimized] = useState(false);
+  const [isTransactionFormCollapsed, setIsTransactionFormCollapsed] = useState(false);
   const [filters, setFilters] = useState({
     portfolioId: activePortfolio?.id || 'all',
     dateRange: 'all',
+    assetType: 'all',
+    symbol: '',
+    customDateFrom: '',
+    customDateTo: ''
   });
   
   // Debounce fetch to prevent excessive API calls
   const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Filter transactions based on current filters
+  const filteredTransactions = transactions.filter(transaction => {
+    // Portfolio filter
+    if (filters.portfolioId !== 'all' && transaction.portfolioId !== filters.portfolioId) {
+      return false;
+    }
+
+    // Asset type filter
+    if (filters.assetType !== 'all') {
+      const assetType = transaction.asset?.assetType || 'stock';
+      if (assetType !== filters.assetType) {
+        return false;
+      }
+    }
+
+    // Symbol filter
+    if (filters.symbol && transaction.asset?.symbol) {
+      const searchSymbol = filters.symbol.toLowerCase();
+      const transactionSymbol = transaction.asset.symbol.toLowerCase();
+      if (!transactionSymbol.includes(searchSymbol)) {
+        return false;
+      }
+    }
+
+    // Date range filter
+    const transactionDate = new Date(transaction.date);
+    const now = new Date();
+    
+    if (filters.dateRange === 'custom') {
+      if (filters.customDateFrom) {
+        const fromDate = new Date(filters.customDateFrom);
+        if (transactionDate < fromDate) return false;
+      }
+      if (filters.customDateTo) {
+        const toDate = new Date(filters.customDateTo);
+        if (transactionDate > toDate) return false;
+      }
+    } else if (filters.dateRange !== 'all') {
+      const daysAgo = {
+        'last7days': 7,
+        'last30days': 30,
+        'last90days': 90,
+        'thisYear': new Date().getDate() + (new Date().getMonth() * 30) + 1
+      }[filters.dateRange] || 0;
+      
+      const cutoffDate = new Date(now.getTime() - daysAgo * 24 * 60 * 60 * 1000);
+      if (transactionDate < cutoffDate) return false;
+    }
+
+    return true;
+  });
+
+  // Export functions
+  const exportToCSV = () => {
+    const headers = ['Date', 'Symbol', 'Type', 'Quantity', 'Price', 'Total', 'Portfolio'];
+    const csvData = filteredTransactions.map(t => [
+      t.date,
+      t.asset?.symbol || '',
+      t.type,
+      t.quantity,
+      t.price,
+      t.totalAmount,
+      portfolios?.find(p => p.id === t.portfolioId)?.name || ''
+    ]);
+    
+    const csvContent = [headers, ...csvData]
+      .map(row => row.map(field => `"${field}"`).join(','))
+      .join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `transactions_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportToTXT = () => {
+    const txtContent = filteredTransactions.map(t => {
+      const portfolio = portfolios?.find(p => p.id === t.portfolioId)?.name || 'Unknown';
+      return `${t.date} | ${t.asset?.symbol || 'N/A'} | ${t.type.toUpperCase()} | Qty: ${t.quantity} | Price: $${t.price} | Total: $${t.totalAmount} | Portfolio: ${portfolio}`;
+    }).join('\n');
+    
+    const blob = new Blob([txtContent], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `transactions_${new Date().toISOString().split('T')[0]}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   // Fetch transactions when portfolio changes
   const fetchTransactions = useCallback(async () => {
@@ -55,7 +153,9 @@ const TransactionsPage: React.FC = () => {
     setError(null);
     
     try {
-      const response = await TransactionService.getTransactions(filters.portfolioId, filters.dateRange);
+      // Fetch all transactions for the active portfolio, we'll filter on the frontend
+      const portfolioIdToFetch = filters.portfolioId === 'all' ? activePortfolio.id : filters.portfolioId;
+      const response = await TransactionService.getTransactions(portfolioIdToFetch, 'all');
       if (response.success) {
         setTransactions(response.data);
       } else {
@@ -69,7 +169,7 @@ const TransactionsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [activePortfolio?.id, filters]);
+  }, [activePortfolio?.id, filters.portfolioId]);
 
   // Fetch fund movements when portfolio changes
   const fetchFundMovements = useCallback(async () => {
@@ -527,24 +627,55 @@ const TransactionsPage: React.FC = () => {
       {/* Enhanced Content Layout - 2x2 Grid */}
       <div className="enhanced-content-layout">
         {/* Top Row: Add Transaction and Recent Transactions */}
-        <div className="transaction-grid-row">
+        <div className={`transaction-grid-row ${isTransactionFormCollapsed ? 'form-collapsed' : ''}`}>
           {/* Add Transaction Section */}
-          <div className="enhanced-form-section">
-            <div className="enhanced-section-header" style={{ cursor: 'pointer' }} onClick={() => setIsTransactionFormMinimized(!isTransactionFormMinimized)}>
-              <div className="enhanced-section-header-content">
-                <Plus className="enhanced-section-icon" />
-                <div className="enhanced-section-text">
-                  <h2 className="enhanced-section-title">Add Transaction</h2>
-                  <p className="enhanced-section-subtitle">
-                    Enter transaction details to add to your portfolio
-                  </p>
+          {!isTransactionFormCollapsed && (
+            <div className="enhanced-form-section">
+              <div className="enhanced-section-header">
+                <div className="enhanced-section-header-content">
+                  <Plus className="enhanced-section-icon" />
+                  <div className="enhanced-section-text">
+                    <h2 className="enhanced-section-title">Add Transaction</h2>
+                    <p className="enhanced-section-subtitle">
+                      Enter transaction details to add to your portfolio
+                    </p>
+                  </div>
+                  <button 
+                    onClick={() => setIsTransactionFormMinimized(!isTransactionFormMinimized)}
+                    className="collapse-button"
+                    title={isTransactionFormMinimized ? 'Expand form' : 'Minimize form'}
+                  >
+                    {isTransactionFormMinimized ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+                  </button>
+                  <button 
+                    onClick={() => setIsTransactionFormCollapsed(true)}
+                    className="collapse-button"
+                    title="Collapse to give more space"
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
                 </div>
-                {isTransactionFormMinimized ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
               </div>
+              
+              {!isTransactionFormMinimized && (
+                <TransactionForm onSave={handleSaveTransaction} loading={loading} />
+              )}
             </div>
-            
-            <TransactionForm onSave={handleSaveTransaction} loading={loading} />
-          </div>
+          )}
+          
+          {/* Collapse/Expand Button when form is collapsed */}
+          {isTransactionFormCollapsed && (
+            <div className="collapsed-form-toggle">
+              <button 
+                onClick={() => setIsTransactionFormCollapsed(false)}
+                className="expand-form-button"
+                title="Show Add Transaction form"
+              >
+                <ChevronRight size={20} />
+                <span>Add Transaction</span>
+              </button>
+            </div>
+          )}
 
           {/* Recent Transactions Section */}
           <div className="enhanced-transactions-section">
@@ -557,40 +688,121 @@ const TransactionsPage: React.FC = () => {
                     View and manage your transaction history
                   </p>
                 </div>
+                <div className="transaction-stats">
+                  <div className="stat-item">
+                    <Hash size={16} />
+                    <span>{filteredTransactions.length} transactions</span>
+                  </div>
+                  <div className="export-buttons">
+                    <button onClick={exportToCSV} className="export-button" title="Export to CSV">
+                      <Download size={16} />
+                      CSV
+                    </button>
+                    <button onClick={exportToTXT} className="export-button" title="Export to TXT">
+                      <Download size={16} />
+                      TXT
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
             
             <div className="enhanced-transactions-wrapper">
-              <div className="filter-controls" style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
-                <SelectField
-                  id="portfolio-filter"
-                  name="portfolio-filter"
-                  label="Filter by Portfolio"
-                  value={filters.portfolioId}
-                  onChange={(e) => setFilters({ ...filters, portfolioId: e.target.value })}
-                  options={[
-                    { value: 'all', label: 'All Portfolios' },
-                    ...(portfolios || []).map(p => ({ value: p.id, label: p.name }))
-                  ]}
-                  disabled={portfoliosLoading}
-                />
-                <SelectField
-                  id="date-range-filter"
-                  name="date-range-filter"
-                  label="Filter by Date"
-                  value={filters.dateRange}
-                  onChange={(e) => setFilters({ ...filters, dateRange: e.target.value })}
-                  options={[
-                    { value: 'all', label: 'All Time' },
-                    { value: 'last7days', label: 'Last 7 Days' },
-                    { value: 'last30days', label: 'Last 30 Days' },
-                    { value: 'last90days', label: 'Last 90 Days' },
-                    { value: 'thisYear', label: 'This Year' },
-                  ]}
-                />
+              {/* Consolidated Filter System */}
+              <div className="comprehensive-filters">
+                <div className="filter-header">
+                  <Filter size={16} />
+                  <span>Filter Transactions</span>
+                </div>
+                
+                <div className="filter-grid">
+                  <SelectField
+                    id="portfolio-filter"
+                    name="portfolio-filter"
+                    label="Portfolio"
+                    value={filters.portfolioId}
+                    onChange={(e) => setFilters({ ...filters, portfolioId: e.target.value })}
+                    options={[
+                      { value: 'all', label: 'All Portfolios' },
+                      ...(portfolios || []).map(p => ({ value: p.id, label: p.name }))
+                    ]}
+                    disabled={portfoliosLoading}
+                  />
+                  
+                  <SelectField
+                    id="date-range-filter"
+                    name="date-range-filter"
+                    label="Date Range"
+                    value={filters.dateRange}
+                    onChange={(e) => setFilters({ ...filters, dateRange: e.target.value })}
+                    options={[
+                      { value: 'all', label: 'All Time' },
+                      { value: 'last7days', label: 'Last 7 Days' },
+                      { value: 'last30days', label: 'Last 30 Days' },
+                      { value: 'last90days', label: 'Last 90 Days' },
+                      { value: 'thisYear', label: 'This Year' },
+                      { value: 'custom', label: 'Custom Range' }
+                    ]}
+                  />
+                  
+                  <SelectField
+                    id="asset-type-filter"
+                    name="asset-type-filter"
+                    label="Asset Type"
+                    value={filters.assetType}
+                    onChange={(e) => setFilters({ ...filters, assetType: e.target.value })}
+                    options={[
+                      { value: 'all', label: 'All Types' },
+                      { value: 'stock', label: 'Stocks' },
+                      { value: 'option', label: 'Options' },
+                      { value: 'crypto', label: 'Crypto' },
+                      { value: 'etf', label: 'ETFs' },
+                      { value: 'bond', label: 'Bonds' }
+                    ]}
+                  />
+                  
+                  <div className="symbol-filter">
+                    <label htmlFor="symbol-filter">Symbol</label>
+                    <input
+                      id="symbol-filter"
+                      type="text"
+                      placeholder="Search by symbol..."
+                      value={filters.symbol}
+                      onChange={(e) => setFilters({ ...filters, symbol: e.target.value })}
+                      className="symbol-input"
+                    />
+                  </div>
+                </div>
+                
+                {/* Custom Date Range Inputs */}
+                {filters.dateRange === 'custom' && (
+                  <div className="custom-date-range">
+                    <div className="date-input-group">
+                      <label htmlFor="date-from">From</label>
+                      <input
+                        id="date-from"
+                        type="date"
+                        value={filters.customDateFrom}
+                        onChange={(e) => setFilters({ ...filters, customDateFrom: e.target.value })}
+                        className="date-input"
+                      />
+                    </div>
+                    <div className="date-input-group">
+                      <label htmlFor="date-to">To</label>
+                      <input
+                        id="date-to"
+                        type="date"
+                        value={filters.customDateTo}
+                        onChange={(e) => setFilters({ ...filters, customDateTo: e.target.value })}
+                        className="date-input"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
+              
               <TransactionList
-                transactions={transactions}
+                transactions={filteredTransactions}
                 loading={loading}
                 error={error}
                 onEdit={handleEditTransaction}
