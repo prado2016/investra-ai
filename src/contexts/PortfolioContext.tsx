@@ -57,7 +57,7 @@ export const PortfolioProvider: React.FC<PortfolioProviderProps> = ({ children }
       const debouncedFetch = requestDebouncer.debounce(
         `portfolios-${user.id}`,
         () => SupabaseService.portfolio.getPortfolios(),
-        2000 // 2 second debounce
+        5000 // Increased debounce to 5 seconds
       );
 
       const result = await debouncedFetch();
@@ -66,12 +66,15 @@ export const PortfolioProvider: React.FC<PortfolioProviderProps> = ({ children }
         console.log('🏦 PortfolioContext: Fetched portfolios:', result.data);
         setPortfolios(result.data);
         
-        // Set active portfolio if none is selected
-        if (!activePortfolio && result.data.length > 0) {
-          const defaultPortfolio = result.data.find(p => p.is_default) || result.data[0];
-          setActivePortfolio(defaultPortfolio);
-          console.log('🏦 PortfolioContext: Set active portfolio:', defaultPortfolio);
-        }
+        // Set active portfolio if none is selected, using a functional update to avoid stale closure
+        setActivePortfolio(prevActivePortfolio => {
+          if (!prevActivePortfolio && result.data.length > 0) {
+            const defaultPortfolio = result.data.find(p => p.is_default) || result.data[0];
+            console.log('🏦 PortfolioContext: Set active portfolio:', defaultPortfolio);
+            return defaultPortfolio;
+          }
+          return prevActivePortfolio; // Keep current active portfolio if already set
+        });
       } else if (result.success && (!result.data || result.data.length === 0)) {
         // No portfolios exist, create a default one
         console.log('📝 PortfolioContext: No portfolios found, creating default');
@@ -101,7 +104,7 @@ export const PortfolioProvider: React.FC<PortfolioProviderProps> = ({ children }
     } finally {
       setLoading(false);
     }
-  }, [user?.id, activePortfolio]);
+  }, [user?.id]); // Removed activePortfolio from dependencies
 
   const refreshPortfolios = useCallback(async () => {
     await fetchPortfolios();

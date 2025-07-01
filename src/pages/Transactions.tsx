@@ -290,8 +290,10 @@ Settlement Date: ${t.settlement_date || ''}
 
       // Set up a debounced fetch to prevent rate limiting
       fetchTimeoutRef.current = setTimeout(() => {
-        if (activePortfolio?.id) fetchTransactions(activePortfolio.id);
-        fetchFundMovements(activePortfolio.id);
+        if (activePortfolio?.id) {
+          fetchTransactions(activePortfolio.id);
+          fetchFundMovements(activePortfolio.id);
+        }
       }, 300); // 300ms debounce time
     }
     
