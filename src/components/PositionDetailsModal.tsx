@@ -18,7 +18,7 @@ import { usePortfolios } from '../contexts/PortfolioContext';
 import TransactionEditModal from './TransactionEditModal';
 import { formatCurrency, formatDate, formatPercentage } from '../utils/formatting';
 import type { Position } from '../types/portfolio';
-import type { TransactionWithAsset } from './TransactionList';
+import type { UnifiedTransactionEntry } from '../types/unifiedEntry';
 
 const ModalOverlay = styled.div`
   position: fixed;
@@ -330,10 +330,10 @@ export const PositionDetailsModal: React.FC<PositionDetailsModalProps> = ({
   onClose,
   onRefresh
 }) => {
-  const [transactions, setTransactions] = useState<TransactionWithAsset[]>([]);
+  const [transactions, setTransactions] = useState<UnifiedTransactionEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [editingTransaction, setEditingTransaction] = useState<TransactionWithAsset | null>(null);
+  const [editingTransaction, setEditingTransaction] = useState<UnifiedTransactionEntry | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const notify = useNotify();
   const { activePortfolio } = usePortfolios();
@@ -389,7 +389,7 @@ export const PositionDetailsModal: React.FC<PositionDetailsModalProps> = ({
     }
   }, [isOpen, onClose]);
 
-  const handleEditTransaction = (transaction: TransactionWithAsset) => {
+  const handleEditTransaction = (transaction: UnifiedTransactionEntry) => {
     setEditingTransaction(transaction);
     setShowEditModal(true);
   };

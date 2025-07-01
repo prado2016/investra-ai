@@ -1,12 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import styled from 'styled-components';
-import { ArrowDownCircle, ArrowUpCircle, Gift, Edit3, Trash2, Info, Clock } from 'lucide-react'; // Removed AlertTriangle, CheckCircle2
-import type { Asset } from '../lib/database/types';
+import { ArrowDownCircle, ArrowUpCircle, Gift, Edit3, Trash2, Info, Clock, ArrowLeftRight, RefreshCw } from 'lucide-react';
 import { formatCurrency, formatDate } from '../utils/formatting';
 import { parseOptionSymbol } from '../utils/assetCategorization';
 import CompanyLogo from './CompanyLogo';
 import type { UnifiedEntry, UnifiedTransactionEntry, UnifiedFundMovementEntry } from '../types/unifiedEntry';
-import { ArrowLeftRight, RefreshCw } from 'lucide-react';
 
 const SymbolContainer = styled.div`
   display: flex;
@@ -451,19 +449,19 @@ const ErrorState = styled.div`
 `;
 
 interface TransactionListProps {
-  transactions: TransactionWithAsset[];
+  entries: UnifiedEntry[];
   loading: boolean;
   error?: string | null;
-  onEdit: (transaction: TransactionWithAsset) => void;
-  onDelete: (id: string) => void;
+  onEdit: (entry: UnifiedEntry) => void;
+  ononDelete: (id: string, type: 'transaction' | 'fund_movement') => void;
 }
 
 const TransactionList: React.FC<TransactionListProps> = ({
-  transactions,
+  entries,
   loading,
   error,
   onEdit,
-  onDelete
+  ononDelete
 }) => {
   const [filterType, setFilterType] = useState<string>('all');
   const [filterAsset, setFilterAsset] = useState<string>('all');
@@ -472,31 +470,33 @@ const TransactionList: React.FC<TransactionListProps> = ({
   const [customStartDate, setCustomStartDate] = useState<string>('');
   const [customEndDate, setCustomEndDate] = useState<string>('');
 
-  const filteredTransactions = useMemo(() => {
-    return transactions.filter(transaction => {
-      const typeMatch = filterType === 'all' || transaction.transaction_type === filterType;
-      const assetMatch = filterAsset === 'all' || transaction.asset?.asset_type === filterAsset;
-      const symbolMatch = !filterSymbol || 
-        transaction.asset?.symbol?.toLowerCase().includes(filterSymbol.toLowerCase());
-      
-      // Date range filtering
-      let dateMatch = true;
-      if (filterDateRange !== 'all') {
-        const transactionDate = new Date(transaction.transaction_date);
-        const today = new Date();
-        const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const filteredEntries = useMemo(() => {
+    return entries.filter(entry => {
+      if (entry.type === 'transaction') {
+        const transaction = entry as UnifiedTransactionEntry;
+        const typeMatch = filterType === 'all' || transaction.transactionType === filterType;
+        const assetMatch = filterAsset === 'all' || transaction.assetType === filterAsset;
+        const symbolMatch = !filterSymbol || 
+          transaction.assetSymbol?.toLowerCase().includes(filterSymbol.toLowerCase());
         
-        switch (filterDateRange) {
-          case 'today': {
-            dateMatch = transactionDate >= todayStart;
-            break;
-          }
-          case '7days': {
-            const sevenDaysAgo = new Date(todayStart);
-            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-            dateMatch = transactionDate >= sevenDaysAgo;
-            break;
-          }
+        // Date range filtering
+        let dateMatch = true;
+        if (filterDateRange !== 'all') {
+          const transactionDate = entry.date;
+          const today = new Date();
+          const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+          
+          switch (filterDateRange) {
+            case 'today': {
+              dateMatch = transactionDate >= todayStart;
+              break;
+            }
+            case '7days': {
+              const sevenDaysAgo = new Date(todayStart);
+              sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+              dateMatch = transactionDate >= sevenDaysAgo;
+              break;
+            }
           case '30days': {
             const thirtyDaysAgo = new Date(todayStart);
             thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -533,22 +533,26 @@ const TransactionList: React.FC<TransactionListProps> = ({
           default:
             dateMatch = true;
         }
+      
+        return typeMatch && assetMatch && symbolMatch && dateMatch;
       }
       
-      return typeMatch && assetMatch && symbolMatch && dateMatch;
+        return typeMatch && assetMatch && symbolMatch && dateMatch;
+      }
+      return true; // Include fund movements for now
     });
-  }, [transactions, filterType, filterAsset, filterSymbol, filterDateRange, customStartDate, customEndDate]);
+  }, [entries, filterType, filterAsset, filterSymbol, filterDateRange, customStartDate, customEndDate]);
 
-  const sortedTransactions = useMemo(() => {
-    return [...filteredTransactions].sort((a, b) => 
-      new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime()
+  const sortedEntries = useMemo(() => {
+    return [...filteredEntries].sort((a, b) => 
+      b.date.getTime() - a.date.getTime()
     );
-  }, [filteredTransactions]);
+  }, [filteredEntries]);
 
-  // Show all transactions with proper scrolling
-  const recentTransactions = useMemo(() => {
-    return sortedTransactions; // Show all transactions, scrolling handled by container
-  }, [sortedTransactions]);
+  // Show all entries with proper scrolling
+  const recentEntries = useMemo(() => {
+    return sortedEntries; // Show all entries, scrolling handled by container
+  }, [sortedEntries]);
 
   if (loading) {
     return <LoadingState>Loading transactions...</LoadingState>;
@@ -623,11 +627,11 @@ const TransactionList: React.FC<TransactionListProps> = ({
         )}
       </FilterBar>
 
-      {recentTransactions.length === 0 ? (
+      {recentEntries.length === 0 ? (
         <EmptyState>
-          {transactions.length === 0 
-            ? "No transactions yet. Click 'Add Transaction' to get started."
-            : "No transactions match the current filters."
+          {entries.length === 0 
+            ? "No entries yet. Click 'Add Transaction' to get started."
+            : "No entries match the current filters."
           }
         </EmptyState>
       ) : (
@@ -643,41 +647,44 @@ const TransactionList: React.FC<TransactionListProps> = ({
           </TableHeader>
           
           <div>
-            {recentTransactions
-              .filter(transaction => transaction && transaction.id) // Filter out invalid transactions
-              .map((transaction) => (
-            <TableRow key={transaction.id}>
+            {recentEntries
+              .filter(entry => entry && entry.id) // Filter out invalid entries
+              .map((entry) => {
+                if (entry.type === 'transaction') {
+                  const transaction = entry as UnifiedTransactionEntry;
+                  return (
+            <TableRow key={entry.id}>
               <SymbolContainer>
                 <CompanyLogo
                   symbol={(() => {
                     // For options, use the underlying symbol for the logo
-                    if (transaction.asset?.asset_type === 'option') {
-                      const parsedSymbol = parseOptionSymbol(transaction.asset.symbol);
+                    if (transaction.assetType === 'option') {
+                      const parsedSymbol = parseOptionSymbol(transaction.assetSymbol);
                       if (parsedSymbol) {
                         return parsedSymbol.underlying.toUpperCase();
                       }
                     }
-                    return transaction.asset?.symbol || 'N/A';
+                    return transaction.assetSymbol || 'N/A';
                   })()}
                   size="md"
                 />
                 <SymbolText>
                   <SymbolName>
                     {(() => {
-                      if (transaction.asset?.asset_type === 'option') {
-                        const parsedSymbol = parseOptionSymbol(transaction.asset.symbol);
+                      if (transaction.assetType === 'option') {
+                        const parsedSymbol = parseOptionSymbol(transaction.assetSymbol);
                         if (parsedSymbol) {
                           // Show the underlying symbol as the main name
                           return parsedSymbol.underlying.toUpperCase();
                         }
                       }
-                      return transaction.asset?.symbol || 'N/A';
+                      return transaction.assetSymbol || 'N/A';
                     })()}
                   </SymbolName>
-                  {transaction.asset?.asset_type === 'option' && (
+                  {transaction.assetType === 'option' && (
                     <OptionFullSymbol>
                       {(() => {
-                        const parsedSymbol = parseOptionSymbol(transaction.asset.symbol);
+                        const parsedSymbol = parseOptionSymbol(transaction.assetSymbol);
                         if (parsedSymbol) {
                           // Format: "May 16 $0 CALL"
                           const month = parsedSymbol.expiration.toLocaleDateString('en-US', { month: 'short' });
@@ -686,11 +693,11 @@ const TransactionList: React.FC<TransactionListProps> = ({
                           const type = parsedSymbol.type.toUpperCase();
                           return `${month} ${day} $${strike} ${type}`;
                         }
-                        return transaction.asset.symbol.toLowerCase();
+                        return transaction.assetSymbol.toLowerCase();
                       })()}
                     </OptionFullSymbol>
                   )}
-                  {transaction.asset?.asset_type !== 'option' && (
+                  {transaction.assetType !== 'option' && (
                     <div
                       className="transaction-company-name"
                       title={transaction.asset?.name || 'Unknown Company'}
@@ -698,22 +705,22 @@ const TransactionList: React.FC<TransactionListProps> = ({
                       {transaction.asset?.name || 'Unknown Company'}
                     </div>
                   )}
-                  <AssetTypeBadge type={transaction.asset?.asset_type || 'stock'}>
-                    {transaction.asset?.asset_type || 'stock'}
+                  <AssetTypeBadge type={transaction.assetType || 'stock'}>
+                    {transaction.assetType || 'stock'}
                   </AssetTypeBadge>
                 </SymbolText>
               </SymbolContainer>
             
               <div>
-                <TransactionBadge type={transaction.transaction_type || 'buy'}>
-                  {transaction.transaction_type === 'buy' && <ArrowDownCircle size="0.9em" />}
-                  {transaction.transaction_type === 'sell' && <ArrowUpCircle size="0.9em" />}
-                  {transaction.transaction_type === 'dividend' && <Gift size="0.9em" />}
-                  {transaction.transaction_type === 'split' && <Info size="0.9em" />}
-                  {transaction.transaction_type === 'option_expired' && <Clock size="0.9em" />}
+                <TransactionBadge type={transaction.transactionType || 'buy'}>
+                  {transaction.transactionType === 'buy' && <ArrowDownCircle size="0.9em" />}
+                  {transaction.transactionType === 'sell' && <ArrowUpCircle size="0.9em" />}
+                  {transaction.transactionType === 'dividend' && <Gift size="0.9em" />}
+                  {transaction.transactionType === 'split' && <Info size="0.9em" />}
+                  {transaction.transactionType === 'option_expired' && <Clock size="0.9em" />}
                   {/* Add other icons as needed */}
-                  {!['buy', 'sell', 'dividend', 'split', 'option_expired'].includes(transaction.transaction_type) && <Info size="0.9em" />}
-                  <span style={{ marginLeft: '0.25em' }}>{transaction.transaction_type === 'option_expired' ? 'Option Expired' : transaction.transaction_type || 'buy'}</span>
+                  {!['buy', 'sell', 'dividend', 'split', 'option_expired'].includes(transaction.transactionType) && <Info size="0.9em" />}
+                  <span style={{ marginLeft: '0.25em' }}>{transaction.transactionType === 'option_expired' ? 'Option Expired' : transaction.transactionType || 'buy'}</span>
                 </TransactionBadge>
               </div>
               
@@ -726,39 +733,65 @@ const TransactionList: React.FC<TransactionListProps> = ({
               </div>
               
               <div className="financial-data">
-                {formatCurrency(transaction.total_amount || 0, transaction.currency || 'USD')}
+                {formatCurrency(transaction.amount || 0, transaction.currency || 'USD')}
               </div>
               
               <div>
-                {(() => {
-                  // Handle timezone-safe date formatting for database date strings
-                  const dateStr = transaction.transaction_date;
-                  if (typeof dateStr === 'string') {
-                    // Parse date string safely to avoid timezone shifts
-                    const [year, month, day] = dateStr.split('-').map(Number);
-                    const safeDate = new Date(year, month - 1, day); // month is 0-indexed
-                    return formatDate(safeDate);
-                  }
-                  return formatDate(dateStr);
-                })()}
+                {formatDate(transaction.date)}
               </div>
               
               <div>
                 <ActionButton 
                   variant="edit" 
-                  onClick={() => onEdit(transaction)}
+                  onClick={() => onEdit(entry)}
                 >
                   <Edit3 size="0.875em" /> Edit
                 </ActionButton>
                 <ActionButton 
                   variant="delete" 
-                  onClick={() => onDelete(transaction.id)}
+                  onClick={() => ononDelete(entry.id, 'transaction')}
                 >
                   <Trash2 size="0.875em" /> Delete
                 </ActionButton>
               </div>
             </TableRow>
-          ))}
+                  );
+                } else {
+                  // Handle fund movements
+                  const fundMovement = entry as UnifiedFundMovementEntry;
+                  return (
+                    <TableRow key={entry.id}>
+                      <div>Fund Movement</div>
+                      <div>
+                        <TransactionBadge type={fundMovement.fundMovementType}>
+                          <ArrowLeftRight size="0.9em" />
+                          <span style={{ marginLeft: '0.25em' }}>{fundMovement.fundMovementType}</span>
+                        </TransactionBadge>
+                      </div>
+                      <div>-</div>
+                      <div>-</div>
+                      <div className="financial-data">
+                        {formatCurrency(fundMovement.amount, fundMovement.currency)}
+                      </div>
+                      <div>{formatDate(fundMovement.date)}</div>
+                      <div>
+                        <ActionButton 
+                          variant="edit" 
+                          onClick={() => onEdit(entry)}
+                        >
+                          <Edit3 size="0.875em" /> Edit
+                        </ActionButton>
+                        <ActionButton 
+                          variant="delete" 
+                          onClick={() => ononDelete(entry.id, 'fund_movement')}
+                        >
+                          <Trash2 size="0.875em" /> Delete
+                        </ActionButton>
+                      </div>
+                    </TableRow>
+                  );
+                }
+              })}
           </div>
         </TransactionTable>
       )}

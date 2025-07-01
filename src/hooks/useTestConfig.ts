@@ -5,7 +5,7 @@
 
 import { useEffect, useRef } from 'react';
 import type { Portfolio } from '../lib/database/types';
-import type { TransactionWithAsset } from '../components/TransactionList';
+import type { UnifiedTransactionEntry } from '../types/unifiedEntry';
 
 // Check if we're in test mode
 export const isTestMode = () => {
@@ -40,7 +40,7 @@ export const getMockPortfolio = (): Portfolio => ({
 });
 
 // Mock transaction data for testing
-export const getMockTransactions = (): TransactionWithAsset[] => [
+export const getMockTransactions = (): UnifiedTransactionEntry[] => [
   {
     id: 'test-txn-1',
     portfolio_id: 'test-portfolio-1',

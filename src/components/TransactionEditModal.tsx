@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { X, Save } from 'lucide-react';
-import type { TransactionWithAsset } from './TransactionList';
+import type { UnifiedTransactionEntry } from '../types/unifiedEntry';
 import { formatCurrency } from '../utils/formatting';
 
 const ModalOverlay = styled.div`
@@ -183,7 +183,7 @@ const SectionTitle = styled.h3`
 `;
 
 interface TransactionEditModalProps {
-  transaction: TransactionWithAsset;
+  transaction: UnifiedTransactionEntry;
   isOpen: boolean;
   onClose: () => void;
   onSave: (updatedData: {
