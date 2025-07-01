@@ -1,4 +1,5 @@
-import type { Transaction, FundMovement, Asset } from './portfolio';
+import type { Transaction, FundMovement } from './portfolio';
+import type { Asset } from './assets';
 
 export type UnifiedEntryType = 'transaction' | 'fund_movement';
 
@@ -18,7 +19,7 @@ export interface UnifiedTransactionEntry extends UnifiedEntryCommon {
   transactionType: Transaction['type']; // Renamed to avoid conflict with UnifiedEntryType
   assetId: string;
   assetSymbol: string;
-  assetType: Asset['asset_type'];
+  assetType: Asset['assetType'];
   quantity: number;
   price: number;
   fees?: number;

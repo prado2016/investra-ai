@@ -18,6 +18,7 @@ import { usePortfolios } from '../contexts/PortfolioContext';
 import TransactionEditModal from './TransactionEditModal';
 import { formatCurrency, formatDate, formatPercentage } from '../utils/formatting';
 import type { Position } from '../types/portfolio';
+import type { Transaction } from '../lib/database/types';
 import type { UnifiedTransactionEntry } from '../types/unifiedEntry';
 
 const ModalOverlay = styled.div`
@@ -330,7 +331,7 @@ export const PositionDetailsModal: React.FC<PositionDetailsModalProps> = ({
   onClose,
   onRefresh
 }) => {
-  const [transactions, setTransactions] = useState<UnifiedTransactionEntry[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editingTransaction, setEditingTransaction] = useState<UnifiedTransactionEntry | null>(null);
@@ -389,8 +390,32 @@ export const PositionDetailsModal: React.FC<PositionDetailsModalProps> = ({
     }
   }, [isOpen, onClose]);
 
-  const handleEditTransaction = (transaction: UnifiedTransactionEntry) => {
-    setEditingTransaction(transaction);
+  const handleEditTransaction = (transaction: Transaction) => {
+    // Convert Transaction to UnifiedTransactionEntry for the edit modal
+    const unifiedTransaction: UnifiedTransactionEntry = {
+      id: transaction.id,
+      type: 'transaction',
+      portfolioId: transaction.portfolio_id,
+      date: new Date(transaction.transaction_date),
+      amount: transaction.total_amount || 0,
+      currency: transaction.currency || 'USD',
+      notes: transaction.notes || '',
+      createdAt: new Date(transaction.created_at),
+      updatedAt: new Date(transaction.updated_at),
+      transactionType: transaction.transaction_type as any,
+      assetId: transaction.asset_id,
+      assetSymbol: (transaction as any).asset?.symbol || '',
+      assetType: ((transaction as any).asset?.asset_type || 'stock') as any,
+      quantity: transaction.quantity,
+      price: transaction.price,
+      fees: transaction.fees,
+      strategyType: transaction.strategy_type || undefined,
+      brokerName: transaction.broker_name || undefined,
+      externalId: transaction.external_id || undefined,
+      settlementDate: transaction.settlement_date || undefined,
+      asset: (transaction as any).asset
+    };
+    setEditingTransaction(unifiedTransaction);
     setShowEditModal(true);
   };
 

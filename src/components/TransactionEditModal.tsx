@@ -208,17 +208,17 @@ export const TransactionEditModal: React.FC<TransactionEditModalProps> = ({
   onSave
 }) => {
   const [formData, setFormData] = useState({
-    transaction_type: transaction.transaction_type || 'buy',
+    transaction_type: transaction.transactionType || 'buy',
     quantity: transaction.quantity?.toString() || '',
     price: transaction.price?.toString() || '',
-    transaction_date: transaction.transaction_date?.split('T')[0] || '',
+    transaction_date: transaction.date.toISOString().split('T')[0] || '',
     fees: transaction.fees?.toString() || '0',
     currency: transaction.currency || 'USD',
     notes: transaction.notes || '',
-    settlement_date: transaction.settlement_date?.split('T')[0] || '',
-    exchange_rate: transaction.exchange_rate?.toString() || '1',
-    broker_name: transaction.broker_name || '',
-    external_id: transaction.external_id || ''
+    settlement_date: transaction.settlementDate?.split('T')[0] || '',
+    exchange_rate: '1',
+    broker_name: transaction.brokerName || '',
+    external_id: transaction.externalId || ''
   });
   const [saving, setSaving] = useState(false);
 
@@ -297,7 +297,7 @@ export const TransactionEditModal: React.FC<TransactionEditModalProps> = ({
               <option value="buy">Buy</option>
               <option value="sell">Sell</option>
               <option value="dividend">Dividend</option>
-              {transaction.asset?.asset_type === 'option' && (
+              {transaction.asset?.assetType === 'option' && (
                 <option value="option_expired">Option Expired</option>
               )}
             </Select>

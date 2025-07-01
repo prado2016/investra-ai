@@ -4,7 +4,6 @@
  */
 
 import type { Portfolio } from '../lib/database/types';
-import type { TransactionWithAsset } from '../components/TransactionList';
 import type { Transaction, Asset, TransactionType } from '../lib/database/types';
 import { getMockPortfolio, getMockTransactions, isTestMode } from '../hooks/useTestConfig';
 
@@ -25,7 +24,7 @@ class MockTransactionService {
   private static mockTransactions = getMockTransactions();
   private static mockAssets = getMockTransactions().map(t => t.asset);
 
-  static async getTransactions(portfolioId?: string): Promise<MockServiceListResponse<TransactionWithAsset>> {
+  static async getTransactions(portfolioId?: string): Promise<MockServiceListResponse<Transaction & { asset: Asset }>> {
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 100));
     
@@ -51,7 +50,7 @@ class MockTransactionService {
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 200));
 
-    const newTransaction: TransactionWithAsset = {
+    const newTransaction: Transaction & { asset: Asset } = {
       id: `test-txn-${Date.now()}`,
       portfolio_id: _portfolioId,
       position_id: null,
@@ -107,7 +106,7 @@ class MockTransactionService {
       };
 
       return {
-        data: this.mockTransactions[transactionIndex] as Transaction,
+        data: this.mockTransactions[transactionIndex] as unknown as Transaction,
         error: null,
         success: true
       };

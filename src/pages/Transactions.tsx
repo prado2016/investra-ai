@@ -12,7 +12,7 @@ import FundMovementEditModal from '../components/FundMovementEditModal.tsx';
 import { Plus, TrendingUp, DollarSign, ArrowUpDown, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Download, Filter, Hash } from 'lucide-react';
 import { SelectField } from '../components/FormFields';
 import { useSupabasePortfolios } from '../hooks/useSupabasePortfolios';
-import type { Transaction, TransactionType, FundMovement, Currency } from '../types/portfolio';
+import type { Transaction, TransactionType, FundMovement } from '../types/portfolio';
 import type { UnifiedEntry, UnifiedTransactionEntry, UnifiedFundMovementEntry, UnifiedEntryType } from '../types/unifiedEntry';
 import { startOfDay, subDays, startOfYear } from 'date-fns';
 import '../styles/transactions-layout.css';

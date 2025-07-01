@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import styled from 'styled-components';
-import { ArrowDownCircle, ArrowUpCircle, Gift, Edit3, Trash2, Info, Clock, ArrowLeftRight, RefreshCw } from 'lucide-react';
+import { ArrowDownCircle, ArrowUpCircle, Gift, Edit3, Trash2, Info, Clock, ArrowLeftRight } from 'lucide-react';
 import { formatCurrency, formatDate } from '../utils/formatting';
 import { parseOptionSymbol } from '../utils/assetCategorization';
 import CompanyLogo from './CompanyLogo';
@@ -763,7 +763,7 @@ const TransactionList: React.FC<TransactionListProps> = ({
                     <TableRow key={entry.id}>
                       <div>Fund Movement</div>
                       <div>
-                        <TransactionBadge type={fundMovement.fundMovementType}>
+                        <TransactionBadge type={fundMovement.fundMovementType as string}>
                           <ArrowLeftRight size="0.9em" />
                           <span style={{ marginLeft: '0.25em' }}>{fundMovement.fundMovementType}</span>
                         </TransactionBadge>
