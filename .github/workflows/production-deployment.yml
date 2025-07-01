@@ -170,6 +170,8 @@ jobs:
           echo "🔄 Updating email-puller .env with database-stored environment variables..."
           export EMAIL_PULLER_DEPLOY_DIR="${{ env.EMAIL_PULLER_DEPLOY_DIR }}"
           cd ..
+          # Install dependencies for the env update script
+          npm install @supabase/supabase-js
           node .github/workflows/update-email-puller-env.js
           cd email-puller
           
