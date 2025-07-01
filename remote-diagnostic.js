@@ -1,6 +1,8 @@
 /**
  * Remote diagnostic script to check email-puller service on production server
- * Connects via SSH to lab@10.0.0.89 and runs diagnostics
+ * Connects via SSH to lab@10.0.0.89 and runs comprehensive diagnostics
+ * 
+ * Usage: node remote-diagnostic.js
  */
 
 import { execSync } from 'child_process';
@@ -29,9 +31,9 @@ async function runRemoteDiagnostic() {
     }
 
     // 2. Check email-puller logs
-    console.log('\n2️⃣ Checking email-puller logs (last 50 lines)...');
+    console.log('\n2️⃣ Checking email-puller logs (last 30 lines)...');
     try {
-      const logs = execSync(`${sshBase} "pm2 logs investra-email-puller --lines 50 --nostream"`, { encoding: 'utf8', timeout: 15000 });
+      const logs = execSync(`${sshBase} "pm2 logs investra-email-puller --lines 30 --nostream"`, { encoding: 'utf8', timeout: 15000 });
       console.log(logs);
     } catch (error) {
       console.error('❌ Log check failed:', error.message);
@@ -55,7 +57,7 @@ async function runRemoteDiagnostic() {
     // 4. Check system resources and performance
     console.log('\n4️⃣ Checking system resources...');
     try {
-      const sysInfo = execSync(`${sshBase} "echo '=== CPU and Memory ===' && top -bn1 | head -20 && echo && echo '=== Disk Usage ===' && df -h && echo && echo '=== Network Connections ===' && netstat -tuln | grep :993"`, { encoding: 'utf8', timeout: 10000 });
+      const sysInfo = execSync(`${sshBase} "echo '=== CPU and Memory ===' && top -bn1 | head -15 && echo && echo '=== Disk Usage ===' && df -h && echo && echo '=== Network Connections ===' && netstat -tuln | grep :993"`, { encoding: 'utf8', timeout: 10000 });
       console.log(sysInfo);
     } catch (error) {
       console.error('❌ System info check failed:', error.message);
@@ -68,30 +70,34 @@ async function runRemoteDiagnostic() {
         const { createClient } = require('@supabase/supabase-js');
         const fs = require('fs');
         
-        // Read .env file
-        const envContent = fs.readFileSync('.env', 'utf8');
-        const envLines = envContent.split('\\\\n');
-        const env = {};
-        envLines.forEach(line => {
-          const [key, value] = line.split('=');
-          if (key && value) env[key.trim()] = value.trim();
-        });
-        
-        console.log('📡 Testing Supabase connection...');
-        console.log('SUPABASE_URL:', env.SUPABASE_URL ? 'SET' : 'MISSING');
-        console.log('SUPABASE_ANON_KEY:', env.SUPABASE_ANON_KEY ? 'SET (length: ' + env.SUPABASE_ANON_KEY.length + ')' : 'MISSING');
-        
-        if (env.SUPABASE_URL && env.SUPABASE_ANON_KEY) {
-          const client = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY);
-          client.from('system_config').select('config_key').limit(1)
-            .then(result => {
-              if (result.error) {
-                console.log('❌ Database connection failed:', result.error.message);
-              } else {
-                console.log('✅ Database connection successful');
-              }
-            })
-            .catch(err => console.log('❌ Database test error:', err.message));
+        try {
+          // Read .env file
+          const envContent = fs.readFileSync('.env', 'utf8');
+          const envLines = envContent.split('\\\\n');
+          const env = {};
+          envLines.forEach(line => {
+            const [key, value] = line.split('=');
+            if (key && value) env[key.trim()] = value.trim();
+          });
+          
+          console.log('📡 Testing Supabase connection...');
+          console.log('SUPABASE_URL:', env.SUPABASE_URL ? 'SET' : 'MISSING');
+          console.log('SUPABASE_ANON_KEY:', env.SUPABASE_ANON_KEY ? 'SET (length: ' + env.SUPABASE_ANON_KEY.length + ')' : 'MISSING');
+          
+          if (env.SUPABASE_URL && env.SUPABASE_ANON_KEY) {
+            const client = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY);
+            client.from('system_config').select('config_key').limit(1)
+              .then(result => {
+                if (result.error) {
+                  console.log('❌ Database connection failed:', result.error.message);
+                } else {
+                  console.log('✅ Database connection successful');
+                }
+              })
+              .catch(err => console.log('❌ Database test error:', err.message));
+          }
+        } catch (fileError) {
+          console.log('❌ Failed to read .env file:', fileError.message);
         }
         \\""`, { encoding: 'utf8', timeout: 15000 });
       console.log(dbTest);
@@ -99,7 +105,7 @@ async function runRemoteDiagnostic() {
       console.error('❌ Database connectivity test failed:', error.message);
     }
 
-    // 6. Check recent email-puller activity
+    // 6. Check recent email-puller process activity
     console.log('\n6️⃣ Checking recent email-puller process activity...');
     try {
       const processCheck = execSync(`${sshBase} "ps aux | grep -E '(imap|email)' | grep -v grep && echo && echo '=== Email-puller process details ===' && ps -ef | grep investra-email-puller | grep -v grep"`, { encoding: 'utf8', timeout: 5000 });
@@ -111,21 +117,30 @@ async function runRemoteDiagnostic() {
     // 7. Check system journals for email-puller errors
     console.log('\n7️⃣ Checking system journals for recent errors...');
     try {
-      const journalCheck = execSync(`${sshBase} "journalctl --since '24 hours ago' | grep -i -E '(email|imap|supabase|error|fail)' | tail -20"`, { encoding: 'utf8', timeout: 10000 });
+      const journalCheck = execSync(`${sshBase} "journalctl --since '4 hours ago' | grep -i -E '(email|imap|supabase|error|fail)' | tail -15"`, { encoding: 'utf8', timeout: 10000 });
       console.log('📋 Recent system journal entries:');
       console.log(journalCheck || 'No relevant journal entries found');
     } catch (error) {
       console.error('❌ Journal check failed:', error.message);
     }
 
-    // 8. Check if we can restart the service
-    console.log('\n8️⃣ Testing service restart capability...');
+    // 8. Check service restart history
+    console.log('\n8️⃣ Checking service restart patterns...');
     try {
-      const restartTest = execSync(`${sshBase} "pm2 describe investra-email-puller"`, { encoding: 'utf8', timeout: 5000 });
+      const restartHistory = execSync(`${sshBase} "pm2 describe investra-email-puller | grep -E '(restart|uptime|status)'"`, { encoding: 'utf8', timeout: 5000 });
       console.log('📊 Service restart info:');
-      console.log(restartTest);
+      console.log(restartHistory);
     } catch (error) {
-      console.error('❌ Restart test failed:', error.message);
+      console.error('❌ Restart history check failed:', error.message);
+    }
+
+    // 9. Quick health summary
+    console.log('\n9️⃣ Quick health summary...');
+    try {
+      const healthCheck = execSync(`${sshBase} "echo 'Service Status:' && pm2 list | grep investra-email-puller && echo && echo 'Disk Space:' && df -h | grep -E '(Filesystem|/opt|/$)' && echo && echo 'Memory Usage:' && free -h"`, { encoding: 'utf8', timeout: 8000 });
+      console.log(healthCheck);
+    } catch (error) {
+      console.error('❌ Health summary failed:', error.message);
     }
 
     console.log('\n✅ Remote diagnostic completed');
@@ -136,6 +151,7 @@ async function runRemoteDiagnostic() {
     console.log('4. Monitor system resources for bottlenecks');
     console.log('5. Test database connectivity from server');
     console.log('6. Check for any network connectivity issues');
+    console.log('7. Monitor restart count - high restarts indicate instability');
 
   } catch (error) {
     console.error('💥 Remote diagnostic failed:', error.message);
@@ -143,6 +159,7 @@ async function runRemoteDiagnostic() {
     console.log('1. Ensure SSH access to lab@10.0.0.89 is working');
     console.log('2. Check if SSH key is properly configured');
     console.log('3. Verify the server is accessible on the network');
+    console.log('4. Make sure you have the correct user permissions');
   }
 }
 
