@@ -1,15 +1,12 @@
 import React, { useState, useMemo } from 'react';
 import styled from 'styled-components';
 import { ArrowDownCircle, ArrowUpCircle, Gift, Edit3, Trash2, Info, Clock } from 'lucide-react'; // Removed AlertTriangle, CheckCircle2
-import type { Transaction, Asset } from '../lib/database/types';
+import type { Asset } from '../lib/database/types';
 import { formatCurrency, formatDate } from '../utils/formatting';
 import { parseOptionSymbol } from '../utils/assetCategorization';
 import CompanyLogo from './CompanyLogo';
-
-// Extended transaction type that includes asset information
-export interface TransactionWithAsset extends Transaction {
-  asset: Asset;
-}
+import type { UnifiedEntry, UnifiedTransactionEntry, UnifiedFundMovementEntry } from '../types/unifiedEntry';
+import { ArrowLeftRight, RefreshCw } from 'lucide-react';
 
 const SymbolContainer = styled.div`
   display: flex;

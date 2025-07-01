@@ -13,8 +13,7 @@ import { Plus, TrendingUp, DollarSign, ArrowUpDown, ChevronDown, ChevronUp, Chev
 import { SelectField } from '../components/FormFields';
 import { useSupabasePortfolios } from '../hooks/useSupabasePortfolios';
 import type { Transaction, TransactionType, FundMovement, FundMovementType, FundMovementStatus, Currency } from '../types/portfolio';
-import type { TransactionWithAsset } from '../components/TransactionList';
-import type { FundMovementWithMetadata } from '../components/FundMovementList';
+import type { UnifiedEntry, UnifiedTransactionEntry, UnifiedFundMovementEntry } from '../types/unifiedEntry';
 import { startOfDay, subDays, startOfYear } from 'date-fns';
 import '../styles/transactions-layout.css';
 
@@ -29,23 +28,24 @@ const TransactionsPage: React.FC = () => {
   });
   
   const notify = useNotify();
-  const [transactions, setTransactions] = useState<TransactionWithAsset[]>([]);
-  const [fundMovements, setFundMovements] = useState<FundMovementWithMetadata[]>([]);
+  const [unifiedEntries, setUnifiedEntries] = useState<UnifiedEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [editingTransaction, setEditingTransaction] = useState<TransactionWithAsset | null>(null);
+  const [editingEntry, setEditingEntry] = useState<UnifiedEntry | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [editingFundMovement, setEditingFundMovement] = useState<FundMovementWithMetadata | null>(null);
-  const [showFundMovementEditModal, setShowFundMovementEditModal] = useState(false);
   const [isTransactionFormMinimized, setIsTransactionFormMinimized] = useState(false);
   const [isTransactionFormCollapsed, setIsTransactionFormCollapsed] = useState(false);
   const [filters, setFilters] = useState({
     portfolioId: 'all',
     dateRange: 'all',
-    assetType: 'all',
-    symbol: '',
+    entryType: 'all', // 'all', 'transaction', 'fund_movement'
+    transactionType: 'all', // For transactions
+    fundMovementType: 'all', // For fund movements
+    assetType: 'all', // For transactions
+    symbol: '', // For transactions
+    account: '', // For fund movements
     customDateFrom: '',
-    customDateTo: ''
+    customDateTo: '',
   });
 
   // Update portfolioId in filters when activePortfolio changes
@@ -59,42 +59,60 @@ const TransactionsPage: React.FC = () => {
   // Debounce fetch to prevent excessive API calls
   const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Filter transactions based on current filters
-  const filteredTransactions = transactions.filter(transaction => {
-    // Portfolio filter - since we only fetch for active portfolio, only filter if a specific portfolio is selected
-    if (filters.portfolioId !== 'all' && filters.portfolioId !== activePortfolio?.id && transaction.portfolio_id !== filters.portfolioId) {
+  // Filter unified entries based on current filters
+  const filteredEntries = unifiedEntries.filter(entry => {
+    // Portfolio filter
+    if (filters.portfolioId !== 'all' && entry.portfolioId !== filters.portfolioId) {
       return false;
     }
 
-    // Asset type filter
-    if (filters.assetType !== 'all') {
-      const assetType = transaction.asset?.asset_type || 'stock';
-      if (assetType !== filters.assetType) {
+    // Entry type filter (transaction or fund_movement)
+    if (filters.entryType !== 'all' && entry.type !== filters.entryType) {
+      return false;
+    }
+
+    // Transaction-specific filters
+    if (entry.type === 'transaction') {
+      // Transaction Type filter
+      if (filters.transactionType !== 'all' && entry.transactionType !== filters.transactionType) {
+        return false;
+      }
+      // Asset type filter
+      if (filters.assetType !== 'all' && entry.assetType !== filters.assetType) {
+        return false;
+      }
+      // Symbol filter
+      if (filters.symbol && !entry.assetSymbol.toLowerCase().includes(filters.symbol.toLowerCase())) {
         return false;
       }
     }
 
-    // Symbol filter
-    if (filters.symbol && transaction.asset?.symbol) {
-      const searchSymbol = filters.symbol.toLowerCase();
-      const transactionSymbol = transaction.asset.symbol.toLowerCase();
-      if (!transactionSymbol.includes(searchSymbol)) {
+    // Fund Movement-specific filters
+    if (entry.type === 'fund_movement') {
+      // Fund Movement Type filter
+      if (filters.fundMovementType !== 'all' && entry.fundMovementType !== filters.fundMovementType) {
+        return false;
+      }
+      // Account filter
+      if (filters.account && !(entry.account?.toLowerCase().includes(filters.account.toLowerCase()) ||
+                                 entry.fromAccount?.toLowerCase().includes(filters.account.toLowerCase()) ||
+                                 entry.toAccount?.toLowerCase().includes(filters.account.toLowerCase()))) {
         return false;
       }
     }
 
     // Date range filter
-    const transactionDate = new Date(transaction.transaction_date);
+    const entryDate = entry.date;
     const now = new Date();
     
     if (filters.dateRange === 'custom') {
       if (filters.customDateFrom) {
         const fromDate = new Date(filters.customDateFrom);
-        if (transactionDate < fromDate) return false;
+        if (entryDate < fromDate) return false;
       }
       if (filters.customDateTo) {
         const toDate = new Date(filters.customDateTo);
-        if (transactionDate > toDate) return false;
+        if (entryDate > toDate) return false;
       }
     } else if (filters.dateRange !== 'all') {
       let cutoffDate: Date;
@@ -114,7 +132,7 @@ const TransactionsPage: React.FC = () => {
         default:
           return true; // Should not happen with current filter options
       }
-      if (transactionDate < startOfDay(cutoffDate)) return false;
+      if (entryDate < startOfDay(cutoffDate)) return false;
     }
 
     return true;
@@ -201,91 +219,91 @@ Settlement Date: ${t.settlement_date || ''}
     URL.revokeObjectURL(url);
   };
 
-  // Fetch transactions when portfolio changes
-  const fetchTransactions = useCallback(async (portfolioId: string) => {
+  // Fetch all entries (transactions and fund movements)
+  const fetchUnifiedEntries = useCallback(async (portfolioId: string) => {
     setLoading(true);
     setError(null);
-    
+
     try {
-      // Always fetch all transactions for the specified portfolio, filtering is done client-side
-      const response = await TransactionService.getTransactions(portfolioId, 'all');
-      if (response.success) {
-        setTransactions(response.data);
-      } else {
-        setError(response.error);
-        notify.error('Failed to fetch transactions: ' + response.error);
+      const [transactionsResponse, fundMovementsResponse] = await Promise.all([
+        TransactionService.getTransactions(portfolioId, 'all'),
+        FundMovementService.getFundMovements(portfolioId),
+      ]);
+
+      const allEntries: UnifiedEntry[] = [];
+
+      if (transactionsResponse.success && transactionsResponse.data) {
+        const transformedTransactions: UnifiedTransactionEntry[] = transactionsResponse.data.map(
+          (t) => ({
+            id: t.id,
+            portfolioId: t.portfolio_id,
+            date: new Date(t.transaction_date),
+            amount: t.total_amount || 0,
+            currency: t.currency || 'USD',
+            notes: t.notes || '',
+            createdAt: new Date(t.created_at),
+            updatedAt: new Date(t.updated_at),
+            type: 'transaction',
+            transactionType: t.transaction_type,
+            assetId: t.asset_id,
+            assetSymbol: t.asset?.symbol || '',
+            assetType: t.asset?.asset_type || 'stock',
+            quantity: t.quantity,
+            price: t.price,
+            fees: t.fees,
+            strategyType: t.strategy_type,
+            brokerName: t.broker_name,
+            externalId: t.external_id,
+            settlementDate: t.settlement_date,
+            asset: t.asset,
+          })
+        );
+        allEntries.push(...transformedTransactions);
+      } else if (transactionsResponse.error) {
+        setError(transactionsResponse.error);
+        notify.error('Failed to fetch transactions: ' + transactionsResponse.error);
       }
+
+      if (fundMovementsResponse.success && fundMovementsResponse.data) {
+        const transformedFundMovements: UnifiedFundMovementEntry[] = (
+          fundMovementsResponse.data as any[]
+        ).map((movement) => ({
+          id: movement.id,
+          portfolioId: movement.portfolio_id,
+          date: new Date(movement.movement_date),
+          amount: movement.amount,
+          currency: movement.currency,
+          notes: movement.notes || '',
+          createdAt: new Date(movement.created_at),
+          updatedAt: new Date(movement.updated_at),
+          type: 'fund_movement',
+          fundMovementType: movement.type,
+          status: movement.status,
+          originalAmount: movement.original_amount,
+          originalCurrency: movement.original_currency,
+          convertedAmount: movement.converted_amount,
+          convertedCurrency: movement.converted_currency,
+          exchangeRate: movement.exchange_rate,
+          exchangeFees: movement.exchange_fees,
+          account: movement.account,
+          fromAccount: movement.from_account,
+          toAccount: movement.to_account,
+        }));
+        allEntries.push(...transformedFundMovements);
+      } else if (fundMovementsResponse.error) {
+        setError(fundMovementsResponse.error);
+        notify.error('Failed to fetch fund movements: ' + fundMovementsResponse.error);
+      }
+
+      // Sort all entries by date, newest first
+      allEntries.sort((a, b) => b.date.getTime() - a.date.getTime());
+      setUnifiedEntries(allEntries);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Unknown error';
       setError(errorMsg);
-      notify.error('Failed to fetch transactions: ' + errorMsg);
+      notify.error('Failed to fetch entries: ' + errorMsg);
     } finally {
       setLoading(false);
-    }
-  }, []);
-
-  // Fetch fund movements when portfolio changes
-  const fetchFundMovements = useCallback(async (portfolioId: string) => {
-    try {
-      const response = await FundMovementService.getFundMovements(portfolioId);
-      if (response.success) {
-        // Transform the data to match our types
-        interface RawMovementData {
-          id: string;
-          portfolio_id: string;
-          type: string;
-          status: string;
-          movement_date: string | Date;
-          amount: number;
-          currency: string;
-          fees?: number;
-          notes?: string;
-          original_amount?: number;
-          original_currency?: string;
-          converted_amount?: number;
-          converted_currency?: string;
-          exchange_rate?: number;
-          exchange_fees?: number;
-          from_account?: string;
-          to_account?: string;
-          account?: string;
-          created_at: string;
-          updated_at: string;
-        }
-        
-        const transformedMovements = (response.data as unknown as RawMovementData[]).map((movement) => ({
-          ...movement,
-          type: movement.type as FundMovementType,
-          status: movement.status as FundMovementStatus,
-          currency: movement.currency as Currency,
-          originalCurrency: movement.original_currency as Currency | undefined,
-          convertedCurrency: movement.converted_currency as Currency | undefined,
-          date: (() => {
-            // Parse date string properly to avoid timezone shifts
-            const dateStr = movement.movement_date;
-            if (typeof dateStr === 'string') {
-              const [year, month, day] = dateStr.split('-').map(Number);
-              return new Date(year, month - 1, day);
-            }
-            return new Date(dateStr);
-          })(),
-          portfolioId: movement.portfolio_id,
-          originalAmount: movement.original_amount,
-          convertedAmount: movement.converted_amount,
-          exchangeRate: movement.exchange_rate,
-          exchangeFees: movement.exchange_fees,
-          fromAccount: movement.from_account,
-          toAccount: movement.to_account,
-          createdAt: new Date(movement.created_at),
-          updatedAt: new Date(movement.updated_at)
-        }));
-        setFundMovements(transformedMovements);
-      } else {
-        notify.error('Failed to fetch fund movements: ' + response.error);
-      }
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Unknown error';
-      notify.error('Failed to fetch fund movements: ' + errorMsg);
     }
   }, []);
 
@@ -299,28 +317,88 @@ Settlement Date: ${t.settlement_date || ''}
       // Set up a debounced fetch to prevent rate limiting
       fetchTimeoutRef.current = setTimeout(() => {
         if (activePortfolio?.id) {
-          fetchTransactions(activePortfolio.id);
-          fetchFundMovements(activePortfolio.id);
+          fetchUnifiedEntries(activePortfolio.id);
         }
       }, 1000); // 1000ms debounce time
     }
-    
+
     // Cleanup timeout on unmount
     return () => {
       if (fetchTimeoutRef.current) {
         clearTimeout(fetchTimeoutRef.current);
       }
     };
-  }, [activePortfolio?.id, fetchTransactions, fetchFundMovements]); // Include function dependencies
+  }, [activePortfolio?.id, fetchUnifiedEntries]);
 
-  const handleEditFundMovement = (fundMovement: FundMovementWithMetadata) => {
-    setEditingFundMovement(fundMovement);
-    setShowFundMovementEditModal(true);
+  const handleEditEntry = (entry: UnifiedEntry) => {
+    if (entry.type === 'transaction') {
+      setEditingTransaction(entry as UnifiedTransactionEntry);
+      setShowEditModal(true);
+    } else {
+      setEditingFundMovement(entry as UnifiedFundMovementEntry);
+      setShowFundMovementEditModal(true);
+    }
   };
 
-  const handleCloseFundMovementEditModal = () => {
+  const handleCloseEditModal = () => {
+    setEditingTransaction(null);
+    setShowEditModal(false);
     setEditingFundMovement(null);
     setShowFundMovementEditModal(false);
+  };
+
+  const handleSaveEditTransaction = async (updatedData: {
+    transaction_type: string;
+    quantity: number;
+    price: number;
+    transaction_date: string;
+    fees?: number;
+    currency?: string;
+    notes?: string;
+    settlement_date?: string;
+    exchange_rate?: number;
+    broker_name?: string;
+    external_id?: string;
+  }) => {
+    if (!editingTransaction) return;
+
+    try {
+      setLoading(true);
+
+      // Calculate total amount
+      const totalAmount = updatedData.quantity * updatedData.price;
+
+      const response = await TransactionService.updateTransaction(
+        editingTransaction.id,
+        {
+          transaction_type: updatedData.transaction_type as TransactionType,
+          quantity: updatedData.quantity,
+          price: updatedData.price,
+          total_amount: totalAmount,
+          transaction_date: updatedData.transaction_date,
+          fees: updatedData.fees,
+          currency: updatedData.currency,
+          notes: updatedData.notes,
+          ...(updatedData.settlement_date && { settlement_date: updatedData.settlement_date }),
+          exchange_rate: updatedData.exchange_rate,
+          broker_name: updatedData.broker_name,
+          external_id: updatedData.external_id
+        }
+      );
+
+      if (response.success) {
+        notify.success('Transaction updated successfully');
+        if (activePortfolio?.id) fetchUnifiedEntries(activePortfolio.id); // Refresh the list
+      } else {
+        throw new Error(response.error || 'Failed to update transaction');
+      }
+    } catch (error) {
+      console.error('Failed to update transaction:', error);
+      notify.error('Failed to update transaction: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      throw error; // Re-throw to let modal handle it
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSaveEditFundMovement = async (updatedData: Omit<FundMovement, 'id' | 'createdAt' | 'updatedAt'>): Promise<boolean> => {
@@ -328,7 +406,7 @@ Settlement Date: ${t.settlement_date || ''}
 
     try {
       setLoading(true);
-      
+
       const response = await FundMovementService.updateFundMovement(
         editingFundMovement.id,
         {
@@ -356,10 +434,10 @@ Settlement Date: ${t.settlement_date || ''}
           to_account: updatedData.toAccount
         }
       );
-      
+
       if (response.success) {
         notify.success('Fund movement updated successfully');
-        if (activePortfolio?.id) fetchFundMovements(activePortfolio.id); // Refresh the list
+        if (activePortfolio?.id) fetchUnifiedEntries(activePortfolio.id); // Refresh the list
         return true;
       } else {
         throw new Error(response.error || 'Failed to update fund movement');
@@ -373,70 +451,6 @@ Settlement Date: ${t.settlement_date || ''}
     }
   };
 
-  const handleEditTransaction = (transactionWithAsset: TransactionWithAsset) => {
-    setEditingTransaction(transactionWithAsset);
-    setShowEditModal(true);
-  };
-
-  const handleCloseEditModal = () => {
-    setEditingTransaction(null);
-    setShowEditModal(false);
-  };
-
-  const handleSaveEditTransaction = async (updatedData: {
-    transaction_type: string;
-    quantity: number;
-    price: number;
-    transaction_date: string;
-    fees?: number;
-    currency?: string;
-    notes?: string;
-    settlement_date?: string;
-    exchange_rate?: number;
-    broker_name?: string;
-    external_id?: string;
-  }) => {
-    if (!editingTransaction) return;
-
-    try {
-      setLoading(true);
-      
-      // Calculate total amount
-      const totalAmount = updatedData.quantity * updatedData.price;
-      
-      const response = await TransactionService.updateTransaction(
-        editingTransaction.id,
-        {
-          transaction_type: updatedData.transaction_type as TransactionType,
-          quantity: updatedData.quantity,
-          price: updatedData.price,
-          total_amount: totalAmount,
-          transaction_date: updatedData.transaction_date,
-          fees: updatedData.fees,
-          currency: updatedData.currency,
-          notes: updatedData.notes,
-          ...(updatedData.settlement_date && { settlement_date: updatedData.settlement_date }),
-          exchange_rate: updatedData.exchange_rate,
-          broker_name: updatedData.broker_name,
-          external_id: updatedData.external_id
-        }
-      );
-      
-      if (response.success) {
-        notify.success('Transaction updated successfully');
-        if (activePortfolio?.id) fetchTransactions(activePortfolio.id); // Refresh the list
-      } else {
-        throw new Error(response.error || 'Failed to update transaction');
-      }
-    } catch (error) {
-      console.error('Failed to update transaction:', error);
-      notify.error('Failed to update transaction: ' + (error instanceof Error ? error.message : 'Unknown error'));
-      throw error; // Re-throw to let modal handle it
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleSaveTransaction = async (transactionData: Omit<Transaction, 'id' | 'assetId' | 'createdAt' | 'updatedAt'>): Promise<boolean> => {
     if (!activePortfolio?.id) {
       notify.error('No portfolio selected');
@@ -445,10 +459,10 @@ Settlement Date: ${t.settlement_date || ''}
 
     try {
       setLoading(true);
-      
+
       // First, ensure the asset exists
       const assetResponse = await AssetService.getOrCreateAsset(transactionData.assetSymbol);
-      
+
       if (!assetResponse.success || !assetResponse.data) {
         notify.error('Failed to create asset: ' + assetResponse.error);
         return false;
@@ -463,7 +477,7 @@ Settlement Date: ${t.settlement_date || ''}
         transactionData.price,
         (() => {
           if (!transactionData.date) return new Date().toISOString().split('T')[0];
-          
+
           // Convert Date object to YYYY-MM-DD string, preserving local date
           const date = transactionData.date;
           const year = date.getFullYear();
@@ -472,11 +486,11 @@ Settlement Date: ${t.settlement_date || ''}
           return `${year}-${month}-${day}`;
         })()
       );
-      
+
       if (response.success) {
         notify.success('Transaction created successfully');
         // Refresh transactions
-        if (activePortfolio?.id) fetchTransactions(activePortfolio.id);
+        if (activePortfolio?.id) fetchUnifiedEntries(activePortfolio.id);
         return true;
       } else {
         notify.error('Failed to save transaction: ' + response.error);
@@ -491,24 +505,27 @@ Settlement Date: ${t.settlement_date || ''}
     }
   };
 
-  const handleDeleteTransaction = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this transaction?')) {
+  const handleDeleteEntry = async (id: string, type: UnifiedEntryType) => {
+    if (window.confirm(`Are you sure you want to delete this ${type}?`)) {
       try {
         setLoading(true);
-        
-        // Call the TransactionService to delete the transaction
-        const response = await TransactionService.deleteTransaction(id);
-        
-        if (response.success) {
-          notify.success('Transaction deleted successfully');
-          // Refresh transactions
-          if (activePortfolio?.id) fetchTransactions(activePortfolio.id);
+
+        let response;
+        if (type === 'transaction') {
+          response = await TransactionService.deleteTransaction(id);
         } else {
-          notify.error('Failed to delete transaction: ' + response.error);
+          response = await FundMovementService.deleteFundMovement(id);
+        }
+
+        if (response.success) {
+          notify.success(`${type} deleted successfully`);
+          if (activePortfolio?.id) fetchUnifiedEntries(activePortfolio.id);
+        } else {
+          notify.error(`Failed to delete ${type}: ` + response.error);
         }
       } catch (error) {
-        console.error('Failed to delete transaction:', error);
-        notify.error('Failed to delete transaction');
+        console.error(`Failed to delete ${type}:`, error);
+        notify.error(`Failed to delete ${type}`);
       } finally {
         setLoading(false);
       }
@@ -523,7 +540,7 @@ Settlement Date: ${t.settlement_date || ''}
 
     try {
       setLoading(true);
-      
+
       // Additional validation for currency conversions
       if (fundMovementData.type === 'conversion') {
         if (!fundMovementData.originalAmount || fundMovementData.originalAmount <= 0) {
@@ -543,7 +560,7 @@ Settlement Date: ${t.settlement_date || ''}
           return false;
         }
       }
-      
+
       const response = await FundMovementService.createFundMovement(
         fundMovementData.portfolioId,
         fundMovementData.type,
@@ -552,7 +569,7 @@ Settlement Date: ${t.settlement_date || ''}
         fundMovementData.status,
         (() => {
           if (!fundMovementData.date) return new Date().toISOString().split('T')[0];
-          
+
           const date = fundMovementData.date;
           const year = date.getFullYear();
           const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -573,10 +590,10 @@ Settlement Date: ${t.settlement_date || ''}
           toAccount: fundMovementData.toAccount
         }
       );
-      
+
       if (response.success) {
         notify.success('Fund movement added successfully');
-        if (activePortfolio?.id) fetchFundMovements(activePortfolio.id);
+        if (activePortfolio?.id) fetchUnifiedEntries(activePortfolio.id);
         return true;
       } else {
         console.error('Fund movement creation failed:', response.error);
@@ -590,28 +607,6 @@ Settlement Date: ${t.settlement_date || ''}
       return false;
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleDeleteFundMovement = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this fund movement?')) {
-      try {
-        setLoading(true);
-        
-        const response = await FundMovementService.deleteFundMovement(id);
-        
-        if (response.success) {
-          notify.success('Fund movement deleted successfully');
-          if (activePortfolio?.id) fetchFundMovements(activePortfolio.id);
-        } else {
-          notify.error('Failed to delete fund movement: ' + response.error);
-        }
-      } catch (error) {
-        console.error('Failed to delete fund movement:', error);
-        notify.error('Failed to delete fund movement');
-      } finally {
-        setLoading(false);
-      }
     }
   };
 
@@ -853,11 +848,11 @@ Settlement Date: ${t.settlement_date || ''}
               </div>
               
               <TransactionList
-                transactions={filteredTransactions}
+                entries={filteredEntries}
                 loading={loading}
                 error={error}
-                onEdit={handleEditTransaction}
-                onDelete={handleDeleteTransaction}
+                onEdit={handleEditEntry}
+                ononDelete={handleDeleteEntry}
               />
             </div>
           </div>
