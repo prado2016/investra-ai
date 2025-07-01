@@ -6,6 +6,7 @@
 import { createClient } from '@supabase/supabase-js';
 import fs from 'fs';
 import path from 'path';
+import { execSync } from 'child_process';
 
 // Hardcoded Supabase credentials for initial connection
 const SUPABASE_URL = 'https://ecbuwhpipphdssqjwgfm.supabase.co';
@@ -66,8 +67,13 @@ NODE_ENV=${envVars.NODE_ENV || 'production'}
     console.log('📄 .env content:');
     console.log(envContent.replace(/SUPABASE_ANON_KEY=.*/g, 'SUPABASE_ANON_KEY=[HIDDEN]'));
 
-    // Write the .env file
-    fs.writeFileSync(envPath, envContent);
+    // Write the .env file (create temp file first, then move with sudo)
+    const tempPath = '/tmp/email-puller.env';
+    fs.writeFileSync(tempPath, envContent);
+    
+    // Move temp file to final location with sudo
+    execSync(`sudo mv ${tempPath} ${envPath}`);
+    execSync(`sudo chmod 644 ${envPath}`);
     
     console.log('✅ Email-puller .env file updated successfully!');
     console.log('🔄 The email-puller service should now be able to connect to the database');
