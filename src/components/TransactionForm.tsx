@@ -5,27 +5,33 @@ import { InputField, SelectField } from './FormFields';
 import { PriceInput } from './PriceInput';
 import { useForm } from '../hooks/useForm';
 import { useSupabasePortfolios } from '../hooks/useSupabasePortfolios';
-import type { Transaction, TransactionType, Currency, AssetType, OptionStrategyType } from '../types/portfolio';
+import type { Transaction, TransactionType, Currency, AssetType, OptionStrategyType, FundMovementType, FundMovementStatus } from '../types/portfolio';
 import SymbolInput from './SymbolInput';
 
 interface TransactionFormData {
   portfolioId: string;
+  entryType: 'asset_transaction' | 'fund_movement'; // New field to distinguish between types
   assetSymbol: string;
-  type: TransactionType;
+  type: TransactionType | FundMovementType;
   date: string;
   quantity: string;
   price: string;
+  amount: string; // For fund movements
   notes: string;
-  currency: Currency; // Added missing property
-  assetType: AssetType; // Added missing property
-  totalAmount: string; // Added missing property
+  currency: Currency;
+  assetType: AssetType;
+  totalAmount: string;
   strategyType: OptionStrategyType | '';
+  status: FundMovementStatus; // For fund movements
+  account: string; // For fund movements
+  fromAccount: string; // For transfers
+  toAccount: string; // For transfers
   [key: string]: unknown;
 }
 
 interface TransactionFormProps {
   initialData?: Transaction | null;
-  onSave: (transaction: Omit<Transaction, 'id' | 'assetId' | 'createdAt' | 'updatedAt'>) => Promise<boolean> | boolean;
+  onSave: (data: any) => Promise<boolean> | boolean;
   onCancel?: () => void;
   loading?: boolean;
 }
@@ -40,6 +46,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 
   const initialValues: TransactionFormData = {
     portfolioId: initialData?.portfolioId || activePortfolio?.id || '',
+    entryType: 'asset_transaction', // Default to asset transaction
     assetSymbol: '',
     type: initialData?.type || 'buy',
     date: (() => {
@@ -66,28 +73,29 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     })(),
     quantity: initialData?.quantity?.toString() || '',
     price: initialData?.price?.toString() || '',
+    amount: '', // For fund movements
     notes: initialData?.notes || '',
     currency: initialData?.currency || 'USD', // Default to USD
     assetType: initialData?.assetType || 'stock', // Default to stock
     totalAmount: initialData?.totalAmount?.toString() || '',
-    strategyType: initialData?.strategyType || ''
+    strategyType: initialData?.strategyType || '',
+    status: 'completed', // Default status for fund movements
+    account: '', // For fund movements
+    fromAccount: '', // For transfers
+    toAccount: '' // For transfers
   };
 
-  const form = useForm({
-    initialValues,
-    validationSchema: {
+  const getValidationSchema = (entryType: string) => {
+    const baseSchema = {
       portfolioId: {
         required: 'Portfolio is required'
       },
-      assetSymbol: {
-        required: 'Symbol is required'
-      },
       type: {
-        required: 'Transaction type is required'
+        required: entryType === 'asset_transaction' ? 'Transaction type is required' : 'Movement type is required'
       },
       date: {
         required: 'Date is required',
-        custom: (value) => {
+        custom: (value: unknown) => {
           const date = new Date(value as string | number | Date);
           const today = new Date();
           if (date > today) {
@@ -95,39 +103,45 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           }
           return true;
         }
-      },
-      quantity: {
-        required: 'Quantity is required',
-        positive: 'Quantity must be greater than 0',
-        number: true
-      },
-      price: {
-        required: 'Price is required',
-        positive: 'Price must be greater than 0',
-        number: true
       }
-    },
+    };
+
+    if (entryType === 'asset_transaction') {
+      return {
+        ...baseSchema,
+        assetSymbol: {
+          required: 'Symbol is required'
+        },
+        quantity: {
+          required: 'Quantity is required',
+          positive: 'Quantity must be greater than 0',
+          number: true
+        },
+        price: {
+          required: 'Price is required',
+          positive: 'Price must be greater than 0',
+          number: true
+        }
+      };
+    } else {
+      return {
+        ...baseSchema,
+        amount: {
+          required: 'Amount is required',
+          positive: 'Amount must be greater than 0',
+          number: true
+        }
+      };
+    }
+  };
+
+  const form = useForm({
+    initialValues,
+    validationSchema: getValidationSchema(initialValues.entryType),
     validateOnChange: true,
     validateOnBlur: true,
     onSubmit: async (values) => {
-      const transaction: Omit<Transaction, 'id' | 'assetId' | 'createdAt' | 'updatedAt'> = {
-        portfolioId: values.portfolioId,
-        assetSymbol: values.assetSymbol,
-        type: values.type,
-        date: (() => {
-          const [year, month, day] = values.date.split('-').map(Number);
-          return new Date(year, month - 1, day);
-        })(),
-        quantity: parseFloat(values.quantity) || 0,
-        price: parseFloat(values.price) || 0,
-        notes: values.notes.trim() || undefined,
-        currency: values.currency as Currency,
-        assetType: values.assetType as AssetType,
-        totalAmount: parseFloat(values.quantity) * parseFloat(values.price),
-        strategyType: values.strategyType || undefined,
-      };
-
-      return await onSave(transaction);
+      return await onSave(values);
     }
   });
 
@@ -145,6 +159,18 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     { value: 'option_expired', label: 'Option Expired' },
     { value: 'short_option_expired', label: 'Short Option Expired' },
     { value: 'short_option_assigned', label: 'Short Option Assigned' }
+  ];
+
+  const fundMovementTypeOptions = [
+    { value: 'deposit', label: 'Deposit' },
+    { value: 'withdraw', label: 'Withdraw' },
+    { value: 'transfer', label: 'Transfer' },
+    { value: 'conversion', label: 'Currency Conversion' }
+  ];
+
+  const entryTypeOptions = [
+    { value: 'asset_transaction', label: 'Asset Transaction' },
+    { value: 'fund_movement', label: 'Fund Movement' }
   ];
 
   const strategyTypeOptions = [
@@ -176,9 +202,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       <div className="enhanced-section-header" style={{ cursor: 'pointer' }} onClick={() => setIsMinimized(!isMinimized)}>
         <div className="enhanced-section-header-content">
           <div className="enhanced-section-text">
-            <h2 className="enhanced-section-title">Add Transaction</h2>
+            <h2 className="enhanced-section-title">Add Transaction or Fund Movement</h2>
             <p className="enhanced-section-subtitle">
-              Enter transaction details to add to your portfolio
+              Enter details for asset transactions or fund movements
             </p>
           </div>
           {isMinimized ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
@@ -190,6 +216,23 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           <form className="form-container" onSubmit={form.handleSubmit}>
             <div className="horizontal-fields-container">
               <SelectField
+                id="entryType"
+                name="entryType"
+                label="Entry Type"
+                value={form.values.entryType}
+                onChange={(e) => {
+                  form.setValue('entryType', e.target.value);
+                  // Reset type when switching entry types
+                  if (e.target.value === 'asset_transaction') {
+                    form.setValue('type', 'buy');
+                  } else {
+                    form.setValue('type', 'deposit');
+                  }
+                }}
+                options={entryTypeOptions}
+                required
+              />
+              <SelectField
                 id="portfolioId"
                 name="portfolioId"
                 label="Portfolio"
@@ -200,7 +243,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                 disabled={portfoliosLoading || portfolios.length === 0}
                 required
               />
-              <SymbolInput
+              {form.values.entryType === 'asset_transaction' && (
+                <SymbolInput
                 id="assetSymbol"
                 name="assetSymbol"
                 label="Symbol"
@@ -221,18 +265,19 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                 showSuggestions={true}
                 showValidation={true}
                 placeholder="Enter symbol or natural language (e.g., 'NVDL Jun 20 $61 CALL')"
-              />
+                />
+              )}
             </div>
 
             <div className="horizontal-fields-container">
               <SelectField
                 id="type"
                 name="type"
-                label="Transaction Type"
+                label={form.values.entryType === 'asset_transaction' ? 'Transaction Type' : 'Movement Type'}
                 value={form.values.type}
-                onChange={(e) => form.setValue('type', e.target.value as TransactionType)}
+                onChange={(e) => form.setValue('type', e.target.value)}
                 onBlur={() => form.setFieldTouched('type')}
-                options={transactionTypeOptions}
+                options={form.values.entryType === 'asset_transaction' ? transactionTypeOptions : fundMovementTypeOptions}
                 error={form.touched.type ? form.errors.type?.message : ''}
                 required
                 disabled={form.isSubmitting || loading}
@@ -274,30 +319,120 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
               </div>
             )}
 
-            <div className="horizontal-fields-container">
-              <PriceInput
-                id="quantity"
-                name="quantity"
-                label="Quantity"
-                value={form.values.quantity}
-                onChange={(value) => form.setValue('quantity', value)}
-                onBlur={() => form.setFieldTouched('quantity')}
-                error={form.touched.quantity ? form.errors.quantity?.message : ''}
-                required
-                disabled={form.isSubmitting || loading}
-              />
-              <PriceInput
-                id="price"
-                name="price"
-                label="Price"
-                value={form.values.price}
-                onChange={(value) => form.setValue('price', value)}
-                onBlur={() => form.setFieldTouched('price')}
-                error={form.touched.price ? form.errors.price?.message : ''}
-                required
-                disabled={form.isSubmitting || loading}
-              />
-            </div>
+            {form.values.entryType === 'asset_transaction' ? (
+              <div className="horizontal-fields-container">
+                <PriceInput
+                  id="quantity"
+                  name="quantity"
+                  label="Quantity"
+                  value={form.values.quantity}
+                  onChange={(value) => form.setValue('quantity', value)}
+                  onBlur={() => form.setFieldTouched('quantity')}
+                  error={form.touched.quantity ? form.errors.quantity?.message : ''}
+                  required
+                  disabled={form.isSubmitting || loading}
+                />
+                <PriceInput
+                  id="price"
+                  name="price"
+                  label="Price"
+                  value={form.values.price}
+                  onChange={(value) => form.setValue('price', value)}
+                  onBlur={() => form.setFieldTouched('price')}
+                  error={form.touched.price ? form.errors.price?.message : ''}
+                  required
+                  disabled={form.isSubmitting || loading}
+                />
+              </div>
+            ) : (
+              <div className="horizontal-fields-container">
+                <PriceInput
+                  id="amount"
+                  name="amount"
+                  label="Amount"
+                  value={form.values.amount}
+                  onChange={(value) => form.setValue('amount', value)}
+                  onBlur={() => form.setFieldTouched('amount')}
+                  error={form.touched.amount ? form.errors.amount?.message : ''}
+                  required
+                  disabled={form.isSubmitting || loading}
+                />
+                <SelectField
+                  id="currency"
+                  name="currency"
+                  label="Currency"
+                  value={form.values.currency}
+                  onChange={(e) => form.setValue('currency', e.target.value)}
+                  options={[
+                    { value: 'USD', label: 'USD' },
+                    { value: 'EUR', label: 'EUR' },
+                    { value: 'GBP', label: 'GBP' },
+                    { value: 'CAD', label: 'CAD' },
+                    { value: 'JPY', label: 'JPY' }
+                  ]}
+                  required
+                  disabled={form.isSubmitting || loading}
+                />
+              </div>
+            )}
+
+            {form.values.entryType === 'fund_movement' && (form.values.type === 'transfer' || form.values.type === 'conversion') && (
+              <div className="horizontal-fields-container">
+                <InputField
+                  id="fromAccount"
+                  name="fromAccount"
+                  label="From Account"
+                  value={form.values.fromAccount}
+                  onChange={(value) => form.setValue('fromAccount', value)}
+                  onBlur={() => form.setFieldTouched('fromAccount')}
+                  error={form.touched.fromAccount ? form.errors.fromAccount?.message : ''}
+                  disabled={form.isSubmitting || loading}
+                  placeholder={form.values.type === 'transfer' ? 'Source account' : 'From currency account'}
+                />
+                <InputField
+                  id="toAccount"
+                  name="toAccount"
+                  label="To Account"
+                  value={form.values.toAccount}
+                  onChange={(value) => form.setValue('toAccount', value)}
+                  onBlur={() => form.setFieldTouched('toAccount')}
+                  error={form.touched.toAccount ? form.errors.toAccount?.message : ''}
+                  disabled={form.isSubmitting || loading}
+                  placeholder={form.values.type === 'transfer' ? 'Destination account' : 'To currency account'}
+                />
+              </div>
+            )}
+
+            {form.values.entryType === 'fund_movement' && (form.values.type === 'deposit' || form.values.type === 'withdraw') && (
+              <div className="horizontal-fields-container">
+                <InputField
+                  id="account"
+                  name="account"
+                  label="Account"
+                  value={form.values.account}
+                  onChange={(value) => form.setValue('account', value)}
+                  onBlur={() => form.setFieldTouched('account')}
+                  error={form.touched.account ? form.errors.account?.message : ''}
+                  disabled={form.isSubmitting || loading}
+                  placeholder="Account name (e.g., TFSA, RRSP)"
+                />
+                <SelectField
+                  id="status"
+                  name="status"
+                  label="Status"
+                  value={form.values.status}
+                  onChange={(e) => form.setValue('status', e.target.value)}
+                  options={[
+                    { value: 'pending', label: 'Pending' },
+                    { value: 'completed', label: 'Completed' },
+                    { value: 'failed', label: 'Failed' },
+                    { value: 'cancelled', label: 'Cancelled' }
+                  ]}
+                  required
+                  disabled={form.isSubmitting || loading}
+                />
+              </div>
+            )}
 
             <div className="horizontal-fields-container">
               <InputField

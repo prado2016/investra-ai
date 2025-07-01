@@ -6,13 +6,10 @@ import { useNotify } from '../hooks/useNotify';
 import TransactionForm from '../components/TransactionForm';
 import TransactionList from '../components/TransactionList.tsx';
 import TransactionEditModal from '../components/TransactionEditModal.tsx';
-import FundMovementForm from '../components/FundMovementForm.tsx';
-import FundMovementList from '../components/FundMovementList.tsx';
-import FundMovementEditModal from '../components/FundMovementEditModal.tsx';
-import { Plus, TrendingUp, DollarSign, ArrowUpDown, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Download, Filter, Hash } from 'lucide-react';
+import { Plus, TrendingUp, DollarSign, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Download, Filter, Hash } from 'lucide-react';
 import { SelectField } from '../components/FormFields';
 import { useSupabasePortfolios } from '../hooks/useSupabasePortfolios';
-import type { Transaction, TransactionType, FundMovement } from '../types/portfolio';
+import type { Transaction, TransactionType, FundMovement, FundMovementType, FundMovementStatus } from '../types/portfolio';
 import type { UnifiedEntry, UnifiedTransactionEntry, UnifiedFundMovementEntry, UnifiedEntryType } from '../types/unifiedEntry';
 import { startOfDay, subDays, startOfYear } from 'date-fns';
 import '../styles/transactions-layout.css';
@@ -32,9 +29,7 @@ const TransactionsPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editingTransaction, setEditingTransaction] = useState<UnifiedTransactionEntry | null>(null);
-  const [editingFundMovement, setEditingFundMovement] = useState<UnifiedFundMovementEntry | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [showFundMovementEditModal, setShowFundMovementEditModal] = useState(false);
   const [isTransactionFormMinimized, setIsTransactionFormMinimized] = useState(false);
   const [isTransactionFormCollapsed, setIsTransactionFormCollapsed] = useState(false);
   const [filters, setFilters] = useState({
@@ -345,8 +340,8 @@ Settlement Date: ${t.settlementDate || ''}
       setEditingTransaction(entry as UnifiedTransactionEntry);
       setShowEditModal(true);
     } else {
-      setEditingFundMovement(entry as UnifiedFundMovementEntry);
-      setShowFundMovementEditModal(true);
+      // Fund movement editing not implemented in unified view
+      notify.info('Fund movement editing will be available in a future update');
     }
   };
 
@@ -355,10 +350,6 @@ Settlement Date: ${t.settlementDate || ''}
     setShowEditModal(false);
   };
 
-  const handleCloseFundMovementEditModal = () => {
-    setEditingFundMovement(null);
-    setShowFundMovementEditModal(false);
-  };
 
   const handleSaveEditTransaction = async (updatedData: {
     transaction_type: string;
@@ -414,55 +405,6 @@ Settlement Date: ${t.settlementDate || ''}
     }
   };
 
-  const handleSaveEditFundMovement = async (updatedData: Omit<FundMovement, 'id' | 'createdAt' | 'updatedAt'>): Promise<boolean> => {
-    if (!editingFundMovement) return false;
-
-    try {
-      setLoading(true);
-
-      const response = await FundMovementService.updateFundMovement(
-        editingFundMovement.id,
-        {
-          type: updatedData.type,
-          amount: updatedData.amount,
-          currency: updatedData.currency,
-          status: updatedData.status,
-          movement_date: (() => {
-            const date = updatedData.date;
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            return `${year}-${month}-${day}`;
-          })(),
-          fees: updatedData.fees,
-          notes: updatedData.notes,
-          original_amount: updatedData.originalAmount,
-          original_currency: updatedData.originalCurrency,
-          converted_amount: updatedData.convertedAmount,
-          converted_currency: updatedData.convertedCurrency,
-          exchange_rate: updatedData.exchangeRate,
-          exchange_fees: updatedData.exchangeFees,
-          account: updatedData.account,
-          from_account: updatedData.fromAccount,
-          to_account: updatedData.toAccount
-        }
-      );
-
-      if (response.success) {
-        notify.success('Fund movement updated successfully');
-        if (activePortfolio?.id) fetchUnifiedEntries(activePortfolio.id); // Refresh the list
-        return true;
-      } else {
-        throw new Error(response.error || 'Failed to update fund movement');
-      }
-    } catch (error) {
-      console.error('Failed to update fund movement:', error);
-      notify.error('Failed to update fund movement: ' + (error instanceof Error ? error.message : 'Unknown error'));
-      return false;
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleSaveTransaction = async (transactionData: Omit<Transaction, 'id' | 'assetId' | 'createdAt' | 'updatedAt'>): Promise<boolean> => {
     if (!activePortfolio?.id) {
@@ -518,6 +460,98 @@ Settlement Date: ${t.settlementDate || ''}
     }
   };
 
+  const handleSaveUnifiedEntry = async (data: any): Promise<boolean> => {
+    if (data.entryType === 'asset_transaction') {
+      // Handle asset transaction
+      const transactionData: Omit<Transaction, 'id' | 'assetId' | 'createdAt' | 'updatedAt'> = {
+        portfolioId: data.portfolioId,
+        assetSymbol: data.assetSymbol,
+        type: data.type as TransactionType,
+        date: (() => {
+          const [year, month, day] = data.date.split('-').map(Number);
+          return new Date(year, month - 1, day);
+        })(),
+        quantity: parseFloat(data.quantity) || 0,
+        price: parseFloat(data.price) || 0,
+        notes: data.notes?.trim() || undefined,
+        currency: data.currency,
+        assetType: data.assetType,
+        totalAmount: parseFloat(data.quantity) * parseFloat(data.price),
+        strategyType: data.strategyType || undefined,
+      };
+      return await handleSaveTransaction(transactionData);
+    } else {
+      // Handle fund movement
+      const fundMovementData: Omit<FundMovement, 'id' | 'createdAt' | 'updatedAt'> = {
+        portfolioId: data.portfolioId,
+        type: data.type as FundMovementType,
+        status: data.status as FundMovementStatus,
+        date: (() => {
+          const [year, month, day] = data.date.split('-').map(Number);
+          return new Date(year, month - 1, day);
+        })(),
+        amount: parseFloat(data.amount) || 0,
+        currency: data.currency,
+        fees: 0,
+        notes: data.notes?.trim() || undefined,
+        account: data.account || undefined,
+        fromAccount: data.fromAccount || undefined,
+        toAccount: data.toAccount || undefined,
+      };
+      return await handleSaveFundMovement(fundMovementData);
+    }
+  };
+
+  const handleSaveFundMovement = async (fundMovementData: Omit<FundMovement, 'id' | 'createdAt' | 'updatedAt'>): Promise<boolean> => {
+    if (!activePortfolio?.id) {
+      notify.error('No portfolio selected');
+      return false;
+    }
+
+    try {
+      setLoading(true);
+
+      const response = await FundMovementService.createFundMovement(
+        fundMovementData.portfolioId,
+        fundMovementData.type,
+        fundMovementData.amount,
+        fundMovementData.currency,
+        fundMovementData.status,
+        (() => {
+          const date = fundMovementData.date;
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+        })(),
+        {
+          fees: fundMovementData.fees || 0,
+          notes: fundMovementData.notes,
+          account: fundMovementData.account,
+          fromAccount: fundMovementData.fromAccount,
+          toAccount: fundMovementData.toAccount
+        }
+      );
+
+      if (response.success) {
+        notify.success('Fund movement added successfully');
+        if (activePortfolio?.id) fetchUnifiedEntries(activePortfolio.id);
+        return true;
+      } else {
+        console.error('Fund movement creation failed:', response.error);
+        notify.error('Failed to save fund movement: ' + response.error);
+        return false;
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Fund movement creation error:', error);
+      notify.error('Failed to save fund movement: ' + errorMsg);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleDeleteEntry = async (id: string, type: UnifiedEntryType) => {
     if (window.confirm(`Are you sure you want to delete this ${type}?`)) {
       try {
@@ -545,83 +579,6 @@ Settlement Date: ${t.settlementDate || ''}
     }
   };
 
-  const handleSaveFundMovement = async (fundMovementData: Omit<FundMovement, 'id' | 'createdAt' | 'updatedAt'>): Promise<boolean> => {
-    if (!activePortfolio?.id) {
-      notify.error('No portfolio selected');
-      return false;
-    }
-
-    try {
-      setLoading(true);
-
-      // Additional validation for currency conversions
-      if (fundMovementData.type === 'conversion') {
-        if (!fundMovementData.originalAmount || fundMovementData.originalAmount <= 0) {
-          notify.error('Original amount is required for currency conversions');
-          return false;
-        }
-        if (!fundMovementData.exchangeRate || fundMovementData.exchangeRate <= 0) {
-          notify.error('Exchange rate is required for currency conversions');
-          return false;
-        }
-        if (!fundMovementData.convertedAmount || fundMovementData.convertedAmount <= 0) {
-          notify.error('Converted amount must be greater than 0');
-          return false;
-        }
-        if (!fundMovementData.account) {
-          notify.error('Account is required for currency conversions');
-          return false;
-        }
-      }
-
-      const response = await FundMovementService.createFundMovement(
-        fundMovementData.portfolioId,
-        fundMovementData.type,
-        fundMovementData.amount,
-        fundMovementData.currency,
-        fundMovementData.status,
-        (() => {
-          if (!fundMovementData.date) return new Date().toISOString().split('T')[0];
-
-          const date = fundMovementData.date;
-          const year = date.getFullYear();
-          const month = String(date.getMonth() + 1).padStart(2, '0');
-          const day = String(date.getDate()).padStart(2, '0');
-          return `${year}-${month}-${day}`;
-        })(),
-        {
-          fees: fundMovementData.fees || 0,
-          notes: fundMovementData.notes,
-          originalAmount: fundMovementData.originalAmount,
-          originalCurrency: fundMovementData.originalCurrency,
-          convertedAmount: fundMovementData.convertedAmount,
-          convertedCurrency: fundMovementData.convertedCurrency,
-          exchangeRate: fundMovementData.exchangeRate,
-          exchangeFees: fundMovementData.exchangeFees,
-          account: fundMovementData.account,
-          fromAccount: fundMovementData.fromAccount,
-          toAccount: fundMovementData.toAccount
-        }
-      );
-
-      if (response.success) {
-        notify.success('Fund movement added successfully');
-        if (activePortfolio?.id) fetchUnifiedEntries(activePortfolio.id);
-        return true;
-      } else {
-        console.error('Fund movement creation failed:', response.error);
-        notify.error('Failed to save fund movement: ' + response.error);
-        return false;
-      }
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      console.error('Fund movement creation error:', error);
-      notify.error('Failed to save fund movement: ' + errorMsg);
-      return false;
-    } finally {
-      setLoading(false);
-    }
-  };
 
   if (portfoliosLoading) {
     return (
@@ -717,7 +674,7 @@ Settlement Date: ${t.settlementDate || ''}
               </div>
               
               {!isTransactionFormMinimized && (
-                <TransactionForm onSave={handleSaveTransaction} loading={loading} />
+                <TransactionForm onSave={handleSaveUnifiedEntry} loading={loading} />
               )}
             </div>
           )}
@@ -871,73 +828,6 @@ Settlement Date: ${t.settlementDate || ''}
           </div>
         </div>
 
-        {/* Bottom Row: Add Funds and Recent Funds */}
-        <div className="transaction-grid-row">
-          {/* Add Fund Movement Section */}
-          <FundMovementForm
-            onSave={handleSaveFundMovement}
-            loading={loading}
-          />
-
-          {/* Recent Fund Movements Section */}
-          <div className="enhanced-transactions-section">
-            <div className="enhanced-section-header">
-              <div className="enhanced-section-header-content">
-                <ArrowUpDown className="enhanced-section-icon" />
-                <div className="enhanced-section-text">
-                  <h2 className="enhanced-section-title">Recent Funds</h2>
-                  <p className="enhanced-section-subtitle">
-                    View and manage your fund transfers, deposits, withdrawals, and conversions
-                  </p>
-                </div>
-              </div>
-            </div>
-            
-            <div className="enhanced-transactions-wrapper">
-              <FundMovementList
-                fundMovements={filteredEntries
-                  .filter(entry => entry.type === 'fund_movement')
-                  .map(entry => {
-                    const fm = entry as UnifiedFundMovementEntry;
-                    return {
-                      id: fm.id,
-                      portfolioId: fm.portfolioId,
-                      date: fm.date,
-                      type: fm.fundMovementType,
-                      amount: fm.amount,
-                      currency: fm.currency,
-                      status: fm.status,
-                      fees: 0,
-                      notes: fm.notes,
-                      originalAmount: fm.originalAmount,
-                      originalCurrency: fm.originalCurrency,
-                      convertedAmount: fm.convertedAmount,
-                      convertedCurrency: fm.convertedCurrency,
-                      exchangeRate: fm.exchangeRate,
-                      exchangeFees: fm.exchangeFees,
-                      account: fm.account,
-                      fromAccount: fm.fromAccount,
-                      toAccount: fm.toAccount,
-                      createdAt: fm.createdAt,
-                      updatedAt: fm.updatedAt
-                    };
-                  }) as any}
-                loading={loading}
-                error={error}
-                onEdit={(movement) => {
-                  const unifiedEntry = filteredEntries.find(entry => 
-                    entry.type === 'fund_movement' && entry.id === movement.id
-                  ) as UnifiedFundMovementEntry;
-                  if (unifiedEntry) {
-                    setEditingFundMovement(unifiedEntry);
-                    setShowFundMovementEditModal(true);
-                  }
-                }}
-                onDelete={(id) => handleDeleteEntry(id, 'fund_movement')}
-              />
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Edit Transaction Modal */}
@@ -950,16 +840,6 @@ Settlement Date: ${t.settlementDate || ''}
         />
       )}
 
-      {/* Edit Fund Movement Modal */}
-      {editingFundMovement && (
-        <FundMovementEditModal
-          fundMovement={editingFundMovement as any}
-          isOpen={showFundMovementEditModal}
-          onClose={handleCloseFundMovementEditModal}
-          onSave={handleSaveEditFundMovement}
-          loading={loading}
-        />
-      )}
     </div>
   );
 };
