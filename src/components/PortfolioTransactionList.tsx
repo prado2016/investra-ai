@@ -555,7 +555,7 @@ const PortfolioTransactionList: React.FC<PortfolioTransactionListProps> = ({
   const [filterType, setFilterType] = useState<string>('all');
   const [filterAsset, setFilterAsset] = useState<string>('all');
   const [filterSymbol, setFilterSymbol] = useState<string>('');
-  const [filterPortfolio, setFilterPortfolio] = useState<string>('active');
+  const [filterPortfolio, setFilterPortfolio] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
 
   // Reset portfolio filter when active portfolio changes
