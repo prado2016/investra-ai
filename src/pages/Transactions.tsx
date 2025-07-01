@@ -40,13 +40,21 @@ const TransactionsPage: React.FC = () => {
   const [isTransactionFormMinimized, setIsTransactionFormMinimized] = useState(false);
   const [isTransactionFormCollapsed, setIsTransactionFormCollapsed] = useState(false);
   const [filters, setFilters] = useState({
-    portfolioId: activePortfolio?.id || 'all',
+    portfolioId: 'all',
     dateRange: 'all',
     assetType: 'all',
     symbol: '',
     customDateFrom: '',
     customDateTo: ''
   });
+
+  // Update portfolioId in filters when activePortfolio changes
+  useEffect(() => {
+    setFilters(prevFilters => ({
+      ...prevFilters,
+      portfolioId: activePortfolio?.id || 'all',
+    }));
+  }, [activePortfolio?.id]);
   
   // Debounce fetch to prevent excessive API calls
   const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -214,7 +222,7 @@ Settlement Date: ${t.settlement_date || ''}
     } finally {
       setLoading(false);
     }
-  }, [notify]);
+  }, []);
 
   // Fetch fund movements when portfolio changes
   const fetchFundMovements = useCallback(async (portfolioId: string) => {
@@ -279,7 +287,7 @@ Settlement Date: ${t.settlement_date || ''}
       const errorMsg = err instanceof Error ? err.message : 'Unknown error';
       notify.error('Failed to fetch fund movements: ' + errorMsg);
     }
-  }, [notify]);
+  }, []);
 
   useEffect(() => {
     if (activePortfolio?.id) {
@@ -294,7 +302,7 @@ Settlement Date: ${t.settlement_date || ''}
           fetchTransactions(activePortfolio.id);
           fetchFundMovements(activePortfolio.id);
         }
-      }, 300); // 300ms debounce time
+      }, 1000); // 1000ms debounce time
     }
     
     // Cleanup timeout on unmount
