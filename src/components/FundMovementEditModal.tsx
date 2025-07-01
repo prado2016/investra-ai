@@ -107,8 +107,8 @@ export const FundMovementEditModal: React.FC<FundMovementEditModalProps> = ({
         onClose();
       }
       return success;
-    } catch (error) {
-      console.error('Failed to save fund movement:', error);
+    } catch (e) {
+      console.error('Failed to save fund movement:', e);
       return false;
     }
   };

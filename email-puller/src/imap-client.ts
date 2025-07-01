@@ -113,7 +113,7 @@ export class ImapClient {
         await this.client.mailboxOpen(folderName);
         logger.debug(`Folder ${folderName} already exists`);
         return;
-      } catch (error) {
+      } catch {
         // Folder doesn't exist, create it
         logger.info(`Creating folder: ${folderName}`);
       }
@@ -247,7 +247,7 @@ export class ImapClient {
           if (parsed) {
             messages.push(parsed);
           }
-        } catch (error) {
+        } catch {
           logger.warn(`Failed to parse message ${message.seq}:`, error);
         }
       }

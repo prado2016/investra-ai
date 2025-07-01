@@ -213,7 +213,7 @@ class EmailPuller {
       process.exit(1);
     });
 
-    process.on('unhandledRejection', (reason, promise) => {
+    process.on('unhandledRejection', (reason) => {
       logger.error('💥 Unhandled promise rejection:', reason);
       process.exit(1);
     });

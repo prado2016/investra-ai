@@ -38,7 +38,6 @@ export const InputField: React.FC<InputFieldProps> = ({
   helpText,
   required,
   className,
-  value,
   onChange,
   onBlur,
   type = 'text',
@@ -69,7 +68,6 @@ export const InputField: React.FC<InputFieldProps> = ({
         <textarea
           id={id}
           name={name}
-          value={value}
           onChange={(e) => onChange(e.target.value)}
           onBlur={onBlur}
           placeholder={placeholder}
@@ -89,7 +87,6 @@ export const InputField: React.FC<InputFieldProps> = ({
           id={id}
           name={name}
           type={type}
-          value={value}
           onChange={(e) => onChange(e.target.value)}
           onBlur={onBlur}
           placeholder={placeholder}
@@ -236,7 +233,6 @@ export const SelectField: React.FC<SelectFieldProps> = ({
   helpText,
   required,
   className,
-  value,
   onChange,
   onBlur,
   options,
@@ -260,7 +256,6 @@ export const SelectField: React.FC<SelectFieldProps> = ({
       <select
         id={id}
         name={name}
-        value={value}
         onChange={onChange}
         onBlur={onBlur}
         disabled={disabled}
@@ -333,7 +328,6 @@ export const TextareaField: React.FC<TextareaFieldProps> = ({
   helpText,
   required,
   className,
-  value,
   onChange,
   onBlur,
   placeholder,
@@ -360,7 +354,6 @@ export const TextareaField: React.FC<TextareaFieldProps> = ({
       <textarea
         id={id}
         name={name}
-        value={value}
         onChange={(e) => onChange(e.target.value)}
         onBlur={onBlur}
         placeholder={placeholder}

@@ -256,7 +256,7 @@ export class DatabaseConfig {
    */
   async testConnection(): Promise<boolean> {
     try {
-      const { data, error } = await this.client
+      const { error } = await this.client
         .from('system_config')
         .select('config_key')
         .limit(1);

@@ -6,7 +6,6 @@
  */
 
 import { execSync } from 'child_process';
-import fs from 'fs';
 
 async function runRemoteDiagnostic() {
   console.log('🔍 Remote Email-Puller Service Diagnostic');

@@ -431,7 +431,7 @@ export class Database {
    */
   async testConnection(): Promise<boolean> {
     try {
-      const { data: _data, error } = await this.client
+      const { error } = await this.client
         .from('profiles')
         .select('count')
         .limit(1);

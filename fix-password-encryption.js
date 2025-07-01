@@ -110,7 +110,7 @@ async function fixPasswordEncryption() {
     const { execSync } = await import('child_process');
     
     try {
-      const restartOutput = execSync('ssh lab@10.0.0.89 "pm2 restart investra-email-puller"', { 
+      execSync('ssh lab@10.0.0.89 "pm2 restart investra-email-puller"', { 
         encoding: 'utf8', 
         timeout: 10000 
       });

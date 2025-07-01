@@ -12,7 +12,7 @@ async function clarifyExpenseEmails() {
     console.log('🔄 UPDATING PROCESSING NOTES for expense emails...');
 
     // Update processing notes to be clearer about why no transaction was created
-    const { data: updateResult, error: updateError } = await database['client']
+    const { error: updateError } = await database['client']
       .from('imap_processed')
       .update({
         processing_notes: 'EMAIL CLASSIFIED AS EXPENSE - No transaction created. This email contains fee/expense information, not a tradeable transaction.'

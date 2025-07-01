@@ -3,7 +3,6 @@
  * Validates JWT tokens from the frontend and extracts user information
  */
 
-const express = require('express');
 const { createClient } = require('@supabase/supabase-js');
 // const { User } = require('@supabase/supabase-js');
 

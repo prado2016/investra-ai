@@ -17,13 +17,13 @@ async function checkForwardedEmails() {
     // Check for emails from eduprado@gmail.com (forwarded emails)
     console.log('1️⃣ Looking for emails from eduprado@gmail.com...');
     
-    const { data: forwardedEmails, error: forwardedError } = await serviceClient
+    const { data: forwardedEmails } = await serviceClient
       .from('imap_inbox')
       .select('*')
       .eq('from_email', 'eduprado@gmail.com')
       .order('received_at', { ascending: false });
 
-    const { data: processedForwarded, error: processedError } = await serviceClient
+    const { data: processedForwarded } = await serviceClient
       .from('imap_processed')
       .select('*')
       .eq('from_email', 'eduprado@gmail.com')
@@ -54,7 +54,7 @@ async function checkForwardedEmails() {
     // Check for emails directly from Wealthsimple
     console.log('\n3️⃣ Checking for direct Wealthsimple emails...');
     
-    const { data: directWealthsimple, error: directError } = await serviceClient
+    const { data: directWealthsimple } = await serviceClient
       .from('imap_processed')
       .select('*')
       .ilike('from_email', '%wealthsimple%')
@@ -65,7 +65,7 @@ async function checkForwardedEmails() {
     // Check emails around June 18th specifically
     console.log('\n4️⃣ Checking emails around June 18th, 2024...');
     
-    const { data: june18Emails, error: june18Error } = await serviceClient
+    const { data: june18Emails } = await serviceClient
       .from('imap_processed')
       .select('*')
       .gte('received_at', '2024-06-15')

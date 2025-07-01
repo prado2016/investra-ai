@@ -104,7 +104,7 @@ async function investigateMissingData() {
             }
           }
         }
-      } catch (e) {
+      } catch {
         // Table doesn't exist - this is expected for most
       }
     }

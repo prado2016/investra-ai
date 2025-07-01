@@ -58,7 +58,7 @@ async function findEmailTables() {
     // Try to get schema information if possible
     console.log('\n🏗️  Trying to get table schema...');
     try {
-      const { data: tables, error: schemaError } = await database['client']
+      const { data: tables } = await database['client']
         .from('information_schema.tables')
         .select('table_name')
         .eq('table_schema', 'public')

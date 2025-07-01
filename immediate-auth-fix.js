@@ -3,7 +3,6 @@
  */
 
 import fs from 'fs';
-import path from 'path';
 
 console.log('⚡ IMMEDIATE AUTHENTICATION FIX');
 console.log('==============================\n');

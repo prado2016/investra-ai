@@ -38,7 +38,7 @@ async function fixExpenseEmailStatus() {
     console.log('\n🔄 UPDATING STATUS...');
 
     // Update processing_result from "approved" to "expense" for clarity
-    const { data: updateResult, error: updateError } = await database['client']
+    const { error: updateError } = await database['client']
       .from('imap_processed')
       .update({
         processing_result: 'expense',

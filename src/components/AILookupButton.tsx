@@ -275,9 +275,9 @@ export const AILookupButton: React.FC<AILookupButtonProps> = ({
       onSearchStart?.();
       await onClick?.();
       onSearchComplete?.(null); // Placeholder for actual results
-    } catch (error) {
+    } catch (e) {
       setHasError(true);
-      const errorMessage = error instanceof Error ? error.message : 'AI lookup failed';
+      const errorMessage = e instanceof Error ? e.message : 'AI lookup failed';
       onError?.(errorMessage);
       
       // Clear error state after 3 seconds

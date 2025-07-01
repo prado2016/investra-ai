@@ -40,7 +40,7 @@ async function checkSyncRequestsTable() {
         
         // Check table structure
         console.log('\n2️⃣ Checking table structure...');
-        const { data: tableInfo, error: infoError } = await database['client']
+        const { error: infoError } = await database['client']
           .from('sync_requests')
           .select('*')
           .limit(0); // Get structure without data

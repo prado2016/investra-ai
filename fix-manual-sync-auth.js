@@ -3,7 +3,6 @@
  */
 
 import fs from 'fs';
-import path from 'path';
 
 console.log('🔧 FIXING MANUAL SYNC AUTHENTICATION ISSUE');
 console.log('==========================================\n');

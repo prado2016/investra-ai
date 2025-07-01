@@ -73,7 +73,7 @@ for (const authPath of authPaths) {
     console.log(`✅ Authentication middleware loaded successfully from: ${authPath}`);
     authLoaded = true;
     break;
-  } catch (error) {
+  } catch {
     // Continue trying other paths
   }
 }
@@ -84,7 +84,7 @@ if (!authLoaded) {
   console.warn('   Creating fallback authentication handlers...');
 
   // Create fallback middleware that properly handles authentication requirements
-  authenticateUser = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  authenticateUser = (req: express.Request, res: express.Response) => {
     // Check if Supabase is configured
     if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
       return res.status(500).json({
@@ -1394,7 +1394,7 @@ app.post('/api/imap/restart', async (req, res) => {
     
     logger.info('⚡ Executing email-puller restart command');
     
-    const restartPromise = new Promise((resolve, reject) => {
+    const restartPromise = new Promise((resolve) => {
       exec(restartCommand, { timeout: 10000 }, (error: any, stdout: any, stderr: any) => {
         if (error) {
           logger.warn('⚠️ Restart command failed, but this is expected in some cases:', error.message);
@@ -2254,7 +2254,7 @@ app.post('/api/email/manual-sync', async (req: AuthenticatedRequest, res: expres
 });
 
 // Error handling middleware
-app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((err: Error, req: express.Request, res: express.Response) => {
   logger.error('Unhandled error:', {
     error: err.message,
     stack: err.stack,

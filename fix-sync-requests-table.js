@@ -20,7 +20,7 @@ async function fixSyncRequestsTable() {
 
     // Read the SQL file
     console.log('1️⃣ Reading SQL script...');
-    const sqlContent = fs.readFileSync('./create-sync-requests-table.sql', 'utf8');
+    fs.readFileSync('./create-sync-requests-table.sql', 'utf8');
     console.log('✅ SQL script loaded\n');
 
     // Execute the SQL (we'll do it in parts since some commands might not work through the client)

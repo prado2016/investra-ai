@@ -145,7 +145,7 @@ export const EmailConfigurationPanel: React.FC<EmailConfigurationPanelProps> = (
       setAppPassword('');
       onConfigurationUpdated?.();
       
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error updating email configuration:', err);
       error('Update Failed', err instanceof Error ? err.message : 'Failed to update configuration');
     } finally {

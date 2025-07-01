@@ -52,8 +52,8 @@ const TransactionsPage: React.FC = () => {
 
   // Filter transactions based on current filters
   const filteredTransactions = transactions.filter(transaction => {
-    // Portfolio filter
-    if (filters.portfolioId !== 'all' && transaction.portfolio_id !== filters.portfolioId) {
+    // Portfolio filter - since we only fetch for active portfolio, only filter if a specific portfolio is selected
+    if (filters.portfolioId !== 'all' && filters.portfolioId !== activePortfolio?.id && transaction.portfolio_id !== filters.portfolioId) {
       return false;
     }
 
@@ -144,18 +144,13 @@ const TransactionsPage: React.FC = () => {
   };
 
   // Fetch transactions when portfolio changes
-  const fetchTransactions = useCallback(async () => {
-    if (!activePortfolio?.id) {
-      return;
-    }
-    
+  const fetchTransactions = useCallback(async (portfolioId: string) => {
     setLoading(true);
     setError(null);
     
     try {
-      // Fetch all transactions for the active portfolio, we'll filter on the frontend
-      const portfolioIdToFetch = filters.portfolioId === 'all' ? activePortfolio.id : filters.portfolioId;
-      const response = await TransactionService.getTransactions(portfolioIdToFetch, 'all');
+      // Always fetch all transactions for the specified portfolio, filtering is done client-side
+      const response = await TransactionService.getTransactions(portfolioId, 'all');
       if (response.success) {
         setTransactions(response.data);
       } else {
@@ -169,16 +164,12 @@ const TransactionsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [activePortfolio?.id, filters.portfolioId, notify]);
+  }, [notify]);
 
   // Fetch fund movements when portfolio changes
-  const fetchFundMovements = useCallback(async () => {
-    if (!activePortfolio?.id) {
-      return;
-    }
-    
+  const fetchFundMovements = useCallback(async (portfolioId: string) => {
     try {
-      const response = await FundMovementService.getFundMovements(activePortfolio.id);
+      const response = await FundMovementService.getFundMovements(portfolioId);
       if (response.success) {
         // Transform the data to match our types
         interface RawMovementData {
@@ -238,7 +229,7 @@ const TransactionsPage: React.FC = () => {
       const errorMsg = err instanceof Error ? err.message : 'Unknown error';
       notify.error('Failed to fetch fund movements: ' + errorMsg);
     }
-  }, [activePortfolio?.id, notify]);
+  }, [notify]);
 
   useEffect(() => {
     if (activePortfolio?.id) {
@@ -249,8 +240,8 @@ const TransactionsPage: React.FC = () => {
 
       // Set up a debounced fetch to prevent rate limiting
       fetchTimeoutRef.current = setTimeout(() => {
-        fetchTransactions();
-        fetchFundMovements();
+        if (activePortfolio?.id) fetchTransactions(activePortfolio.id);
+        fetchFundMovements(activePortfolio.id);
       }, 300); // 300ms debounce time
     }
     
@@ -260,7 +251,7 @@ const TransactionsPage: React.FC = () => {
         clearTimeout(fetchTimeoutRef.current);
       }
     };
-  }, [activePortfolio?.id, filters, fetchTransactions, fetchFundMovements]);
+  }, [activePortfolio?.id, fetchTransactions, fetchFundMovements]); // Include function dependencies
 
   const handleEditFundMovement = (fundMovement: FundMovementWithMetadata) => {
     setEditingFundMovement(fundMovement);
@@ -308,7 +299,7 @@ const TransactionsPage: React.FC = () => {
       
       if (response.success) {
         notify.success('Fund movement updated successfully');
-        fetchFundMovements(); // Refresh the list
+        if (activePortfolio?.id) fetchFundMovements(activePortfolio.id); // Refresh the list
         return true;
       } else {
         throw new Error(response.error || 'Failed to update fund movement');
@@ -373,7 +364,7 @@ const TransactionsPage: React.FC = () => {
       
       if (response.success) {
         notify.success('Transaction updated successfully');
-        fetchTransactions(); // Refresh the list
+        if (activePortfolio?.id) fetchTransactions(activePortfolio.id); // Refresh the list
       } else {
         throw new Error(response.error || 'Failed to update transaction');
       }
@@ -425,7 +416,7 @@ const TransactionsPage: React.FC = () => {
       if (response.success) {
         notify.success('Transaction created successfully');
         // Refresh transactions
-        fetchTransactions();
+        if (activePortfolio?.id) fetchTransactions(activePortfolio.id);
         return true;
       } else {
         notify.error('Failed to save transaction: ' + response.error);
@@ -451,7 +442,7 @@ const TransactionsPage: React.FC = () => {
         if (response.success) {
           notify.success('Transaction deleted successfully');
           // Refresh transactions
-          fetchTransactions();
+          if (activePortfolio?.id) fetchTransactions(activePortfolio.id);
         } else {
           notify.error('Failed to delete transaction: ' + response.error);
         }
@@ -525,7 +516,7 @@ const TransactionsPage: React.FC = () => {
       
       if (response.success) {
         notify.success('Fund movement added successfully');
-        fetchFundMovements();
+        if (activePortfolio?.id) fetchFundMovements(activePortfolio.id);
         return true;
       } else {
         console.error('Fund movement creation failed:', response.error);
@@ -551,7 +542,7 @@ const TransactionsPage: React.FC = () => {
         
         if (response.success) {
           notify.success('Fund movement deleted successfully');
-          fetchFundMovements();
+          if (activePortfolio?.id) fetchFundMovements(activePortfolio.id);
         } else {
           notify.error('Failed to delete fund movement: ' + response.error);
         }

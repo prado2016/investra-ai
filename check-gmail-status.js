@@ -34,7 +34,7 @@ async function checkGmailStatus() {
       await client.mailboxOpen('Investra/Processed');
       processedStatus = await client.status('Investra/Processed', { messages: true });
       console.log(`✅ Processed folder: ${processedStatus.messages} emails`);
-    } catch (_error) {
+    } catch {
       console.log('❌ Processed folder does not exist or cannot be accessed');
     }
 
