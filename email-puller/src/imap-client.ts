@@ -247,7 +247,7 @@ export class ImapClient {
           if (parsed) {
             messages.push(parsed);
           }
-        } catch {
+        } catch (error) {
           logger.warn(`Failed to parse message ${message.seq}:`, error);
         }
       }
