@@ -33,7 +33,7 @@ class MockTransactionService {
     console.log('Mock service fetching transactions for portfolio:', portfolioId || 'all');
     
     return {
-      data: [...this.mockTransactions],
+      data: getMockTransactions() as any,
       error: null,
       success: true
     };
@@ -70,10 +70,10 @@ class MockTransactionService {
       strategy_type: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-      asset: this.mockAssets[0] // Use first mock asset as default
+      asset: (this.mockAssets[0] as any) || ({} as any) // Use first mock asset as default
     };
 
-    this.mockTransactions.unshift(newTransaction);
+    (this.mockTransactions as any).unshift(newTransaction as any);
 
     return {
       data: newTransaction as Transaction,
@@ -99,11 +99,11 @@ class MockTransactionService {
 
     const transactionIndex = this.mockTransactions.findIndex(t => t.id === transactionId);
     if (transactionIndex >= 0) {
-      this.mockTransactions[transactionIndex] = {
-        ...this.mockTransactions[transactionIndex],
+      (this.mockTransactions as any)[transactionIndex] = {
+        ...(this.mockTransactions as any)[transactionIndex],
         ...updates,
         updated_at: new Date().toISOString()
-      };
+      } as any;
 
       return {
         data: this.mockTransactions[transactionIndex] as unknown as Transaction,

@@ -73,8 +73,8 @@ export const getMockTransactions = (): UnifiedTransactionEntry[] => [
       industry: 'Consumer Electronics',
       marketCap: 3000000000000,
       // sharesOutstanding: 15000000000, // Remove invalid property
-      lastUpdated: '2024-06-01T10:00:00Z',
-      createdAt: '2024-06-01T10:00:00Z'
+      // lastUpdated: '2024-06-01T10:00:00Z', // Remove invalid property
+      // createdAt: '2024-06-01T10:00:00Z' // Remove invalid property
     }
   },
   {
@@ -109,8 +109,8 @@ export const getMockTransactions = (): UnifiedTransactionEntry[] => [
       industry: 'Internet Content & Information',
       marketCap: 2000000000000,
       // sharesOutstanding: 13000000000, // Remove invalid property
-      lastUpdated: '2024-06-02T10:00:00Z',
-      createdAt: '2024-06-02T10:00:00Z'
+      // lastUpdated: '2024-06-02T10:00:00Z', // Remove invalid property
+      // createdAt: '2024-06-02T10:00:00Z' // Remove invalid property
     }
   },
   {
@@ -139,14 +139,15 @@ export const getMockTransactions = (): UnifiedTransactionEntry[] => [
       symbol: 'VTI',
       name: 'Vanguard Total Stock Market ETF',
       assetType: 'etf',
+      category: 'equity',
       exchange: 'NYSE ARCA',
       currency: 'USD',
       // sector: 'Mixed', // Remove invalid property
       // industry: 'Exchange Traded Funds', // Remove invalid property
       marketCap: 500000000000,
       // sharesOutstanding: 2000000000, // Remove invalid property
-      lastUpdated: '2024-06-03T10:00:00Z',
-      createdAt: '2024-06-03T10:00:00Z'
+      // lastUpdated: '2024-06-03T10:00:00Z', // Remove invalid property
+      // createdAt: '2024-06-03T10:00:00Z' // Remove invalid property
     }
   }
 ];

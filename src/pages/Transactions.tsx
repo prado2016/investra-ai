@@ -244,7 +244,7 @@ Settlement Date: ${t.settlementDate || ''}
 
       if (transactionsResponse.success && transactionsResponse.data) {
         const transformedTransactions: UnifiedTransactionEntry[] = transactionsResponse.data.map(
-          (t) => ({
+          (t: any) => ({
             id: t.id,
             portfolioId: t.portfolio_id,
             date: new Date(t.transaction_date),
@@ -921,7 +921,7 @@ Settlement Date: ${t.settlementDate || ''}
                       createdAt: fm.createdAt,
                       updatedAt: fm.updatedAt
                     };
-                  })}
+                  }) as any}
                 loading={loading}
                 error={error}
                 onEdit={(movement) => {
@@ -953,7 +953,7 @@ Settlement Date: ${t.settlementDate || ''}
       {/* Edit Fund Movement Modal */}
       {editingFundMovement && (
         <FundMovementEditModal
-          fundMovement={editingFundMovement}
+          fundMovement={editingFundMovement as any}
           isOpen={showFundMovementEditModal}
           onClose={handleCloseFundMovementEditModal}
           onSave={handleSaveEditFundMovement}
