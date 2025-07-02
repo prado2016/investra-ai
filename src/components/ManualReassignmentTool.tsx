@@ -191,7 +191,7 @@ export default function ManualReassignmentTool() {
     }
   };
 
-  const uniqueSymbols = [...new Set(transactions.map(t => t.symbol))].sort();
+  const uniqueSymbols = [...new Set(transactions.map(t => t.symbol).filter(Boolean))].sort() as string[];
 
   if (loading && transactions.length === 0) {
     return <div>Loading transactions...</div>;

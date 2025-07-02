@@ -64,7 +64,7 @@ export async function getTransactionsNeedingReassignment(limit: number = 50): Pr
     const formattedTransactions: TransactionForReassignment[] = (transactions || []).map(t => ({
       id: t.id,
       asset_id: t.asset_id,
-      symbol: (t.assets as any)?.symbol || 'Unknown',
+      symbol: (t.assets as { symbol?: string })?.symbol || 'Unknown',
       transaction_type: t.transaction_type,
       quantity: t.quantity,
       price: t.price,
