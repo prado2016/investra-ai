@@ -22,10 +22,11 @@ import { usePortfolios } from '../contexts/PortfolioContext';
 import PortfolioSelector from './PortfolioSelector';
 import CompanyLogo from './CompanyLogo';
 import { formatCurrency, formatDate } from '../utils/formatting';
-import type { Transaction, Asset, Portfolio } from '../lib/database/types';
+import type { Asset, Portfolio } from '../lib/database/types';
+import type { UnifiedTransactionEntry } from '../types/unifiedEntry';
 
 // Extended transaction type that includes asset and portfolio information
-export interface PortfolioTransactionWithAsset extends Transaction {
+export interface PortfolioTransactionWithAsset extends UnifiedTransactionEntry {
   asset: Asset;
   portfolio?: Portfolio;
 }
@@ -571,9 +572,9 @@ const PortfolioTransactionList: React.FC<PortfolioTransactionListProps> = ({
       const portfolioMatch = (() => {
         if (filterPortfolio === 'all') return true;
         if (filterPortfolio === 'active') {
-          return transaction.portfolio_id === activePortfolio?.id;
+          return transaction.portfolioId === activePortfolio?.id;
         }
-        return transaction.portfolio_id === filterPortfolio;
+        return transaction.portfolioId === filterPortfolio;
       })();
 
       // Other filters
