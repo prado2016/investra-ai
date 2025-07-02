@@ -92,7 +92,7 @@ async function batchUpdateTransactionPortfolios() {
     };
 
     // Create portfolio mapping by name (case insensitive)
-    for (const [accountType, _] of Object.entries(portfolioMapping)) {
+    for (const [accountType] of Object.entries(portfolioMapping)) {
       const matchingPortfolio = portfolios.find(p => 
         p.name.toUpperCase().includes(accountType)
       );
@@ -108,7 +108,6 @@ async function batchUpdateTransactionPortfolios() {
         // Parse the notes JSON to extract portfolio info
         const notes = JSON.parse(transaction.notes);
         let extractedAccountType = null;
-        let shouldUpdate = false;
 
         // Check multiple places for portfolio/account info
         if (notes.aiResponse?.extractedData?.portfolioName) {
@@ -137,7 +136,6 @@ async function batchUpdateTransactionPortfolios() {
               accountType: extractedAccountType,
               createdAt: transaction.created_at
             });
-            shouldUpdate = true;
             updateCount++;
           }
         } else {

@@ -3,7 +3,7 @@
  * Allows admin users to run batch updates on transaction portfolio assignments
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import styled from 'styled-components';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
