@@ -5,7 +5,7 @@
 
 import type { Portfolio } from '../lib/database/types';
 import type { Transaction, Asset, TransactionType } from '../lib/database/types';
-import { getMockPortfolio, getMockTransactions, isTestMode } from '../hooks/useTestConfig';
+import { getMockTransactions, isTestMode } from '../hooks/useTestConfig';
 
 // Mock service responses
 interface MockServiceResponse<T> {
