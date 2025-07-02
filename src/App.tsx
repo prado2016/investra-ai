@@ -22,6 +22,7 @@ import Transactions from './pages/Transactions';
 import Summary from './pages/Summary';
 import Settings from './pages/Settings';
 import SimpleEmailManagement from './pages/SimpleEmailManagement';
+import BatchUpdatePortfolios from './pages/BatchUpdatePortfolios';
 import Notifications from './pages/Notifications';
 import DebugLogs from './pages/DebugLogs';
 import HeatMap from './pages/HeatMap';
@@ -167,6 +168,7 @@ function AppContent() {
               <Route path="/summary" element={<Summary />} />
               <Route path="/daily-summary" element={<Navigate to="/summary" replace />} />
               <Route path="/email-management" element={<SimpleEmailManagement />} />
+              <Route path="/batch-update-portfolios" element={<BatchUpdatePortfolios />} />
               <Route path="/notifications" element={<Notifications />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/debug-logs" element={<DebugLogs />} />
@@ -207,6 +209,7 @@ function AppContent() {
             <Route path="/summary" element={<Summary />} />
             <Route path="/daily-summary" element={<Navigate to="/summary" replace />} />
             <Route path="/email-management" element={<SimpleEmailManagement />} />
+            <Route path="/batch-update-portfolios" element={<BatchUpdatePortfolios />} />
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/debug-logs" element={<DebugLogs />} />
