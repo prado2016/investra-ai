@@ -12,6 +12,7 @@ import { batchUpdateTransactionPortfolios } from '../utils/batchUpdatePortfolios
 import { debugTransactionNotes } from '../utils/debugTransactionNotes';
 import { analyzeAllTransactions } from '../utils/analyzeAllTransactions';
 import { usePageTitle } from '../hooks/usePageTitle';
+import ManualReassignmentTool from '../components/ManualReassignmentTool';
 
 const PageContainer = styled.div`
   padding: 2rem;
@@ -360,6 +361,8 @@ export default function BatchUpdatePortfolios() {
           </ResultCard>
         </ResultsContainer>
       )}
+
+      <ManualReassignmentTool />
     </PageContainer>
   );
 }
