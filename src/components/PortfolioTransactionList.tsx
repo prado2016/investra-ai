@@ -23,10 +23,30 @@ import PortfolioSelector from './PortfolioSelector';
 import CompanyLogo from './CompanyLogo';
 import { formatCurrency, formatDate } from '../utils/formatting';
 import type { Asset, Portfolio } from '../lib/database/types';
-import type { UnifiedTransactionEntry } from '../types/unifiedEntry';
 
 // Extended transaction type that includes asset and portfolio information
-export interface PortfolioTransactionWithAsset extends UnifiedTransactionEntry {
+// Using database types directly to match the actual data structure
+export interface PortfolioTransactionWithAsset {
+  id: string;
+  portfolioId: string;
+  date: Date;
+  amount: number;
+  currency: string;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  type: 'transaction';
+  transactionType: string;
+  assetId: string;
+  assetSymbol: string;
+  assetType: string;
+  quantity: number;
+  price: number;
+  fees?: number;
+  strategyType?: string;
+  brokerName?: string;
+  externalId?: string;
+  settlementDate?: string;
   asset: Asset;
   portfolio?: Portfolio;
 }
@@ -579,7 +599,7 @@ const PortfolioTransactionList: React.FC<PortfolioTransactionListProps> = ({
 
       // Other filters
       const typeMatch = filterType === 'all' || transaction.transactionType === filterType;
-      const assetMatch = filterAsset === 'all' || transaction.asset?.assetType === filterAsset;
+      const assetMatch = filterAsset === 'all' || transaction.asset?.asset_type === filterAsset;
       const symbolMatch = !filterSymbol || 
         transaction.asset?.symbol?.toLowerCase().includes(filterSymbol.toLowerCase());
       
