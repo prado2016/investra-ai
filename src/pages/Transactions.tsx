@@ -53,15 +53,20 @@ const TransactionsPage: React.FC = () => {
 
   // Filter unified entries based on current filters
   console.log('🔍 Transactions.tsx: Current filter state:', {
-    filters,
+    filters: {
+      portfolioId: filters.portfolioId,
+      dateRange: filters.dateRange,
+      entryType: filters.entryType
+    },
     totalEntries: unifiedEntries.length,
     availablePortfolios: portfolios?.map(p => ({ id: p.id, name: p.name })) || [],
     activePortfolio: activePortfolio ? { id: activePortfolio.id, name: activePortfolio.name } : null
   });
 
   const filteredEntries = unifiedEntries.filter(entry => {
-    // Portfolio filter
-    if (filters.portfolioId !== 'all' && entry.portfolioId !== filters.portfolioId) {
+    // Portfolio filter - temporarily force to 'all' to debug
+    const portfolioFilterToUse = 'all'; // Override filter to show all transactions
+    if (portfolioFilterToUse !== 'all' && entry.portfolioId !== portfolioFilterToUse) {
       console.log('🚫 Entry filtered out by portfolio:', {
         entryId: entry.id,
         entryPortfolioId: entry.portfolioId,
