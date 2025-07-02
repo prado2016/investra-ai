@@ -45,14 +45,8 @@ const TransactionsPage: React.FC = () => {
     customDateTo: '',
   });
 
-  // Update portfolioId in filters when activePortfolio changes
-  useEffect(() => {
-    // Default to 'all' instead of active portfolio to show all transactions
-    setFilters(prevFilters => ({
-      ...prevFilters,
-      portfolioId: 'all',
-    }));
-  }, [activePortfolio?.id]);
+  // Keep portfolio filter as 'all' by default to show all transactions
+  // Removed automatic filtering by active portfolio since all transactions are in TFSA
   
   // Debounce fetch to prevent excessive API calls
   const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
