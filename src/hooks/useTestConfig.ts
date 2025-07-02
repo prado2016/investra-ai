@@ -41,14 +41,15 @@ export const getMockPortfolio = (): Portfolio => ({
 
 // Mock transaction data for testing
 export const getMockTransactions = (): UnifiedTransactionEntry[] => [
+  // TFSA Portfolio transactions
   {
     id: 'test-txn-1',
     type: 'transaction',
-    portfolioId: 'test-portfolio-1',
+    portfolioId: 'test-portfolio-tfsa',
     date: new Date('2024-06-01'),
     amount: 15050,
     currency: 'USD',
-    notes: 'Test purchase of Apple stock',
+    notes: 'TFSA purchase of Apple stock',
     createdAt: new Date('2024-06-01T10:00:00Z'),
     updatedAt: new Date('2024-06-01T10:00:00Z'),
     transactionType: 'buy',
@@ -72,19 +73,16 @@ export const getMockTransactions = (): UnifiedTransactionEntry[] => [
       sector: 'Technology',
       industry: 'Consumer Electronics',
       marketCap: 3000000000000,
-      // sharesOutstanding: 15000000000, // Remove invalid property
-      // lastUpdated: '2024-06-01T10:00:00Z', // Remove invalid property
-      // createdAt: '2024-06-01T10:00:00Z' // Remove invalid property
     }
   },
   {
     id: 'test-txn-2',
     type: 'transaction',
-    portfolioId: 'test-portfolio-1',
+    portfolioId: 'test-portfolio-tfsa',
     date: new Date('2024-06-02'),
     amount: 137500,
     currency: 'USD',
-    notes: 'Test purchase of Google stock',
+    notes: 'TFSA purchase of Google stock',
     createdAt: new Date('2024-06-02T10:00:00Z'),
     updatedAt: new Date('2024-06-02T10:00:00Z'),
     transactionType: 'buy',
@@ -108,19 +106,17 @@ export const getMockTransactions = (): UnifiedTransactionEntry[] => [
       sector: 'Technology',
       industry: 'Internet Content & Information',
       marketCap: 2000000000000,
-      // sharesOutstanding: 13000000000, // Remove invalid property
-      // lastUpdated: '2024-06-02T10:00:00Z', // Remove invalid property
-      // createdAt: '2024-06-02T10:00:00Z' // Remove invalid property
     }
   },
+  // RSP Portfolio transactions
   {
     id: 'test-txn-3',
     type: 'transaction',
-    portfolioId: 'test-portfolio-1',
+    portfolioId: 'test-portfolio-rsp',
     date: new Date('2024-06-03'),
     amount: 48000,
     currency: 'USD',
-    notes: 'Test purchase of VTI ETF',
+    notes: 'RSP purchase of VTI ETF',
     createdAt: new Date('2024-06-03T10:00:00Z'),
     updatedAt: new Date('2024-06-03T10:00:00Z'),
     transactionType: 'buy',
@@ -142,12 +138,107 @@ export const getMockTransactions = (): UnifiedTransactionEntry[] => [
       category: 'equity',
       exchange: 'NYSE ARCA',
       currency: 'USD',
-      // sector: 'Mixed', // Remove invalid property
-      // industry: 'Exchange Traded Funds', // Remove invalid property
       marketCap: 500000000000,
-      // sharesOutstanding: 2000000000, // Remove invalid property
-      // lastUpdated: '2024-06-03T10:00:00Z', // Remove invalid property
-      // createdAt: '2024-06-03T10:00:00Z' // Remove invalid property
+    }
+  },
+  {
+    id: 'test-txn-4',
+    type: 'transaction',
+    portfolioId: 'test-portfolio-rsp',
+    date: new Date('2024-06-04'),
+    amount: 25000,
+    currency: 'CAD',
+    notes: 'RSP purchase of Canadian bank stock',
+    createdAt: new Date('2024-06-04T10:00:00Z'),
+    updatedAt: new Date('2024-06-04T10:00:00Z'),
+    transactionType: 'buy',
+    assetId: 'test-asset-td',
+    assetSymbol: 'TD.TO',
+    assetType: 'stock',
+    quantity: 100,
+    price: 250.00,
+    fees: 9.99,
+    brokerName: 'Test Broker',
+    externalId: undefined,
+    settlementDate: undefined,
+    strategyType: undefined,
+    asset: {
+      id: 'test-asset-td',
+      symbol: 'TD.TO',
+      name: 'The Toronto-Dominion Bank',
+      assetType: 'stock',
+      exchange: 'TSX',
+      currency: 'CAD',
+      sector: 'Financial',
+      industry: 'Banking',
+      marketCap: 150000000000,
+    }
+  },
+  // Margin Portfolio transactions
+  {
+    id: 'test-txn-5',
+    type: 'transaction',
+    portfolioId: 'test-portfolio-margin',
+    date: new Date('2024-06-05'),
+    amount: 75000,
+    currency: 'USD',
+    notes: 'Margin purchase of Tesla stock',
+    createdAt: new Date('2024-06-05T10:00:00Z'),
+    updatedAt: new Date('2024-06-05T10:00:00Z'),
+    transactionType: 'buy',
+    assetId: 'test-asset-tsla',
+    assetSymbol: 'TSLA',
+    assetType: 'stock',
+    quantity: 250,
+    price: 300.00,
+    fees: 9.99,
+    brokerName: 'Test Broker',
+    externalId: undefined,
+    settlementDate: undefined,
+    strategyType: undefined,
+    asset: {
+      id: 'test-asset-tsla',
+      symbol: 'TSLA',
+      name: 'Tesla, Inc.',
+      assetType: 'stock',
+      exchange: 'NASDAQ',
+      currency: 'USD',
+      sector: 'Consumer Cyclical',
+      industry: 'Auto Manufacturers',
+      marketCap: 800000000000,
+    }
+  },
+  {
+    id: 'test-txn-6',
+    type: 'transaction',
+    portfolioId: 'test-portfolio-margin',
+    date: new Date('2024-06-06'),
+    amount: 30000,
+    currency: 'USD',
+    notes: 'Margin purchase of NVIDIA stock',
+    createdAt: new Date('2024-06-06T10:00:00Z'),
+    updatedAt: new Date('2024-06-06T10:00:00Z'),
+    transactionType: 'buy',
+    assetId: 'test-asset-nvda',
+    assetSymbol: 'NVDA',
+    assetType: 'stock',
+    quantity: 50,
+    price: 600.00,
+    fees: 9.99,
+    brokerName: 'Test Broker',
+    externalId: undefined,
+    settlementDate: undefined,
+    strategyType: undefined,
+    asset: {
+      id: 'test-asset-nvda',
+      symbol: 'NVDA',
+      name: 'NVIDIA Corporation',
+      assetType: 'stock',
+      exchange: 'NASDAQ',
+      currency: 'USD',
+      sector: 'Technology',
+      industry: 'Semiconductors',
+      marketCap: 1500000000000,
     }
   }
 ];

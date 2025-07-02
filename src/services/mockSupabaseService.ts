@@ -28,12 +28,19 @@ class MockTransactionService {
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 100));
     
-    // In a real implementation, we would filter by portfolioId
-    // For mock purposes, we return all transactions
     console.log('Mock service fetching transactions for portfolio:', portfolioId || 'all');
     
+    let transactions = getMockTransactions() as any;
+    
+    // Filter by portfolio if specified
+    if (portfolioId && portfolioId !== 'all') {
+      transactions = transactions.filter((transaction: any) => 
+        transaction.portfolioId === portfolioId
+      );
+    }
+    
     return {
-      data: getMockTransactions() as any,
+      data: transactions,
       error: null,
       success: true
     };
@@ -188,11 +195,45 @@ class MockPortfolioService {
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 100));
 
-    // Use the database Portfolio type directly since that's what SupabaseService returns
-    const mockPortfolio = getMockPortfolio();
+    // Create multiple portfolios to match transaction portfolio IDs
+    const mockPortfolios: Portfolio[] = [
+      {
+        id: 'test-portfolio-tfsa',
+        name: 'TFSA',
+        description: 'Tax-Free Savings Account',
+        currency: 'USD',
+        user_id: 'test-user-1',
+        is_default: true,
+        is_active: true,
+        created_at: new Date('2024-01-01').toISOString(),
+        updated_at: new Date().toISOString()
+      },
+      {
+        id: 'test-portfolio-rsp',
+        name: 'RSP',
+        description: 'Registered Retirement Savings Plan',
+        currency: 'CAD',
+        user_id: 'test-user-1',
+        is_default: false,
+        is_active: true,
+        created_at: new Date('2024-01-01').toISOString(),
+        updated_at: new Date().toISOString()
+      },
+      {
+        id: 'test-portfolio-margin',
+        name: 'Margin',
+        description: 'Margin Trading Account',
+        currency: 'USD',
+        user_id: 'test-user-1',
+        is_default: false,
+        is_active: true,
+        created_at: new Date('2024-01-01').toISOString(),
+        updated_at: new Date().toISOString()
+      }
+    ];
     
     return {
-      data: [mockPortfolio],
+      data: mockPortfolios,
       error: null,
       success: true
     };
