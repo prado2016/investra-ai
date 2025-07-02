@@ -431,7 +431,7 @@ const PortfolioDashboard: React.FC<PortfolioDashboardProps> = ({
   // Calculate portfolio statistics
   const portfolioStats = useMemo(() => {
     const activeTransactions = transactions.filter(
-      t => t.portfolio_id === activePortfolio?.id
+      t => t.portfolioId === activePortfolio?.id
     );
 
     const stats = {
@@ -441,7 +441,7 @@ const PortfolioDashboard: React.FC<PortfolioDashboardProps> = ({
       totalSells: 0,
       totalDividends: 0,
       recentTransactions: activeTransactions
-        .sort((a, b) => new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime())
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
         .slice(0, 5),
       // Option strategy statistics
       optionStrategies: {
@@ -453,36 +453,36 @@ const PortfolioDashboard: React.FC<PortfolioDashboardProps> = ({
     };
 
     activeTransactions.forEach(transaction => {
-      stats.totalValue += Math.abs(transaction.total_amount);
+      stats.totalValue += Math.abs(transaction.amount);
       
-      switch (transaction.transaction_type) {
+      switch (transaction.transactionType) {
         case 'buy':
-          stats.totalBuys += transaction.total_amount;
+          stats.totalBuys += transaction.amount;
           break;
         case 'sell':
-          stats.totalSells += transaction.total_amount;
+          stats.totalSells += transaction.amount;
           break;
         case 'dividend':
-          stats.totalDividends += transaction.total_amount;
+          stats.totalDividends += transaction.amount;
           break;
       }
 
       // Track option strategy statistics
-      if (transaction.strategy_type) {
+      if (transaction.strategyType) {
         stats.optionStrategies.activeStrategies++;
         
         // Count each strategy type
-        if (!stats.optionStrategies.strategyCounts[transaction.strategy_type]) {
-          stats.optionStrategies.strategyCounts[transaction.strategy_type] = 0;
+        if (!stats.optionStrategies.strategyCounts[transaction.strategyType]) {
+          stats.optionStrategies.strategyCounts[transaction.strategyType] = 0;
         }
-        stats.optionStrategies.strategyCounts[transaction.strategy_type]++;
+        stats.optionStrategies.strategyCounts[transaction.strategyType]++;
         
         // Track covered calls specifically
-        if (transaction.strategy_type === 'covered_call') {
+        if (transaction.strategyType === 'covered_call') {
           stats.optionStrategies.coveredCalls++;
           // For covered calls (selling), we collect premium
-          if (transaction.transaction_type === 'sell') {
-            stats.optionStrategies.totalPremiumCollected += transaction.total_amount;
+          if (transaction.transactionType === 'sell') {
+            stats.optionStrategies.totalPremiumCollected += transaction.amount;
           }
         }
       }

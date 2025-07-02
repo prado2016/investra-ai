@@ -578,8 +578,8 @@ const PortfolioTransactionList: React.FC<PortfolioTransactionListProps> = ({
       })();
 
       // Other filters
-      const typeMatch = filterType === 'all' || transaction.transaction_type === filterType;
-      const assetMatch = filterAsset === 'all' || transaction.asset?.asset_type === filterAsset;
+      const typeMatch = filterType === 'all' || transaction.transactionType === filterType;
+      const assetMatch = filterAsset === 'all' || transaction.asset?.assetType === filterAsset;
       const symbolMatch = !filterSymbol || 
         transaction.asset?.symbol?.toLowerCase().includes(filterSymbol.toLowerCase());
       
@@ -597,17 +597,17 @@ const PortfolioTransactionList: React.FC<PortfolioTransactionListProps> = ({
     };
 
     filteredTransactions.forEach(transaction => {
-      stats.totalValue += transaction.total_amount;
+      stats.totalValue += transaction.amount;
       
-      switch (transaction.transaction_type) {
+      switch (transaction.transactionType) {
         case 'buy':
-          stats.totalBuys += transaction.total_amount;
+          stats.totalBuys += transaction.amount;
           break;
         case 'sell':
-          stats.totalSells += transaction.total_amount;
+          stats.totalSells += transaction.amount;
           break;
         case 'dividend':
-          stats.totalDividends += transaction.total_amount;
+          stats.totalDividends += transaction.amount;
           break;
       }
     });
@@ -789,16 +789,16 @@ const PortfolioTransactionList: React.FC<PortfolioTransactionListProps> = ({
                   {showPortfolioFilter && filterPortfolio === 'all' && (
                     <PortfolioBadge>
                       <Briefcase size={10} />
-                      {getPortfolioName(transaction.portfolio_id)}
+                      {getPortfolioName(transaction.portfolioId)}
                     </PortfolioBadge>
                   )}
                 </AssetDetails>
               </AssetInfo>
               
-              <TransactionType $type={transaction.transaction_type}>
-                {getTransactionIcon(transaction.transaction_type)}
-                {transaction.transaction_type.charAt(0).toUpperCase() + 
-                 transaction.transaction_type.slice(1)}
+              <TransactionType $type={transaction.transactionType}>
+                {getTransactionIcon(transaction.transactionType)}
+                {transaction.transactionType.charAt(0).toUpperCase() + 
+                 transaction.transactionType.slice(1)}
               </TransactionType>
               
               <AmountCell>
@@ -810,7 +810,7 @@ const PortfolioTransactionList: React.FC<PortfolioTransactionListProps> = ({
               </AmountCell>
               
               <DateCell>
-                {formatDate(transaction.transaction_date)}
+                {formatDate(transaction.date)}
               </DateCell>
               
               <ActionsCell>
