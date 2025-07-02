@@ -4,7 +4,7 @@
  */
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { BarChart3, TrendingUp, Settings, ArrowLeftRight, Calendar, Menu, X, Mail, Bell } from 'lucide-react';
+import { BarChart3, TrendingUp, Settings, ArrowLeftRight, Calendar, Menu, X, Mail, Bell, Database } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 
 interface NavigationProps {
@@ -22,6 +22,7 @@ const Navigation: React.FC<NavigationProps> = ({ className }) => {
     { path: '/summary', label: 'Summary', icon: Calendar },
     { path: '/portfolio-summary/heat-map', label: 'Heat Map', icon: BarChart3 },
     { path: '/email-management', label: 'Email Import', icon: Mail },
+    { path: '/batch-update-portfolios', label: 'Batch Update', icon: Database },
     { path: '/notifications', label: 'Alerts', icon: Bell },
     { path: '/settings', label: 'Settings', icon: Settings },
   ];

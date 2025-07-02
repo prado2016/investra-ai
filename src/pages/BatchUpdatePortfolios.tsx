@@ -7,8 +7,10 @@ import { useState } from 'react';
 import styled from 'styled-components';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
-import { AlertCircle, CheckCircle, RefreshCw, Database } from 'lucide-react';
+import { AlertCircle, CheckCircle, RefreshCw, Database, Search, BarChart3 } from 'lucide-react';
 import { batchUpdateTransactionPortfolios } from '../utils/batchUpdatePortfolios';
+import { debugTransactionNotes } from '../utils/debugTransactionNotes';
+import { analyzeAllTransactions } from '../utils/analyzeAllTransactions';
 import { usePageTitle } from '../hooks/usePageTitle';
 
 const PageContainer = styled.div`
@@ -191,6 +193,44 @@ export default function BatchUpdatePortfolios() {
     }
   };
 
+  const runDebugNotes = async () => {
+    setLogs([]);
+    
+    // Temporarily override console.log to capture output
+    console.log = captureLog;
+    
+    try {
+      captureLog('Starting transaction notes debug...');
+      await debugTransactionNotes();
+      captureLog('Debug completed');
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      captureLog(`Debug failed: ${errorMsg}`);
+    } finally {
+      // Restore original console.log
+      console.log = originalConsoleLog;
+    }
+  };
+
+  const runAnalyzeAll = async () => {
+    setLogs([]);
+    
+    // Temporarily override console.log to capture output
+    console.log = captureLog;
+    
+    try {
+      captureLog('Starting full transaction analysis...');
+      await analyzeAllTransactions();
+      captureLog('Analysis completed');
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      captureLog(`Analysis failed: ${errorMsg}`);
+    } finally {
+      // Restore original console.log
+      console.log = originalConsoleLog;
+    }
+  };
+
   return (
     <PageContainer>
       <PageHeader>
@@ -222,7 +262,35 @@ export default function BatchUpdatePortfolios() {
         </ul>
       </InfoCard>
 
-      <div>
+      <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+        <Button
+          onClick={runAnalyzeAll}
+          disabled={isRunning}
+          style={{ 
+            fontSize: '1.1rem', 
+            padding: '0.75rem 2rem',
+            background: '#06b6d4',
+            borderColor: '#06b6d4'
+          }}
+        >
+          <BarChart3 size={20} />
+          Analyze All Transactions
+        </Button>
+        
+        <Button
+          onClick={runDebugNotes}
+          disabled={isRunning}
+          style={{ 
+            fontSize: '1.1rem', 
+            padding: '0.75rem 2rem',
+            background: '#6366f1',
+            borderColor: '#6366f1'
+          }}
+        >
+          <Search size={20} />
+          Debug Transaction Notes
+        </Button>
+        
         <Button
           onClick={runBatchUpdate}
           disabled={isRunning}
