@@ -643,10 +643,10 @@ class StandaloneEmailProcessingService {
         throw new Error(`Failed to get or create asset for symbol: ${emailData.data.symbol}`);
       }
       
-      // Step 3: Get user's default portfolio
-      const portfolio = await this.getUserDefaultPortfolio(userId);
+      // Step 3: Get portfolio based on account type from email
+      const portfolio = await this.getPortfolioByAccountType(userId, emailData.data.accountType);
       if (!portfolio) {
-        throw new Error('No default portfolio found for user');
+        throw new Error(`No portfolio found for account type: ${emailData.data.accountType}`);
       }
       
       // Step 4: Create the transaction in the database
@@ -832,6 +832,26 @@ class StandaloneEmailProcessingService {
       const totalMatch = content.match(/total[:\s]+\$(\d+(?:\.\d+)?)/i);
       const totalAmount = totalMatch ? parseFloat(totalMatch[1]) : quantity * price;
       
+      // Extract account type from the email content
+      let accountType = 'TFSA'; // Default fallback
+      
+      // Look for account type patterns in the content
+      const accountPatterns = [
+        /Account:\s*\*([^*]+)\*/i,  // Account: *TFSA* or Account: *RSP*
+        /([A-Z]+)\s+account/i,     // TFSA account, RSP account
+        /account\s+type:\s*([A-Z]+)/i, // Account type: TFSA
+        /(TFSA|RSP|RRSP|MARGIN|CASH)\b/i // Direct mention
+      ];
+      
+      for (const pattern of accountPatterns) {
+        const match = content.match(pattern);
+        if (match && match[1]) {
+          accountType = match[1].toUpperCase().trim();
+          logger.info(`✅ Extracted account type: ${accountType}`);
+          break;
+        }
+      }
+      
       return {
         success: true,
         data: {
@@ -842,7 +862,7 @@ class StandaloneEmailProcessingService {
           totalAmount,
           currency: 'CAD',
           transactionDate: new Date().toISOString().split('T')[0],
-          accountType: 'TFSA',
+          accountType,
           subject: effectiveSubject,
           fromEmail: effectiveFrom,
           originalForwarder: from.includes('gmail.com') ? from : null,
@@ -940,6 +960,82 @@ class StandaloneEmailProcessingService {
       logger.error('Error in getUserDefaultPortfolio:', error);
       return null;
     }
+  }
+  
+  // Get or create portfolio based on account type
+  private static async getPortfolioByAccountType(userId: string, accountType: string) {
+    try {
+      logger.info(`🔍 Looking for portfolio matching account type: ${accountType}`);
+      
+      // First, try to find an existing portfolio that matches the account type
+      const { data: portfolios, error } = await supabase
+        .from('portfolios')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('is_active', true);
+      
+      if (error) {
+        logger.error('Error fetching portfolios:', error);
+        return await this.getUserDefaultPortfolio(userId);
+      }
+      
+      if (!portfolios || portfolios.length === 0) {
+        logger.info('No portfolios found, creating default');
+        return await this.getUserDefaultPortfolio(userId);
+      }
+      
+      // Look for portfolios that contain the account type in their name
+      const matchingPortfolio = portfolios.find(p => 
+        p.name.toUpperCase().includes(accountType.toUpperCase())
+      );
+      
+      if (matchingPortfolio) {
+        logger.info(`✅ Found matching portfolio: ${matchingPortfolio.name} for account type: ${accountType}`);
+        return matchingPortfolio;
+      }
+      
+      // If no matching portfolio found, create one for this account type
+      logger.info(`🔄 Creating new portfolio for account type: ${accountType}`);
+      const portfolioName = this.getPortfolioNameForAccountType(accountType);
+      
+      const { data: newPortfolio, error: createError } = await supabase
+        .from('portfolios')
+        .insert({
+          user_id: userId,
+          name: portfolioName,
+          description: `${accountType} portfolio created during email processing`,
+          currency: 'CAD',
+          is_active: true
+        })
+        .select()
+        .single();
+      
+      if (createError) {
+        logger.error('Failed to create portfolio for account type:', createError);
+        // Fall back to default portfolio
+        return await this.getUserDefaultPortfolio(userId);
+      }
+      
+      logger.info(`✅ Created new portfolio: ${portfolioName} for account type: ${accountType}`);
+      return newPortfolio;
+      
+    } catch (error) {
+      logger.error('Error in getPortfolioByAccountType:', error);
+      return await this.getUserDefaultPortfolio(userId);
+    }
+  }
+  
+  // Map account types to user-friendly portfolio names
+  private static getPortfolioNameForAccountType(accountType: string): string {
+    const mappings: { [key: string]: string } = {
+      'TFSA': 'TFSA Portfolio',
+      'RSP': 'RSP Portfolio', 
+      'RRSP': 'RRSP Portfolio',
+      'MARGIN': 'Margin Portfolio',
+      'CASH': 'Cash Portfolio'
+    };
+    
+    return mappings[accountType.toUpperCase()] || `${accountType} Portfolio`;
   }
   
   // Create transaction in database
