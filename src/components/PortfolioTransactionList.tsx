@@ -240,7 +240,7 @@ const TransactionTable = styled.div`
 
 const TableHeader = styled.div`
   display: grid;
-  grid-template-columns: 1fr 120px 120px 120px 120px 80px;
+  grid-template-columns: 1fr 100px 120px 120px 120px 120px 80px;
   gap: 1rem;
   padding: 1rem 1.5rem;
   background: #f8fafc;
@@ -281,7 +281,7 @@ const TableHeader = styled.div`
 
 const TransactionRow = styled.div`
   display: grid;
-  grid-template-columns: 1fr 120px 120px 120px 120px 80px;
+  grid-template-columns: 1fr 100px 120px 120px 120px 120px 80px;
   gap: 1rem;
   padding: 1rem 1.5rem;
   border-bottom: 1px solid #f3f4f6;
@@ -587,14 +587,39 @@ const PortfolioTransactionList: React.FC<PortfolioTransactionListProps> = ({
   }, [activePortfolio?.id, filterPortfolio]);
 
   const filteredTransactions = useMemo(() => {
+    console.log('🔍 PortfolioTransactionList: Filtering transactions', {
+      totalTransactions: transactions.length,
+      filterPortfolio,
+      activePortfolioId: activePortfolio?.id,
+      portfolios: portfolios.map(p => ({ id: p.id, name: p.name })),
+      sampleTransaction: transactions[0] ? {
+        id: transactions[0].id,
+        portfolioId: transactions[0].portfolioId,
+        symbol: transactions[0].asset?.symbol,
+        transactionType: transactions[0].transactionType
+      } : null
+    });
+
     return transactions.filter(transaction => {
       // Portfolio filter
       const portfolioMatch = (() => {
         if (filterPortfolio === 'all') return true;
         if (filterPortfolio === 'active') {
-          return transaction.portfolioId === activePortfolio?.id;
+          const match = transaction.portfolioId === activePortfolio?.id;
+          console.log('🏦 Portfolio active match:', {
+            transactionPortfolioId: transaction.portfolioId,
+            activePortfolioId: activePortfolio?.id,
+            match
+          });
+          return match;
         }
-        return transaction.portfolioId === filterPortfolio;
+        const match = transaction.portfolioId === filterPortfolio;
+        console.log('🏦 Portfolio specific match:', {
+          transactionPortfolioId: transaction.portfolioId,
+          filterPortfolio,
+          match
+        });
+        return match;
       })();
 
       // Other filters
@@ -603,9 +628,23 @@ const PortfolioTransactionList: React.FC<PortfolioTransactionListProps> = ({
       const symbolMatch = !filterSymbol || 
         transaction.asset?.symbol?.toLowerCase().includes(filterSymbol.toLowerCase());
       
-      return portfolioMatch && typeMatch && assetMatch && symbolMatch;
+      const finalMatch = portfolioMatch && typeMatch && assetMatch && symbolMatch;
+      
+      if (!finalMatch) {
+        console.log('❌ Transaction filtered out:', {
+          id: transaction.id,
+          portfolioMatch,
+          typeMatch,
+          assetMatch,
+          symbolMatch,
+          portfolioId: transaction.portfolioId,
+          transactionType: transaction.transactionType
+        });
+      }
+      
+      return finalMatch;
     });
-  }, [transactions, filterType, filterAsset, filterSymbol, filterPortfolio, activePortfolio?.id]);
+  }, [transactions, filterType, filterAsset, filterSymbol, filterPortfolio, activePortfolio?.id, portfolios]);
 
   const summaryStats = useMemo(() => {
     const stats = {
@@ -782,6 +821,7 @@ const PortfolioTransactionList: React.FC<PortfolioTransactionListProps> = ({
       <TransactionTable>
         <TableHeader>
           <div>Asset</div>
+          <div>Portfolio</div>
           <div>Type</div>
           <div>Quantity</div>
           <div>Price</div>
@@ -806,14 +846,15 @@ const PortfolioTransactionList: React.FC<PortfolioTransactionListProps> = ({
                   <AssetName>
                     {transaction.asset?.name || 'Unknown Asset'}
                   </AssetName>
-                  {showPortfolioFilter && filterPortfolio === 'all' && (
-                    <PortfolioBadge>
-                      <Briefcase size={10} />
-                      {getPortfolioName(transaction.portfolioId)}
-                    </PortfolioBadge>
-                  )}
                 </AssetDetails>
               </AssetInfo>
+              
+              <div>
+                <PortfolioBadge>
+                  <Briefcase size={10} />
+                  {getPortfolioName(transaction.portfolioId)}
+                </PortfolioBadge>
+              </div>
               
               <TransactionType $type={transaction.transactionType}>
                 {getTransactionIcon(transaction.transactionType)}

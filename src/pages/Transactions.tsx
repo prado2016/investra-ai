@@ -57,9 +57,22 @@ const TransactionsPage: React.FC = () => {
   const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Filter unified entries based on current filters
+  console.log('🔍 Transactions.tsx: Current filter state:', {
+    filters,
+    totalEntries: unifiedEntries.length,
+    availablePortfolios: portfolios?.map(p => ({ id: p.id, name: p.name })) || [],
+    activePortfolio: activePortfolio ? { id: activePortfolio.id, name: activePortfolio.name } : null
+  });
+
   const filteredEntries = unifiedEntries.filter(entry => {
     // Portfolio filter
     if (filters.portfolioId !== 'all' && entry.portfolioId !== filters.portfolioId) {
+      console.log('🚫 Entry filtered out by portfolio:', {
+        entryId: entry.id,
+        entryPortfolioId: entry.portfolioId,
+        filterPortfolioId: filters.portfolioId,
+        entryType: entry.type
+      });
       return false;
     }
 
@@ -238,6 +251,16 @@ Settlement Date: ${t.settlementDate || ''}
       const allEntries: UnifiedEntry[] = [];
 
       if (transactionsResponse.success && transactionsResponse.data) {
+        console.log('🔍 Transactions.tsx: Raw transaction data from service:', {
+          totalTransactions: transactionsResponse.data.length,
+          sampleTransaction: transactionsResponse.data[0] ? {
+            id: transactionsResponse.data[0].id,
+            portfolio_id: transactionsResponse.data[0].portfolio_id,
+            symbol: transactionsResponse.data[0].asset?.symbol,
+            transaction_type: transactionsResponse.data[0].transaction_type
+          } : null
+        });
+
         const transformedTransactions: UnifiedTransactionEntry[] = transactionsResponse.data.map(
           (t: any) => ({
             id: t.id,
@@ -263,6 +286,17 @@ Settlement Date: ${t.settlementDate || ''}
             asset: t.asset,
           })
         );
+        
+        console.log('🔍 Transactions.tsx: Transformed transaction data:', {
+          totalTransformed: transformedTransactions.length,
+          sampleTransformed: transformedTransactions[0] ? {
+            id: transformedTransactions[0].id,
+            portfolioId: transformedTransactions[0].portfolioId,
+            symbol: transformedTransactions[0].assetSymbol,
+            transactionType: transformedTransactions[0].transactionType
+          } : null
+        });
+        
         allEntries.push(...transformedTransactions);
       } else if (transactionsResponse.error) {
         setError(transactionsResponse.error);
