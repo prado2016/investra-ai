@@ -47,9 +47,10 @@ const TransactionsPage: React.FC = () => {
 
   // Update portfolioId in filters when activePortfolio changes
   useEffect(() => {
+    // Default to 'all' instead of active portfolio to show all transactions
     setFilters(prevFilters => ({
       ...prevFilters,
-      portfolioId: activePortfolio?.id || 'all',
+      portfolioId: 'all',
     }));
   }, [activePortfolio?.id]);
   
