@@ -460,7 +460,7 @@ Settlement Date: ${t.settlementDate || ''}
       // "All Portfolios" selected - show all transactions regardless of portfolio
       console.log('📊 Setting filter to show all portfolios');
       setFilters(prev => ({ ...prev, portfolioId: 'all' }));
-    } else {
+    } else if (activePortfolio) {
       // Specific portfolio selected - filter to that portfolio only
       console.log('📊 Setting filter to specific portfolio:', activePortfolio.name);
       setFilters(prev => ({ ...prev, portfolioId: activePortfolio.id }));
@@ -740,7 +740,9 @@ Settlement Date: ${t.settlementDate || ''}
     );
   }
 
-  if (!activePortfolio) {
+  // Only show "No Portfolio Available" if there are actually no portfolios
+  // Don't show it for "All Portfolios" view (activePortfolio === null)
+  if (!activePortfolio && portfolios.length === 0) {
     return (
       <div className="enhanced-page-container">
         <div className="enhanced-page-header">
@@ -774,7 +776,10 @@ Settlement Date: ${t.settlementDate || ''}
             <div className="enhanced-header-text">
               <h1 className="enhanced-page-title">Transaction Management</h1>
               <p className="enhanced-page-subtitle">
-                Manage your portfolio transactions for {activePortfolio.name}
+                {activePortfolio 
+                  ? `Manage your portfolio transactions for ${activePortfolio.name}`
+                  : 'Manage transactions across all portfolios'
+                }
               </p>
             </div>
           </div>
