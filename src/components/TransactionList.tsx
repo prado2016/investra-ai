@@ -453,7 +453,7 @@ interface TransactionListProps {
   loading: boolean;
   error?: string | null;
   onEdit: (entry: UnifiedEntry) => void;
-  ononDelete: (id: string, type: 'transaction' | 'fund_movement') => void;
+  onDelete: (id: string, type: 'transaction' | 'fund_movement') => void;
 }
 
 const TransactionList: React.FC<TransactionListProps> = ({
@@ -461,7 +461,7 @@ const TransactionList: React.FC<TransactionListProps> = ({
   loading,
   error,
   onEdit,
-  ononDelete
+  onDelete
 }) => {
   const [filterType, setFilterType] = useState<string>('all');
   const [filterAsset, setFilterAsset] = useState<string>('all');
@@ -749,7 +749,7 @@ const TransactionList: React.FC<TransactionListProps> = ({
                 </ActionButton>
                 <ActionButton 
                   variant="delete" 
-                  onClick={() => ononDelete(entry.id, 'transaction')}
+                  onClick={() => onDelete(entry.id, 'transaction')}
                 >
                   <Trash2 size="0.875em" /> Delete
                 </ActionButton>
@@ -783,7 +783,7 @@ const TransactionList: React.FC<TransactionListProps> = ({
                         </ActionButton>
                         <ActionButton 
                           variant="delete" 
-                          onClick={() => ononDelete(entry.id, 'fund_movement')}
+                          onClick={() => onDelete(entry.id, 'fund_movement')}
                         >
                           <Trash2 size="0.875em" /> Delete
                         </ActionButton>

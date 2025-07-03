@@ -968,7 +968,7 @@ Settlement Date: ${t.settlementDate || ''}
                 loading={loading}
                 error={error}
                 onEdit={handleEditEntry}
-                ononDelete={handleDeleteEntry}
+                onDelete={handleDeleteEntry}
               />
             </div>
           </div>
