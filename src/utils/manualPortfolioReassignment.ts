@@ -16,6 +16,7 @@ interface TransactionForReassignment {
   created_at: string;
   portfolio_id: string;
   portfolio_name?: string;
+  notes?: string;
 }
 
 export async function getTransactionsNeedingReassignment(limit: number = 50): Promise<{
@@ -38,7 +39,7 @@ export async function getTransactionsNeedingReassignment(limit: number = 50): Pr
       throw new Error('TFSA portfolio not found');
     }
 
-    // Get transactions without notes that are in TFSA
+    // Get transactions in TFSA (include notes for manual review)
     const { data: transactions, error, count } = await supabase
       .from('transactions')
       .select(`
@@ -50,10 +51,10 @@ export async function getTransactionsNeedingReassignment(limit: number = 50): Pr
         transaction_date,
         created_at,
         portfolio_id,
+        notes,
         assets!inner(symbol)
       `, { count: 'exact' })
       .eq('portfolio_id', tfsaPortfolio.id)
-      .is('notes', null)
       .order('created_at', { ascending: false })
       .limit(limit);
 
@@ -71,7 +72,8 @@ export async function getTransactionsNeedingReassignment(limit: number = 50): Pr
       transaction_date: t.transaction_date,
       created_at: t.created_at,
       portfolio_id: t.portfolio_id,
-      portfolio_name: tfsaPortfolio.name
+      portfolio_name: tfsaPortfolio.name,
+      notes: t.notes
     }));
 
     console.log(`✅ Found ${formattedTransactions.length} transactions needing reassignment`);

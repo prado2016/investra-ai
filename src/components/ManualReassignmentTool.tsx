@@ -20,15 +20,15 @@ const Container = styled.div`
 
 const TransactionGrid = styled.div`
   display: grid;
-  grid-template-columns: auto 1fr auto auto auto auto auto auto;
+  grid-template-columns: auto 1fr auto auto auto auto auto auto 2fr;
   gap: 0.5rem 1rem;
-  align-items: center;
+  align-items: start;
   font-size: 0.875rem;
   margin: 1rem 0;
   padding: 1rem;
   background: #f8fafc;
   border-radius: 0.5rem;
-  max-height: 400px;
+  max-height: 500px;
   overflow-y: auto;
 
   [data-theme="dark"] & {
@@ -67,6 +67,44 @@ const TransactionRow = styled.div<{ $selected?: boolean }>`
   }
 `;
 
+const NotesCell = styled.div<{ $selected?: boolean }>`
+  padding: 0.25rem;
+  border-radius: 0.25rem;
+  background: ${props => props.$selected ? '#dbeafe' : 'transparent'};
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.75rem;
+  color: #6b7280;
+  border: 1px solid #e5e7eb;
+  cursor: pointer;
+
+  [data-theme="dark"] & {
+    background: ${props => props.$selected ? '#1e3a8a' : 'transparent'};
+    color: #9ca3af;
+    border-color: #4b5563;
+  }
+
+  &:hover {
+    background: ${props => props.$selected ? '#bfdbfe' : '#f1f5f9'};
+    overflow: visible;
+    white-space: normal;
+    word-wrap: break-word;
+    z-index: 10;
+    position: relative;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    max-height: 200px;
+    overflow-y: auto;
+
+    [data-theme="dark"] & {
+      background: ${props => props.$selected ? '#1d4ed8' : '#4b5563'};
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+    }
+  }
+`;
+
 const SelectionControls = styled.div`
   display: flex;
   gap: 1rem;
@@ -100,6 +138,7 @@ interface Transaction {
   created_at: string;
   portfolio_id: string;
   portfolio_name?: string;
+  notes?: string;
 }
 
 interface Portfolio {
@@ -205,8 +244,8 @@ export default function ManualReassignmentTool() {
         </h3>
         
         <p style={{ color: '#6b7280', marginBottom: '1rem' }}>
-          {totalCount} transactions without notes need manual reassignment from TFSA. 
-          Showing first {transactions.length}.
+          {totalCount} transactions in TFSA portfolio need manual review. 
+          Showing first {transactions.length}. Hover over notes to see full content and determine correct portfolio.
         </p>
 
         <SelectionControls>
@@ -272,6 +311,7 @@ export default function ManualReassignmentTool() {
           <GridHeader>Date</GridHeader>
           <GridHeader>Created</GridHeader>
           <GridHeader>ID</GridHeader>
+          <GridHeader>Raw Notes (hover to expand)</GridHeader>
 
           {transactions.map(transaction => {
             const isSelected = selectedTransactions.has(transaction.id);
@@ -303,7 +343,10 @@ export default function ManualReassignmentTool() {
               </TransactionRow>,
               <TransactionRow key={`${transaction.id}-id`} $selected={isSelected}>
                 {transaction.id.slice(0, 8)}...
-              </TransactionRow>
+              </TransactionRow>,
+              <NotesCell key={`${transaction.id}-notes`} $selected={isSelected}>
+                {transaction.notes ? transaction.notes : 'No notes'}
+              </NotesCell>
             ];
           })}
         </TransactionGrid>
