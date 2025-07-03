@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { usePortfolios } from '../contexts/PortfolioContext';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { TransactionService, FundMovementService, AssetService } from '../services/supabaseService';
@@ -55,89 +55,98 @@ const TransactionsPage: React.FC = () => {
   // Keep portfolio filter as 'all' by default to show all transactions
   // Removed automatic filtering by active portfolio since all transactions are in TFSA
   
-  // Debounce fetch to prevent excessive API calls
-  const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Filter unified entries based on current filters
 
-  const filteredEntries = unifiedEntries.filter(entry => {
-    // Portfolio filter
-    const portfolioFilterToUse = filters.portfolioId;
-    if (portfolioFilterToUse !== 'all' && entry.portfolioId !== portfolioFilterToUse) {
-      return false;
-    }
+  const filteredEntries = useMemo(() => {
+    const result = unifiedEntries.filter(entry => {
+      // Portfolio filter
+      const portfolioFilterToUse = filters.portfolioId;
+      if (portfolioFilterToUse !== 'all' && entry.portfolioId !== portfolioFilterToUse) {
+        return false;
+      }
 
-    // Entry type filter (transaction or fund_movement)
-    if (filters.entryType !== 'all' && entry.type !== filters.entryType) {
-      return false;
-    }
+      // Entry type filter (transaction or fund_movement)
+      if (filters.entryType !== 'all' && entry.type !== filters.entryType) {
+        return false;
+      }
 
-    // Transaction-specific filters
-    if (entry.type === 'transaction') {
-      // Transaction Type filter
-      if (filters.transactionType !== 'all' && entry.transactionType !== filters.transactionType) {
-        return false;
+      // Transaction-specific filters
+      if (entry.type === 'transaction') {
+        // Transaction Type filter
+        if (filters.transactionType !== 'all' && entry.transactionType !== filters.transactionType) {
+          return false;
+        }
+        // Asset type filter
+        if (filters.assetType !== 'all' && entry.assetType !== filters.assetType) {
+          return false;
+        }
+        // Symbol filter
+        if (filters.symbol && !entry.assetSymbol.toLowerCase().includes(filters.symbol.toLowerCase())) {
+          return false;
+        }
       }
-      // Asset type filter
-      if (filters.assetType !== 'all' && entry.assetType !== filters.assetType) {
-        return false;
-      }
-      // Symbol filter
-      if (filters.symbol && !entry.assetSymbol.toLowerCase().includes(filters.symbol.toLowerCase())) {
-        return false;
-      }
-    }
 
-    // Fund Movement-specific filters
-    if (entry.type === 'fund_movement') {
-      // Fund Movement Type filter
-      if (filters.fundMovementType !== 'all' && entry.fundMovementType !== filters.fundMovementType) {
-        return false;
+      // Fund Movement-specific filters
+      if (entry.type === 'fund_movement') {
+        // Fund Movement Type filter
+        if (filters.fundMovementType !== 'all' && entry.fundMovementType !== filters.fundMovementType) {
+          return false;
+        }
+        // Account filter
+        if (filters.account && !(entry.account?.toLowerCase().includes(filters.account.toLowerCase()) ||
+                                   entry.fromAccount?.toLowerCase().includes(filters.account.toLowerCase()) ||
+                                   entry.toAccount?.toLowerCase().includes(filters.account.toLowerCase()))) {
+          return false;
+        }
       }
-      // Account filter
-      if (filters.account && !(entry.account?.toLowerCase().includes(filters.account.toLowerCase()) ||
-                                 entry.fromAccount?.toLowerCase().includes(filters.account.toLowerCase()) ||
-                                 entry.toAccount?.toLowerCase().includes(filters.account.toLowerCase()))) {
-        return false;
-      }
-    }
 
-    // Date range filter
-    const entryDate = entry.date;
-    const now = new Date();
+      // Date range filter
+      const entryDate = entry.date;
+      const now = new Date();
+      
+      if (filters.dateRange === 'custom') {
+        if (filters.customDateFrom) {
+          const fromDate = new Date(filters.customDateFrom);
+          if (entryDate < fromDate) return false;
+        }
+        if (filters.customDateTo) {
+          const toDate = new Date(filters.customDateTo);
+          if (entryDate > toDate) return false;
+        }
+      } else if (filters.dateRange !== 'all') {
+        let cutoffDate: Date;
+        switch (filters.dateRange) {
+          case 'last7days':
+            cutoffDate = subDays(now, 7);
+            break;
+          case 'last30days':
+            cutoffDate = subDays(now, 30);
+            break;
+          case 'last90days':
+            cutoffDate = subDays(now, 90);
+            break;
+          case 'thisYear':
+            cutoffDate = startOfYear(now);
+            break;
+          default:
+            return true; // Should not happen with current filter options
+        }
+        if (entryDate < startOfDay(cutoffDate)) return false;
+      }
+
+      return true;
+    });
     
-    if (filters.dateRange === 'custom') {
-      if (filters.customDateFrom) {
-        const fromDate = new Date(filters.customDateFrom);
-        if (entryDate < fromDate) return false;
-      }
-      if (filters.customDateTo) {
-        const toDate = new Date(filters.customDateTo);
-        if (entryDate > toDate) return false;
-      }
-    } else if (filters.dateRange !== 'all') {
-      let cutoffDate: Date;
-      switch (filters.dateRange) {
-        case 'last7days':
-          cutoffDate = subDays(now, 7);
-          break;
-        case 'last30days':
-          cutoffDate = subDays(now, 30);
-          break;
-        case 'last90days':
-          cutoffDate = subDays(now, 90);
-          break;
-        case 'thisYear':
-          cutoffDate = startOfYear(now);
-          break;
-        default:
-          return true; // Should not happen with current filter options
-      }
-      if (entryDate < startOfDay(cutoffDate)) return false;
-    }
-
-    return true;
-  });
+    console.log('🔍 Filtering results:', {
+      totalEntries: unifiedEntries.length,
+      filteredEntries: result.length,
+      filters: filters,
+      activePortfolio: activePortfolio?.name || 'All Portfolios'
+    });
+    
+    return result;
+  }, [unifiedEntries, filters, activePortfolio]);
 
   // Export functions
   const exportToCSV = () => {
@@ -460,26 +469,12 @@ Settlement Date: ${t.settlementDate || ''}
 
   // Fetch data when portfolios change - simplified approach
   useEffect(() => {
-    // Clear previous timeout if any
-    if (fetchTimeoutRef.current) {
-      clearTimeout(fetchTimeoutRef.current);
-    }
-
     if (portfolios.length > 0) {
       console.log('📊 Fetching data from all portfolios, filtering handled client-side');
-      fetchTimeoutRef.current = setTimeout(() => {
-        // Always fetch from all portfolios - "All Portfolios" is just absence of filter
-        fetchUnifiedEntriesFromAllPortfolios();
-      }, 1000);
+      // Always fetch from all portfolios - "All Portfolios" is just absence of filter
+      fetchUnifiedEntriesFromAllPortfolios();
     }
-
-    // Cleanup timeout on unmount
-    return () => {
-      if (fetchTimeoutRef.current) {
-        clearTimeout(fetchTimeoutRef.current);
-      }
-    };
-  }, [portfolioIds, fetchUnifiedEntriesFromAllPortfolios]);
+  }, [portfolioIds]); // Removed fetchUnifiedEntriesFromAllPortfolios from deps to prevent loop
 
   const handleEditEntry = (entry: UnifiedEntry) => {
     if (entry.type === 'transaction') {
