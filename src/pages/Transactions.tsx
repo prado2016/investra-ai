@@ -439,31 +439,36 @@ Settlement Date: ${t.settlementDate || ''}
     }
   }, [portfolios, notify]);
 
+  // Update filters when portfolio selection changes
   useEffect(() => {
-    console.log('🔄 Transactions useEffect triggered:', { 
+    console.log('🔄 Portfolio selection changed:', { 
       activePortfolioId: activePortfolio?.id, 
-      portfolioCount: portfolios.length,
       isAllPortfolios: activePortfolio === null
     });
     
+    // Update portfolio filter based on active portfolio
+    if (activePortfolio === null) {
+      // "All Portfolios" selected - show all transactions regardless of portfolio
+      console.log('📊 Setting filter to show all portfolios');
+      setFilters(prev => ({ ...prev, portfolioId: 'all' }));
+    } else {
+      // Specific portfolio selected - filter to that portfolio only
+      console.log('📊 Setting filter to specific portfolio:', activePortfolio.name);
+      setFilters(prev => ({ ...prev, portfolioId: activePortfolio.id }));
+    }
+  }, [activePortfolio?.id]);
+
+  // Fetch data when portfolios change - simplified approach
+  useEffect(() => {
     // Clear previous timeout if any
     if (fetchTimeoutRef.current) {
       clearTimeout(fetchTimeoutRef.current);
     }
 
-    // Handle both specific portfolio and "All Portfolios" cases
-    if (activePortfolio?.id) {
-      // Specific portfolio case
-      console.log('📊 Fetching for specific portfolio:', activePortfolio.name);
+    if (portfolios.length > 0) {
+      console.log('📊 Fetching data from all portfolios, filtering handled client-side');
       fetchTimeoutRef.current = setTimeout(() => {
-        if (activePortfolio?.id) {
-          fetchUnifiedEntries(activePortfolio.id);
-        }
-      }, 1000); // 1000ms debounce time
-    } else if (activePortfolio === null && portfolios.length > 0) {
-      // "All Portfolios" case - fetch from all portfolios
-      console.log('📊 Fetching for all portfolios:', portfolios.length);
-      fetchTimeoutRef.current = setTimeout(() => {
+        // Always fetch from all portfolios - "All Portfolios" is just absence of filter
         fetchUnifiedEntriesFromAllPortfolios();
       }, 1000);
     }
@@ -474,7 +479,7 @@ Settlement Date: ${t.settlementDate || ''}
         clearTimeout(fetchTimeoutRef.current);
       }
     };
-  }, [activePortfolio?.id, portfolioIds]);
+  }, [portfolioIds, fetchUnifiedEntriesFromAllPortfolios]);
 
   const handleEditEntry = (entry: UnifiedEntry) => {
     if (entry.type === 'transaction') {
