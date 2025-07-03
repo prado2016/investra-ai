@@ -271,15 +271,21 @@ const Summary: React.FC = () => {
         </div>
       )}
       
-      {activePortfolio && (
-        <MonthlyCalendar
-          portfolioId={activePortfolio.id}
-          onDayClick={handleDayClick}
-        />
-      )}
-
-      {activePortfolio && orphanTransactions.length > 0 && (
-        <OrphanTransactionsPanel transactions={orphanTransactions} />
+      {activePortfolio ? (
+        <>
+          <MonthlyCalendar
+            portfolioId={activePortfolio.id}
+            onDayClick={handleDayClick}
+          />
+          {orphanTransactions.length > 0 && (
+            <OrphanTransactionsPanel transactions={orphanTransactions} />
+          )}
+        </>
+      ) : (
+        <ErrorContainer>
+          <h3>Select a Portfolio</h3>
+          <p>Please select a specific portfolio to view the monthly calendar and performance summary. The summary view shows detailed daily analytics for individual portfolios.</p>
+        </ErrorContainer>
       )}
 
       <DayDetailsModal $isOpen={isModalOpen}>
