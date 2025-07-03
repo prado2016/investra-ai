@@ -151,8 +151,10 @@ export async function bulkReassignTransactions(
           console.error(`❌ Batch ${batchNumber} error:`, error);
           errors.push(`Batch ${batchNumber}: ${error.message}`);
         } else {
-          updatedCount += count || 0;
-          console.log(`✅ Batch ${batchNumber}: Updated ${count || 0} transactions`);
+          // Use data length instead of count when count is null
+          const actualUpdated = count !== null ? count : (data?.length || 0);
+          updatedCount += actualUpdated;
+          console.log(`✅ Batch ${batchNumber}: Updated ${actualUpdated} transactions (count: ${count}, data length: ${data?.length})`);
           if (data && data.length > 0) {
             console.log(`📋 Updated transactions:`, data);
           }
