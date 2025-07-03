@@ -6,6 +6,7 @@ import { usePortfolios } from '../contexts/PortfolioContext';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useDailyPL } from '../hooks/useDailyPL';
 import OrphanTransactionsPanel from '../components/OrphanTransactionsPanel';
+import PortfolioSelectorComponent from '../components/PortfolioSelector';
 import type { DailyPLData } from '../services/analytics/dailyPLService';
 
 const PageContainer = styled.div`
@@ -300,20 +301,9 @@ const Summary: React.FC = () => {
       </PageHeader>
 
       {portfolios.length > 1 && (
-        <PortfolioSelector>
-          <PortfolioLabel htmlFor="portfolio-select">Portfolio:</PortfolioLabel>
-          <PortfolioSelect
-            id="portfolio-select"
-            value={activePortfolio?.id || ''}
-            onChange={handlePortfolioChange}
-          >
-            {portfolios.map(portfolio => (
-              <option key={portfolio.id} value={portfolio.id}>
-                {portfolio.name}
-              </option>
-            ))}
-          </PortfolioSelect>
-        </PortfolioSelector>
+        <div style={{ marginBottom: '1.5rem' }}>
+          <PortfolioSelectorComponent />
+        </div>
       )}
       
       {activePortfolio && (

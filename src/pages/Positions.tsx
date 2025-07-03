@@ -3,6 +3,8 @@ import styled from 'styled-components';
 import { PositionsTable } from '../components/PositionsTable';
 import { useSupabasePositions } from '../hooks/useSupabasePositions';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { usePortfolios } from '../contexts/PortfolioContext';
+import PortfolioSelector from '../components/PortfolioSelector';
 
 const PageContainer = styled.div`
   padding: 2rem;
@@ -12,6 +14,29 @@ const PageContainer = styled.div`
 
 const PageHeader = styled.div`
   margin-bottom: 2rem;
+`;
+
+const HeaderContainer = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+  gap: 2rem;
+  
+  @media (max-width: 768px) {
+    flex-direction: column;
+    gap: 1rem;
+  }
+`;
+
+const TitleSection = styled.div`
+  flex: 1;
+`;
+
+const SelectorSection = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 1rem;
 `;
 
 const PageTitle = styled.h1`
@@ -29,6 +54,7 @@ const PageSubtitle = styled.p`
 
 const PositionsPage: React.FC = () => {
   const { positions, loading, error, refreshPositions, recalculatePositions } = useSupabasePositions();
+  const { portfolios } = usePortfolios();
   
   // Set page title
   usePageTitle('Positions', { subtitle: 'Open Holdings' });
@@ -36,10 +62,20 @@ const PositionsPage: React.FC = () => {
   return (
     <PageContainer>
       <PageHeader>
-        <PageTitle>Open Positions</PageTitle>
-        <PageSubtitle>
-          Track your current holdings and real-time performance
-        </PageSubtitle>
+        <HeaderContainer>
+          <TitleSection>
+            <PageTitle>Open Positions</PageTitle>
+            <PageSubtitle>
+              Track your current holdings and real-time performance
+            </PageSubtitle>
+          </TitleSection>
+          
+          {portfolios.length > 1 && (
+            <SelectorSection>
+              <PortfolioSelector compact={true} />
+            </SelectorSection>
+          )}
+        </HeaderContainer>
       </PageHeader>
       
       <PositionsTable

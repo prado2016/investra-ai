@@ -9,6 +9,7 @@ import TransactionEditModal from '../components/TransactionEditModal.tsx';
 import { Plus, TrendingUp, DollarSign, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Download, Filter, Hash } from 'lucide-react';
 import { SelectField } from '../components/FormFields';
 import { useSupabasePortfolios } from '../hooks/useSupabasePortfolios';
+import PortfolioSelector from '../components/PortfolioSelector';
 import type { Transaction, TransactionType, FundMovement, FundMovementType, FundMovementStatus } from '../types/portfolio';
 import type { UnifiedEntry, UnifiedTransactionEntry, UnifiedFundMovementEntry, UnifiedEntryType } from '../types/unifiedEntry';
 import { startOfDay, subDays, startOfYear } from 'date-fns';
@@ -671,6 +672,11 @@ Settlement Date: ${t.settlementDate || ''}
               </p>
             </div>
           </div>
+          {portfolios.length > 1 && (
+            <div className="enhanced-header-actions">
+              <PortfolioSelector compact={true} />
+            </div>
+          )}
         </div>
       </div>
 

@@ -7,6 +7,7 @@ import { useDashboardMetrics } from '../hooks/useDashboardMetrics';
 import PortfolioCreationForm from '../components/PortfolioCreationForm';
 import PortfolioPerformanceChart from '../components/PortfolioPerformanceChart';
 import CustomSelect from '../components/CustomSelect';
+import PortfolioSelectorComponent from '../components/PortfolioSelector';
 import {
   TotalDailyPLBox,
   RealizedPLBox,
@@ -267,14 +268,7 @@ const Dashboard: React.FC = () => {
         
         <HeaderActions>
           {portfolios.length > 1 && (
-            <PortfolioSelector>
-              <PortfolioLabel htmlFor="portfolio-select">Portfolio:</PortfolioLabel>
-              <CustomSelect
-                options={portfolios.map(p => ({ value: p.id, label: p.name }))}
-                value={activePortfolio?.id || ''}
-                onChange={handlePortfolioChange}
-              />
-            </PortfolioSelector>
+            <PortfolioSelectorComponent compact={true} />
           )}
           
           <ActionButton onClick={handleRefresh} disabled={loading}>

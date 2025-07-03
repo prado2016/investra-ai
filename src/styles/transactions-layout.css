@@ -25,6 +25,12 @@
   gap: 12px;
 }
 
+.enhanced-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .enhanced-header-icon {
   width: 24px;
   height: 24px;
