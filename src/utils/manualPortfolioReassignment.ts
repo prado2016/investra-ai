@@ -40,16 +40,23 @@ export async function getTransactionsNeedingReassignment(limit: number = 50): Pr
 
     console.log(`📋 Found ${tfsaPortfolios.length} TFSA portfolios:`, tfsaPortfolios);
 
-    // Get the main TFSA portfolio (the one that needs transactions reassigned FROM)
-    // This is typically the one that just says "TFSA" or is the first one
-    const mainTfsaPortfolio = tfsaPortfolios.find(p => 
-      p.name.toLowerCase() === 'tfsa' || 
-      p.name.toLowerCase() === 'tfsa portfolio'
-    ) || tfsaPortfolios[0];
+    // Get all portfolios to identify which ones are NOT TFSA
+    const { data: allPortfolios } = await supabase
+      .from('portfolios')
+      .select('id, name');
 
-    console.log(`📋 Using main TFSA portfolio for reassignment:`, mainTfsaPortfolio);
+    const nonTfsaPortfolios = allPortfolios?.filter(p => 
+      !p.name.toLowerCase().includes('tfsa')
+    ) || [];
 
-    // Get transactions in the main TFSA portfolio only (include notes for manual review)
+    console.log(`📋 Found ${nonTfsaPortfolios.length} non-TFSA portfolios:`, nonTfsaPortfolios);
+
+    if (nonTfsaPortfolios.length === 0) {
+      throw new Error('No non-TFSA portfolios found - all transactions are already correctly assigned');
+    }
+
+    // Get transactions that are in NON-TFSA portfolios but should be in TFSA
+    // These are the ones that need manual reassignment TO a TFSA portfolio
     const { data: transactions, error, count } = await supabase
       .from('transactions')
       .select(`
@@ -62,9 +69,10 @@ export async function getTransactionsNeedingReassignment(limit: number = 50): Pr
         created_at,
         portfolio_id,
         notes,
-        assets!inner(symbol)
+        assets!inner(symbol),
+        portfolios!inner(name)
       `, { count: 'exact' })
-      .eq('portfolio_id', mainTfsaPortfolio.id)
+      .in('portfolio_id', nonTfsaPortfolios.map(p => p.id))
       .order('created_at', { ascending: false })
       .limit(limit);
 
@@ -82,7 +90,7 @@ export async function getTransactionsNeedingReassignment(limit: number = 50): Pr
       transaction_date: t.transaction_date,
       created_at: t.created_at,
       portfolio_id: t.portfolio_id,
-      portfolio_name: mainTfsaPortfolio.name,
+      portfolio_name: (t.portfolios as { name?: string })?.name || 'Unknown',
       notes: t.notes
     }));
 
