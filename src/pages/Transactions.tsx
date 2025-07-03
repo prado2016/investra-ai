@@ -64,8 +64,8 @@ const TransactionsPage: React.FC = () => {
   });
 
   const filteredEntries = unifiedEntries.filter(entry => {
-    // Portfolio filter - temporarily force to 'all' to debug
-    const portfolioFilterToUse = 'all'; // Override filter to show all transactions
+    // Portfolio filter
+    const portfolioFilterToUse = filters.portfolioId;
     if (portfolioFilterToUse !== 'all' && entry.portfolioId !== portfolioFilterToUse) {
       console.log('🚫 Entry filtered out by portfolio:', {
         entryId: entry.id,
