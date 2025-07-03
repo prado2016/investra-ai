@@ -109,27 +109,58 @@ export async function bulkReassignTransactions(
   let updatedCount = 0;
 
   try {
-    console.log(`🔄 Bulk reassigning ${transactionIds.length} transactions...`);
+    console.log(`🔄 Bulk reassigning ${transactionIds.length} transactions to portfolio ${newPortfolioId}...`);
+    console.log(`📋 Transaction IDs:`, transactionIds);
+
+    // First, let's verify the transactions exist and their current state
+    const { data: currentTransactions, error: fetchError } = await supabase
+      .from('transactions')
+      .select('id, portfolio_id')
+      .in('id', transactionIds);
+
+    if (fetchError) {
+      console.error('❌ Failed to fetch current transactions:', fetchError);
+      return {
+        success: false,
+        updatedCount: 0,
+        errors: [`Failed to fetch current transactions: ${fetchError.message}`]
+      };
+    }
+
+    console.log(`🔍 Found ${currentTransactions?.length || 0} transactions to update:`, currentTransactions);
 
     // Update in batches of 10
     const batchSize = 10;
     for (let i = 0; i < transactionIds.length; i += batchSize) {
       const batch = transactionIds.slice(i, i + batchSize);
+      const batchNumber = Math.floor(i/batchSize) + 1;
+      
+      console.log(`🔄 Processing batch ${batchNumber}: updating ${batch.length} transactions`);
+      console.log(`📋 Batch ${batchNumber} transaction IDs:`, batch);
       
       try {
-        const { error, count } = await supabase
+        const { error, count, data } = await supabase
           .from('transactions')
           .update({ portfolio_id: newPortfolioId })
-          .in('id', batch);
+          .in('id', batch)
+          .select('id, portfolio_id');
+
+        console.log(`📊 Batch ${batchNumber} result:`, { error, count, data });
 
         if (error) {
-          errors.push(`Batch ${Math.floor(i/batchSize) + 1}: ${error.message}`);
+          console.error(`❌ Batch ${batchNumber} error:`, error);
+          errors.push(`Batch ${batchNumber}: ${error.message}`);
         } else {
           updatedCount += count || 0;
+          console.log(`✅ Batch ${batchNumber}: Updated ${count || 0} transactions`);
+          if (data && data.length > 0) {
+            console.log(`📋 Updated transactions:`, data);
+          }
         }
       } catch (batchError) {
         const errorMsg = batchError instanceof Error ? batchError.message : 'Unknown batch error';
-        errors.push(`Batch ${Math.floor(i/batchSize) + 1}: ${errorMsg}`);
+        console.error(`❌ Batch ${batchNumber} exception:`, batchError);
+        errors.push(`Batch ${batchNumber}: ${errorMsg}`);
       }
     }
 
