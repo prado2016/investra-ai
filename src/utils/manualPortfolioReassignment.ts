@@ -28,18 +28,28 @@ export async function getTransactionsNeedingReassignment(limit: number = 50): Pr
   try {
     console.log('🔍 Fetching transactions that need manual reassignment...');
 
-    // Get TFSA portfolio ID
-    const { data: tfsaPortfolio } = await supabase
+    // Get all TFSA portfolios 
+    const { data: tfsaPortfolios } = await supabase
       .from('portfolios')
       .select('id, name')
-      .ilike('name', '%TFSA%')
-      .single();
+      .ilike('name', '%TFSA%');
 
-    if (!tfsaPortfolio) {
-      throw new Error('TFSA portfolio not found');
+    if (!tfsaPortfolios || tfsaPortfolios.length === 0) {
+      throw new Error('No TFSA portfolios found');
     }
 
-    // Get transactions in TFSA (include notes for manual review)
+    console.log(`📋 Found ${tfsaPortfolios.length} TFSA portfolios:`, tfsaPortfolios);
+
+    // Get the main TFSA portfolio (the one that needs transactions reassigned FROM)
+    // This is typically the one that just says "TFSA" or is the first one
+    const mainTfsaPortfolio = tfsaPortfolios.find(p => 
+      p.name.toLowerCase() === 'tfsa' || 
+      p.name.toLowerCase() === 'tfsa portfolio'
+    ) || tfsaPortfolios[0];
+
+    console.log(`📋 Using main TFSA portfolio for reassignment:`, mainTfsaPortfolio);
+
+    // Get transactions in the main TFSA portfolio only (include notes for manual review)
     const { data: transactions, error, count } = await supabase
       .from('transactions')
       .select(`
@@ -54,7 +64,7 @@ export async function getTransactionsNeedingReassignment(limit: number = 50): Pr
         notes,
         assets!inner(symbol)
       `, { count: 'exact' })
-      .eq('portfolio_id', tfsaPortfolio.id)
+      .eq('portfolio_id', mainTfsaPortfolio.id)
       .order('created_at', { ascending: false })
       .limit(limit);
 
@@ -72,7 +82,7 @@ export async function getTransactionsNeedingReassignment(limit: number = 50): Pr
       transaction_date: t.transaction_date,
       created_at: t.created_at,
       portfolio_id: t.portfolio_id,
-      portfolio_name: tfsaPortfolio.name,
+      portfolio_name: mainTfsaPortfolio.name,
       notes: t.notes
     }));
 
