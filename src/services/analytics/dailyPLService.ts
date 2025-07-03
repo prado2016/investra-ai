@@ -139,7 +139,7 @@ export class DailyPLAnalyticsService {
    * Aggregate monthly P/L data from multiple portfolios
    */
   private aggregateMonthlyPLData(
-    portfolioData: MonthlyPLSummary[],
+    portfolioResults: MonthlyPLSummary[],
     year: number,
     month: number
   ): MonthlyPLSummary {
@@ -185,7 +185,7 @@ export class DailyPLAnalyticsService {
     const allOrphanTransactions: EnhancedTransaction[] = [];
 
     // Process each portfolio's data
-    for (const portfolioData of portfolioData) {
+    for (const portfolioData of portfolioResults) {
       totalMonthlyPL += portfolioData.totalMonthlyPL;
       totalRealizedPL += portfolioData.totalRealizedPL;
       totalUnrealizedPL += portfolioData.totalUnrealizedPL;
