@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { usePortfolios } from '../contexts/PortfolioContext';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { TransactionService, FundMovementService, AssetService } from '../services/supabaseService';
@@ -18,7 +18,13 @@ import '../styles/transactions-layout.css';
 // Enhanced Transactions page with improved styling and contrast
 const TransactionsPage: React.FC = () => {
   const { activePortfolio } = usePortfolios();
-  const { portfolios, loading: portfoliosLoading } = useSupabasePortfolios();
+  const { portfolios: rawPortfolios, loading: portfoliosLoading } = useSupabasePortfolios();
+  
+  // Memoize portfolios to prevent unnecessary re-renders
+  const portfolios = useMemo(() => rawPortfolios, [rawPortfolios]);
+  
+  // Create stable portfolio IDs array for dependency comparisons
+  const portfolioIds = useMemo(() => portfolios.map(p => p.id).sort(), [portfolios]);
   
   // Set dynamic page title
   usePageTitle('Transactions', { 
@@ -53,27 +59,11 @@ const TransactionsPage: React.FC = () => {
   const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Filter unified entries based on current filters
-  console.log('🔍 Transactions.tsx: Current filter state:', {
-    filters: {
-      portfolioId: filters.portfolioId,
-      dateRange: filters.dateRange,
-      entryType: filters.entryType
-    },
-    totalEntries: unifiedEntries.length,
-    availablePortfolios: portfolios?.map(p => ({ id: p.id, name: p.name })) || [],
-    activePortfolio: activePortfolio ? { id: activePortfolio.id, name: activePortfolio.name } : null
-  });
 
   const filteredEntries = unifiedEntries.filter(entry => {
     // Portfolio filter
     const portfolioFilterToUse = filters.portfolioId;
     if (portfolioFilterToUse !== 'all' && entry.portfolioId !== portfolioFilterToUse) {
-      console.log('🚫 Entry filtered out by portfolio:', {
-        entryId: entry.id,
-        entryPortfolioId: entry.portfolioId,
-        filterPortfolioId: filters.portfolioId,
-        entryType: entry.type
-      });
       return false;
     }
 
@@ -450,6 +440,12 @@ Settlement Date: ${t.settlementDate || ''}
   }, [portfolios, notify]);
 
   useEffect(() => {
+    console.log('🔄 Transactions useEffect triggered:', { 
+      activePortfolioId: activePortfolio?.id, 
+      portfolioCount: portfolios.length,
+      isAllPortfolios: activePortfolio === null
+    });
+    
     // Clear previous timeout if any
     if (fetchTimeoutRef.current) {
       clearTimeout(fetchTimeoutRef.current);
@@ -458,6 +454,7 @@ Settlement Date: ${t.settlementDate || ''}
     // Handle both specific portfolio and "All Portfolios" cases
     if (activePortfolio?.id) {
       // Specific portfolio case
+      console.log('📊 Fetching for specific portfolio:', activePortfolio.name);
       fetchTimeoutRef.current = setTimeout(() => {
         if (activePortfolio?.id) {
           fetchUnifiedEntries(activePortfolio.id);
@@ -465,6 +462,7 @@ Settlement Date: ${t.settlementDate || ''}
       }, 1000); // 1000ms debounce time
     } else if (activePortfolio === null && portfolios.length > 0) {
       // "All Portfolios" case - fetch from all portfolios
+      console.log('📊 Fetching for all portfolios:', portfolios.length);
       fetchTimeoutRef.current = setTimeout(() => {
         fetchUnifiedEntriesFromAllPortfolios();
       }, 1000);
@@ -476,7 +474,7 @@ Settlement Date: ${t.settlementDate || ''}
         clearTimeout(fetchTimeoutRef.current);
       }
     };
-  }, [activePortfolio, portfolios, fetchUnifiedEntries, fetchUnifiedEntriesFromAllPortfolios]);
+  }, [activePortfolio?.id, portfolioIds]);
 
   const handleEditEntry = (entry: UnifiedEntry) => {
     if (entry.type === 'transaction') {
