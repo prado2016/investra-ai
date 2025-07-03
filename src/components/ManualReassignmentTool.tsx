@@ -127,6 +127,36 @@ const PortfolioSelect = styled.select`
   }
 `;
 
+const MessageBox = styled.div<{ $type: 'success' | 'error' }>`
+  padding: 1rem;
+  border-radius: 0.5rem;
+  margin-bottom: 1rem;
+  border: 1px solid;
+  font-weight: 500;
+  
+  ${props => props.$type === 'success' ? `
+    background: #f0fdf4;
+    border-color: #16a34a;
+    color: #15803d;
+    
+    [data-theme="dark"] & {
+      background: #064e3b;
+      border-color: #059669;
+      color: #10b981;
+    }
+  ` : `
+    background: #fef2f2;
+    border-color: #dc2626;
+    color: #dc2626;
+    
+    [data-theme="dark"] & {
+      background: #7f1d1d;
+      border-color: #ef4444;
+      color: #f87171;
+    }
+  `}
+`;
+
 interface Transaction {
   id: string;
   asset_id: string;
@@ -153,10 +183,21 @@ export default function ManualReassignmentTool() {
   const [selectedPortfolio, setSelectedPortfolio] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
+  const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
   useEffect(() => {
     loadData();
   }, []);
+
+  // Auto-clear message after 5 seconds
+  useEffect(() => {
+    if (message) {
+      const timer = setTimeout(() => {
+        setMessage(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [message]);
 
   const loadData = async () => {
     setLoading(true);
@@ -211,20 +252,39 @@ export default function ManualReassignmentTool() {
 
     setLoading(true);
     try {
-      const result = await bulkReassignTransactions(
-        Array.from(selectedTransactions),
-        selectedPortfolio
-      );
+      const selectedIds = Array.from(selectedTransactions);
+      const result = await bulkReassignTransactions(selectedIds, selectedPortfolio);
 
       if (result.success) {
         console.log(`✅ Successfully reassigned ${result.updatedCount} transactions`);
+        
+        // Immediately remove reassigned transactions from local state
+        setTransactions(prev => prev.filter(t => !selectedIds.includes(t.id)));
+        setTotalCount(prev => Math.max(0, prev - result.updatedCount));
         setSelectedTransactions(new Set());
-        await loadData(); // Reload data
+        
+        // Show success message
+        const targetPortfolio = portfolios.find(p => p.id === selectedPortfolio);
+        setMessage({
+          text: `✅ Successfully reassigned ${result.updatedCount} transactions to ${targetPortfolio?.name || 'selected portfolio'}`,
+          type: 'success'
+        });
+        
+        // Also reload data from server to ensure consistency
+        await loadData();
       } else {
         console.error('❌ Reassignment errors:', result.errors);
+        setMessage({
+          text: `❌ Reassignment failed: ${result.errors.join(', ')}`,
+          type: 'error'
+        });
       }
     } catch (error) {
       console.error('Error during reassignment:', error);
+      setMessage({
+        text: `❌ Reassignment failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        type: 'error'
+      });
     } finally {
       setLoading(false);
     }
@@ -247,6 +307,12 @@ export default function ManualReassignmentTool() {
           {totalCount} transactions in TFSA portfolio need manual review. 
           Showing first {transactions.length}. Hover over notes to see full content and determine correct portfolio.
         </p>
+
+        {message && (
+          <MessageBox $type={message.type}>
+            {message.text}
+          </MessageBox>
+        )}
 
         <SelectionControls>
           <div>
