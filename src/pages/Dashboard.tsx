@@ -6,7 +6,6 @@ import { usePageTitle } from '../hooks/usePageTitle';
 import { useDashboardMetrics } from '../hooks/useDashboardMetrics';
 import PortfolioCreationForm from '../components/PortfolioCreationForm';
 import PortfolioPerformanceChart from '../components/PortfolioPerformanceChart';
-import CustomSelect from '../components/CustomSelect';
 import PortfolioSelectorComponent from '../components/PortfolioSelector';
 import {
   TotalDailyPLBox,
@@ -82,17 +81,6 @@ const HeaderActions = styled.div`
   gap: 1rem;
 `;
 
-const PortfolioSelector = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-`;
-
-const PortfolioLabel = styled.label`
-  font-weight: 500;
-  color: #374151;
-  font-size: 0.875rem;
-`;
 
 // const PortfolioSelect = styled.select`
 //   padding: 0.5rem 1rem;
@@ -175,7 +163,7 @@ const LastUpdated = styled.div`
 `;
 
 const Dashboard: React.FC = () => {
-  const { portfolios, activePortfolio, setActivePortfolio, loading: portfoliosLoading, error: portfoliosError, refreshPortfolios } = usePortfolios();
+  const { portfolios, activePortfolio, setActivePortfolio: _setActivePortfolio, loading: portfoliosLoading, error: portfoliosError, refreshPortfolios } = usePortfolios();
   const { metrics, loading: metricsLoading, error: metricsError, refreshMetrics } = useDashboardMetrics();
   const [isPrivacyMode, setIsPrivacyMode] = useState(false);
   const [selectedMetric, setSelectedMetric] = useState<string | null>(null);
@@ -186,12 +174,6 @@ const Dashboard: React.FC = () => {
     subtitle: activePortfolio ? `${activePortfolio.name} Portfolio` : 'Portfolio Overview' 
   });
 
-  const handlePortfolioChange = (portfolioId: string) => {
-    const portfolio = portfolios.find(p => p.id === portfolioId);
-    if (portfolio) {
-      setActivePortfolio(portfolio);
-    }
-  };
 
   const handleRefresh = async () => {
     await refreshMetrics();

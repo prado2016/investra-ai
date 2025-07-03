@@ -32,34 +32,6 @@ const PageSubtitle = styled.p`
   margin: 0;
 `;
 
-const PortfolioSelector = styled.div`
-  margin-bottom: 1.5rem;
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-`;
-
-const PortfolioLabel = styled.label`
-  font-weight: 600;
-  color: #374151;
-`;
-
-const PortfolioSelect = styled.select`
-  padding: 0.5rem 1rem;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  background: white;
-  color: #374151;
-  font-size: 0.875rem;
-  cursor: pointer;
-  
-  &:focus {
-    outline: none;
-    ring: 2px;
-    ring-color: #3b82f6;
-    border-color: #3b82f6;
-  }
-`;
 
 const LoadingContainer = styled.div`
   display: flex;
@@ -189,7 +161,7 @@ const TransactionDetails = styled.div`
 `;
 
 const Summary: React.FC = () => {
-  const { portfolios, activePortfolio, loading: portfoliosLoading, error: portfoliosError, setActivePortfolio, refreshPortfolios } = usePortfolios();
+  const { portfolios, activePortfolio, loading: portfoliosLoading, error: portfoliosError, setActivePortfolio: _setActivePortfolio, refreshPortfolios } = usePortfolios();
   const [selectedDayData, setSelectedDayData] = useState<DailyPLData | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { orphanTransactions } = useDailyPL(activePortfolio?.id || '');
@@ -224,13 +196,6 @@ const Summary: React.FC = () => {
     setSelectedDayData(null);
   };
 
-  const handlePortfolioChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    const portfolioId = event.target.value;
-    const portfolio = portfolios.find(p => p.id === portfolioId);
-    if (portfolio) {
-      setActivePortfolio(portfolio);
-    }
-  };
 
   const handlePortfolioCreated = async () => {
     await refreshPortfolios();
