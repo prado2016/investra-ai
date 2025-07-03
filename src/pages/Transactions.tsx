@@ -345,21 +345,127 @@ Settlement Date: ${t.settlementDate || ''}
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [notify]);
 
-  useEffect(() => {
-    if (activePortfolio?.id) {
-      // Clear previous timeout if any
-      if (fetchTimeoutRef.current) {
-        clearTimeout(fetchTimeoutRef.current);
+  // Fetch unified entries from all portfolios for "All Portfolios" view
+  const fetchUnifiedEntriesFromAllPortfolios = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      console.log('🔍 Transactions.tsx: Fetching from all portfolios:', portfolios.length);
+      const allEntries: UnifiedEntry[] = [];
+
+      // Fetch data from each portfolio
+      for (const portfolio of portfolios) {
+        try {
+          const [transactionsResponse, fundMovementsResponse] = await Promise.all([
+            TransactionService.getTransactions(portfolio.id, 'all'),
+            FundMovementService.getFundMovements(portfolio.id),
+          ]);
+
+          // Process transactions
+          if (transactionsResponse.success && transactionsResponse.data) {
+            const transformedTransactions = transactionsResponse.data.map(
+              (t: any) => ({
+                id: t.id,
+                portfolioId: t.portfolio_id,
+                portfolioName: portfolio.name, // Add portfolio name for all portfolios view
+                date: new Date(t.transaction_date),
+                amount: t.total_amount || 0,
+                currency: t.currency || 'USD',
+                notes: t.notes || '',
+                createdAt: new Date(t.created_at),
+                updatedAt: new Date(t.updated_at),
+                type: 'transaction',
+                transactionType: t.transaction_type,
+                assetId: t.asset_id,
+                assetSymbol: t.asset?.symbol || '',
+                assetType: t.asset?.asset_type || 'stock',
+                quantity: t.quantity,
+                price: t.price,
+                fees: t.fees,
+                strategyType: t.strategy_type,
+                brokerName: t.broker_name,
+                externalId: t.external_id,
+                settlementDate: t.settlement_date,
+                asset: t.asset,
+              })
+            );
+            allEntries.push(...transformedTransactions);
+          }
+
+          // Process fund movements
+          if (fundMovementsResponse.success && fundMovementsResponse.data) {
+            const transformedFundMovements = (
+              fundMovementsResponse.data as any[]
+            ).map((movement) => ({
+              id: movement.id,
+              portfolioId: movement.portfolio_id,
+              portfolioName: portfolio.name, // Add portfolio name for all portfolios view
+              date: new Date(movement.movement_date),
+              amount: movement.amount,
+              currency: movement.currency,
+              notes: movement.notes || '',
+              createdAt: new Date(movement.created_at),
+              updatedAt: new Date(movement.updated_at),
+              type: 'fund_movement',
+              fundMovementType: movement.type,
+              status: movement.status,
+              originalAmount: movement.original_amount,
+              originalCurrency: movement.original_currency,
+              convertedAmount: movement.converted_amount,
+              convertedCurrency: movement.converted_currency,
+              exchangeRate: movement.exchange_rate,
+              exchangeFees: movement.exchange_fees,
+              account: movement.account,
+              fromAccount: movement.from_account,
+              toAccount: movement.to_account,
+            }));
+            allEntries.push(...transformedFundMovements);
+          }
+        } catch (portfolioError) {
+          console.error(`Error fetching data for portfolio ${portfolio.name}:`, portfolioError);
+          // Continue with other portfolios
+        }
       }
 
-      // Set up a debounced fetch to prevent rate limiting
+      console.log('🔍 Transactions.tsx: Combined entries from all portfolios:', {
+        totalEntries: allEntries.length,
+        portfolioCount: portfolios.length
+      });
+
+      // Sort all entries by date, newest first
+      allEntries.sort((a, b) => b.date.getTime() - a.date.getTime());
+      setUnifiedEntries(allEntries);
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+      setError(errorMsg);
+      notify.error('Failed to fetch entries from all portfolios: ' + errorMsg);
+    } finally {
+      setLoading(false);
+    }
+  }, [portfolios, notify]);
+
+  useEffect(() => {
+    // Clear previous timeout if any
+    if (fetchTimeoutRef.current) {
+      clearTimeout(fetchTimeoutRef.current);
+    }
+
+    // Handle both specific portfolio and "All Portfolios" cases
+    if (activePortfolio?.id) {
+      // Specific portfolio case
       fetchTimeoutRef.current = setTimeout(() => {
         if (activePortfolio?.id) {
           fetchUnifiedEntries(activePortfolio.id);
         }
       }, 1000); // 1000ms debounce time
+    } else if (activePortfolio === null && portfolios.length > 0) {
+      // "All Portfolios" case - fetch from all portfolios
+      fetchTimeoutRef.current = setTimeout(() => {
+        fetchUnifiedEntriesFromAllPortfolios();
+      }, 1000);
     }
 
     // Cleanup timeout on unmount
@@ -368,7 +474,7 @@ Settlement Date: ${t.settlementDate || ''}
         clearTimeout(fetchTimeoutRef.current);
       }
     };
-  }, [activePortfolio?.id, fetchUnifiedEntries]);
+  }, [activePortfolio, portfolios, fetchUnifiedEntries, fetchUnifiedEntriesFromAllPortfolios]);
 
   const handleEditEntry = (entry: UnifiedEntry) => {
     if (entry.type === 'transaction') {
