@@ -270,7 +270,7 @@ export default function ManualReassignmentTool() {
           type: 'success'
         });
         
-        // Also reload data from server to ensure consistency
+        // Reload data from server
         await loadData();
       } else {
         console.error('❌ Reassignment errors:', result.errors);

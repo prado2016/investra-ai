@@ -126,7 +126,6 @@ export async function bulkReassignTransactions(
           errors.push(`Batch ${Math.floor(i/batchSize) + 1}: ${error.message}`);
         } else {
           updatedCount += count || 0;
-          console.log(`✅ Updated batch ${Math.floor(i/batchSize) + 1}: ${count || 0} transactions`);
         }
       } catch (batchError) {
         const errorMsg = batchError instanceof Error ? batchError.message : 'Unknown batch error';
@@ -134,7 +133,7 @@ export async function bulkReassignTransactions(
       }
     }
 
-    console.log(`🎉 Bulk reassignment complete: ${updatedCount} transactions updated`);
+    console.log(`✅ Bulk reassignment complete: ${updatedCount} transactions updated`);
 
     return {
       success: errors.length === 0,
