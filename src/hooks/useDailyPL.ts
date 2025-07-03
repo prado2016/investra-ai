@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { dailyPLAnalyticsService, type MonthlyPLSummary, type DailyPLData, type PLServiceOptions, type EnhancedTransaction } from '../services/analytics/dailyPLService';
+import { usePortfolios } from '../contexts/PortfolioContext';
 
 interface UseDailyPLOptions extends PLServiceOptions {
   portfolioId?: string;
@@ -27,11 +28,12 @@ interface UseDailyPLReturn {
  * Hook for accessing monthly P/L data
  */
 export function useDailyPL(
-  portfolioId: string,
+  portfolioId: string | null,
   year?: number,
   month?: number,
   options?: UseDailyPLOptions
 ): UseDailyPLReturn {
+  const { portfolios } = usePortfolios();
   const [monthlyData, setMonthlyData] = useState<MonthlyPLSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,18 +45,37 @@ export function useDailyPL(
   const targetMonth = month ?? currentDate.getMonth();
 
   const fetchMonthData = useCallback(async (fetchYear: number, fetchMonth: number) => {
-    if (!portfolioId) return;
-
     setLoading(true);
     setError(null);
 
     try {
-      const result = await dailyPLAnalyticsService.getMonthlyPLData(
-        portfolioId,
-        fetchYear,
-        fetchMonth,
-        options
-      );
+      let result;
+      
+      if (portfolioId) {
+        // Single portfolio case
+        result = await dailyPLAnalyticsService.getMonthlyPLData(
+          portfolioId,
+          fetchYear,
+          fetchMonth,
+          options
+        );
+      } else {
+        // All portfolios case - aggregate data from all portfolios
+        const portfolioIds = portfolios.map(p => p.id);
+        if (portfolioIds.length === 0) {
+          setMonthlyData(null);
+          setOrphanTransactions([]);
+          setError('No portfolios available');
+          return;
+        }
+        
+        result = await dailyPLAnalyticsService.getAggregatedMonthlyPLData(
+          portfolioIds,
+          fetchYear,
+          fetchMonth,
+          options
+        );
+      }
 
       if (result.error) {
         setError(result.error);
@@ -70,7 +91,7 @@ export function useDailyPL(
     } finally {
       setLoading(false);
     }
-  }, [portfolioId, options]);
+  }, [portfolioId, portfolios, options]);
 
   const refreshData = useCallback(async () => {
     await fetchMonthData(targetYear, targetMonth);
@@ -81,31 +102,40 @@ export function useDailyPL(
   }, [fetchMonthData]);
 
   const getDayDetails = useCallback(async (date: Date): Promise<DailyPLData | null> => {
-    if (!portfolioId) return null;
-
     try {
-      const result = await dailyPLAnalyticsService.getDayPLDetails(portfolioId, date, options);
-      return result.data;
+      if (portfolioId) {
+        // Single portfolio case
+        const result = await dailyPLAnalyticsService.getDayPLDetails(portfolioId, date, options);
+        return result.data;
+      } else {
+        // All portfolios case - use the monthly data that's already aggregated
+        if (!monthlyData) return null;
+        
+        const dateString = date.toISOString().split('T')[0];
+        const dayData = monthlyData.dailyData.find(d => d.date === dateString);
+        return dayData || null;
+      }
     } catch (err) {
       console.error('Error fetching day details:', err);
       return null;
     }
-  }, [portfolioId, options]);
+  }, [portfolioId, monthlyData, options]);
 
   // Initial data fetch
   useEffect(() => {
-    if (portfolioId) {
+    // Fetch data for single portfolio or all portfolios
+    if (portfolioId || portfolios.length > 0) {
       fetchMonthData(targetYear, targetMonth);
     }
-  }, [portfolioId, targetYear, targetMonth, fetchMonthData]);
+  }, [portfolioId, portfolios.length, targetYear, targetMonth, fetchMonthData]);
 
   // Auto-refresh if enabled
   useEffect(() => {
-    if (options?.autoRefresh && portfolioId) {
+    if (options?.autoRefresh && (portfolioId || portfolios.length > 0)) {
       const interval = setInterval(refreshData, options.refreshInterval || 60000); // Default 1 minute
       return () => clearInterval(interval);
     }
-  }, [options?.autoRefresh, options?.refreshInterval, portfolioId, refreshData]);
+  }, [options?.autoRefresh, options?.refreshInterval, portfolioId, portfolios.length, refreshData]);
 
   return {
     monthlyData,
@@ -123,7 +153,7 @@ export function useDailyPL(
  * Hook for accessing current month P/L data
  */
 export function useCurrentMonthPL(
-  portfolioId: string,
+  portfolioId: string | null,
   options?: UseDailyPLOptions
 ): UseDailyPLReturn {
   const currentDate = new Date();

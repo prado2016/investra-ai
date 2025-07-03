@@ -217,7 +217,7 @@ const ErrorContainer = styled.div`
 
 // Props interface
 interface MonthlyCalendarProps {
-  portfolioId: string;
+  portfolioId: string | null;
   onDayClick?: (dayData: DailyPLData) => void;
   initialYear?: number;
   initialMonth?: number;

@@ -77,6 +77,184 @@ export class DailyPLAnalyticsService {
   private readonly DEFAULT_THRESHOLD = 0.01; // $0.01 threshold for neutral
 
   /**
+   * Get daily P/L data for multiple portfolios (aggregated) for a specific month
+   */
+  async getAggregatedMonthlyPLData(
+    portfolioIds: string[],
+    year: number,
+    month: number, // 0-11 (January = 0)
+    options?: PLServiceOptions
+  ): Promise<{ data: MonthlyPLSummary | null; error: string | null }> {
+    if (portfolioIds.length === 0) {
+      return { data: null, error: 'No portfolios provided for aggregation' };
+    }
+
+    if (portfolioIds.length === 1) {
+      return this.getMonthlyPLData(portfolioIds[0], year, month, options);
+    }
+
+    try {
+      debug.info('Daily P/L service called for aggregated monthly data', {
+        portfolioIds,
+        portfolioCount: portfolioIds.length,
+        year,
+        month,
+        monthName: new Date(year, month).toLocaleString('default', { month: 'long' })
+      }, 'DailyPL');
+
+      const portfolioResults: MonthlyPLSummary[] = [];
+      const errors: string[] = [];
+
+      // Fetch data from each portfolio
+      for (const portfolioId of portfolioIds) {
+        const result = await this.getMonthlyPLData(portfolioId, year, month, options);
+        if (result.error) {
+          errors.push(`Portfolio ${portfolioId}: ${result.error}`);
+        } else if (result.data) {
+          portfolioResults.push(result.data);
+        }
+      }
+
+      // If all portfolios failed, return error
+      if (portfolioResults.length === 0) {
+        return { 
+          data: null, 
+          error: `Failed to fetch data from all portfolios: ${errors.join('; ')}` 
+        };
+      }
+
+      // Aggregate the results
+      const aggregatedData = this.aggregateMonthlyPLData(portfolioResults, year, month);
+      
+      return { data: aggregatedData, error: errors.length > 0 ? errors.join('; ') : null };
+    } catch (error) {
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : 'Unknown error calculating aggregated P/L data'
+      };
+    }
+  }
+
+  /**
+   * Aggregate monthly P/L data from multiple portfolios
+   */
+  private aggregateMonthlyPLData(
+    portfolioData: MonthlyPLSummary[],
+    year: number,
+    month: number
+  ): MonthlyPLSummary {
+    const startOfMonth = new Date(Date.UTC(year, month, 1));
+    const endOfMonth = new Date(Date.UTC(year, month + 1, 0));
+    
+    // Create a map of date -> aggregated daily data
+    const dailyDataMap = new Map<string, DailyPLData>();
+    
+    // Initialize all days of the month with empty data
+    for (let day = 1; day <= endOfMonth.getUTCDate(); day++) {
+      const currentDate = new Date(Date.UTC(year, month, day));
+      const dateString = currentDate.toISOString().split('T')[0];
+      
+      dailyDataMap.set(dateString, {
+        date: dateString,
+        dayOfMonth: day,
+        totalPL: 0,
+        realizedPL: 0,
+        unrealizedPL: 0,
+        dividendIncome: 0,
+        totalFees: 0,
+        tradeVolume: 0,
+        transactionCount: 0,
+        netCashFlow: 0,
+        hasTransactions: false,
+        colorCategory: 'no-transactions',
+        transactions: []
+      });
+    }
+
+    // Aggregate data from all portfolios
+    let totalMonthlyPL = 0;
+    let totalRealizedPL = 0;
+    let totalUnrealizedPL = 0;
+    let totalDividends = 0;
+    let totalFees = 0;
+    let totalVolume = 0;
+    let totalTransactions = 0;
+    let profitableDaysSet = new Set<string>();
+    let lossDaysSet = new Set<string>();
+    let daysWithTransactionsSet = new Set<string>();
+    const allOrphanTransactions: EnhancedTransaction[] = [];
+
+    // Process each portfolio's data
+    for (const portfolioData of portfolioData) {
+      totalMonthlyPL += portfolioData.totalMonthlyPL;
+      totalRealizedPL += portfolioData.totalRealizedPL;
+      totalUnrealizedPL += portfolioData.totalUnrealizedPL;
+      totalDividends += portfolioData.totalDividends;
+      totalFees += portfolioData.totalFees;
+      totalVolume += portfolioData.totalVolume;
+      totalTransactions += portfolioData.totalTransactions;
+      allOrphanTransactions.push(...portfolioData.orphanTransactions);
+
+      // Process daily data
+      for (const dayData of portfolioData.dailyData) {
+        const aggregatedDay = dailyDataMap.get(dayData.date);
+        if (aggregatedDay) {
+          aggregatedDay.totalPL += dayData.totalPL;
+          aggregatedDay.realizedPL += dayData.realizedPL;
+          aggregatedDay.unrealizedPL += dayData.unrealizedPL;
+          aggregatedDay.dividendIncome += dayData.dividendIncome;
+          aggregatedDay.totalFees += dayData.totalFees;
+          aggregatedDay.tradeVolume += dayData.tradeVolume;
+          aggregatedDay.transactionCount += dayData.transactionCount;
+          aggregatedDay.netCashFlow += dayData.netCashFlow;
+          aggregatedDay.transactions.push(...dayData.transactions);
+          
+          if (dayData.hasTransactions) {
+            aggregatedDay.hasTransactions = true;
+            daysWithTransactionsSet.add(dayData.date);
+          }
+
+          // Track profitable/loss days
+          if (dayData.totalPL > (this.DEFAULT_THRESHOLD)) {
+            profitableDaysSet.add(dayData.date);
+          } else if (dayData.totalPL < -(this.DEFAULT_THRESHOLD)) {
+            lossDaysSet.add(dayData.date);
+          }
+        }
+      }
+    }
+
+    // Update color categories for aggregated daily data
+    const dailyData: DailyPLData[] = [];
+    for (const [, dayData] of dailyDataMap) {
+      dayData.colorCategory = this.determineColorCategory(
+        dayData.totalPL, 
+        dayData.hasTransactions, 
+        this.DEFAULT_THRESHOLD
+      );
+      dailyData.push(dayData);
+    }
+
+    return {
+      year,
+      month,
+      monthName: startOfMonth.toLocaleString('default', { month: 'long' }),
+      dailyData,
+      totalMonthlyPL,
+      totalRealizedPL,
+      totalUnrealizedPL,
+      totalDividends,
+      totalFees,
+      totalVolume,
+      totalTransactions,
+      daysWithTransactions: daysWithTransactionsSet.size,
+      profitableDays: profitableDaysSet.size,
+      lossDays: lossDaysSet.size,
+      orphanTransactions: allOrphanTransactions
+    };
+  }
+
+  /**
    * Get daily P/L data for a specific portfolio and month
    */
   async getMonthlyPLData(
