@@ -128,6 +128,14 @@ export async function bulkReassignTransactions(
     }
 
     console.log(`🔍 Found ${currentTransactions?.length || 0} transactions to update:`, currentTransactions);
+    
+    // Also get portfolio names for debugging
+    const { data: portfolios } = await supabase
+      .from('portfolios')
+      .select('id, name')
+      .in('id', [newPortfolioId, ...(currentTransactions?.map(t => t.portfolio_id) || [])]);
+    
+    console.log(`📋 Portfolios involved:`, portfolios);
 
     // Update in batches of 10
     const batchSize = 10;
@@ -157,6 +165,11 @@ export async function bulkReassignTransactions(
           console.log(`✅ Batch ${batchNumber}: Updated ${actualUpdated} transactions (count: ${count}, data length: ${data?.length})`);
           if (data && data.length > 0) {
             console.log(`📋 Updated transactions:`, data);
+            data.forEach(tx => {
+              const beforePortfolio = portfolios?.find(p => p.id === currentTransactions?.find(ct => ct.id === tx.id)?.portfolio_id)?.name || 'Unknown';
+              const afterPortfolio = portfolios?.find(p => p.id === tx.portfolio_id)?.name || 'Unknown';
+              console.log(`   📋 Transaction ${tx.id}: ${beforePortfolio} → ${afterPortfolio} (${tx.portfolio_id})`);
+            });
           }
         }
       } catch (batchError) {
