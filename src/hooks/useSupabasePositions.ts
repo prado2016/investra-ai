@@ -9,6 +9,12 @@ import { usePortfolios } from '../contexts/PortfolioContext';
 import type { Position as DbPosition, Asset } from '../lib/database/types';
 import type { Position as FrontendPosition, Currency } from '../types/portfolio';
 
+// Extended position type for multi-portfolio view
+type ExtendedPosition = FrontendPosition & {
+  portfolioName?: string;
+  portfolioId?: string;
+};
+
 /**
  * Convert database Position to frontend Position format
  */
@@ -54,7 +60,7 @@ function mapDbPositionToFrontend(dbPosition: DbPosition & { asset: Asset }): Fro
 }
 
 interface UseSupabasePositionsReturn {
-  positions: FrontendPosition[];
+  positions: ExtendedPosition[];
   loading: boolean;
   error: string | null;
   refreshPositions: () => Promise<void>;
@@ -65,24 +71,54 @@ interface UseSupabasePositionsReturn {
  * Hook for managing positions from Supabase
  */
 export function useSupabasePositions(): UseSupabasePositionsReturn {
-  const [positions, setPositions] = useState<FrontendPosition[]>([]);
+  const [positions, setPositions] = useState<ExtendedPosition[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  // Get the active portfolio to fetch positions for
-  const { activePortfolio } = usePortfolios();
+  // Get the active portfolio and all portfolios to fetch positions for
+  const { activePortfolio, portfolios } = usePortfolios();
 
   const fetchPositions = useCallback(async () => {
-    if (!activePortfolio) {
-      setPositions([]);
-      setLoading(false);
-      return;
-    }
-
     setLoading(true);
     setError(null);
 
     try {
+      // Handle "All Portfolios" case vs specific portfolio
+      if (!activePortfolio) {
+        // Fetch positions from all portfolios
+        if (portfolios.length === 0) {
+          setPositions([]);
+          setLoading(false);
+          return;
+        }
+
+        console.log('📊 Fetching positions from all portfolios:', portfolios.length);
+        const allPositions: ExtendedPosition[] = [];
+        
+        // Fetch positions from each portfolio
+        for (const portfolio of portfolios) {
+          try {
+            const result = await SupabaseService.position.getPositions(portfolio.id);
+            if (result.success && result.data) {
+              const mappedPositions = result.data.map(pos => ({
+                ...mapDbPositionToFrontend(pos),
+                portfolioName: portfolio.name, // Add portfolio name for display
+                portfolioId: portfolio.id
+              }));
+              allPositions.push(...mappedPositions);
+            }
+          } catch (portfolioError) {
+            console.error(`Error fetching positions for portfolio ${portfolio.name}:`, portfolioError);
+            // Continue with other portfolios
+          }
+        }
+        
+        setPositions(allPositions);
+        setLoading(false);
+        return;
+      }
+
+      // Specific portfolio case
       const result = await SupabaseService.position.getPositions(activePortfolio.id);
 
       if (result.success && result.data) {
@@ -98,7 +134,7 @@ export function useSupabasePositions(): UseSupabasePositionsReturn {
     } finally {
       setLoading(false);
     }
-  }, [activePortfolio]);
+  }, [activePortfolio, portfolios]);
 
   const refreshPositions = useCallback(async () => {
     await fetchPositions();
@@ -106,22 +142,41 @@ export function useSupabasePositions(): UseSupabasePositionsReturn {
 
   const recalculatePositions = useCallback(async () => {
     if (!activePortfolio) {
-      throw new Error('No active portfolio');
+      // Recalculate for all portfolios
+      console.log('🔄 Starting position recalculation for all portfolios');
+      
+      for (const portfolio of portfolios) {
+        try {
+          console.log(`🔄 Recalculating positions for portfolio: ${portfolio.name}`);
+          const result = await SupabaseService.position.recalculatePositions(portfolio.id);
+          
+          if (!result.success) {
+            console.error(`Failed to recalculate positions for portfolio ${portfolio.name}:`, result.error);
+            // Continue with other portfolios instead of throwing
+          } else {
+            console.log(`✅ Recalculation complete for ${portfolio.name}:`, result.data);
+          }
+        } catch (error) {
+          console.error(`Error recalculating positions for portfolio ${portfolio.name}:`, error);
+          // Continue with other portfolios
+        }
+      }
+    } else {
+      // Recalculate for specific portfolio
+      console.log('🔄 Starting position recalculation for portfolio:', activePortfolio.id);
+      
+      const result = await SupabaseService.position.recalculatePositions(activePortfolio.id);
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to recalculate positions');
+      }
+      
+      console.log('✅ Recalculation complete:', result.data);
     }
-
-    console.log('🔄 Starting position recalculation for portfolio:', activePortfolio.id);
-    
-    const result = await SupabaseService.position.recalculatePositions(activePortfolio.id);
-    
-    if (!result.success) {
-      throw new Error(result.error || 'Failed to recalculate positions');
-    }
-    
-    console.log('✅ Recalculation complete:', result.data);
     
     // Refresh positions after recalculation
     await fetchPositions();
-  }, [activePortfolio, fetchPositions]);
+  }, [activePortfolio, portfolios, fetchPositions]);
 
   // Fetch positions when active portfolio changes
   useEffect(() => {

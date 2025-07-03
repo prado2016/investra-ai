@@ -249,7 +249,7 @@ const ErrorState = styled.div`
 
 interface PortfolioSelectorProps {
   className?: string;
-  onPortfolioChange?: (portfolio: Portfolio) => void;
+  onPortfolioChange?: (portfolio: Portfolio | null) => void;
   showCreateButton?: boolean;
   showManageButton?: boolean;
   compact?: boolean;
@@ -266,7 +266,7 @@ const PortfolioSelector: React.FC<PortfolioSelectorProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
-  const handlePortfolioSelect = (portfolio: Portfolio) => {
+  const handlePortfolioSelect = (portfolio: Portfolio | null) => {
     setActivePortfolio(portfolio);
     onPortfolioChange?.(portfolio);
     setIsOpen(false);
@@ -321,6 +321,20 @@ const PortfolioSelector: React.FC<PortfolioSelectorProps> = ({
                   )}
                 </PortfolioInfo>
               </>
+            ) : portfolios.length > 0 ? (
+              <>
+                <PortfolioIcon>
+                  <Briefcase size={12} />
+                </PortfolioIcon>
+                <PortfolioInfo>
+                  <PortfolioName>All Portfolios</PortfolioName>
+                  {!compact && (
+                    <PortfolioCurrency>
+                      View data across all portfolios
+                    </PortfolioCurrency>
+                  )}
+                </PortfolioInfo>
+              </>
             ) : (
               <>
                 <PortfolioIcon>
@@ -344,6 +358,22 @@ const PortfolioSelector: React.FC<PortfolioSelectorProps> = ({
             <LoadingState>No portfolios found</LoadingState>
           ) : (
             <>
+              {/* All Portfolios Option */}
+              <PortfolioOption
+                $isActive={activePortfolio === null}
+                onClick={() => handlePortfolioSelect(null)}
+              >
+                <PortfolioIcon>
+                  <Briefcase size={12} />
+                </PortfolioIcon>
+                <OptionInfo>
+                  <OptionName>All Portfolios</OptionName>
+                  <OptionDetails>View data across all portfolios</OptionDetails>
+                </OptionInfo>
+              </PortfolioOption>
+
+              {portfolios.length > 1 && <DropdownDivider />}
+
               {portfolios.map((portfolio) => (
                 <PortfolioOption
                   key={portfolio.id}

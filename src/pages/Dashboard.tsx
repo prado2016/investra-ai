@@ -171,7 +171,7 @@ const Dashboard: React.FC = () => {
 
   // Set dynamic page title
   usePageTitle('Dashboard', { 
-    subtitle: activePortfolio ? `${activePortfolio.name} Portfolio` : 'Portfolio Overview' 
+    subtitle: activePortfolio ? `${activePortfolio.name} Portfolio` : portfolios.length > 0 ? 'All Portfolios' : 'Portfolio Overview' 
   });
 
 
@@ -244,7 +244,7 @@ const Dashboard: React.FC = () => {
         <HeaderLeft>
           <Title>Dashboard</Title>
           <Subtitle>
-            {activePortfolio ? `${activePortfolio.name} - Portfolio Performance` : 'Overview of your portfolio performance'}
+            {activePortfolio ? `${activePortfolio.name} - Portfolio Performance` : portfolios.length > 0 ? 'All Portfolios - Combined Performance' : 'Overview of your portfolio performance'}
           </Subtitle>
         </HeaderLeft>
         

@@ -48,7 +48,7 @@ export function useDashboardMetrics(): UseDashboardMetricsReturn {
     });
     
     if (!activePortfolio) {
-      console.log('🔍 DashboardMetrics: No active portfolio, setting metrics to null');
+      console.log('🔍 DashboardMetrics: No active portfolio selected (All Portfolios view), setting metrics to null');
       setMetrics(null);
       return;
     }
