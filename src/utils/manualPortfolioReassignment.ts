@@ -154,6 +154,14 @@ export async function bulkReassignTransactions(
       .in('id', [newPortfolioId, ...(currentTransactions?.map(t => t.portfolio_id) || [])]);
     
     console.log(`📋 Portfolios involved:`, portfolios);
+    console.log(`🎯 Target portfolio ID: ${newPortfolioId}`);
+    console.log(`🎯 Target portfolio name: ${portfolios?.find(p => p.id === newPortfolioId)?.name || 'NOT FOUND'}`);
+    
+    // Log each source transaction's current portfolio
+    currentTransactions?.forEach(tx => {
+      const sourcePortfolio = portfolios?.find(p => p.id === tx.portfolio_id);
+      console.log(`📋 Transaction ${tx.id} is currently in: ${sourcePortfolio?.name || 'UNKNOWN'} (${tx.portfolio_id})`);
+    });
 
     // Update in batches of 10
     const batchSize = 10;
@@ -188,6 +196,24 @@ export async function bulkReassignTransactions(
               const afterPortfolio = portfolios?.find(p => p.id === tx.portfolio_id)?.name || 'Unknown';
               console.log(`   📋 Transaction ${tx.id}: ${beforePortfolio} → ${afterPortfolio} (${tx.portfolio_id})`);
             });
+            
+            // Double-check by querying the database directly after a short delay
+            setTimeout(async () => {
+              try {
+                const { data: verificationData } = await supabase
+                  .from('transactions')
+                  .select('id, portfolio_id, portfolios!inner(name)')
+                  .in('id', data.map(tx => tx.id));
+                
+                console.log(`🔍 VERIFICATION: Direct database query results:`, verificationData);
+                verificationData?.forEach(tx => {
+                  const actualPortfolio = (tx.portfolios as { name?: string })?.name || 'Unknown';
+                  console.log(`   🔍 Transaction ${tx.id} is actually in: ${actualPortfolio} (${tx.portfolio_id})`);
+                });
+              } catch (verErr) {
+                console.error('❌ Verification query failed:', verErr);
+              }
+            }, 1000);
           }
         }
       } catch (batchError) {
