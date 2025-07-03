@@ -370,14 +370,13 @@ Settlement Date: ${t.settlementDate || ''}
               (t: any) => ({
                 id: t.id,
                 portfolioId: t.portfolio_id,
-                portfolioName: portfolio.name, // Add portfolio name for all portfolios view
                 date: new Date(t.transaction_date),
                 amount: t.total_amount || 0,
                 currency: t.currency || 'USD',
                 notes: t.notes || '',
                 createdAt: new Date(t.created_at),
                 updatedAt: new Date(t.updated_at),
-                type: 'transaction',
+                type: 'transaction' as const,
                 transactionType: t.transaction_type,
                 assetId: t.asset_id,
                 assetSymbol: t.asset?.symbol || '',
@@ -390,9 +389,11 @@ Settlement Date: ${t.settlementDate || ''}
                 externalId: t.external_id,
                 settlementDate: t.settlement_date,
                 asset: t.asset,
-              })
+                // Add portfolio name as additional property (will be ignored by TypeScript)
+                portfolioName: portfolio.name,
+              } as UnifiedTransactionEntry & { portfolioName: string })
             );
-            allEntries.push(...transformedTransactions);
+            allEntries.push(...(transformedTransactions as UnifiedEntry[]));
           }
 
           // Process fund movements
@@ -402,14 +403,13 @@ Settlement Date: ${t.settlementDate || ''}
             ).map((movement) => ({
               id: movement.id,
               portfolioId: movement.portfolio_id,
-              portfolioName: portfolio.name, // Add portfolio name for all portfolios view
               date: new Date(movement.movement_date),
               amount: movement.amount,
               currency: movement.currency,
               notes: movement.notes || '',
               createdAt: new Date(movement.created_at),
               updatedAt: new Date(movement.updated_at),
-              type: 'fund_movement',
+              type: 'fund_movement' as const,
               fundMovementType: movement.type,
               status: movement.status,
               originalAmount: movement.original_amount,
@@ -421,8 +421,10 @@ Settlement Date: ${t.settlementDate || ''}
               account: movement.account,
               fromAccount: movement.from_account,
               toAccount: movement.to_account,
-            }));
-            allEntries.push(...transformedFundMovements);
+              // Add portfolio name as additional property
+              portfolioName: portfolio.name,
+            } as UnifiedFundMovementEntry & { portfolioName: string }));
+            allEntries.push(...(transformedFundMovements as UnifiedEntry[]));
           }
         } catch (portfolioError) {
           console.error(`Error fetching data for portfolio ${portfolio.name}:`, portfolioError);
