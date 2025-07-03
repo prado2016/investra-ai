@@ -179,9 +179,9 @@ export class DailyPLAnalyticsService {
     let totalFees = 0;
     let totalVolume = 0;
     let totalTransactions = 0;
-    let profitableDaysSet = new Set<string>();
-    let lossDaysSet = new Set<string>();
-    let daysWithTransactionsSet = new Set<string>();
+    const profitableDaysSet = new Set<string>();
+    const lossDaysSet = new Set<string>();
+    const daysWithTransactionsSet = new Set<string>();
     const allOrphanTransactions: EnhancedTransaction[] = [];
 
     // Process each portfolio's data
