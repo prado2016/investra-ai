@@ -20,7 +20,7 @@ const Container = styled.div`
 
 const TransactionGrid = styled.div`
   display: grid;
-  grid-template-columns: auto 1fr auto auto auto auto auto auto 2fr;
+  grid-template-columns: auto 1fr auto auto auto auto auto auto auto 2fr;
   gap: 0.5rem 1rem;
   align-items: start;
   font-size: 0.875rem;
@@ -304,8 +304,8 @@ export default function ManualReassignmentTool() {
         </h3>
         
         <p style={{ color: '#6b7280', marginBottom: '1rem' }}>
-          {totalCount} transactions in TFSA portfolio need manual review. 
-          Showing first {transactions.length}. Hover over notes to see full content and determine correct portfolio.
+          {totalCount} transactions from various portfolios need manual review and reassignment. 
+          Showing first {transactions.length}. Check the "Current Portfolio" column to see where each transaction is currently located.
         </p>
 
         {message && (
@@ -376,6 +376,7 @@ export default function ManualReassignmentTool() {
           <GridHeader>Price</GridHeader>
           <GridHeader>Date</GridHeader>
           <GridHeader>Created</GridHeader>
+          <GridHeader>Current Portfolio</GridHeader>
           <GridHeader>ID</GridHeader>
           <GridHeader>Raw Notes (hover to expand)</GridHeader>
 
@@ -406,6 +407,9 @@ export default function ManualReassignmentTool() {
               </TransactionRow>,
               <TransactionRow key={`${transaction.id}-created`} $selected={isSelected}>
                 {new Date(transaction.created_at).toLocaleDateString()}
+              </TransactionRow>,
+              <TransactionRow key={`${transaction.id}-portfolio`} $selected={isSelected}>
+                {transaction.portfolio_name}
               </TransactionRow>,
               <TransactionRow key={`${transaction.id}-id`} $selected={isSelected}>
                 {transaction.id.slice(0, 8)}...
