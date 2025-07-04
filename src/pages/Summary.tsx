@@ -205,7 +205,7 @@ const TransactionMetric = styled.div`
   gap: 0.125rem;
 `;
 
-const MetricLabel = styled.span`
+const TransactionMetricLabel = styled.span`
   font-size: 0.75rem;
   color: #9ca3af;
   font-weight: 500;
@@ -213,7 +213,7 @@ const MetricLabel = styled.span`
   letter-spacing: 0.025em;
 `;
 
-const MetricValue = styled.span<{ $positive?: boolean; $negative?: boolean }>`
+const TransactionMetricValue = styled.span<{ $positive?: boolean; $negative?: boolean }>`
   font-weight: 600;
   font-size: 0.875rem;
   color: ${props => 
@@ -487,49 +487,49 @@ const Summary: React.FC = () => {
                       
                       <TransactionDetails>
                         <TransactionMetric>
-                          <MetricLabel>Quantity</MetricLabel>
-                          <MetricValue>{transaction.quantity.toLocaleString()}</MetricValue>
+                          <TransactionMetricLabel>Quantity</TransactionMetricLabel>
+                          <TransactionMetricValue>{transaction.quantity.toLocaleString()}</TransactionMetricValue>
                         </TransactionMetric>
                         
                         <TransactionMetric>
-                          <MetricLabel>Price</MetricLabel>
-                          <MetricValue>${transaction.price.toFixed(2)}</MetricValue>
+                          <TransactionMetricLabel>Price</TransactionMetricLabel>
+                          <TransactionMetricValue>${transaction.price.toFixed(2)}</TransactionMetricValue>
                         </TransactionMetric>
                         
                         <TransactionMetric>
-                          <MetricLabel>Total Amount</MetricLabel>
-                          <MetricValue 
+                          <TransactionMetricLabel>Total Amount</TransactionMetricLabel>
+                          <TransactionMetricValue 
                             $positive={transaction.transaction_type === 'sell' && transaction.total_amount > 0}
                             $negative={transaction.transaction_type === 'buy' || transaction.total_amount < 0}
                           >
                             ${Math.abs(transaction.total_amount).toFixed(2)}
-                          </MetricValue>
+                          </TransactionMetricValue>
                         </TransactionMetric>
                         
                         {transaction.fees && transaction.fees > 0 && (
                           <TransactionMetric>
-                            <MetricLabel>Fees</MetricLabel>
-                            <MetricValue $negative={true}>
+                            <TransactionMetricLabel>Fees</TransactionMetricLabel>
+                            <TransactionMetricValue $negative={true}>
                               ${transaction.fees.toFixed(2)}
-                            </MetricValue>
+                            </TransactionMetricValue>
                           </TransactionMetric>
                         )}
                         
                         {transaction.asset.name && transaction.asset.name !== transaction.asset.symbol && (
                           <TransactionMetric style={{ gridColumn: 'span 2' }}>
-                            <MetricLabel>Asset Name</MetricLabel>
-                            <MetricValue style={{ fontSize: '0.8rem' }}>
+                            <TransactionMetricLabel>Asset Name</TransactionMetricLabel>
+                            <TransactionMetricValue style={{ fontSize: '0.8rem' }}>
                               {transaction.asset.name}
-                            </MetricValue>
+                            </TransactionMetricValue>
                           </TransactionMetric>
                         )}
                         
                         {transaction.notes && (
                           <TransactionMetric style={{ gridColumn: 'span 2' }}>
-                            <MetricLabel>Notes</MetricLabel>
-                            <MetricValue style={{ fontSize: '0.8rem' }}>
+                            <TransactionMetricLabel>Notes</TransactionMetricLabel>
+                            <TransactionMetricValue style={{ fontSize: '0.8rem' }}>
                               {transaction.notes}
-                            </MetricValue>
+                            </TransactionMetricValue>
                           </TransactionMetric>
                         )}
                       </TransactionDetails>
