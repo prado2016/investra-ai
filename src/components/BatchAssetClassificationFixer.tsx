@@ -8,8 +8,8 @@ import styled from 'styled-components';
 import { Button } from './ui/Button';
 import { Card } from './ui/Card';
 import { AlertCircle, CheckCircle, RefreshCw, Tag, TrendingUp, AlertTriangle, Search, RotateCcw } from 'lucide-react';
-import { detectAssetType, isETF, isOption, getAssetTypeWithOverride, setAssetTypeOverride } from '../utils/assetCategorization';
-import { SupabaseService } from '../services/supabaseService';
+import { detectAssetType, getAssetTypeWithOverride, setAssetTypeOverride } from '../utils/assetCategorization';
+import { supabase } from '../lib/supabase';
 
 const ComponentContainer = styled.div`
   margin-top: 3rem;
@@ -275,7 +275,7 @@ const BatchAssetClassificationFixer: React.FC = () => {
       addLog('Starting asset classification scan...');
 
       // Get all unique assets from transactions
-      const { data: assets, error } = await SupabaseService.client
+      const { data: assets, error } = await supabase
         .from('assets')
         .select('symbol, asset_type')
         .order('symbol');
@@ -301,7 +301,7 @@ const BatchAssetClassificationFixer: React.FC = () => {
         const hasManualOverride = typeWithOverride !== detectedType;
 
         // Count transactions for this asset
-        const { count: transactionCount } = await SupabaseService.client
+        const { count: transactionCount } = await supabase
           .from('transactions')
           .select('*', { count: 'exact', head: true })
           .eq('asset_symbol', symbol);
@@ -391,7 +391,7 @@ const BatchAssetClassificationFixer: React.FC = () => {
           const correctType = issue.detectedType;
           
           // Update the asset in database
-          const { error } = await SupabaseService.client
+          const { error } = await supabase
             .from('assets')
             .update({ asset_type: correctType })
             .eq('symbol', issue.symbol);
@@ -422,35 +422,6 @@ const BatchAssetClassificationFixer: React.FC = () => {
     }
   };
 
-  const createManualOverride = async (symbol: string, newType: string) => {
-    try {
-      const success = setAssetTypeOverride(symbol, newType as any, 'Manual override via batch fixer');
-      
-      if (success) {
-        addLog(`Created manual override for ${symbol}: ${newType}`);
-        
-        // Update database
-        const { error } = await SupabaseService.client
-          .from('assets')
-          .update({ asset_type: newType })
-          .eq('symbol', symbol);
-
-        if (error) {
-          addLog(`Warning: Failed to update database for ${symbol}: ${error.message}`);
-        } else {
-          addLog(`Updated database for ${symbol}`);
-        }
-        
-        // Refresh scan
-        await scanAssets();
-      } else {
-        addLog(`Failed to create manual override for ${symbol}`);
-      }
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      addLog(`Error creating override for ${symbol}: ${errorMsg}`);
-    }
-  };
 
   return (
     <ComponentContainer>
