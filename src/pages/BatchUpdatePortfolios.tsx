@@ -452,15 +452,27 @@ export default function BatchUpdatePortfolios() {
               </div>
             )}
 
-            {results.results.length > 0 && (
+            {results.results && results.results.length > 0 && (
               <div style={{ marginTop: '1rem' }}>
-                <strong>Sample Updates:</strong>
+                <strong>
+                  {results.coveredCallsFound !== undefined ? 'Portfolio Analysis:' : 'Sample Updates:'}
+                </strong>
                 <ul style={{ marginLeft: '1.5rem', marginTop: '0.5rem' }}>
-                  {results.results.slice(0, 5).map((update: any, index: number) => (
-                    <li key={index} style={{ color: '#059669' }}>
-                      Transaction {update.id.slice(0, 8)}... → {update.accountType} Portfolio
-                    </li>
-                  ))}
+                  {results.coveredCallsFound !== undefined ? (
+                    // Covered call results
+                    results.results.slice(0, 5).map((result: any, index: number) => (
+                      <li key={index} style={{ color: '#059669' }}>
+                        {result.portfolioName}: {result.analysis.newRules.length} covered calls found
+                      </li>
+                    ))
+                  ) : (
+                    // Regular portfolio update results
+                    results.results.slice(0, 5).map((update: any, index: number) => (
+                      <li key={index} style={{ color: '#059669' }}>
+                        Transaction {update.id?.slice(0, 8) || 'Unknown'}... → {update.accountType} Portfolio
+                      </li>
+                    ))
+                  )}
                   {results.results.length > 5 && (
                     <li style={{ color: '#6b7280' }}>
                       ... and {results.results.length - 5} more
