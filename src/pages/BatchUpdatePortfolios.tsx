@@ -3,15 +3,16 @@
  * Allows admin users to run batch updates on transaction portfolio assignments
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
-import { AlertCircle, CheckCircle, RefreshCw, Database, Search, BarChart3, Target, TrendingUp } from 'lucide-react';
+import { AlertCircle, CheckCircle, RefreshCw, Database, Search, BarChart3, Target, TrendingUp, Mail, Inbox, FileText } from 'lucide-react';
 import { batchUpdateTransactionPortfolios } from '../utils/batchUpdatePortfolios';
 import { debugTransactionNotes } from '../utils/debugTransactionNotes';
 import { analyzeAllTransactions } from '../utils/analyzeAllTransactions';
 import { batchUpdateCoveredCalls, detectCoveredCallOpportunities } from '../utils/batchUpdateCoveredCalls';
+import { SupabaseService } from '../services/supabaseService';
 import { usePageTitle } from '../hooks/usePageTitle';
 import ManualReassignmentTool from '../components/ManualReassignmentTool';
 
@@ -157,6 +158,46 @@ export default function BatchUpdatePortfolios() {
   const [isRunning, setIsRunning] = useState(false);
   const [results, setResults] = useState<any>(null);
   const [logs, setLogs] = useState<string[]>([]);
+  
+  // Email tables state
+  const [inboxEmails, setInboxEmails] = useState<any[]>([]);
+  const [processedEmails, setProcessedEmails] = useState<any[]>([]);
+  const [emailStats, setEmailStats] = useState<any>(null);
+  const [loadingEmails, setLoadingEmails] = useState(false);
+  const [emailTablesVisible, setEmailTablesVisible] = useState(false);
+
+  // Load email tables data
+  const loadEmailTables = async () => {
+    setLoadingEmails(true);
+    try {
+      const [inboxResult, processedResult, statsResult] = await Promise.all([
+        SupabaseService.email.getImapInboxEmails(),
+        SupabaseService.email.getProcessedEmails(),
+        SupabaseService.email.getEmailTableStats()
+      ]);
+
+      if (inboxResult.success) {
+        setInboxEmails(inboxResult.data);
+      }
+      if (processedResult.success) {
+        setProcessedEmails(processedResult.data);
+      }
+      if (statsResult.success) {
+        setEmailStats(statsResult.data);
+      }
+    } catch (error) {
+      console.error('Failed to load email tables:', error);
+    } finally {
+      setLoadingEmails(false);
+    }
+  };
+
+  // Load email data when tables become visible
+  useEffect(() => {
+    if (emailTablesVisible) {
+      loadEmailTables();
+    }
+  }, [emailTablesVisible]);
 
   // Capture console.log output
   const originalConsoleLog = console.log;
@@ -483,6 +524,205 @@ export default function BatchUpdatePortfolios() {
             )}
           </ResultCard>
         </ResultsContainer>
+      )}
+
+      {/* Email Tables Section */}
+      <InfoCard style={{ marginTop: '3rem' }}>
+        <InfoTitle>
+          <Mail size={24} />
+          Email Tables Monitoring
+        </InfoTitle>
+        <InfoText>
+          View the contents of both imap_inbox and processed_email tables to verify that emails are properly moving between tables.
+        </InfoText>
+        
+        <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+          <Button
+            onClick={() => setEmailTablesVisible(!emailTablesVisible)}
+            style={{ fontSize: '1rem', padding: '0.5rem 1.5rem' }}
+          >
+            {emailTablesVisible ? 'Hide Email Tables' : 'Show Email Tables'}
+          </Button>
+          
+          {emailTablesVisible && (
+            <Button
+              onClick={loadEmailTables}
+              disabled={loadingEmails}
+              style={{ fontSize: '1rem', padding: '0.5rem 1.5rem' }}
+            >
+              {loadingEmails ? (
+                <LoadingSpinner>
+                  <RefreshCw size={16} />
+                  Loading...
+                </LoadingSpinner>
+              ) : (
+                <>
+                  <RefreshCw size={16} />
+                  Refresh
+                </>
+              )}
+            </Button>
+          )}
+        </div>
+      </InfoCard>
+
+      {emailTablesVisible && (
+        <>
+          {/* Email Statistics */}
+          {emailStats && (
+            <ResultCard $type="info" style={{ marginBottom: '2rem' }}>
+              <InfoTitle>
+                <BarChart3 size={20} />
+                Email Tables Summary
+              </InfoTitle>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem' }}>
+                <div>
+                  <strong>📥 IMAP Inbox:</strong>
+                  <div style={{ marginLeft: '1rem', fontSize: '0.9rem' }}>
+                    Total: {emailStats.inbox.count}<br />
+                    Pending: {emailStats.inbox.pending}<br />
+                    Processing: {emailStats.inbox.processing}<br />
+                    Error: {emailStats.inbox.error}
+                  </div>
+                </div>
+                <div>
+                  <strong>📤 Processed:</strong>
+                  <div style={{ marginLeft: '1rem', fontSize: '0.9rem' }}>
+                    Total: {emailStats.processed.count}<br />
+                    Approved: {emailStats.processed.approved}<br />
+                    Rejected: {emailStats.processed.rejected}
+                  </div>
+                </div>
+              </div>
+            </ResultCard>
+          )}
+
+          {/* IMAP Inbox Table */}
+          <Card style={{ padding: '1.5rem', marginBottom: '2rem' }}>
+            <InfoTitle>
+              <Inbox size={20} />
+              IMAP Inbox Table ({inboxEmails.length} emails)
+            </InfoTitle>
+            {inboxEmails.length > 0 ? (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
+                      <th style={{ padding: '0.75rem', textAlign: 'left' }}>ID</th>
+                      <th style={{ padding: '0.75rem', textAlign: 'left' }}>Subject</th>
+                      <th style={{ padding: '0.75rem', textAlign: 'left' }}>From</th>
+                      <th style={{ padding: '0.75rem', textAlign: 'left' }}>Status</th>
+                      <th style={{ padding: '0.75rem', textAlign: 'left' }}>Received</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {inboxEmails.slice(0, 10).map((email) => (
+                      <tr key={email.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                        <td style={{ padding: '0.5rem', fontFamily: 'monospace' }}>
+                          {email.id.toString().slice(0, 8)}...
+                        </td>
+                        <td style={{ padding: '0.5rem', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {email.subject || 'No Subject'}
+                        </td>
+                        <td style={{ padding: '0.5rem' }}>{email.from_email}</td>
+                        <td style={{ padding: '0.5rem' }}>
+                          <span style={{
+                            padding: '0.25rem 0.5rem',
+                            borderRadius: '0.25rem',
+                            fontSize: '0.75rem',
+                            fontWeight: '500',
+                            backgroundColor: email.status === 'pending' ? '#fef3c7' : 
+                                           email.status === 'processing' ? '#dbeafe' :
+                                           email.status === 'error' ? '#fee2e2' : '#f3f4f6',
+                            color: email.status === 'pending' ? '#92400e' :
+                                  email.status === 'processing' ? '#1e40af' :
+                                  email.status === 'error' ? '#991b1b' : '#374151'
+                          }}>
+                            {email.status}
+                          </span>
+                        </td>
+                        <td style={{ padding: '0.5rem', fontSize: '0.75rem' }}>
+                          {new Date(email.received_at).toLocaleDateString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {inboxEmails.length > 10 && (
+                  <p style={{ marginTop: '1rem', fontSize: '0.875rem', color: '#6b7280' }}>
+                    Showing first 10 of {inboxEmails.length} emails
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p style={{ color: '#6b7280', fontStyle: 'italic' }}>No emails in inbox</p>
+            )}
+          </Card>
+
+          {/* Processed Emails Table */}
+          <Card style={{ padding: '1.5rem', marginBottom: '2rem' }}>
+            <InfoTitle>
+              <FileText size={20} />
+              Processed Emails Table ({processedEmails.length} emails)
+            </InfoTitle>
+            {processedEmails.length > 0 ? (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
+                      <th style={{ padding: '0.75rem', textAlign: 'left' }}>ID</th>
+                      <th style={{ padding: '0.75rem', textAlign: 'left' }}>Subject</th>
+                      <th style={{ padding: '0.75rem', textAlign: 'left' }}>From</th>
+                      <th style={{ padding: '0.75rem', textAlign: 'left' }}>Result</th>
+                      <th style={{ padding: '0.75rem', textAlign: 'left' }}>Transaction ID</th>
+                      <th style={{ padding: '0.75rem', textAlign: 'left' }}>Processed</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {processedEmails.slice(0, 10).map((email) => (
+                      <tr key={email.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                        <td style={{ padding: '0.5rem', fontFamily: 'monospace' }}>
+                          {email.id.toString().slice(0, 8)}...
+                        </td>
+                        <td style={{ padding: '0.5rem', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {email.subject || 'No Subject'}
+                        </td>
+                        <td style={{ padding: '0.5rem' }}>{email.from_email}</td>
+                        <td style={{ padding: '0.5rem' }}>
+                          <span style={{
+                            padding: '0.25rem 0.5rem',
+                            borderRadius: '0.25rem',
+                            fontSize: '0.75rem',
+                            fontWeight: '500',
+                            backgroundColor: email.processing_result === 'approved' ? '#d1fae5' : 
+                                           email.processing_result === 'rejected' ? '#fee2e2' : '#f3f4f6',
+                            color: email.processing_result === 'approved' ? '#065f46' :
+                                  email.processing_result === 'rejected' ? '#991b1b' : '#374151'
+                          }}>
+                            {email.processing_result}
+                          </span>
+                        </td>
+                        <td style={{ padding: '0.5rem', fontFamily: 'monospace', fontSize: '0.75rem' }}>
+                          {email.transaction_id ? email.transaction_id.toString().slice(0, 8) + '...' : 'None'}
+                        </td>
+                        <td style={{ padding: '0.5rem', fontSize: '0.75rem' }}>
+                          {new Date(email.processed_at).toLocaleDateString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {processedEmails.length > 10 && (
+                  <p style={{ marginTop: '1rem', fontSize: '0.875rem', color: '#6b7280' }}>
+                    Showing first 10 of {processedEmails.length} emails
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p style={{ color: '#6b7280', fontStyle: 'italic' }}>No processed emails</p>
+            )}
+          </Card>
+        </>
       )}
 
       <ManualReassignmentTool />

@@ -2223,6 +2223,138 @@ export class FundMovementService {
   }
 }
 
+/**
+ * Email Service - Email tables management
+ */
+export class EmailService {
+  /**
+   * Get all emails from imap_inbox table
+   */
+  static async getImapInboxEmails(): Promise<ServiceListResponse<any>> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        return { data: [], error: 'User not authenticated', success: false };
+      }
+
+      const { data, error, count } = await supabase
+        .from('imap_inbox')
+        .select('*', { count: 'exact' })
+        .eq('user_id', user.id)
+        .order('received_at', { ascending: false })
+        .limit(100);
+
+      if (error) {
+        return { data: [], error: error.message, success: false };
+      }
+
+      return { data: data || [], error: null, success: true, count: count || 0 };
+    } catch (error) {
+      return { 
+        data: [], 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      };
+    }
+  }
+
+  /**
+   * Get all emails from processed_email table
+   */
+  static async getProcessedEmails(): Promise<ServiceListResponse<any>> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        return { data: [], error: 'User not authenticated', success: false };
+      }
+
+      const { data, error, count } = await supabase
+        .from('imap_processed')
+        .select('*', { count: 'exact' })
+        .eq('user_id', user.id)
+        .order('processed_at', { ascending: false })
+        .limit(100);
+
+      if (error) {
+        return { data: [], error: error.message, success: false };
+      }
+
+      return { data: data || [], error: null, success: true, count: count || 0 };
+    } catch (error) {
+      return { 
+        data: [], 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      };
+    }
+  }
+
+  /**
+   * Get email statistics for both tables
+   */
+  static async getEmailTableStats(): Promise<ServiceResponse<{
+    inbox: { count: number; pending: number; processing: number; error: number };
+    processed: { count: number; approved: number; rejected: number };
+  }>> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        return { data: null, error: 'User not authenticated', success: false };
+      }
+
+      // Get inbox stats
+      const { data: inboxData, error: inboxError } = await supabase
+        .from('imap_inbox')
+        .select('status', { count: 'exact' })
+        .eq('user_id', user.id);
+
+      // Get processed stats
+      const { data: processedData, error: processedError } = await supabase
+        .from('imap_processed')
+        .select('processing_result', { count: 'exact' })
+        .eq('user_id', user.id);
+
+      if (inboxError || processedError) {
+        return { 
+          data: null, 
+          error: inboxError?.message || processedError?.message || 'Failed to get stats', 
+          success: false 
+        };
+      }
+
+      // Calculate inbox stats
+      const inboxStats = {
+        count: inboxData?.length || 0,
+        pending: inboxData?.filter(e => e.status === 'pending').length || 0,
+        processing: inboxData?.filter(e => e.status === 'processing').length || 0,
+        error: inboxData?.filter(e => e.status === 'error').length || 0,
+      };
+
+      // Calculate processed stats
+      const processedStats = {
+        count: processedData?.length || 0,
+        approved: processedData?.filter(e => e.processing_result === 'approved').length || 0,
+        rejected: processedData?.filter(e => e.processing_result === 'rejected').length || 0,
+      };
+
+      return { 
+        data: { inbox: inboxStats, processed: processedStats }, 
+        error: null, 
+        success: true 
+      };
+    } catch (error) {
+      return { 
+        data: null, 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        success: false 
+      };
+    }
+  }
+}
+
 // Create a unified service interface
 export class SupabaseService {
   static profile = ProfileService
@@ -2232,6 +2364,7 @@ export class SupabaseService {
   static transaction = TransactionService
   static utility = UtilityService
   static fundMovement = FundMovementService
+  static email = EmailService
 }
 
 export default SupabaseService
