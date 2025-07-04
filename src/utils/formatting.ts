@@ -150,3 +150,28 @@ export function formatDuration(seconds: number): string {
     return `${Math.round(seconds / 86400)}d`;
   }
 }
+
+/**
+ * Format transaction amount for display (includes fee calculation for options)
+ * For options: shows Total - Fees ($0.75 per contract)
+ * For other assets: shows full Total
+ */
+export function formatTransactionAmount(
+  amount: number, 
+  currency: string = 'USD',
+  assetType?: string | null,
+  quantity?: number,
+  fees?: number | null
+): string {
+  // Import here to avoid circular dependencies
+  const { getTransactionDisplayAmount } = require('./feeCalculations');
+  
+  const displayAmount = getTransactionDisplayAmount(
+    amount, 
+    fees, 
+    assetType, 
+    quantity || 0
+  );
+  
+  return formatCurrency(displayAmount, currency);
+}

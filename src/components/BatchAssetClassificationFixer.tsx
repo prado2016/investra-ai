@@ -3,12 +3,12 @@
  * Allows admin users to scan and fix asset classification issues
  */
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 import { Button } from './ui/Button';
 import { Card } from './ui/Card';
 import { AlertCircle, CheckCircle, RefreshCw, Tag, TrendingUp, AlertTriangle, Search, RotateCcw } from 'lucide-react';
-import { detectAssetType, getAssetTypeWithOverride, setAssetTypeOverride } from '../utils/assetCategorization';
+import { detectAssetType, getAssetTypeWithOverride } from '../utils/assetCategorization';
 import { supabase } from '../lib/supabase';
 
 const ComponentContainer = styled.div`

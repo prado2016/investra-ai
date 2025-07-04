@@ -5,6 +5,7 @@ import { InputField, SelectField } from './FormFields';
 import { PriceInput } from './PriceInput';
 import { useForm } from '../hooks/useForm';
 import { useSupabasePortfolios } from '../hooks/useSupabasePortfolios';
+import { calculateTransactionFees } from '../utils/feeCalculations';
 import type { Transaction, TransactionType, Currency, AssetType, OptionStrategyType, FundMovementType, FundMovementStatus } from '../types/portfolio';
 import SymbolInput from './SymbolInput';
 
@@ -21,6 +22,7 @@ interface TransactionFormData {
   currency: Currency;
   assetType: AssetType;
   totalAmount: string;
+  fees: string; // Transaction fees (auto-calculated for options)
   strategyType: OptionStrategyType | '';
   status: FundMovementStatus; // For fund movements
   account: string; // For fund movements
@@ -78,6 +80,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     currency: initialData?.currency || 'USD', // Default to USD
     assetType: initialData?.assetType || 'stock', // Default to stock
     totalAmount: initialData?.totalAmount?.toString() || '',
+    fees: initialData?.fees?.toString() || '0', // Transaction fees
     strategyType: initialData?.strategyType || '',
     status: 'completed', // Default status for fund movements
     account: '', // For fund movements
@@ -151,6 +154,20 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       form.setValue('portfolioId', defaultPortfolio.id);
     }
   }, [portfolios, activePortfolio, form.values.portfolioId, initialData?.portfolioId, form]);
+
+  // Auto-calculate fees for option transactions
+  useEffect(() => {
+    if (form.values.assetType === 'option' && form.values.quantity && form.values.entryType === 'asset_transaction') {
+      const quantity = parseFloat(form.values.quantity);
+      if (!isNaN(quantity) && quantity > 0) {
+        const calculatedFees = calculateTransactionFees('option', quantity);
+        form.setValue('fees', calculatedFees.toString());
+      }
+    } else if (form.values.assetType !== 'option') {
+      // Reset fees to 0 for non-option assets
+      form.setValue('fees', '0');
+    }
+  }, [form.values.assetType, form.values.quantity, form.values.entryType, form]);
 
   const transactionTypeOptions = [
     { value: 'buy', label: 'Buy' },
@@ -320,30 +337,46 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
             )}
 
             {form.values.entryType === 'asset_transaction' ? (
-              <div className="horizontal-fields-container">
-                <PriceInput
-                  id="quantity"
-                  name="quantity"
-                  label="Quantity"
-                  value={form.values.quantity}
-                  onChange={(value) => form.setValue('quantity', value)}
-                  onBlur={() => form.setFieldTouched('quantity')}
-                  error={form.touched.quantity ? form.errors.quantity?.message : ''}
-                  required
-                  disabled={form.isSubmitting || loading}
-                />
-                <PriceInput
-                  id="price"
-                  name="price"
-                  label="Price"
-                  value={form.values.price}
-                  onChange={(value) => form.setValue('price', value)}
-                  onBlur={() => form.setFieldTouched('price')}
-                  error={form.touched.price ? form.errors.price?.message : ''}
-                  required
-                  disabled={form.isSubmitting || loading}
-                />
-              </div>
+              <>
+                <div className="horizontal-fields-container">
+                  <PriceInput
+                    id="quantity"
+                    name="quantity"
+                    label="Quantity"
+                    value={form.values.quantity}
+                    onChange={(value) => form.setValue('quantity', value)}
+                    onBlur={() => form.setFieldTouched('quantity')}
+                    error={form.touched.quantity ? form.errors.quantity?.message : ''}
+                    required
+                    disabled={form.isSubmitting || loading}
+                  />
+                  <PriceInput
+                    id="price"
+                    name="price"
+                    label="Price"
+                    value={form.values.price}
+                    onChange={(value) => form.setValue('price', value)}
+                    onBlur={() => form.setFieldTouched('price')}
+                    error={form.touched.price ? form.errors.price?.message : ''}
+                    required
+                    disabled={form.isSubmitting || loading}
+                  />
+                </div>
+
+                <div className="horizontal-fields-container">
+                  <PriceInput
+                    id="fees"
+                    name="fees"
+                    label={form.values.assetType === 'option' ? 'Fees (Auto-calculated)' : 'Fees'}
+                    value={form.values.fees}
+                    onChange={(value) => form.setValue('fees', value)}
+                    onBlur={() => form.setFieldTouched('fees')}
+                    error={form.touched.fees ? form.errors.fees?.message : ''}
+                    disabled={form.isSubmitting || loading || form.values.assetType === 'option'}
+                    placeholder={form.values.assetType === 'option' ? 'Auto-calculated ($0.75 per contract)' : '0.00'}
+                  />
+                </div>
+              </>
             ) : (
               <div className="horizontal-fields-container">
                 <PriceInput

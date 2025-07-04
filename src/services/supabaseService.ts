@@ -9,6 +9,7 @@ import { format, subDays, startOfDay } from 'date-fns';
 import { enhancedSupabase } from '../lib/enhancedSupabase'
 import { portfolioRateLimiter, transactionRateLimiter } from '../utils/rateLimiter'
 import { emergencyStop } from '../utils/emergencyStop'
+import { calculateTransactionFees } from '../utils/feeCalculations'
 import { 
   shouldUseMockServices, 
   MockServices 
@@ -1600,6 +1601,17 @@ export class TransactionService {
         }
       }
 
+      // Auto-calculate fees if not provided and asset is an option
+      let finalFees = options?.fees || 0;
+      if (!options?.fees && options?.assetSymbol) {
+        // Get asset to check if it's an option
+        const assetResult = await AssetService.getOrCreateAsset(options.assetSymbol);
+        if (assetResult.success && assetResult.data?.asset_type === 'option') {
+          finalFees = calculateTransactionFees('option', Math.abs(quantity));
+          console.log(`💰 Auto-calculated option fees: $${finalFees} for ${Math.abs(quantity)} contracts`);
+        }
+      }
+
       const transactionData = {
         portfolio_id: portfolioId,
         asset_id: assetId,
@@ -1607,7 +1619,7 @@ export class TransactionService {
         quantity,
         price,
         total_amount: quantity * price,
-        fees: options?.fees || 0,
+        fees: finalFees,
         currency: options?.currency || 'USD',
         notes: options?.notes,
         strategy_type: finalStrategyType,

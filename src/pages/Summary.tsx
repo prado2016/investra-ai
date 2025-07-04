@@ -9,6 +9,7 @@ import { usePageTitle } from '../hooks/usePageTitle';
 import { useDailyPL } from '../hooks/useDailyPL';
 import OrphanTransactionsPanel from '../components/OrphanTransactionsPanel';
 import PortfolioSelectorComponent from '../components/PortfolioSelector';
+import { formatTransactionAmount } from '../utils/formatting';
 import type { DailyPLData } from '../services/analytics/dailyPLService';
 
 const PageContainer = styled.div`
@@ -547,7 +548,13 @@ const Summary: React.FC = () => {
                             $positive={transaction.transaction_type === 'sell' && transaction.total_amount > 0}
                             $negative={transaction.transaction_type === 'buy' || transaction.total_amount < 0}
                           >
-                            ${Math.abs(transaction.total_amount).toFixed(2)}
+                            {formatTransactionAmount(
+                              Math.abs(transaction.total_amount),
+                              'USD',
+                              transaction.asset_type,
+                              transaction.quantity,
+                              transaction.fees
+                            )}
                           </TransactionMetricValue>
                         </TransactionMetric>
                         

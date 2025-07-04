@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import styled from 'styled-components';
 import { ArrowDownCircle, ArrowUpCircle, Gift, Edit3, Trash2, Info, Clock, ArrowLeftRight, Shuffle, TrendingDown, Target } from 'lucide-react';
-import { formatCurrency, formatDate } from '../utils/formatting';
+import { formatCurrency, formatDate, formatTransactionAmount } from '../utils/formatting';
 import { parseOptionSymbol } from '../utils/assetCategorization';
 import CompanyLogo from './CompanyLogo';
 import type { UnifiedEntry, UnifiedTransactionEntry, UnifiedFundMovementEntry } from '../types/unifiedEntry';
@@ -751,7 +751,13 @@ const TransactionList: React.FC<TransactionListProps> = ({
               </div>
               
               <div className="financial-data">
-                {formatCurrency(transaction.amount || 0, transaction.currency || 'USD')}
+                {formatTransactionAmount(
+                  transaction.amount || 0, 
+                  transaction.currency || 'USD',
+                  transaction.assetType,
+                  transaction.quantity,
+                  transaction.fees
+                )}
               </div>
               
               <div>
