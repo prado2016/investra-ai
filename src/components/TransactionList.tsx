@@ -5,7 +5,7 @@ import { formatCurrency, formatDate } from '../utils/formatting';
 import { parseOptionSymbol } from '../utils/assetCategorization';
 import CompanyLogo from './CompanyLogo';
 import type { UnifiedEntry, UnifiedTransactionEntry, UnifiedFundMovementEntry } from '../types/unifiedEntry';
-import type { Portfolio } from '../types/portfolio';
+import type { Portfolio } from '../lib/database/types';
 
 const SymbolContainer = styled.div`
   display: flex;
