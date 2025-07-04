@@ -137,6 +137,12 @@ export class CoveredCallProcessor {
         const totalAvailable = buyQueue.reduce((sum, buy) => sum + buy.remainingQuantity, 0);
         
         if (totalAvailable < transaction.quantity) {
+          // Check if this transaction is already tagged as a covered call
+          if (transaction.strategy_type === 'covered_call') {
+            console.log(`⏭️ Transaction ${transaction.id} already tagged as covered_call, skipping`);
+            continue;
+          }
+
           // This is likely a covered call sell (selling without owning)
           console.log(`🎯 Potential covered call sell detected: ${symbol} qty=${transaction.quantity} on ${transaction.transaction_date}`);
           

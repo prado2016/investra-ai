@@ -112,6 +112,13 @@ async function tagCoveredCallTransactions(
   // Tag covered call sells
   for (const rule of analysis.newRules) {
     try {
+      // Check if the sell transaction is already tagged
+      const sellTransaction = analysis.orphanSells.find(t => t.id === rule.sellTransactionId);
+      if (sellTransaction?.strategy_type === 'covered_call') {
+        console.log(`⏭️ Sell transaction ${rule.sellTransactionId} already tagged as covered_call, skipping`);
+        continue;
+      }
+
       // Update the sell transaction
       const updateResult = await SupabaseService.transaction.updateTransaction(rule.sellTransactionId, {
         strategy_type: 'covered_call'
@@ -128,6 +135,8 @@ async function tagCoveredCallTransactions(
       
       // Tag buyback transaction if it exists
       if (rule.buybackTransactionId) {
+        // For buyback transactions, we need to get the transaction first to check if it's already tagged
+        // (we can't check orphanSells for buybacks since they're buy transactions)
         const buybackUpdateResult = await SupabaseService.transaction.updateTransaction(rule.buybackTransactionId, {
           strategy_type: 'covered_call'
         });
@@ -201,11 +210,11 @@ export async function detectCoveredCallOpportunities(): Promise<{
         
         const transactions = transactionsResult.data || [];
         
-        // Find option sells without strategy_type
+        // Find option sells that are NOT already tagged as covered_call
         const untaggedOptionSells = transactions.filter(t => 
           t.asset.asset_type === 'option' &&
           t.transaction_type === 'sell' &&
-          !t.strategy_type
+          t.strategy_type !== 'covered_call'
         );
         
         for (const sell of untaggedOptionSells) {
