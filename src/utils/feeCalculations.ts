@@ -10,6 +10,7 @@ export const OPTION_FEE_PER_CONTRACT = 0.75;
 
 /**
  * Calculate fees for a transaction based on asset type and quantity
+ * For options: quantity represents shares, but fees are per contract (100 shares = 1 contract)
  */
 export function calculateTransactionFees(
   assetType: AssetType | string | null,
@@ -17,7 +18,9 @@ export function calculateTransactionFees(
 ): number {
   switch (assetType) {
     case 'option':
-      return quantity * OPTION_FEE_PER_CONTRACT;
+      // Options: quantity is in shares, but fees are per contract (100 shares = 1 contract)
+      const contracts = Math.abs(quantity) / 100;
+      return contracts * OPTION_FEE_PER_CONTRACT;
     case 'stock':
     case 'etf':
     case 'reit':
@@ -31,6 +34,7 @@ export function calculateTransactionFees(
 /**
  * Get the display amount for a transaction (Total - Fees for options, Total for others)
  * This is what should be shown to the user in transaction lists
+ * For option transactions, this represents the net cash flow (what you actually received/paid)
  */
 export function getTransactionDisplayAmount(
   amount: number,
@@ -38,21 +42,20 @@ export function getTransactionDisplayAmount(
   assetType: AssetType | string | null,
   quantity: number = 0
 ): number {
-  // If fees are explicitly provided, use them
-  if (fees && fees > 0) {
-    return amount - fees;
+  // For non-option assets, return full amount (no fees)
+  if (assetType !== 'option') {
+    return amount;
   }
   
-  // Calculate fees based on asset type
-  const calculatedFees = calculateTransactionFees(assetType, Math.abs(quantity));
+  // For options, calculate net cash flow
+  const actualFees = fees && fees > 0 ? fees : calculateTransactionFees(assetType, Math.abs(quantity));
   
-  // For options, subtract fees from amount for display
-  if (assetType === 'option' && calculatedFees > 0) {
-    return amount - calculatedFees;
-  }
+  // Net cash flow = amount - fees
+  // For sells: positive amount - fees = net proceeds (can be negative if fees > premium)
+  // For buys: negative amount - fees = total cost (more negative)
+  const netAmount = amount - actualFees;
   
-  // For other assets, return full amount
-  return amount;
+  return netAmount;
 }
 
 /**
@@ -94,9 +97,30 @@ export function formatFeeInfo(
   }
   
   if (assetType === 'option') {
-    const contracts = Math.abs(quantity);
+    const contracts = Math.abs(quantity) / 100; // Convert shares to contracts
     return `Fee: $${actualFees.toFixed(2)} (${contracts} contracts × $${OPTION_FEE_PER_CONTRACT})`;
   }
   
   return `Fee: $${actualFees.toFixed(2)}`;
+}
+
+/**
+ * Check if an option transaction results in a net loss due to fees exceeding premium
+ */
+export function isOptionNetLoss(
+  amount: number,
+  fees: number | null | undefined,
+  assetType: AssetType | string | null,
+  quantity: number = 0
+): boolean {
+  if (assetType !== 'option') {
+    return false;
+  }
+  
+  const actualFees = getTransactionFees(fees, assetType, quantity);
+  const netAmount = amount - actualFees;
+  
+  // For sells (positive amount), net loss if fees exceed premium
+  // For buys (negative amount), this check doesn't apply
+  return amount > 0 && netAmount < 0;
 }

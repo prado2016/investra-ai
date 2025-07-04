@@ -373,7 +373,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                     onBlur={() => form.setFieldTouched('fees')}
                     error={form.touched.fees ? form.errors.fees?.message : ''}
                     disabled={form.isSubmitting || loading || form.values.assetType === 'option'}
-                    placeholder={form.values.assetType === 'option' ? 'Auto-calculated ($0.75 per contract)' : '0.00'}
+                    placeholder={form.values.assetType === 'option' ? 'Auto-calculated ($0.75 per contract, 100 shares = 1 contract)' : '0.00'}
                   />
                 </div>
               </>
