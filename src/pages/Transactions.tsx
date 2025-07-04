@@ -536,7 +536,12 @@ Settlement Date: ${t.settlementDate || ''}
 
       if (response.success) {
         notify.success('Transaction updated successfully');
-        if (activePortfolio?.id) fetchUnifiedEntries(activePortfolio.id); // Refresh the list
+        // Refresh the list based on the current filter selection
+        if (filters.portfolioId === 'all') {
+          fetchUnifiedEntriesFromAllPortfolios();
+        } else {
+          fetchUnifiedEntries(filters.portfolioId);
+        }
       } else {
         throw new Error(response.error || 'Failed to update transaction');
       }
@@ -588,8 +593,12 @@ Settlement Date: ${t.settlementDate || ''}
 
       if (response.success) {
         notify.success('Transaction created successfully');
-        // Refresh transactions
-        if (activePortfolio?.id) fetchUnifiedEntries(activePortfolio.id);
+        // Refresh the list based on the current filter selection
+        if (filters.portfolioId === 'all') {
+          fetchUnifiedEntriesFromAllPortfolios();
+        } else {
+          fetchUnifiedEntries(filters.portfolioId);
+        }
         return true;
       } else {
         notify.error('Failed to save transaction: ' + response.error);
@@ -679,7 +688,12 @@ Settlement Date: ${t.settlementDate || ''}
 
       if (response.success) {
         notify.success('Fund movement added successfully');
-        if (activePortfolio?.id) fetchUnifiedEntries(activePortfolio.id);
+        // Refresh the list based on the current filter selection
+        if (filters.portfolioId === 'all') {
+          fetchUnifiedEntriesFromAllPortfolios();
+        } else {
+          fetchUnifiedEntries(filters.portfolioId);
+        }
         return true;
       } else {
         console.error('Fund movement creation failed:', response.error);
