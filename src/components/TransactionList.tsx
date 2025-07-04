@@ -5,6 +5,7 @@ import { formatCurrency, formatDate } from '../utils/formatting';
 import { parseOptionSymbol } from '../utils/assetCategorization';
 import CompanyLogo from './CompanyLogo';
 import type { UnifiedEntry, UnifiedTransactionEntry, UnifiedFundMovementEntry } from '../types/unifiedEntry';
+import type { Portfolio } from '../types/portfolio';
 
 const SymbolContainer = styled.div`
   display: flex;
@@ -157,8 +158,8 @@ const TransactionTable = styled.div`
 
 const TableHeader = styled.div`
   display: grid;
-  /* Adjusted grid columns: Symbol, Type, Quantity, Price, Total, Date, Actions */
-  grid-template-columns: 2.2fr 1fr 0.9fr 1fr 1fr 1.3fr 1.5fr;
+  /* Adjusted grid columns: Symbol, Type, Quantity, Price, Total, Portfolio, Date, Actions */
+  grid-template-columns: 2.2fr 1fr 0.9fr 1fr 1fr 1fr 1.3fr 1.5fr;
   gap: var(--space-4, 1rem); /* Use CSS var */
   padding: var(--space-3, 0.75rem) var(--space-4, 1rem); /* Use CSS vars */
   background-color: var(--bg-tertiary);
@@ -180,8 +181,8 @@ const TableHeader = styled.div`
 
 const TableRow = styled.div`
   display: grid;
-  /* Adjusted grid columns to match TableHeader: Symbol, Type, Quantity, Price, Total, Date, Actions */
-  grid-template-columns: 2.2fr 1fr 0.9fr 1fr 1fr 1.3fr 1.5fr;
+  /* Adjusted grid columns to match TableHeader: Symbol, Type, Quantity, Price, Total, Portfolio, Date, Actions */
+  grid-template-columns: 2.2fr 1fr 0.9fr 1fr 1fr 1fr 1.3fr 1.5fr;
   gap: var(--space-4, 1rem); /* Use CSS var */
   padding: var(--space-4, 1rem); /* Use CSS var */
   align-items: center; /* Vertically align items in row */
@@ -231,7 +232,8 @@ const TableRow = styled.div`
       &:nth-child(3)::before { content: "Quantity: "; font-weight: var(--font-weight-semibold); color: var(--text-secondary); }
       &:nth-child(4)::before { content: "Price: "; font-weight: var(--font-weight-semibold); color: var(--text-secondary); }
       &:nth-child(5)::before { content: "Total: "; font-weight: var(--font-weight-semibold); color: var(--text-secondary); }
-      &:nth-child(6)::before { content: "Date: "; font-weight: var(--font-weight-semibold); color: var(--text-secondary); }
+      &:nth-child(6)::before { content: "Portfolio: "; font-weight: var(--font-weight-semibold); color: var(--text-secondary); }
+      &:nth-child(7)::before { content: "Date: "; font-weight: var(--font-weight-semibold); color: var(--text-secondary); }
     }
 
     /* Ensure SymbolContainer and its contents stack nicely on mobile */
@@ -450,6 +452,7 @@ const ErrorState = styled.div`
 
 interface TransactionListProps {
   entries: UnifiedEntry[];
+  portfolios: Portfolio[];
   loading: boolean;
   error?: string | null;
   onEdit: (entry: UnifiedEntry) => void;
@@ -458,6 +461,7 @@ interface TransactionListProps {
 
 const TransactionList: React.FC<TransactionListProps> = ({
   entries,
+  portfolios,
   loading,
   error,
   onEdit,
@@ -467,6 +471,12 @@ const TransactionList: React.FC<TransactionListProps> = ({
   const [filterAsset, setFilterAsset] = useState<string>('all');
   const [filterSymbol, setFilterSymbol] = useState<string>('');
   const [filterDateRange, setFilterDateRange] = useState<string>('all');
+
+  // Helper function to get portfolio name by ID
+  const getPortfolioName = (portfolioId: string): string => {
+    const portfolio = portfolios.find(p => p.id === portfolioId);
+    return portfolio ? portfolio.name : 'Unknown Portfolio';
+  };
   const [customStartDate, setCustomStartDate] = useState<string>('');
   const [customEndDate, setCustomEndDate] = useState<string>('');
 
@@ -642,6 +652,7 @@ const TransactionList: React.FC<TransactionListProps> = ({
             <div>Quantity</div>
             <div>Price</div>
             <div>Total</div>
+            <div>Portfolio</div>
             <div>Date</div>
             <div>Actions</div>
           </TableHeader>
@@ -737,6 +748,10 @@ const TransactionList: React.FC<TransactionListProps> = ({
               </div>
               
               <div>
+                {getPortfolioName(transaction.portfolioId)}
+              </div>
+              
+              <div>
                 {formatDate(transaction.date)}
               </div>
               
@@ -772,6 +787,9 @@ const TransactionList: React.FC<TransactionListProps> = ({
                       <div>-</div>
                       <div className="financial-data">
                         {formatCurrency(fundMovement.amount, fundMovement.currency)}
+                      </div>
+                      <div>
+                        {getPortfolioName(fundMovement.portfolioId)}
                       </div>
                       <div>{formatDate(fundMovement.date)}</div>
                       <div>

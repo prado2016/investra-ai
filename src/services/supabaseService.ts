@@ -1663,120 +1663,61 @@ export class TransactionService {
 
     try {
       console.log(`🗑️ Attempting to delete transaction: ${transactionId}`);
-      
+
       // First, check if there are any imap_processed records referencing this transaction
       const { data: referencingRecords, error: checkError } = await supabase
         .from('imap_processed')
         .select('id, transaction_id')
         .eq('transaction_id', transactionId);
-      
+
       if (checkError) {
-        console.warn('⚠️ Could not check imap_processed references:', checkError.message);
-        console.warn('⚠️ This might mean the table does not exist or access is denied');
-      } else {
-        console.log(`📧 Found ${referencingRecords?.length || 0} imap_processed records referencing this transaction`);
-        
-        if (referencingRecords && referencingRecords.length > 0) {
-          console.log('🔍 Detailed analysis of referencing records:', referencingRecords);
-          
-          // Log details about what we're trying to update
-          console.log(`🔄 Attempting to update imap_processed records with transaction_id: ${transactionId}`);
-          console.log(`🔄 Transaction ID type: ${typeof transactionId}`);
-          console.log(`🔄 Transaction ID length: ${transactionId.length}`);
-          
-          // Log the actual transaction_id values from the referencing records for comparison
-          referencingRecords.forEach((record, index) => {
-            console.log(`🔍 Record ${index + 1} transaction_id: "${record.transaction_id}"`);
-            console.log(`🔍 Record ${index + 1} transaction_id type: ${typeof record.transaction_id}`);
-            console.log(`🔍 Record ${index + 1} transaction_id length: ${record.transaction_id?.length}`);
-            console.log(`🔍 Exact match check: ${record.transaction_id === transactionId}`);
-            console.log(`🔍 Trimmed match check: ${record.transaction_id?.trim() === transactionId.trim()}`);
+        console.warn('⚠️ Could not check for email processing references:', checkError.message);
+        // This might not be a fatal error, so we can proceed cautiously
+      } else if (referencingRecords && referencingRecords.length > 0) {
+        console.log(`Found ${referencingRecords.length} email records referencing this transaction. Attempting to unlink...`);
+
+        // Attempt to clean up references using the database function first, as it can bypass RLS.
+        const { data: functionResult, error: functionError } = await supabase
+          .rpc('cleanup_transaction_references', {
+            target_transaction_id: transactionId
           });
-          
-          // Test if we can select the specific records we want to update
-          const { data: testSelect, error: testError } = await supabase
-            .from('imap_processed')
-            .select('id, transaction_id, user_id')
-            .eq('transaction_id', transactionId);
-            
-          console.log('🧪 Test select before update:', testSelect);
-          console.log('🧪 Test select error:', testError);
-          
-          // Try updating by ID instead of transaction_id to bypass potential RLS issues
-          const recordIds = testSelect?.map(record => record.id) || [];
-          console.log('🎯 Attempting to update records by ID:', recordIds);
-          
-          // Try direct update using the exact ID we know exists
-          console.log('🧪 Using direct ID update for:', recordIds[0]);
-          const { data: directUpdate, error: directError } = await supabase
+
+        if (functionError) {
+          console.warn('Database function to clean up references failed. Falling back to direct update.', functionError.message);
+
+          // Fallback to direct update if the function fails
+          const recordIds = referencingRecords.map(r => r.id);
+          const { error: updateError } = await supabase
             .from('imap_processed')
             .update({ transaction_id: null })
-            .eq('id', recordIds[0])
-            .select('*');
-            
-          console.log('🧪 Direct update result:', directUpdate);
-          console.log('🧪 Direct update error:', directError);
-          
-          // Also try without the select to see if that's causing issues
-          const { error: updateOnlyError } = await supabase
-            .from('imap_processed')
-            .update({ transaction_id: null })
-            .eq('id', recordIds[0]);
-            
-          console.log('🧪 Update without select error:', updateOnlyError);
-          
-          // Try to call cleanup function - it should exist or we'll get a clear error
-          console.log('🔧 Attempting to call cleanup function to bypass RLS');
-          const { data: functionResult, error: functionError } = await supabase
-            .rpc('cleanup_transaction_references', { 
-              target_transaction_id: transactionId 
-            });
-            
-          console.log('🔧 Function result:', functionResult);
-          console.log('🔧 Function error:', functionError);
-          
-          if (functionResult && functionResult > 0) {
-            console.log(`✅ Successfully cleaned up ${functionResult} imap_processed references using database function`);
-          }
-          
-          // If function doesn't exist, try direct update as fallback
-          const { data: updatedRecords, error: updateError } = await supabase
-            .from('imap_processed')
-            .update({ transaction_id: null })
-            .in('id', recordIds)
-            .select('id, transaction_id');
+            .in('id', recordIds);
 
           if (updateError) {
-            console.error('❌ Failed to update imap_processed references:', updateError.message);
-            console.error('❌ Update error details:', updateError);
-            return { 
-              data: null, 
-              error: `Cannot delete transaction: Failed to remove email processing references - ${updateError.message}`, 
-              success: false 
+            console.error('Failed to update email processing references via direct update:', updateError.message);
+            return {
+              data: false,
+              error: `Cannot delete transaction: Failed to remove email processing references. Please try again or contact support.`,
+              success: false
             };
           }
-          
-          console.log(`✅ Update query completed - updated ${updatedRecords?.length || 0} records`);
-          console.log('📊 Updated records details:', updatedRecords);
-          
-          // Verify the update worked by checking again
-          const { data: remainingRefs } = await supabase
-            .from('imap_processed')
-            .select('id')
-            .eq('transaction_id', transactionId);
-            
-          if (remainingRefs && remainingRefs.length > 0) {
-            console.warn(`⚠️ Still found ${remainingRefs.length} imap_processed records referencing this transaction after update!`);
-            console.warn('⚠️ This appears to be due to database permissions. Proceeding with transaction deletion anyway.');
-            console.warn('⚠️ The imap_processed records will have dangling references but this should not affect functionality.');
-          }
-          
-          console.log('✅ Verified: No imap_processed records still reference this transaction');
+        } else {
+          console.log(`Successfully unlinked ${functionResult || 0} email records using database function.`);
+        }
+
+        // Verify that the references were removed
+        const { data: remainingRefs } = await supabase
+          .from('imap_processed')
+          .select('id')
+          .eq('transaction_id', transactionId);
+
+        if (remainingRefs && remainingRefs.length > 0) {
+          console.warn(`⚠️ Could not unlink all email records. Proceeding with deletion, but some records may have dangling references.`);
+        } else {
+          console.log('✅ Verified: All email processing references have been unlinked.');
         }
       }
 
       // Now delete the transaction
-      console.log(`🗑️ Proceeding to delete transaction: ${transactionId}`);
       const { error } = await supabase
         .from('transactions')
         .delete()
@@ -1784,16 +1725,16 @@ export class TransactionService {
 
       if (error) {
         console.error('❌ Failed to delete transaction:', error.message);
-        return { data: null, error: error.message, success: false };
+        return { data: false, error: error.message, success: false };
       }
 
       console.log(`✅ Successfully deleted transaction: ${transactionId}`);
       return { data: true, error: null, success: true };
     } catch (error) {
-      return { 
-        data: null, 
-        error: error instanceof Error ? error.message : 'Unknown error', 
-        success: false 
+      return {
+        data: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        success: false
       };
     }
   }

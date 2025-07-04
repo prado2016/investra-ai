@@ -970,6 +970,7 @@ Settlement Date: ${t.settlementDate || ''}
               
               <TransactionList
                 entries={filteredEntries}
+                portfolios={portfolios}
                 loading={loading}
                 error={error}
                 onEdit={handleEditEntry}
