@@ -551,7 +551,7 @@ const Summary: React.FC = () => {
                             {formatTransactionAmount(
                               Math.abs(transaction.total_amount),
                               'USD',
-                              transaction.asset_type,
+                              transaction.asset?.asset_type,
                               transaction.quantity,
                               transaction.fees
                             )}
