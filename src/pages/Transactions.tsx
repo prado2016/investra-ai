@@ -108,11 +108,13 @@ const TransactionsPage: React.FC = () => {
       
       if (filters.dateRange === 'custom') {
         if (filters.customDateFrom) {
-          const fromDate = new Date(filters.customDateFrom);
+          const fromDate = parseDatabaseDate(filters.customDateFrom);
           if (entryDate < fromDate) return false;
         }
         if (filters.customDateTo) {
-          const toDate = new Date(filters.customDateTo);
+          const toDate = parseDatabaseDate(filters.customDateTo);
+          // Set to end of day for "to" date to include the entire day
+          toDate.setHours(23, 59, 59, 999);
           if (entryDate > toDate) return false;
         }
       } else if (filters.dateRange !== 'all') {
