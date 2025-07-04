@@ -523,15 +523,6 @@ const Summary: React.FC = () => {
                             </TransactionMetricValue>
                           </TransactionMetric>
                         )}
-                        
-                        {transaction.notes && (
-                          <TransactionMetric style={{ gridColumn: 'span 2' }}>
-                            <TransactionMetricLabel>Notes</TransactionMetricLabel>
-                            <TransactionMetricValue style={{ fontSize: '0.8rem' }}>
-                              {transaction.notes}
-                            </TransactionMetricValue>
-                          </TransactionMetric>
-                        )}
                       </TransactionDetails>
                     </TransactionCard>
                   ))}
