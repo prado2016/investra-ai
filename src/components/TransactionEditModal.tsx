@@ -261,9 +261,10 @@ export const TransactionEditModal: React.FC<TransactionEditModalProps> = ({
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  // Auto-set price to 0 when option_expired is selected
+  // Auto-set price to 0 when option expired types are selected
   React.useEffect(() => {
-    if (formData.transaction_type === 'option_expired' && formData.price !== '0') {
+    const zeroValueTypes = ['option_expired', 'short_option_expired'];
+    if (zeroValueTypes.includes(formData.transaction_type) && formData.price !== '0') {
       setFormData(prev => ({ ...prev, price: '0' }));
     }
   }, [formData.transaction_type, formData.price]);
@@ -300,8 +301,14 @@ export const TransactionEditModal: React.FC<TransactionEditModalProps> = ({
               <option value="buy">Buy</option>
               <option value="sell">Sell</option>
               <option value="dividend">Dividend</option>
+              <option value="split">Stock Split</option>
+              <option value="merger">Merger</option>
               {transaction.asset?.assetType === 'option' && (
-                <option value="option_expired">Option Expired</option>
+                <>
+                  <option value="option_expired">Option Expired</option>
+                  <option value="short_option_expired">Short Option Expired</option>
+                  <option value="short_option_assigned">Short Option Assigned</option>
+                </>
               )}
             </Select>
           </FieldGroup>
@@ -320,16 +327,16 @@ export const TransactionEditModal: React.FC<TransactionEditModalProps> = ({
           </FieldGroup>
 
           <FieldGroup>
-            <Label>Price per Share {formData.transaction_type !== 'option_expired' ? '*' : ''}</Label>
+            <Label>Price per Share {!['option_expired', 'short_option_expired'].includes(formData.transaction_type) ? '*' : ''}</Label>
             <Input
               type="number"
               step="0.0001"
               min="0"
               value={formData.price}
               onChange={(e) => handleChange('price', e.target.value)}
-              placeholder={formData.transaction_type === 'option_expired' ? '0.00 (auto-set)' : 'Enter price (e.g., 108.6099)'}
-              required={formData.transaction_type !== 'option_expired'}
-              disabled={formData.transaction_type === 'option_expired'}
+              placeholder={['option_expired', 'short_option_expired'].includes(formData.transaction_type) ? '0.00 (auto-set)' : 'Enter price (e.g., 108.6099)'}
+              required={!['option_expired', 'short_option_expired'].includes(formData.transaction_type)}
+              disabled={['option_expired', 'short_option_expired'].includes(formData.transaction_type)}
             />
           </FieldGroup>
 

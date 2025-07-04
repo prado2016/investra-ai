@@ -1600,25 +1600,36 @@ export class TransactionService {
         }
       }
 
+      const transactionData = {
+        portfolio_id: portfolioId,
+        asset_id: assetId,
+        transaction_type: transactionType,
+        quantity,
+        price,
+        total_amount: quantity * price,
+        fees: options?.fees || 0,
+        currency: options?.currency || 'USD',
+        notes: options?.notes,
+        strategy_type: finalStrategyType,
+        transaction_date: transactionDate
+      };
+
+      console.log('📊 Creating transaction with data:', transactionData);
+
       const { data, error } = await supabase
         .from('transactions')
-        .insert({
-          portfolio_id: portfolioId,
-          asset_id: assetId,
-          transaction_type: transactionType,
-          quantity,
-          price,
-          total_amount: quantity * price,
-          fees: options?.fees || 0,
-          currency: options?.currency || 'USD',
-          notes: options?.notes,
-          strategy_type: finalStrategyType,
-          transaction_date: transactionDate
-        })
+        .insert(transactionData)
         .select()
         .single()
 
       if (error) {
+        console.error('❌ Transaction creation failed:', {
+          error: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          sentData: transactionData
+        });
         return { data: null, error: error.message, success: false }
       }
 

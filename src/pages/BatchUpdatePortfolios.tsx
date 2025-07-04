@@ -15,6 +15,7 @@ import { batchUpdateCoveredCalls, detectCoveredCallOpportunities } from '../util
 import { SupabaseService } from '../services/supabaseService';
 import { usePageTitle } from '../hooks/usePageTitle';
 import ManualReassignmentTool from '../components/ManualReassignmentTool';
+import BatchPositionManager from '../components/BatchPositionManager';
 
 const PageContainer = styled.div`
   padding: 2rem;
@@ -726,6 +727,8 @@ export default function BatchUpdatePortfolios() {
       )}
 
       <ManualReassignmentTool />
+      
+      <BatchPositionManager />
     </PageContainer>
   );
 }
