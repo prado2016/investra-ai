@@ -16,7 +16,7 @@ import { TransactionService } from '../services/supabaseService';
 import { useNotify } from '../hooks/useNotify';
 import { usePortfolios } from '../contexts/PortfolioContext';
 import TransactionEditModal from './TransactionEditModal';
-import { formatCurrency, formatDate, formatPercentage } from '../utils/formatting';
+import { formatCurrency, formatDate, formatPercentage, parseDatabaseDate } from '../utils/formatting';
 import type { Position } from '../types/portfolio';
 import type { Transaction } from '../lib/database/types';
 import type { UnifiedTransactionEntry } from '../types/unifiedEntry';
@@ -396,7 +396,7 @@ export const PositionDetailsModal: React.FC<PositionDetailsModalProps> = ({
       id: transaction.id,
       type: 'transaction',
       portfolioId: transaction.portfolio_id,
-      date: new Date(transaction.transaction_date),
+      date: parseDatabaseDate(transaction.transaction_date),
       amount: transaction.total_amount || 0,
       currency: transaction.currency || 'USD',
       notes: transaction.notes || '',
@@ -622,7 +622,7 @@ export const PositionDetailsModal: React.FC<PositionDetailsModalProps> = ({
                   <div>{transaction.fees ? formatCurrency(transaction.fees) : '-'}</div>
                   
                   <div>
-                    {transaction.transaction_date ? formatDate(new Date(transaction.transaction_date)) : '-'}
+                    {transaction.transaction_date ? formatDate(parseDatabaseDate(transaction.transaction_date)) : '-'}
                   </div>
                   
                   <ActionButtons>

@@ -13,6 +13,7 @@ import PortfolioSelector from '../components/PortfolioSelector';
 import type { Transaction, TransactionType, FundMovement, FundMovementType, FundMovementStatus } from '../types/portfolio';
 import type { UnifiedEntry, UnifiedTransactionEntry, UnifiedFundMovementEntry, UnifiedEntryType } from '../types/unifiedEntry';
 import { startOfDay, subDays, startOfYear } from 'date-fns';
+import { parseDatabaseDate } from '../utils/formatting';
 import '../styles/transactions-layout.css';
 
 // Enhanced Transactions page with improved styling and contrast
@@ -265,7 +266,7 @@ Settlement Date: ${t.settlementDate || ''}
           (t: any) => ({
             id: t.id,
             portfolioId: t.portfolio_id,
-            date: new Date(t.transaction_date),
+            date: parseDatabaseDate(t.transaction_date),
             amount: t.total_amount || 0,
             currency: t.currency || 'USD',
             notes: t.notes || '',
@@ -369,7 +370,7 @@ Settlement Date: ${t.settlementDate || ''}
               (t: any) => ({
                 id: t.id,
                 portfolioId: t.portfolio_id,
-                date: new Date(t.transaction_date),
+                date: parseDatabaseDate(t.transaction_date),
                 amount: t.total_amount || 0,
                 currency: t.currency || 'USD',
                 notes: t.notes || '',

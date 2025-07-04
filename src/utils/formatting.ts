@@ -101,6 +101,24 @@ export function formatDate(
 }
 
 /**
+ * Parse a date string from the database to ensure proper local timezone handling
+ * This prevents timezone issues where dates appear one day off
+ */
+export function parseDatabaseDate(dateString: string): Date {
+  if (!dateString) return new Date();
+  
+  // If the date string is in YYYY-MM-DD format (common from database)
+  // Parse it as local time to avoid timezone issues
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+    const [year, month, day] = dateString.split('-').map(Number);
+    return new Date(year, month - 1, day); // month is 0-indexed
+  }
+  
+  // If it includes time or is in another format, use regular Date parsing
+  return new Date(dateString);
+}
+
+/**
  * Format a date and time
  */
 export function formatDateTime(

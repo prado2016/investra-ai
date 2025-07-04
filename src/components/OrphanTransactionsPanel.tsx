@@ -1,5 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
+import { parseDatabaseDate } from '../utils/formatting';
 import type { EnhancedTransaction } from '../services/analytics/dailyPLService';
 
 const PanelContainer = styled.div`
@@ -62,7 +63,7 @@ const OrphanTransactionsPanel: React.FC<OrphanTransactionsPanelProps> = ({ trans
         <tbody>
           {transactions.map(t => (
             <tr key={t.id}>
-              <Td>{new Date(t.transaction_date).toLocaleDateString()}</Td>
+              <Td>{parseDatabaseDate(t.transaction_date).toLocaleDateString()}</Td>
               <Td>{t.asset.symbol}</Td>
               <Td>{t.quantity}</Td>
               <Td>${t.price.toFixed(2)}</Td>
