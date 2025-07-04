@@ -198,6 +198,7 @@ interface TransactionEditModalProps {
     exchange_rate?: number;
     broker_name?: string;
     external_id?: string;
+    strategy_type?: string;
   }) => Promise<void>;
 }
 
@@ -218,7 +219,8 @@ export const TransactionEditModal: React.FC<TransactionEditModalProps> = ({
     settlement_date: transaction.settlementDate?.split('T')[0] || '',
     exchange_rate: '1',
     broker_name: transaction.brokerName || '',
-    external_id: transaction.externalId || ''
+    external_id: transaction.externalId || '',
+    strategy_type: transaction.strategyType || ''
   });
   const [saving, setSaving] = useState(false);
 
@@ -243,7 +245,8 @@ export const TransactionEditModal: React.FC<TransactionEditModalProps> = ({
         settlement_date: formData.settlement_date || undefined,
         exchange_rate: formData.exchange_rate ? parseFloat(formData.exchange_rate) : 1,
         broker_name: formData.broker_name || undefined,
-        external_id: formData.external_id || undefined
+        external_id: formData.external_id || undefined,
+        strategy_type: formData.strategy_type || undefined
       });
       onClose();
     } catch (error) {
@@ -340,6 +343,28 @@ export const TransactionEditModal: React.FC<TransactionEditModalProps> = ({
               required
             />
           </FieldGroup>
+
+          <SectionTitle>Strategy</SectionTitle>
+
+          {transaction.asset?.assetType === 'option' && (
+            <FieldGroup>
+              <Label>Option Strategy</Label>
+              <Select
+                value={formData.strategy_type}
+                onChange={(e) => handleChange('strategy_type', e.target.value)}
+              >
+                <option value="">None</option>
+                <option value="covered_call">Covered Call</option>
+                <option value="cash_secured_put">Cash Secured Put</option>
+                <option value="protective_put">Protective Put</option>
+                <option value="long_call">Long Call</option>
+                <option value="long_put">Long Put</option>
+                <option value="straddle">Straddle</option>
+                <option value="strangle">Strangle</option>
+                <option value="collar">Collar</option>
+              </Select>
+            </FieldGroup>
+          )}
 
           <SectionTitle>Financial Details</SectionTitle>
           

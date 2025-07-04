@@ -190,7 +190,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   ];
 
   // Show strategy dropdown only for option transactions and specific transaction types
-  const showStrategyField = form.values.assetType === 'option' && 
+  const showStrategyField = (form.values.assetType === 'option' || form.values.assetSymbol.includes('C') || form.values.assetSymbol.includes('P')) && 
     ['sell', 'buy', 'option_expired', 'short_option_expired', 'short_option_assigned'].includes(form.values.type);
 
   if (!portfoliosLoading && portfolios.length === 0) {

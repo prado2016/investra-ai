@@ -707,7 +707,12 @@ Settlement Date: ${t.settlementDate || ''}
 
         if (response.success) {
           notify.success(`${type} deleted successfully`);
-          if (activePortfolio?.id) fetchUnifiedEntries(activePortfolio.id);
+          // Refresh the list based on the current filter selection
+          if (filters.portfolioId === 'all') {
+            fetchUnifiedEntriesFromAllPortfolios();
+          } else {
+            fetchUnifiedEntries(filters.portfolioId);
+          }
         } else {
           notify.error(`Failed to delete ${type}: ` + response.error);
         }
