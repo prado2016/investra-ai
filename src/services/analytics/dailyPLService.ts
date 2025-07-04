@@ -421,6 +421,34 @@ export class DailyPLAnalyticsService {
       const dayBuys = dayTransactions.filter(t => t.transaction_type === 'buy');
       for (const buy of dayBuys) {
         const symbol = buy.asset.symbol;
+        
+        // Check if this is a covered call buyback
+        if (buy.asset.asset_type === 'option' && buy.strategy_type === 'covered_call') {
+          console.log(`📉 COVERED CALL BUYBACK: ${symbol} on ${dateString}`, {
+            symbol,
+            quantity: buy.quantity,
+            cost: buy.total_amount,
+            transactionId: buy.id
+          });
+          
+          // For covered call buybacks, this is a cost that reduces profit
+          // The net P/L should be calculated when the position is closed
+          realizedPL -= buy.total_amount; // Subtract the buyback cost
+          tradeVolume += buy.total_amount;
+          dailyTotalFees += buy.fees || 0;
+          netCashFlow -= buy.total_amount;
+          
+          debug.info(`Covered call buyback processed: ${symbol}`, {
+            symbol,
+            cost: buy.total_amount,
+            transactionId: buy.id,
+            transactionDate: buy.transaction_date,
+          }, 'DailyPL');
+          
+          continue; // Skip adding to buy queue for covered call buybacks
+        }
+        
+        // Normal buy processing
         if (!buyQueue.has(symbol)) {
           buyQueue.set(symbol, []);
         }
@@ -445,24 +473,49 @@ export class DailyPLAnalyticsService {
         const availableQuantity = queue ? getTotalAvailableQuantity(queue) : 0;
         
         if (availableQuantity < quantityToSell) {
-          console.warn(`❌ Invalid SELL: insufficient quantity for ${symbol} on ${dateString}`, {
-            symbol,
-            requestedQuantity: quantityToSell,
-            availableQuantity,
-            transactionId: sell.id,
-            date: dateString
-          });
-          debug.warn(`Invalid SELL: insufficient quantity for ${symbol}`, {
-            symbol,
-            requestedQuantity: quantityToSell,
-            availableQuantity,
-            transactionId: sell.id,
-            transactionDate: sell.transaction_date,
-          }, 'DailyPL');
-          
-          // Add to orphan transactions and skip processing
-          orphanTransactions.push(sell);
-          continue;
+          // Check if this is a covered call sell
+          if (sell.asset.asset_type === 'option' && sell.strategy_type === 'covered_call') {
+            console.log(`📈 COVERED CALL SELL: ${symbol} on ${dateString}`, {
+              symbol,
+              quantity: quantityToSell,
+              premium: sell.total_amount,
+              transactionId: sell.id
+            });
+            
+            // For covered call sells, the premium received is immediate profit
+            realizedPL += sell.total_amount;
+            tradeVolume += sell.total_amount;
+            dailyTotalFees += sell.fees || 0;
+            netCashFlow += sell.total_amount;
+            
+            debug.info(`Covered call sell processed: ${symbol}`, {
+              symbol,
+              premium: sell.total_amount,
+              transactionId: sell.id,
+              transactionDate: sell.transaction_date,
+            }, 'DailyPL');
+            
+            continue; // Skip normal FIFO processing for covered calls
+          } else {
+            console.warn(`❌ Invalid SELL: insufficient quantity for ${symbol} on ${dateString}`, {
+              symbol,
+              requestedQuantity: quantityToSell,
+              availableQuantity,
+              transactionId: sell.id,
+              date: dateString
+            });
+            debug.warn(`Invalid SELL: insufficient quantity for ${symbol}`, {
+              symbol,
+              requestedQuantity: quantityToSell,
+              availableQuantity,
+              transactionId: sell.id,
+              transactionDate: sell.transaction_date,
+            }, 'DailyPL');
+            
+            // Add to orphan transactions and skip processing
+            orphanTransactions.push(sell);
+            continue;
+          }
         }
 
         // Process valid sell transaction

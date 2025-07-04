@@ -20,6 +20,7 @@ import type {
   Position, 
   Transaction,
   TransactionType,
+  OptionStrategyType,
   Database
 } from '../lib/database/types'
 
@@ -1816,6 +1817,7 @@ export class TransactionService {
       notes?: string;
       broker_name?: string;
       external_id?: string;
+      strategy_type?: OptionStrategyType | null;
     }
   ): Promise<ServiceResponse<Transaction>> {
     // Use mock service in test mode

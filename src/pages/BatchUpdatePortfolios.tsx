@@ -7,10 +7,11 @@ import { useState } from 'react';
 import styled from 'styled-components';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
-import { AlertCircle, CheckCircle, RefreshCw, Database, Search, BarChart3 } from 'lucide-react';
+import { AlertCircle, CheckCircle, RefreshCw, Database, Search, BarChart3, Target, TrendingUp } from 'lucide-react';
 import { batchUpdateTransactionPortfolios } from '../utils/batchUpdatePortfolios';
 import { debugTransactionNotes } from '../utils/debugTransactionNotes';
 import { analyzeAllTransactions } from '../utils/analyzeAllTransactions';
+import { batchUpdateCoveredCalls, detectCoveredCallOpportunities } from '../utils/batchUpdateCoveredCalls';
 import { usePageTitle } from '../hooks/usePageTitle';
 import ManualReassignmentTool from '../components/ManualReassignmentTool';
 
@@ -232,6 +233,73 @@ export default function BatchUpdatePortfolios() {
     }
   };
 
+  const runCoveredCallDetection = async () => {
+    setLogs([]);
+    
+    // Temporarily override console.log to capture output
+    console.log = captureLog;
+    
+    try {
+      captureLog('Starting covered call detection...');
+      const result = await detectCoveredCallOpportunities();
+      
+      if (result.success) {
+        captureLog(`Found ${result.potentialCoveredCalls.length} potential covered call transactions`);
+        result.potentialCoveredCalls.forEach(cc => {
+          captureLog(`  - ${cc.portfolioName}: ${cc.symbol} on ${cc.transactionDate} (Premium: $${cc.premiumReceived})`);
+        });
+      }
+      
+      if (result.errors.length > 0) {
+        result.errors.forEach(error => captureLog(`ERROR: ${error}`));
+      }
+      
+      captureLog('Detection completed');
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      captureLog(`Detection failed: ${errorMsg}`);
+    } finally {
+      // Restore original console.log
+      console.log = originalConsoleLog;
+    }
+  };
+
+  const runCoveredCallBatchUpdate = async () => {
+    setIsRunning(true);
+    setResults(null);
+    setLogs([]);
+    
+    // Temporarily override console.log to capture output
+    console.log = captureLog;
+    
+    try {
+      captureLog('Starting covered call batch update...');
+      const result = await batchUpdateCoveredCalls();
+      setResults(result);
+      captureLog(`Batch update completed. Success: ${result.success}`);
+      captureLog(`Portfolios processed: ${result.portfoliosProcessed}`);
+      captureLog(`Covered calls found: ${result.coveredCallsFound}`);
+      captureLog(`Transactions tagged: ${result.totalTagged}`);
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      captureLog(`Covered call batch update failed: ${errorMsg}`);
+      setResults({
+        success: false,
+        totalAnalyzed: 0,
+        totalTagged: 0,
+        coveredCallsFound: 0,
+        orphanSellsFound: 0,
+        portfoliosProcessed: 0,
+        errors: [errorMsg],
+        results: []
+      });
+    } finally {
+      // Restore original console.log
+      console.log = originalConsoleLog;
+      setIsRunning(false);
+    }
+  };
+
   return (
     <PageContainer>
       <PageHeader>
@@ -240,7 +308,7 @@ export default function BatchUpdatePortfolios() {
           Batch Update Transaction Portfolios
         </PageTitle>
         <PageDescription>
-          Fix existing transactions that were incorrectly assigned to TFSA portfolio by extracting the actual account type from raw email data.
+          Fix existing transactions that were incorrectly assigned to TFSA portfolio and identify covered call transactions for proper P/L calculation.
         </PageDescription>
       </PageHeader>
 
@@ -250,16 +318,16 @@ export default function BatchUpdatePortfolios() {
           What This Tool Does
         </InfoTitle>
         <InfoText>
-          This utility analyzes all transactions that have raw email data in their notes field and extracts the actual account type (TFSA, RSP, MARGIN, etc.) to assign them to the correct portfolio.
+          This utility analyzes all transactions to fix portfolio assignments and identify covered call options for proper P/L calculation.
         </InfoText>
         <InfoText>
-          <strong>Process:</strong>
+          <strong>Available Operations:</strong>
         </InfoText>
         <ul style={{ color: '#475569', marginLeft: '1.5rem', lineHeight: 1.6 }}>
-          <li>Scans all transactions with email notes</li>
-          <li>Extracts account type from patterns like "Account: *TFSA*"</li>
-          <li>Maps account types to existing portfolios</li>
-          <li>Updates transactions to use the correct portfolio</li>
+          <li><strong>Portfolio Assignment:</strong> Extracts account types from email notes and assigns to correct portfolios</li>
+          <li><strong>Covered Call Detection:</strong> Identifies option sells without sufficient underlying stock positions</li>
+          <li><strong>Covered Call Tagging:</strong> Tags covered call transactions for proper P/L calculation</li>
+          <li><strong>P/L Optimization:</strong> Ensures covered call premiums and buybacks are calculated correctly</li>
         </ul>
       </InfoCard>
 
@@ -276,6 +344,43 @@ export default function BatchUpdatePortfolios() {
         >
           <BarChart3 size={20} />
           Analyze All Transactions
+        </Button>
+        
+        <Button
+          onClick={runCoveredCallDetection}
+          disabled={isRunning}
+          style={{ 
+            fontSize: '1.1rem', 
+            padding: '0.75rem 2rem',
+            background: '#f59e0b',
+            borderColor: '#f59e0b'
+          }}
+        >
+          <Target size={20} />
+          Detect Covered Calls
+        </Button>
+        
+        <Button
+          onClick={runCoveredCallBatchUpdate}
+          disabled={isRunning}
+          style={{ 
+            fontSize: '1.1rem', 
+            padding: '0.75rem 2rem',
+            background: '#10b981',
+            borderColor: '#10b981'
+          }}
+        >
+          {isRunning ? (
+            <LoadingSpinner>
+              <RefreshCw size={20} />
+              Processing Covered Calls...
+            </LoadingSpinner>
+          ) : (
+            <>
+              <TrendingUp size={20} />
+              Tag Covered Calls
+            </>
+          )}
         </Button>
         
         <Button
@@ -305,7 +410,7 @@ export default function BatchUpdatePortfolios() {
           ) : (
             <>
               <Database size={20} />
-              Run Batch Update
+              Run Portfolio Update
             </>
           )}
         </Button>
@@ -326,7 +431,13 @@ export default function BatchUpdatePortfolios() {
             </InfoTitle>
             <InfoText>
               <strong>Total Analyzed:</strong> {results.totalAnalyzed} transactions<br />
-              <strong>Total Updated:</strong> {results.totalUpdated} transactions<br />
+              <strong>Total Updated:</strong> {results.totalUpdated || results.totalTagged} transactions<br />
+              {results.coveredCallsFound !== undefined && (
+                <>
+                  <strong>Covered Calls Found:</strong> {results.coveredCallsFound}<br />
+                  <strong>Portfolios Processed:</strong> {results.portfoliosProcessed}<br />
+                </>
+              )}
               <strong>Errors:</strong> {results.errors.length}
             </InfoText>
             
