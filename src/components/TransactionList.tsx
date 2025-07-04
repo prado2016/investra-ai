@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import styled from 'styled-components';
-import { ArrowDownCircle, ArrowUpCircle, Gift, Edit3, Trash2, Info, Clock, ArrowLeftRight } from 'lucide-react';
+import { ArrowDownCircle, ArrowUpCircle, Gift, Edit3, Trash2, Info, Clock, ArrowLeftRight, Shuffle, TrendingDown, Target } from 'lucide-react';
 import { formatCurrency, formatDate } from '../utils/formatting';
 import { parseOptionSymbol } from '../utils/assetCategorization';
 import CompanyLogo from './CompanyLogo';
@@ -727,11 +727,18 @@ const TransactionList: React.FC<TransactionListProps> = ({
                   {transaction.transactionType === 'buy' && <ArrowDownCircle size="0.9em" />}
                   {transaction.transactionType === 'sell' && <ArrowUpCircle size="0.9em" />}
                   {transaction.transactionType === 'dividend' && <Gift size="0.9em" />}
-                  {transaction.transactionType === 'split' && <Info size="0.9em" />}
+                  {transaction.transactionType === 'split' && <Shuffle size="0.9em" />}
+                  {transaction.transactionType === 'merger' && <ArrowLeftRight size="0.9em" />}
                   {transaction.transactionType === 'option_expired' && <Clock size="0.9em" />}
-                  {/* Add other icons as needed */}
-                  {!['buy', 'sell', 'dividend', 'split', 'option_expired'].includes(transaction.transactionType) && <Info size="0.9em" />}
-                  <span style={{ marginLeft: '0.25em' }}>{transaction.transactionType === 'option_expired' ? 'Option Expired' : transaction.transactionType || 'buy'}</span>
+                  {transaction.transactionType === 'short_option_expired' && <TrendingDown size="0.9em" />}
+                  {transaction.transactionType === 'short_option_assigned' && <Target size="0.9em" />}
+                  {!['buy', 'sell', 'dividend', 'split', 'merger', 'option_expired', 'short_option_expired', 'short_option_assigned'].includes(transaction.transactionType) && <Info size="0.9em" />}
+                  <span style={{ marginLeft: '0.25em' }}>
+                    {transaction.transactionType === 'option_expired' ? 'Option Expired' : 
+                     transaction.transactionType === 'short_option_expired' ? 'Short Expired' :
+                     transaction.transactionType === 'short_option_assigned' ? 'Short Assigned' :
+                     transaction.transactionType || 'buy'}
+                  </span>
                 </TransactionBadge>
               </div>
               

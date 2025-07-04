@@ -16,6 +16,7 @@ import { SupabaseService } from '../services/supabaseService';
 import { usePageTitle } from '../hooks/usePageTitle';
 import ManualReassignmentTool from '../components/ManualReassignmentTool';
 import BatchPositionManager from '../components/BatchPositionManager';
+import BatchAssetClassificationFixer from '../components/BatchAssetClassificationFixer';
 
 const PageContainer = styled.div`
   padding: 2rem;
@@ -729,6 +730,8 @@ export default function BatchUpdatePortfolios() {
       <ManualReassignmentTool />
       
       <BatchPositionManager />
+      
+      <BatchAssetClassificationFixer />
     </PageContainer>
   );
 }
