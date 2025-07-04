@@ -17,10 +17,11 @@ export function calculateTransactionFees(
   quantity: number
 ): number {
   switch (assetType) {
-    case 'option':
+    case 'option': {
       // Options: quantity is in shares, but fees are per contract (100 shares = 1 contract)
       const contracts = Math.abs(quantity) / 100;
       return contracts * OPTION_FEE_PER_CONTRACT;
+    }
     case 'stock':
     case 'etf':
     case 'reit':
