@@ -2,6 +2,8 @@
  * Utility functions for formatting numbers, currencies, and percentages
  */
 
+import { getTransactionDisplayAmount } from './feeCalculations';
+
 /**
  * Format a number as currency
  */
@@ -163,13 +165,10 @@ export function formatTransactionAmount(
   quantity?: number,
   fees?: number | null
 ): string {
-  // Import here to avoid circular dependencies
-  const { getTransactionDisplayAmount } = require('./feeCalculations');
-  
   const displayAmount = getTransactionDisplayAmount(
     amount, 
     fees, 
-    assetType, 
+    assetType || null, 
     quantity || 0
   );
   
