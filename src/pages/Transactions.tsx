@@ -551,7 +551,7 @@ Settlement Date: ${t.settlementDate || ''}
 
 
   const handleSaveTransaction = async (transactionData: Omit<Transaction, 'id' | 'assetId' | 'createdAt' | 'updatedAt'>): Promise<boolean> => {
-    if (!activePortfolio?.id) {
+    if (!transactionData.portfolioId) {
       notify.error('No portfolio selected');
       return false;
     }
@@ -569,7 +569,7 @@ Settlement Date: ${t.settlementDate || ''}
 
       // Always create new transaction (no editing through main form anymore)
       const response = await TransactionService.createTransaction(
-        activePortfolio.id,
+        transactionData.portfolioId,
         assetResponse.data.id,
         transactionData.type as TransactionType,
         transactionData.quantity,
@@ -647,7 +647,7 @@ Settlement Date: ${t.settlementDate || ''}
   };
 
   const handleSaveFundMovement = async (fundMovementData: Omit<FundMovement, 'id' | 'createdAt' | 'updatedAt'>): Promise<boolean> => {
-    if (!activePortfolio?.id) {
+    if (!fundMovementData.portfolioId) {
       notify.error('No portfolio selected');
       return false;
     }
