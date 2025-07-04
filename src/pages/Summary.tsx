@@ -132,6 +132,10 @@ const MetricValue = styled.span<{ $positive?: boolean; $negative?: boolean }>`
 
 const TransactionsSection = styled.div`
   margin-top: 1.5rem;
+  
+  @media (max-width: 768px) {
+    margin-top: 1rem;
+  }
 `;
 
 const SectionTitle = styled.h3`
@@ -142,22 +146,120 @@ const SectionTitle = styled.h3`
 `;
 
 const TransactionCard = styled.div`
-  padding: 0.75rem;
+  padding: 1rem;
   border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  margin-bottom: 0.5rem;
-  background: #f9fafb;
+  border-radius: 8px;
+  margin-bottom: 0.75rem;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+  
+  &:hover {
+    border-color: #d1d5db;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transform: translateY(-1px);
+  }
+  
+  &:last-child {
+    margin-bottom: 0;
+  }
+  
+  @media (max-width: 768px) {
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+  }
 `;
 
 const TransactionHeader = styled.div`
-  font-weight: 500;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
   color: #1e293b;
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.5rem;
+  font-size: 1rem;
+  
+  @media (max-width: 768px) {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
 `;
 
 const TransactionDetails = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.75rem;
   font-size: 0.875rem;
   color: #6b7280;
+  
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+    gap: 0.25rem;
+  }
+`;
+
+const TransactionMetric = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+`;
+
+const MetricLabel = styled.span`
+  font-size: 0.75rem;
+  color: #9ca3af;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+`;
+
+const MetricValue = styled.span<{ $positive?: boolean; $negative?: boolean }>`
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: ${props => 
+    props.$positive ? '#059669' : 
+    props.$negative ? '#dc2626' : 
+    '#374151'
+  };
+`;
+
+const PortfolioBadge = styled.span`
+  background: #f3f4f6;
+  color: #4b5563;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border: 1px solid #e5e7eb;
+  
+  @media (max-width: 768px) {
+    align-self: flex-start;
+  }
+`;
+
+const TransactionType = styled.span<{ $type: string }>`
+  background: ${props => {
+    switch (props.$type.toLowerCase()) {
+      case 'buy': return '#dcfce7';
+      case 'sell': return '#fee2e2';
+      case 'dividend': return '#fef3c7';
+      default: return '#f3f4f6';
+    }
+  }};
+  color: ${props => {
+    switch (props.$type.toLowerCase()) {
+      case 'buy': return '#166534';
+      case 'sell': return '#991b1b';
+      case 'dividend': return '#92400e';
+      default: return '#374151';
+    }
+  }};
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
 `;
 
 const Summary: React.FC = () => {
@@ -165,6 +267,12 @@ const Summary: React.FC = () => {
   const [selectedDayData, setSelectedDayData] = useState<DailyPLData | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { orphanTransactions } = useDailyPL(activePortfolio?.id || null);
+
+  // Helper function to get portfolio name by ID
+  const getPortfolioName = (portfolioId: string): string => {
+    const portfolio = portfolios.find(p => p.id === portfolioId);
+    return portfolio ? portfolio.name : 'Unknown Portfolio';
+  };
 
   // Set page title
   usePageTitle('Summary', { subtitle: 'Portfolio Performance' });
@@ -360,14 +468,70 @@ const Summary: React.FC = () => {
               
               {selectedDayData.transactions && selectedDayData.transactions.length > 0 && (
                 <TransactionsSection>
-                  <SectionTitle>Transactions</SectionTitle>
+                  <SectionTitle>Transactions ({selectedDayData.transactions.length})</SectionTitle>
                   {selectedDayData.transactions.map(transaction => (
                     <TransactionCard key={transaction.id}>
                       <TransactionHeader>
-                        {transaction.asset.symbol} - {transaction.transaction_type.toUpperCase()}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                          <span style={{ fontWeight: '700', fontSize: '1.1rem' }}>
+                            {transaction.asset.symbol}
+                          </span>
+                          <TransactionType $type={transaction.transaction_type}>
+                            {transaction.transaction_type}
+                          </TransactionType>
+                        </div>
+                        <PortfolioBadge>
+                          {getPortfolioName(transaction.portfolio_id)}
+                        </PortfolioBadge>
                       </TransactionHeader>
+                      
                       <TransactionDetails>
-                        Quantity: {transaction.quantity} | Price: ${transaction.price} | Total: ${transaction.total_amount}
+                        <TransactionMetric>
+                          <MetricLabel>Quantity</MetricLabel>
+                          <MetricValue>{transaction.quantity.toLocaleString()}</MetricValue>
+                        </TransactionMetric>
+                        
+                        <TransactionMetric>
+                          <MetricLabel>Price</MetricLabel>
+                          <MetricValue>${transaction.price.toFixed(2)}</MetricValue>
+                        </TransactionMetric>
+                        
+                        <TransactionMetric>
+                          <MetricLabel>Total Amount</MetricLabel>
+                          <MetricValue 
+                            $positive={transaction.transaction_type === 'sell' && transaction.total_amount > 0}
+                            $negative={transaction.transaction_type === 'buy' || transaction.total_amount < 0}
+                          >
+                            ${Math.abs(transaction.total_amount).toFixed(2)}
+                          </MetricValue>
+                        </TransactionMetric>
+                        
+                        {transaction.fees && transaction.fees > 0 && (
+                          <TransactionMetric>
+                            <MetricLabel>Fees</MetricLabel>
+                            <MetricValue $negative={true}>
+                              ${transaction.fees.toFixed(2)}
+                            </MetricValue>
+                          </TransactionMetric>
+                        )}
+                        
+                        {transaction.asset.name && transaction.asset.name !== transaction.asset.symbol && (
+                          <TransactionMetric style={{ gridColumn: 'span 2' }}>
+                            <MetricLabel>Asset Name</MetricLabel>
+                            <MetricValue style={{ fontSize: '0.8rem' }}>
+                              {transaction.asset.name}
+                            </MetricValue>
+                          </TransactionMetric>
+                        )}
+                        
+                        {transaction.notes && (
+                          <TransactionMetric style={{ gridColumn: 'span 2' }}>
+                            <MetricLabel>Notes</MetricLabel>
+                            <MetricValue style={{ fontSize: '0.8rem' }}>
+                              {transaction.notes}
+                            </MetricValue>
+                          </TransactionMetric>
+                        )}
                       </TransactionDetails>
                     </TransactionCard>
                   ))}
