@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
+import { BarChart3, ArrowRight } from 'lucide-react';
 import MonthlyCalendar from '../components/MonthlyCalendar';
 import PortfolioCreationForm from '../components/PortfolioCreationForm';
 import { usePortfolios } from '../contexts/PortfolioContext';
@@ -262,7 +264,42 @@ const TransactionType = styled.span<{ $type: string }>`
   letter-spacing: 0.025em;
 `;
 
+const NavigationButton = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: var(--color-primary-600, #3b82f6);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 1.5rem;
+  
+  &:hover {
+    background: var(--color-primary-700, #2563eb);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+  }
+  
+  &:active {
+    transform: translateY(0);
+  }
+`;
+
+const ModalFooter = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e5e7eb;
+  margin-top: 1.5rem;
+`;
+
 const Summary: React.FC = () => {
+  const navigate = useNavigate();
   const { portfolios, activePortfolio, loading: portfoliosLoading, error: portfoliosError, setActivePortfolio: _setActivePortfolio, refreshPortfolios } = usePortfolios();
   const [selectedDayData, setSelectedDayData] = useState<DailyPLData | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -302,6 +339,14 @@ const Summary: React.FC = () => {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setSelectedDayData(null);
+  };
+
+  const handleNavigateToPositions = () => {
+    if (selectedDayData) {
+      // Navigate to positions page with the selected date
+      navigate(`/positions/${selectedDayData.date}`);
+      handleCloseModal();
+    }
   };
 
 
@@ -528,6 +573,14 @@ const Summary: React.FC = () => {
                   ))}
                 </TransactionsSection>
               )}
+              
+              <ModalFooter>
+                <NavigationButton onClick={handleNavigateToPositions}>
+                  <BarChart3 size={16} />
+                  View Positions for {selectedDayData.date}
+                  <ArrowRight size={16} />
+                </NavigationButton>
+              </ModalFooter>
             </div>
           )}
         </ModalContent>

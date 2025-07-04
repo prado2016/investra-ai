@@ -164,6 +164,7 @@ function AppContent() {
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/positions" element={<Positions />} />
+              <Route path="/positions/:date" element={<Positions />} />
               <Route path="/transactions" element={<Transactions />} />
               <Route path="/summary" element={<Summary />} />
               <Route path="/daily-summary" element={<Navigate to="/summary" replace />} />
@@ -205,6 +206,7 @@ function AppContent() {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/positions" element={<Positions />} />
+            <Route path="/positions/:date" element={<Positions />} />
             <Route path="/transactions" element={<Transactions />} />
             <Route path="/summary" element={<Summary />} />
             <Route path="/daily-summary" element={<Navigate to="/summary" replace />} />
