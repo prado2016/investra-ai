@@ -300,6 +300,12 @@ export function isETF(symbol: string): boolean {
     // Leveraged/Inverse ETFs
     'NVDL', 'NVDU', 'NVDD', 'SOXL', 'SOXS', 'TQQQ', 'SQQQ', 'SPXL', 'SPXS',
     'UPRO', 'SPXU', 'TECL', 'TECS', 'FNGU', 'FNGD', 'LABU', 'LABD',
+    // Additional Leveraged ETFs
+    'TSLL', 'AAPU', 'WEBL', 'WEBS', 'BULZ', 'BERZ', 'CURE', 'HIBL', 'HIBS',
+    'NAIL', 'DRN', 'DRV', 'DFEN', 'DPST', 'DRIP', 'GUSH', 'JNUG', 'JDST',
+    'NUGT', 'DUST', 'YOLO', 'BOIL', 'KOLD', 'UGAZ', 'DGAZ', 'USLV', 'DSLV',
+    'UDOW', 'SDOW', 'UMDD', 'SMDD', 'URTY', 'SRTY', 'TZA', 'TNA', 'MIDU',
+    'MIDZ', 'WANT', 'NEED', 'UTSL', 'DTUL', 'RETL', 'EMTY', 'PILL', 'SICK',
     // Canadian ETFs
     'VTI.TO', 'VXUS.TO', 'VEA.TO', 'TDB902.TO', 'XIC.TO', 'VCN.TO'
   ];

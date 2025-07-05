@@ -537,7 +537,7 @@ export class AssetService {
         // Always check if existing asset has wrong type and update if needed
         if (existingAsset.asset_type !== detectedType) {
           console.log(`Updating asset ${symbol} from ${existingAsset.asset_type} to ${detectedType}`);
-          const { data: updatedAsset, error: updateError } = await supabase
+          const { data: updatedAssets, error: updateError } = await supabase
             .from('assets')
             .update({
               asset_type: detectedType,
@@ -545,11 +545,18 @@ export class AssetService {
             })
             .eq('id', existingAsset.id)
             .select()
-            .single()
 
           if (updateError) {
             console.warn(`Failed to update asset type for ${symbol}:`, updateError.message);
             // Return existing asset even if update failed
+            return { data: existingAsset, error: null, success: true }
+          }
+
+          // Get the first updated asset (should only be one)
+          const updatedAsset = updatedAssets?.[0]
+
+          if (!updatedAsset) {
+            console.warn(`No asset returned after update for ${symbol}, using existing asset`);
             return { data: existingAsset, error: null, success: true }
           }
 
@@ -865,6 +872,9 @@ export class PositionService {
       const position = positionResult.data;
       const totalAmount = quantity * price + fees;
 
+      // Get asset information to check if this is an option
+      const isOption = position.asset?.asset_type === 'option';
+
       let newQuantity = position.quantity;
       let newAverageCostBasis = position.average_cost_basis;
       let newTotalCostBasis = position.total_cost_basis;
@@ -882,7 +892,9 @@ export class PositionService {
         }
       } else if (transactionType === 'sell') {
         // For sell transactions, calculate realized P&L
-        if (newQuantity >= quantity) {
+        if (isOption || newQuantity >= quantity) {
+          // For options, allow negative positions (selling to open)
+          // For stocks, only allow selling what you own
           const costOfSoldShares = quantity * newAverageCostBasis;
           const saleProceeds = quantity * price - fees;
           newRealizedPL += saleProceeds - costOfSoldShares;
@@ -1612,13 +1624,21 @@ export class TransactionService {
         }
       }
 
+      // Calculate total amount including fees
+      // For buys: add fees to get total cost
+      // For sells: subtract fees to get net proceeds
+      const baseAmount = quantity * price;
+      const totalAmount = transactionType === 'buy' 
+        ? baseAmount + finalFees 
+        : baseAmount - finalFees;
+
       const transactionData = {
         portfolio_id: portfolioId,
         asset_id: assetId,
         transaction_type: transactionType,
         quantity,
         price,
-        total_amount: quantity * price,
+        total_amount: totalAmount,
         fees: finalFees,
         currency: options?.currency || 'USD',
         notes: options?.notes,

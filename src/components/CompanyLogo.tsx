@@ -179,7 +179,7 @@ const CompanyLogo: React.FC<CompanyLogoProps> = ({
     }
   };
 
-  // Generate a fallback based on company name/symbol
+  // Generate a fallback based on company name/symbol and asset type
   const generateFallback = (symbol: string) => {
     if (!symbol || typeof symbol !== 'string') {
       return null;
@@ -256,6 +256,45 @@ const CompanyLogo: React.FC<CompanyLogoProps> = ({
       'ARKW': '🌐',
       'ARKF': '💳',
       
+      // Leveraged ETFs
+      'TSLL': '🚀', // Direxion Daily S&P 500 Bull 3X
+      'AAPU': '🍎', // Direxion Daily AAPL Bull 1.5X
+      'NVDL': '💻', // GraniteShares 1.5x Long NVDA
+      'NVDU': '💻', // GraniteShares 2x Long NVDA
+      'NVDD': '💻', // GraniteShares 1x Short NVDA
+      'SOXL': '🔌', // Direxion Daily Semiconductor Bull 3X
+      'SOXS': '🔌', // Direxion Daily Semiconductor Bear 3X
+      'TQQQ': '💻', // ProShares UltraPro QQQ
+      'SQQQ': '💻', // ProShares UltraPro Short QQQ
+      'SPXL': '📈', // Direxion Daily S&P 500 Bull 3X
+      'SPXS': '📈', // Direxion Daily S&P 500 Bear 3X
+      'UPRO': '📈', // ProShares UltraPro S&P 500
+      'SPXU': '📈', // ProShares UltraPro Short S&P 500
+      'TECL': '💻', // Direxion Daily Technology Bull 3X
+      'TECS': '💻', // Direxion Daily Technology Bear 3X
+      'FNGU': '💻', // MicroSectors FANG+ Index 3X Leveraged
+      'FNGD': '💻', // MicroSectors FANG+ Index 3X Inverse
+      'LABU': '🏥', // Direxion Daily S&P Biotech Bull 3X
+      'LABD': '🏥', // Direxion Daily S&P Biotech Bear 3X
+      'WEBL': '🌐', // Direxion Daily Dow Jones Internet Bull 3X
+      'WEBS': '🌐', // Direxion Daily Dow Jones Internet Bear 3X
+      'BULZ': '🐂', // MicroSectors Travel 3x Leveraged
+      'BERZ': '🐻', // MicroSectors Travel 3x Inverse
+      'CURE': '🏥', // Direxion Daily Healthcare Bull 3X
+      'HIBL': '🏥', // Direxion Daily S&P 500 High Beta Bull 3X
+      'HIBS': '🏥', // Direxion Daily S&P 500 High Beta Bear 3X
+      'NAIL': '🏠', // Direxion Daily Homebuilders & Supplies Bull 3X
+      'DRN': '🏠', // Direxion Daily Real Estate Bull 3X
+      'DRV': '🏠', // Direxion Daily Real Estate Bear 3X
+      'DFEN': '🛡️', // Direxion Daily Aerospace & Defense Bull 3X
+      'DPST': '🏦', // Direxion Daily Regional Banks Bull 3X
+      'DRIP': '⛽', // Direxion Daily S&P Oil & Gas E&P Bear 2X
+      'GUSH': '⛽', // Direxion Daily S&P Oil & Gas E&P Bull 2X
+      'JNUG': '🥇', // Direxion Daily Junior Gold Miners Bull 2X
+      'JDST': '🥇', // Direxion Daily Junior Gold Miners Bear 2X
+      'NUGT': '🥇', // Direxion Daily Gold Miners Bull 2X
+      'DUST': '🥇', // Direxion Daily Gold Miners Bear 2X
+      
       // Canadian stocks (with .TO suffix handling)
       'SHOP': '🛒',
       'CNR': '🚂',
@@ -302,7 +341,57 @@ const CompanyLogo: React.FC<CompanyLogoProps> = ({
       'VEA.TO': '🌍'
     };
 
-    return knownCompanies[symbol.toUpperCase()] || null;
+    const upperSymbol = symbol.toUpperCase();
+    
+    // Check for direct match first
+    if (knownCompanies[upperSymbol]) {
+      return knownCompanies[upperSymbol];
+    }
+
+    // Smart fallback based on asset type and symbol patterns
+    const baseSymbol = extractBaseSymbol(upperSymbol);
+    
+    // ETF pattern-based fallbacks
+    if (isETF(baseSymbol)) {
+      // Leveraged ETF patterns
+      if (upperSymbol.includes('3X') || upperSymbol.includes('BULL') || upperSymbol.includes('BEAR')) {
+        return upperSymbol.includes('BEAR') || upperSymbol.includes('SHORT') ? '📉' : '📈';
+      }
+      // Sector-specific ETF fallbacks
+      if (upperSymbol.includes('TECH') || upperSymbol.includes('SOX')) return '💻';
+      if (upperSymbol.includes('BIO') || upperSymbol.includes('HEALTH')) return '🏥';
+      if (upperSymbol.includes('GOLD') || upperSymbol.includes('MINER')) return '🥇';
+      if (upperSymbol.includes('OIL') || upperSymbol.includes('ENERGY')) return '⛽';
+      if (upperSymbol.includes('BANK') || upperSymbol.includes('FINANC')) return '🏦';
+      if (upperSymbol.includes('REAL') || upperSymbol.includes('REIT')) return '🏠';
+      if (upperSymbol.includes('DEFENSE') || upperSymbol.includes('AERO')) return '🛡️';
+      if (upperSymbol.includes('INTERNET') || upperSymbol.includes('WEB')) return '🌐';
+      if (upperSymbol.includes('TRAVEL') || upperSymbol.includes('TRANSPORT')) return '✈️';
+      // Default ETF icon
+      return '📊';
+    }
+    
+    // Stock fallbacks based on symbol patterns
+    if (upperSymbol.length <= 4) {
+      // Tech company patterns
+      if (/^[A-Z]*T[A-Z]*$/.test(upperSymbol) && upperSymbol.includes('T')) return '💻';
+      // Financial patterns
+      if (/^[A-Z]*B[A-Z]*$/.test(upperSymbol) && upperSymbol.includes('B')) return '🏦';
+      // Energy patterns  
+      if (upperSymbol.includes('X') && upperSymbol.includes('O')) return '⛽';
+    }
+    
+    // Cryptocurrency fallback
+    if (upperSymbol.includes('BTC') || upperSymbol.includes('BITCOIN')) return '₿';
+    if (upperSymbol.includes('ETH') || upperSymbol.includes('ETHEREUM')) return '⟨Ξ⟩';
+    
+    // Generic fallbacks based on symbol characteristics
+    if (upperSymbol.length >= 4) {
+      // Longer symbols often indicate ETFs or special instruments
+      return '📈';
+    }
+    
+    return null;
   };
 
   const emojiIcon = generateFallback(normalizedSymbol);

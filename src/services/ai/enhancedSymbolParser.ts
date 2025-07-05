@@ -56,11 +56,11 @@ export class EnhancedAISymbolParser {
   private static isOptionsQuery(query: string): boolean {
     const optionsPatterns = [
       /\b(call|put|cal|c|p)\b/i, // Include abbreviations like "cal" for call
-      /\$\d+(\.\d+)?\s+(call|put|cal|c|p)/i,
+      /\$?\d+(\.\d+)?\s+(call|put|cal|c|p)/i, // Strike price with or without $ symbol
       /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+\d+/i,
       /\d{1,2}\/\d{1,2}\/?\d{0,4}/i, // Date patterns
-      /\$\d+.*\b(call|put|cal|c|p)\b/i,
-      /\b[A-Z]{1,5}\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+\d+\s+\$\d+/i // Pattern like "SOXL Jun 6 $17"
+      /\$?\d+.*\b(call|put|cal|c|p)\b/i, // Strike price patterns (flexible)
+      /\b[A-Z]{1,5}\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+\d+\s+\$?\d+(\.\d+)?/i // Pattern like "SOXL Jun 6 $17" or "SOXL Jun 6 17.00"
     ];
     
     return optionsPatterns.some(pattern => pattern.test(query));
@@ -208,6 +208,30 @@ export class EnhancedAISymbolParser {
         }
       },
       'soxl jun 6 $17 cal': {
+        originalQuery: query,
+        parsedSymbol: 'SOXL250606C00017000',
+        confidence: 0.9,
+        type: 'option',
+        metadata: {
+          underlying: 'SOXL',
+          expirationDate: '2025-06-06',
+          strikePrice: 17,
+          optionType: 'call'
+        }
+      },
+      'soxl jun 6 17 call': {
+        originalQuery: query,
+        parsedSymbol: 'SOXL250606C00017000',
+        confidence: 0.9,
+        type: 'option',
+        metadata: {
+          underlying: 'SOXL',
+          expirationDate: '2025-06-06',
+          strikePrice: 17,
+          optionType: 'call'
+        }
+      },
+      'soxl jun 6 17.00 call': {
         originalQuery: query,
         parsedSymbol: 'SOXL250606C00017000',
         confidence: 0.9,
