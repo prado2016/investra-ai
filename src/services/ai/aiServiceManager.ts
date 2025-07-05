@@ -18,6 +18,8 @@ import { GeminiAIService } from './geminiService';
 import { OpenRouterAIService } from './openrouterService';
 // import { ApiKeyService } from '../apiKeyService'; // TODO: Re-enable when database is set up
 import { ApiKeyStorage } from '../../utils/apiKeyStorage';
+import { dynamicProviderSelector, type ProviderSelectionContext } from './dynamicProviderSelector';
+// providerHealthMonitor is used in dynamicProviderSelector - no direct import needed here
 
 export class AIServiceManager {
   private services: Map<AIProvider, IAIService> = new Map();
@@ -111,7 +113,7 @@ export class AIServiceManager {
     request: SymbolLookupRequest, 
     preferredProvider?: AIProvider
   ): Promise<SymbolLookupResponse> {
-    const provider = preferredProvider || this.getBestProviderForSymbolLookup();
+    const provider = preferredProvider || await this.getBestProviderForSymbolLookup();
     const service = this.getService(provider);
 
     if (!service) {
@@ -126,15 +128,30 @@ export class AIServiceManager {
     try {
       return await service.lookupSymbols(request);
     } catch (error) {
-      // Try fallback provider if available
-      const fallbackProvider = this.getFallbackProvider(provider);
+      // Use dynamic provider selector for intelligent fallback
+      const context: ProviderSelectionContext = {
+        useCase: 'symbol_lookup',
+        urgency: 'high', // High urgency since primary failed
+        maxResponseTime: 5000,
+        fallbackEnabled: true,
+        costSensitive: false
+      };
+
+      const availableServices = new Set(
+        Array.from(this.services.entries())
+          .filter(([p, service]) => p !== provider && service.isConfigured) // Exclude failed provider
+          .map(([provider]) => provider)
+      );
+
+      const fallbackProvider = await dynamicProviderSelector.getFallbackProvider(provider, context, availableServices);
+      
       if (fallbackProvider) {
         const fallbackService = this.getService(fallbackProvider);
         if (fallbackService) {
           try {
             return await fallbackService.lookupSymbols(request);
           } catch (fallbackError) {
-            console.error('Fallback service also failed:', fallbackError);
+            console.error('Intelligent fallback service also failed:', fallbackError);
           }
         }
       }
@@ -155,7 +172,7 @@ export class AIServiceManager {
     request: FinancialAnalysisRequest,
     preferredProvider?: AIProvider
   ): Promise<FinancialAnalysisResponse> {
-    const provider = preferredProvider || this.getBestProviderForAnalysis();
+    const provider = preferredProvider || await this.getBestProviderForAnalysis();
     const service = this.getService(provider);
 
     if (!service) {
@@ -169,15 +186,30 @@ export class AIServiceManager {
     try {
       return await service.analyzeFinancialData(request);
     } catch (error) {
-      // Try fallback provider if available
-      const fallbackProvider = this.getFallbackProvider(provider);
+      // Use dynamic provider selector for intelligent fallback
+      const context: ProviderSelectionContext = {
+        useCase: 'financial_analysis',
+        urgency: 'high', // High urgency since primary failed
+        maxResponseTime: 20000,
+        fallbackEnabled: true,
+        costSensitive: false
+      };
+
+      const availableServices = new Set(
+        Array.from(this.services.entries())
+          .filter(([p, service]) => p !== provider && service.isConfigured) // Exclude failed provider
+          .map(([provider]) => provider)
+      );
+
+      const fallbackProvider = await dynamicProviderSelector.getFallbackProvider(provider, context, availableServices);
+      
       if (fallbackProvider) {
         const fallbackService = this.getService(fallbackProvider);
         if (fallbackService) {
           try {
             return await fallbackService.analyzeFinancialData(request);
           } catch (fallbackError) {
-            console.error('Fallback service also failed:', fallbackError);
+            console.error('Intelligent fallback service also failed:', fallbackError);
           }
         }
       }
@@ -222,7 +254,7 @@ export class AIServiceManager {
     request: EmailParsingRequest,
     preferredProvider?: AIProvider
   ): Promise<EmailParsingResponse> {
-    const provider = preferredProvider || this.getBestProviderForEmailParsing();
+    const provider = preferredProvider || await this.getBestProviderForEmailParsing();
     let service = this.getService(provider);
 
     // If service is not available, try to initialize it
@@ -247,15 +279,30 @@ export class AIServiceManager {
     try {
       return await service.parseEmailForTransaction(request);
     } catch (error) {
-      // Try fallback provider if available
-      const fallbackProvider = this.getFallbackProvider(provider);
+      // Use dynamic provider selector for intelligent fallback
+      const context: ProviderSelectionContext = {
+        useCase: 'email_parsing',
+        urgency: 'high', // High urgency since primary failed
+        maxResponseTime: 15000,
+        fallbackEnabled: true,
+        costSensitive: false
+      };
+
+      const availableServices = new Set(
+        Array.from(this.services.entries())
+          .filter(([p, service]) => p !== provider && service.isConfigured) // Exclude failed provider
+          .map(([provider]) => provider)
+      );
+
+      const fallbackProvider = await dynamicProviderSelector.getFallbackProvider(provider, context, availableServices);
+      
       if (fallbackProvider) {
         const fallbackService = this.getService(fallbackProvider);
         if (fallbackService) {
           try {
             return await fallbackService.parseEmailForTransaction(request);
           } catch (fallbackError) {
-            console.error('Fallback service also failed:', fallbackError);
+            console.error('Intelligent fallback service also failed:', fallbackError);
           }
         }
       }
@@ -376,113 +423,113 @@ export class AIServiceManager {
     }
   }
 
-  private getBestProviderForSymbolLookup(): AIProvider {
-    // Priority order for symbol lookup
-    const priorities: AIProvider[] = ['gemini', 'openrouter', 'perplexity', 'openai'];
+  private async getBestProviderForSymbolLookup(): Promise<AIProvider> {
+    const context: ProviderSelectionContext = {
+      useCase: 'symbol_lookup',
+      urgency: 'medium',
+      maxResponseTime: 5000,
+      fallbackEnabled: true,
+      costSensitive: false
+    };
+
+    const availableServices = new Set(
+      Array.from(this.services.entries())
+        .filter(([, service]) => service.isConfigured)
+        .map(([provider]) => provider)
+    );
+
+    const selectedProvider = await dynamicProviderSelector.selectBestProvider(context, availableServices);
     
-    for (const provider of priorities) {
-      if (this.services.has(provider)) {
-        const service = this.services.get(provider)!;
-        if (service.isConfigured) {
-          return provider;
-        }
-      }
+    // If dynamic selection fails, try to get any available provider
+    if (!selectedProvider) {
+      console.warn('Dynamic provider selection failed for symbol lookup, selecting first available');
+      return this.getFirstAvailableProvider(availableServices);
     }
 
-    // Return first available if none match priorities
-    for (const [provider, service] of this.services) {
-      if (service.isConfigured) {
-        return provider;
-      }
-    }
-
-    return 'gemini'; // Default fallback
+    return selectedProvider;
   }
 
-  private getBestProviderForAnalysis(): AIProvider {
-    // Priority order for financial analysis
-    const priorities: AIProvider[] = ['gemini', 'openrouter', 'openai', 'perplexity'];
+  private async getBestProviderForAnalysis(): Promise<AIProvider> {
+    const context: ProviderSelectionContext = {
+      useCase: 'financial_analysis',
+      urgency: 'medium',
+      maxResponseTime: 20000,
+      fallbackEnabled: true,
+      costSensitive: false
+    };
+
+    const availableServices = new Set(
+      Array.from(this.services.entries())
+        .filter(([, service]) => service.isConfigured)
+        .map(([provider]) => provider)
+    );
+
+    const selectedProvider = await dynamicProviderSelector.selectBestProvider(context, availableServices);
     
-    for (const provider of priorities) {
-      if (this.services.has(provider)) {
-        const service = this.services.get(provider)!;
-        if (service.isConfigured) {
-          return provider;
-        }
-      }
+    // If dynamic selection fails, try to get any available provider
+    if (!selectedProvider) {
+      console.warn('Dynamic provider selection failed for financial analysis, selecting first available');
+      return this.getFirstAvailableProvider(availableServices);
     }
 
-    // Return first available if none match priorities
-    for (const [provider, service] of this.services) {
-      if (service.isConfigured) {
-        return provider;
-      }
-    }
-
-    return 'gemini'; // Default fallback
+    return selectedProvider;
   }
 
-  private getBestProviderForEmailParsing(): AIProvider {
-    // First, try to get the user's default provider
+  private async getBestProviderForEmailParsing(): Promise<AIProvider> {
+    // Get user's preferred provider
     const defaultProvider = ApiKeyStorage.getDefaultProvider() as AIProvider;
     console.log('🔍 Default provider from storage:', defaultProvider);
     console.log('🔍 Available services:', Array.from(this.services.keys()));
     
-    if (defaultProvider && this.services.has(defaultProvider)) {
-      const service = this.services.get(defaultProvider)!;
-      console.log('🔍 Default provider service configured:', service.isConfigured);
-      if (service.isConfigured) {
-        console.log('✅ Using default provider for email parsing:', defaultProvider);
-        return defaultProvider;
-      }
-    }
+    const context: ProviderSelectionContext = {
+      useCase: 'email_parsing',
+      urgency: 'medium',
+      maxResponseTime: 15000,
+      preferredProvider: defaultProvider,
+      fallbackEnabled: true,
+      costSensitive: false
+    };
 
-    // Priority order for email parsing if no default or default is not available
-    const priorities: AIProvider[] = ['gemini', 'openrouter', 'openai', 'perplexity'];
-    console.log('⚠️ Falling back to priority order:', priorities);
+    const availableServices = new Set(
+      Array.from(this.services.entries())
+        .filter(([, service]) => service.isConfigured)
+        .map(([provider]) => provider)
+    );
+
+    const selectedProvider = await dynamicProviderSelector.selectBestProvider(context, availableServices);
     
-    for (const provider of priorities) {
-      if (this.services.has(provider)) {
-        const service = this.services.get(provider)!;
-        if (service.isConfigured) {
-          console.log('✅ Using priority provider for email parsing:', provider);
-          return provider;
-        }
-      }
+    // If dynamic selection fails, try to get any available provider
+    if (!selectedProvider) {
+      console.warn('Dynamic provider selection failed for email parsing, selecting first available');
+      return this.getFirstAvailableProvider(availableServices);
     }
 
-    // Return first available if none match priorities
-    for (const [provider, service] of this.services) {
-      if (service.isConfigured) {
-        console.log('✅ Using first available provider for email parsing:', provider);
+    console.log('✅ Using dynamically selected provider for email parsing:', selectedProvider);
+    return selectedProvider;
+  }
+
+
+  /**
+   * Helper method to get first available provider when dynamic selection fails
+   */
+  private getFirstAvailableProvider(availableServices: Set<AIProvider>): AIProvider {
+    // Try to find any configured service from available ones
+    for (const provider of availableServices) {
+      const service = this.services.get(provider);
+      if (service && service.isConfigured) {
         return provider;
       }
     }
 
-    console.log('⚠️ Using fallback provider: gemini');
-    return 'gemini'; // Default fallback
-  }
-
-  private getFallbackProvider(currentProvider: AIProvider): AIProvider | null {
-    const fallbackMap: Record<AIProvider, AIProvider[]> = {
-      'gemini': ['openrouter', 'openai', 'perplexity'],
-      'openai': ['gemini', 'openrouter', 'perplexity'],
-      'openrouter': ['gemini', 'openai', 'perplexity'],
-      'perplexity': ['gemini', 'openrouter', 'openai']
-    };
-
-    const fallbacks = fallbackMap[currentProvider] || [];
-    
-    for (const provider of fallbacks) {
-      if (this.services.has(provider)) {
-        const service = this.services.get(provider)!;
-        if (service.isConfigured) {
-          return provider;
-        }
+    // If no available services are configured, return first configured service
+    for (const [provider, service] of this.services) {
+      if (service.isConfigured) {
+        return provider;
       }
     }
 
-    return null;
+    // Ultimate fallback - return gemini as it's most likely to be configured
+    return 'gemini';
   }
 
   // Helper method for decrypting API keys (currently unused but may be needed for encrypted storage)

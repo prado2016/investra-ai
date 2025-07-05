@@ -3,8 +3,8 @@
  * Converts natural language queries to Yahoo Finance symbols
  */
 
-// import { MockAIService } from './mockAIService'; // Currently unused
-import { ApiKeyStorage } from '../../utils/apiKeyStorage';
+import { aiServiceManager } from './aiServiceManager';
+import type { SymbolLookupRequest } from '../../types/ai';
 
 interface OptionsParsedData {
   underlying: string;
@@ -125,16 +125,31 @@ export class EnhancedAISymbolParser {
    */
   private static async parseWithAI(query: string): Promise<SymbolParseResult> {
     try {
-      // Check if we have a real AI service available
-      const hasGemini = ApiKeyStorage.hasApiKey('gemini');
+      // Use dynamic AI service manager for symbol lookup
+      const symbolLookupRequest: SymbolLookupRequest = {
+        query,
+        maxResults: 1,
+        context: 'Enhanced symbol parsing for trading transactions'
+      };
+
+      const response = await aiServiceManager.lookupSymbols(symbolLookupRequest);
       
-      if (hasGemini) {
-        // TODO: Implement real AI parsing when Gemini key is available
-        console.log('Using AI service for query:', query);
+      if (response.success && response.results.length > 0) {
+        const result = response.results[0];
+        
+        return {
+          originalQuery: query,
+          parsedSymbol: result.symbol,
+          confidence: result.confidence,
+          type: result.assetType as 'stock' | 'etf' | 'option' | 'index',
+          metadata: {
+            underlying: result.symbol
+          }
+        };
+      } else {
+        console.warn('AI symbol lookup failed or returned no results:', response.error);
+        return await this.mockAIParsing(query);
       }
-      
-      // For now, use mock parsing
-      return await this.mockAIParsing(query);
       
     } catch (error) {
       console.warn('AI parsing failed, using fallback:', error);

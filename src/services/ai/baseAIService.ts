@@ -19,12 +19,14 @@ import type {
   EmailParsingRequest,
   EmailParsingResponse
 } from '../../types/ai';
+import { providerHealthMonitor, ProviderHealthMonitor } from './providerHealthMonitor';
 
 export abstract class BaseAIService implements IAIService {
   protected config: AIServiceConfig;
   protected cache = new Map<string, CacheEntry<unknown>>();
   protected requestCounts = new Map<string, number>();
   protected usageMetrics: UsageMetrics[] = [];
+  protected healthMonitor: ProviderHealthMonitor = providerHealthMonitor;
   
   // Rate limiting counters
   protected hourlyRequests = 0;
@@ -156,6 +158,51 @@ export abstract class BaseAIService implements IAIService {
     if (this.usageMetrics.length > 1000) {
       this.usageMetrics = this.usageMetrics.slice(-1000);
     }
+  }
+
+  /**
+   * Record successful API call for health monitoring
+   */
+  protected recordApiSuccess(responseTime: number, quotaHeaders?: Record<string, string>): void {
+    this.healthMonitor.recordSuccess(this.provider, responseTime, quotaHeaders);
+  }
+
+  /**
+   * Record failed API call for health monitoring
+   */
+  protected recordApiFailure(error: string, isQuotaError: boolean = false): void {
+    // Check if this is a quota-related error
+    if (!isQuotaError) {
+      isQuotaError = ProviderHealthMonitor.isQuotaError(error);
+    }
+    
+    this.healthMonitor.recordFailure(this.provider, error, isQuotaError);
+  }
+
+  /**
+   * Extract quota headers from response
+   */
+  protected extractQuotaHeaders(response: Response): Record<string, string> {
+    const quotaHeaders: Record<string, string> = {};
+    const headerNames = [
+      'x-ratelimit-limit',
+      'x-ratelimit-remaining', 
+      'x-ratelimit-reset',
+      'ratelimit-limit',
+      'ratelimit-remaining',
+      'ratelimit-reset',
+      'x-goog-quota-remaining',
+      'x-ratelimit-remaining-tokens'
+    ];
+
+    headerNames.forEach(name => {
+      const value = response.headers.get(name);
+      if (value) {
+        quotaHeaders[name] = value;
+      }
+    });
+
+    return quotaHeaders;
   }
 
   protected createError(
