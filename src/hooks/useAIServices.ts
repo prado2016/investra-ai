@@ -63,24 +63,32 @@ export const useAIServices = (): UseAIServicesReturn => {
   useEffect(() => {
     const initializeServices = async () => {
       try {
-        // Only initialize Gemini for now since it has the API key
-        const providers: AIProvider[] = ['gemini'];
+        // Try to initialize both Gemini and OpenRouter services
+        const providers: AIProvider[] = ['gemini', 'openrouter'];
         const initializedProviders: AIProvider[] = [];
         let firstProvider: AIProvider | null = null;
 
+        console.log('🚀 Initializing AI services:', providers);
+
         for (const provider of providers) {
           try {
+            console.log(`🔧 Attempting to initialize ${provider} service...`);
             const success = await aiServiceManager.initializeService(provider);
             if (success) {
+              console.log(`✅ ${provider} service initialized successfully`);
               initializedProviders.push(provider);
               if (!firstProvider) {
                 firstProvider = provider;
               }
+            } else {
+              console.log(`❌ ${provider} service initialization failed`);
             }
           } catch (error) {
-            console.warn(`Failed to initialize ${provider} service:`, error);
+            console.warn(`❌ Failed to initialize ${provider} service:`, error);
           }
         }
+
+        console.log('🎯 Initialized providers:', initializedProviders);
 
         setAvailableProviders(initializedProviders);
         if (firstProvider && !activeProvider) {

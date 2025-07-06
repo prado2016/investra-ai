@@ -8,6 +8,7 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { LoadingProvider } from './contexts/LoadingProvider';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { DebugProvider, useDebugSettings } from './contexts/DebugContext';
+import { useAIServices } from './hooks/useAIServices';
 import ErrorBoundary from './components/ErrorBoundary';
 import Navigation from './components/Navigation';
 import Breadcrumb from './components/Breadcrumb';
@@ -96,6 +97,18 @@ const AuthScreen: React.FC = () => (
 // Inner App component that uses auth context
 function AppContent() {
   const { user, loading } = useAuth();
+  
+  // Initialize AI services on app startup
+  const { isInitialized: aiInitialized, availableProviders, lastError: aiError } = useAIServices();
+  
+  // Log AI initialization status
+  React.useEffect(() => {
+    if (aiInitialized) {
+      console.log('🤖 AI services initialized:', availableProviders);
+    } else if (aiError) {
+      console.warn('❌ AI service initialization error:', aiError);
+    }
+  }, [aiInitialized, availableProviders, aiError]);
 
   // Check if we're in E2E test mode - restrictive detection for actual test environments only
   const isE2ETestMode = React.useMemo(() => {

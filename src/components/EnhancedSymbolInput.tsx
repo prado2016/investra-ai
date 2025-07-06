@@ -570,15 +570,59 @@ export const EnhancedSymbolInput: React.FC<EnhancedSymbolInputProps> = ({
     inputRef.current?.focus();
   }, [onChange]);
 
-  // Handle AI search - inline processing without modal popup
-  const handleAISearch = useCallback(() => {
-    // Instead of opening modal, trigger AI processing on current input
-    if (value.trim()) {
-      setIsAIProcessing(true);
-      setProcessedResult('');
-      // The AI processing effect will handle the actual processing
+  // Handle AI search - directly call EnhancedAISymbolParser
+  const handleAISearch = useCallback(async () => {
+    if (!value.trim()) return;
+    
+    console.log('🔧 AI button clicked - manually triggering AI processing for:', value);
+    setIsAIProcessing(true);
+    setProcessedResult('');
+    setLastProcessedQuery(''); // Clear to force processing
+    
+    try {
+      // Directly call the AI parser
+      const result = await EnhancedAISymbolParser.parseQuery(value);
+      
+      if (result.confidence > 0.6 && result.parsedSymbol !== value.trim()) {
+        // Validate with Yahoo Finance (with fallback)
+        const validation = await YahooFinanceValidator.validateSymbolWithFallback(result.parsedSymbol);
+        
+        if (validation.isValid) {
+          // Map AI parser types to our AssetType
+          const mapToAssetType = (type: string): AssetType => {
+            switch (type) {
+              case 'option': return 'option';
+              case 'etf': return 'etf';
+              case 'stock':
+              case 'index':
+              default: return 'stock';
+            }
+          };
+          
+          // Auto-fill with the validated symbol
+          onChange(result.parsedSymbol, {
+            symbol: result.parsedSymbol,
+            name: validation.name || result.parsedSymbol,
+            exchange: 'UNKNOWN',
+            assetType: mapToAssetType(result.type),
+            confidence: result.confidence
+          });
+          
+          setProcessedResult(`✨ Converted "${value}" → ${result.parsedSymbol}${validation.name ? ` (${validation.name})` : ''}`);
+          setLastProcessedQuery(value.trim());
+        } else {
+          setProcessedResult(`⚠️ Unable to validate symbol "${result.parsedSymbol}"`);
+        }
+      } else {
+        setProcessedResult(`🤔 Couldn't parse "${value}" - confidence too low (${Math.round(result.confidence * 100)}%)`);
+      }
+    } catch (error) {
+      console.error('❌ Manual AI processing failed:', error);
+      setProcessedResult(`⚠️ Processing failed - ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsAIProcessing(false);
     }
-  }, [value]);
+  }, [value, onChange]);
 
   // Handle clicks outside to close suggestions
   useEffect(() => {
