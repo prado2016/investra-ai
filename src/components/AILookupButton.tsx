@@ -270,6 +270,8 @@ export const AILookupButton: React.FC<AILookupButtonProps> = ({
   const handleClick = async () => {
     if (isLoading || disabled) return;
     
+    console.log('🔧 AILookupButton clicked!', { isLoading, disabled, onClick: !!onClick });
+    
     try {
       setHasError(false);
       onSearchStart?.();

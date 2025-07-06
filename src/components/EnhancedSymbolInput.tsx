@@ -575,13 +575,21 @@ export const EnhancedSymbolInput: React.FC<EnhancedSymbolInputProps> = ({
     if (!value.trim()) return;
     
     console.log('🔧 AI button clicked - manually triggering AI processing for:', value);
+    console.log('🔧 AI button - current component state:', { 
+      value, 
+      isAIProcessing, 
+      processedResult, 
+      lastProcessedQuery 
+    });
     setIsAIProcessing(true);
     setProcessedResult('');
     setLastProcessedQuery(''); // Clear to force processing
     
     try {
       // Directly call the AI parser
+      console.log('🔧 About to call EnhancedAISymbolParser.parseQuery with value:', value);
       const result = await EnhancedAISymbolParser.parseQuery(value);
+      console.log('🔧 AI parser returned result:', result);
       
       if (result.confidence > 0.6 && result.parsedSymbol !== value.trim()) {
         // Validate with Yahoo Finance (with fallback)
