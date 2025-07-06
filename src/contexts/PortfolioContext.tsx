@@ -112,11 +112,13 @@ export const PortfolioProvider: React.FC<PortfolioProviderProps> = ({ children }
 
   // Fetch portfolios when user is available and auth is loaded
   useEffect(() => {
-    if (user && !authLoading && !fetchInitiatedRef.current) {
-      fetchInitiatedRef.current = true;
+    if (user && !authLoading) {
+      // Allow refetching but use debouncer to prevent spam
+      console.log('🏦 PortfolioContext: Initiating portfolio fetch for user:', user.id);
       fetchPortfolios();
     } else if (!user && !authLoading) {
       // Clear portfolios when user logs out
+      console.log('🏦 PortfolioContext: Clearing portfolios (user logged out)');
       setPortfolios([]);
       setActivePortfolio(null);
       fetchInitiatedRef.current = false;

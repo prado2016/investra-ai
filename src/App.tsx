@@ -159,6 +159,12 @@ function AppContent() {
     React.useEffect(() => {
       console.log('🚀 Route changed to:', location.pathname);
       debug.info('Route navigation', { pathname: location.pathname, search: location.search }, 'App');
+      
+      // Reset circuit breaker on navigation to allow fresh data fetching
+      if (typeof window !== 'undefined' && (window as any).__resetSupabaseCircuitBreaker) {
+        (window as any).__resetSupabaseCircuitBreaker();
+        console.log('🔄 Circuit breaker reset for fresh route');
+      }
     }, [location]);
     return null;
   };

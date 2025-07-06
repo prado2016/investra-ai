@@ -34,7 +34,7 @@ class EnhancedSupabaseClient {
       maxRetries: 3,
       baseDelayMs: 1000,
       maxDelayMs: 10000,
-      timeoutMs: 8000, // Shorter timeout for faster failure detection
+      timeoutMs: 15000, // Increased timeout to handle slower queries on navigation
       ...retryConfig
     };
 

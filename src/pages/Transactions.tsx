@@ -24,8 +24,7 @@ const TransactionsPage: React.FC = () => {
   // Memoize portfolios to prevent unnecessary re-renders
   const portfolios = useMemo(() => rawPortfolios, [rawPortfolios]);
   
-  // Create stable portfolio IDs array for dependency comparisons
-  const portfolioIds = useMemo(() => portfolios.map(p => p.id).sort(), [portfolios]);
+  // Removed portfolioIds as it's no longer needed after fixing dependency array
   
   // Set dynamic page title
   usePageTitle('Transactions', { 
@@ -474,10 +473,13 @@ Settlement Date: ${t.settlementDate || ''}
   useEffect(() => {
     if (portfolios.length > 0) {
       console.log('📊 Fetching data from all portfolios, filtering handled client-side');
+      console.log('📊 Portfolios available for fetching:', portfolios.map(p => p.name));
       // Always fetch from all portfolios - "All Portfolios" is just absence of filter
       fetchUnifiedEntriesFromAllPortfolios();
+    } else {
+      console.log('📊 No portfolios available yet, skipping data fetch');
     }
-  }, [portfolioIds]); // Removed fetchUnifiedEntriesFromAllPortfolios from deps to prevent loop
+  }, [portfolios.length, fetchUnifiedEntriesFromAllPortfolios]); // Fixed dependency array
 
   const handleEditEntry = (entry: UnifiedEntry) => {
     if (entry.type === 'transaction') {
