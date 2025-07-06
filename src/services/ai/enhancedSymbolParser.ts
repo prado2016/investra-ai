@@ -56,11 +56,18 @@ export class EnhancedAISymbolParser {
       const healthStatus = await aiServiceManager.getHealthStatus();
       console.log('📊 AI service health status:', healthStatus);
       
-      // Try to initialize services if none are configured
+      // Ensure both AI services are initialized for proper fallback
       const configuredServices = Object.values(healthStatus).filter(status => (status as any).configured);
-      if (configuredServices.length === 0) {
-        console.log('⚠️ No AI services configured, attempting to initialize...');
+      console.log('🔧 Configured services count:', configuredServices.length);
+      
+      // Always ensure both Gemini and OpenRouter are initialized for redundancy
+      if (!(healthStatus.gemini as any)?.configured) {
+        console.log('🚀 Initializing Gemini service...');
         await aiServiceManager.initializeService('gemini');
+      }
+      
+      if (!(healthStatus.openrouter as any)?.configured) {
+        console.log('🚀 Initializing OpenRouter service...');
         await aiServiceManager.initializeService('openrouter');
       }
       
