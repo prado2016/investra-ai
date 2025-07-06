@@ -64,20 +64,49 @@ export class EnhancedAISymbolParser {
         await aiServiceManager.initializeService('openrouter');
       }
       
-      // Use dynamic AI service manager for symbol lookup
+      // Use dynamic AI service manager for symbol lookup with detailed Yahoo Finance instructions
       const symbolLookupRequest: SymbolLookupRequest = {
         query,
         maxResults: 1,
-        context: 'Convert natural language to Yahoo Finance symbol format. For options, use format: SYMBOLYYMMDDCPPPPPPPPP (e.g., AAPL250621C00200000 for AAPL June 21 2025 $200 Call)'
+        context: `Convert natural language to exact Yahoo Finance symbol format:
+
+FOR OPTIONS: Use format SYMBOLYYMMDDCPPPPPPPPP where:
+- SYMBOL = underlying stock symbol (e.g., NVDA, AAPL)
+- YY = 2-digit year (25 for 2025)
+- MM = 2-digit month (04 for April, 06 for June)
+- DD = 2-digit day (11 for 11th)
+- C/P = C for Call, P for Put
+- PPPPPPPP = 8-digit strike price in thousandths (109.00 becomes 00109000)
+
+EXAMPLES:
+- "NVDA 109.00 call 2025-04-11" → NVDA250411C00109000
+- "AAPL June 21 2025 $200 Call" → AAPL250621C00200000
+- "TSLA 250 put July 18 2025" → TSLA250718P00250000
+
+FOR STOCKS/ETFs: Use the ticker symbol only (e.g., NVDA, AAPL, SPY)
+
+Return ONLY the Yahoo Finance symbol, nothing else.`
       };
 
       console.log('📡 Sending request to AI service manager:', symbolLookupRequest);
       const response = await aiServiceManager.lookupSymbols(symbolLookupRequest);
       console.log('📨 AI response received:', response);
+      console.log('📊 AI response details:', {
+        success: response.success,
+        resultsCount: response.results?.length || 0,
+        error: response.error,
+        firstResult: response.results?.[0]
+      });
       
       if (response.success && response.results.length > 0) {
         const result = response.results[0];
         console.log('✅ AI parsing successful:', result);
+        console.log('🔍 Result details:', {
+          symbol: result.symbol,
+          confidence: result.confidence,
+          assetType: result.assetType,
+          name: result.name
+        });
         
         return {
           originalQuery: query,
@@ -259,6 +288,18 @@ export class EnhancedAISymbolParser {
           underlying: 'NVDA',
           expirationDate: '2025-04-11',
           strikePrice: 109,
+          optionType: 'call'
+        }
+      },
+      'nvda 112.00 call 2025-04-11': {
+        originalQuery: query,
+        parsedSymbol: 'NVDA250411C00112000',
+        confidence: 0.9,
+        type: 'option',
+        metadata: {
+          underlying: 'NVDA',
+          expirationDate: '2025-04-11',
+          strikePrice: 112,
           optionType: 'call'
         }
       }
