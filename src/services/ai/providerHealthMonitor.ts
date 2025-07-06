@@ -297,6 +297,15 @@ export class ProviderHealthMonitor {
     const metrics = this.healthMetrics.get(provider);
     if (!metrics) return false;
 
+    // For providers with no usage history, be optimistic
+    if (metrics.totalRequests === 0) {
+      return (
+        !metrics.quotaLimitReached &&
+        metrics.quotaRemaining > 0.1
+      );
+    }
+
+    // For providers with usage history, apply stricter checks
     return (
       metrics.availability > 0.5 &&
       metrics.consecutiveFailures < this.FAILURE_THRESHOLD &&

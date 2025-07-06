@@ -155,9 +155,14 @@ export class DynamicProviderSelector {
     const scores: ProviderScore[] = [];
     const contextPrefs = this.CONTEXT_PREFERENCES[context.useCase];
 
+    console.log(`🎯 Scoring ${availableServices.size} providers for ${context.useCase}`);
+
     for (const provider of availableServices) {
       const health = this.healthMonitor.getProviderHealth(provider);
-      if (!health) continue;
+      if (!health) {
+        console.log(`⚠️ No health data for provider: ${provider}`);
+        continue;
+      }
 
       const score = this.calculateProviderScore(provider, health, context);
       const reasons = this.getScoreReasons(provider, health, context);
@@ -170,6 +175,8 @@ export class DynamicProviderSelector {
         contextPrefs
       );
 
+      console.log(`📊 ${provider}: score=${(score * 100).toFixed(1)}%, meets requirements=${meetsRequirements}, reasons=[${reasons.join(', ')}]`);
+
       scores.push({
         provider,
         score: meetsRequirements ? score : 0,
@@ -179,7 +186,10 @@ export class DynamicProviderSelector {
       });
     }
 
-    return scores.filter(s => s.available);
+    const availableScores = scores.filter(s => s.available);
+    console.log(`✅ ${availableScores.length} providers meet requirements out of ${scores.length} total`);
+
+    return availableScores;
   }
 
   /**
@@ -252,13 +262,20 @@ export class DynamicProviderSelector {
       return false;
     }
 
-    // Check performance requirements
+    // For providers with no usage history, be more lenient
+    if (health.totalRequests === 0) {
+      // Only check quota for new providers
+      return health.quotaRemaining > 0.05;
+    }
+
+    // Check performance requirements for providers with history
     if (health.performance < contextPrefs.minPerformanceScore) {
       return false;
     }
 
     // Check response time requirements
     if (context.maxResponseTime && 
+        health.averageResponseTime > 0 &&
         health.averageResponseTime > context.maxResponseTime) {
       return false;
     }
