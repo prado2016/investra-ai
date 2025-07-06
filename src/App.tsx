@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthProvider';
 import { PortfolioProvider } from './contexts/PortfolioContext';
 import { RealtimeProvider } from './contexts/RealtimeContext';
@@ -153,6 +153,38 @@ function AppContent() {
     debug.info('App initialized', { user: user?.id, loading, isE2ETestMode }, 'App');
   }, [user, loading, isE2ETestMode]);
 
+  // Route tracking component for debugging
+  const RouteTracker = () => {
+    const location = useLocation();
+    React.useEffect(() => {
+      console.log('🚀 Route changed to:', location.pathname);
+      debug.info('Route navigation', { pathname: location.pathname, search: location.search }, 'App');
+    }, [location]);
+    return null;
+  };
+
+  // Define the routes component to avoid duplication
+  const AppRoutes = () => (
+    <>
+      <RouteTracker />
+      <Routes>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/positions" element={<Positions />} />
+        <Route path="/positions/:date" element={<Positions />} />
+        <Route path="/transactions" element={<Transactions />} />
+        <Route path="/summary" element={<Summary />} />
+        <Route path="/daily-summary" element={<Navigate to="/summary" replace />} />
+        <Route path="/email-management" element={<SimpleEmailManagement />} />
+        <Route path="/batch-update-portfolios" element={<BatchUpdatePortfolios />} />
+        <Route path="/notifications" element={<Notifications />} />
+        <Route path="/settings" element={<Settings />} />
+        <Route path="/debug-logs" element={<DebugLogs />} />
+        <Route path="/portfolio-summary/heat-map" element={<HeatMap />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </>
+  );
+
   // Force immediate render in E2E test mode to prevent hanging
   if (isE2ETestMode) {
     debug.info('E2E Test Mode: Force rendering main app immediately', undefined, 'App');
@@ -161,20 +193,7 @@ function AppContent() {
         <div className="App">
           <Navigation />
           <main>
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/positions" element={<Positions />} />
-              <Route path="/positions/:date" element={<Positions />} />
-              <Route path="/transactions" element={<Transactions />} />
-              <Route path="/summary" element={<Summary />} />
-              <Route path="/daily-summary" element={<Navigate to="/summary" replace />} />
-              <Route path="/email-management" element={<SimpleEmailManagement />} />
-              <Route path="/batch-update-portfolios" element={<BatchUpdatePortfolios />} />
-              <Route path="/notifications" element={<Notifications />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/debug-logs" element={<DebugLogs />} />
-              <Route path="/portfolio-summary/heat-map" element={<HeatMap />} />
-            </Routes>
+            <AppRoutes />
           </main>
         </div>
       </Router>
@@ -203,20 +222,7 @@ function AppContent() {
         <Navigation />
         <Breadcrumb />
         <main>
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/positions" element={<Positions />} />
-            <Route path="/positions/:date" element={<Positions />} />
-            <Route path="/transactions" element={<Transactions />} />
-            <Route path="/summary" element={<Summary />} />
-            <Route path="/daily-summary" element={<Navigate to="/summary" replace />} />
-            <Route path="/email-management" element={<SimpleEmailManagement />} />
-            <Route path="/batch-update-portfolios" element={<BatchUpdatePortfolios />} />
-            <Route path="/notifications" element={<Notifications />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/debug-logs" element={<DebugLogs />} />
-            <Route path="/portfolio-summary/heat-map" element={<HeatMap />} />
-          </Routes>
+          <AppRoutes />
         </main>
         <ConditionalDebugComponents />
       </div>
