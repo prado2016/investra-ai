@@ -326,11 +326,11 @@ export const EnhancedSymbolInput: React.FC<EnhancedSymbolInputProps> = ({
   const { validateSymbol } = useAISymbolLookup();
 
   // Check if input looks like a natural language query that needs AI processing
-  const needsAIProcessing = useCallback((inputValue: string): boolean => {
+  const needsAIProcessing = useCallback((inputValue: string, processedQuery: string): boolean => {
     const trimmed = inputValue.trim().toLowerCase();
     
     // Skip if too short or already processed - reduced minimum length for better UX
-    if (trimmed.length < 3 || trimmed === lastProcessedQuery) return false;
+    if (trimmed.length < 3 || trimmed === processedQuery) return false;
     
     // Check for natural language patterns - made more inclusive
     const nlPatterns = [
@@ -347,11 +347,11 @@ export const EnhancedSymbolInput: React.FC<EnhancedSymbolInputProps> = ({
     ];
     
     return nlPatterns.some(pattern => pattern.test(trimmed));
-  }, [lastProcessedQuery]);
+  }, []); // No dependencies - make it stable
 
   // AI Processing for natural language queries
   useEffect(() => {
-    if (!value.trim() || !needsAIProcessing(value) || isCleanedUpRef.current) {
+    if (!value.trim() || !needsAIProcessing(value, lastProcessedQuery) || isCleanedUpRef.current) {
       setIsAIProcessing(false);
       setProcessedResult('');
       return;
@@ -460,7 +460,7 @@ export const EnhancedSymbolInput: React.FC<EnhancedSymbolInputProps> = ({
     }, 1500); // Wait 1.5 seconds for user to finish typing
 
     return () => clearTimeout(timeoutId);
-  }, [value, onChange, needsAIProcessing, lastProcessedQuery]);
+  }, [value, onChange, lastProcessedQuery]);
 
   // Debounced validation
   useEffect(() => {
@@ -547,20 +547,20 @@ export const EnhancedSymbolInput: React.FC<EnhancedSymbolInputProps> = ({
     const newValue = e.target.value;
     
     // For natural language queries, allow more characters and be more permissive
-    const cleanValue = needsAIProcessing(newValue) 
+    const cleanValue = needsAIProcessing(newValue, lastProcessedQuery) 
       ? newValue // Keep original for AI processing - allow spaces, punctuation, etc.
       : newValue.toUpperCase().replace(/[^A-Z0-9.\-: $]/g, ''); // More permissive cleaning for symbols
     
     onChange(cleanValue);
     
     // Show suggestions when typing (but not during AI processing)
-    if (showSuggestions && cleanValue.length >= 2 && !needsAIProcessing(cleanValue)) {
+    if (showSuggestions && cleanValue.length >= 2 && !needsAIProcessing(cleanValue, lastProcessedQuery)) {
       setShowSuggestionsList(true);
       setHighlightedIndex(-1);
     } else {
       setShowSuggestionsList(false);
     }
-  }, [onChange, showSuggestions, needsAIProcessing]);
+  }, [onChange, showSuggestions, needsAIProcessing, lastProcessedQuery]);
 
   // Handle suggestion selection
   const handleSelectSuggestion = useCallback((symbol: string, metadata?: SymbolLookupResult) => {
@@ -701,10 +701,8 @@ export const EnhancedSymbolInput: React.FC<EnhancedSymbolInputProps> = ({
           </ValidationIndicator>
         )}
         
-        {showAIButton && (() => {
-          console.log('🔧 Rendering AILookupButton, showAIButton:', showAIButton);
-          return (
-            <AILookupButton
+        {showAIButton && (
+          <AILookupButton
             onClick={() => {
               console.log('🔧 AILookupButton onClick directly called!');
               console.log('🔧 Button state check:', { disabled, isAIProcessing, value });
@@ -716,8 +714,7 @@ export const EnhancedSymbolInput: React.FC<EnhancedSymbolInputProps> = ({
             disabled={disabled || isAIProcessing}
             tooltip="Search symbols with AI"
           />
-          );
-        })()}
+        )}
       </InputWrapper>
 
       {/* Suggestions dropdown - only show if not processing and no error messages */}
