@@ -701,16 +701,23 @@ export const EnhancedSymbolInput: React.FC<EnhancedSymbolInputProps> = ({
           </ValidationIndicator>
         )}
         
-        {showAIButton && (
-          <AILookupButton
-            onClick={handleAISearch}
+        {showAIButton && (() => {
+          console.log('🔧 Rendering AILookupButton, showAIButton:', showAIButton);
+          return (
+            <AILookupButton
+            onClick={() => {
+              console.log('🔧 AILookupButton onClick directly called!');
+              console.log('🔧 Button state check:', { disabled, isAIProcessing, value });
+              handleAISearch();
+            }}
             variant="secondary"
             size="small"
             showText={false}
-            disabled={disabled}
+            disabled={disabled || isAIProcessing}
             tooltip="Search symbols with AI"
           />
-        )}
+          );
+        })()}
       </InputWrapper>
 
       {/* Suggestions dropdown - only show if not processing and no error messages */}
