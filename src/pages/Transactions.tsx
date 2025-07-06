@@ -479,7 +479,7 @@ Settlement Date: ${t.settlementDate || ''}
     } else {
       console.log('📊 No portfolios available yet, skipping data fetch');
     }
-  }, [portfolios.length, fetchUnifiedEntriesFromAllPortfolios]); // Fixed dependency array
+  }, [portfolios.length]); // FIXED: Removed fetchUnifiedEntriesFromAllPortfolios to prevent infinite loop
 
   const handleEditEntry = (entry: UnifiedEntry) => {
     if (entry.type === 'transaction') {
