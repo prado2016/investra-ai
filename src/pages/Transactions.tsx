@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { usePortfolios } from '../contexts/PortfolioContext';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { TransactionService, FundMovementService, AssetService } from '../services/supabaseService';
@@ -23,6 +23,15 @@ const TransactionsPage: React.FC = () => {
   
   // Memoize portfolios to prevent unnecessary re-renders
   const portfolios = useMemo(() => rawPortfolios, [rawPortfolios]);
+  
+  // Create stable portfolio IDs string for dependency comparison
+  const portfolioIds = useMemo(() => 
+    portfolios.map(p => p.id).sort().join(','), 
+    [portfolios]
+  );
+  
+  // Add loading flag to prevent concurrent fetches
+  const fetchingRef = useRef(false);
   
   // Removed portfolioIds as it's no longer needed after fixing dependency array
   
@@ -469,17 +478,21 @@ Settlement Date: ${t.settlementDate || ''}
     }
   }, [activePortfolio?.id]);
 
-  // Fetch data when portfolios change - simplified approach
+  // Fetch data when portfolios change - with anti-loop protection
   useEffect(() => {
-    if (portfolios.length > 0) {
+    if (portfolios.length > 0 && !fetchingRef.current && portfolioIds) {
       console.log('📊 Fetching data from all portfolios, filtering handled client-side');
       console.log('📊 Portfolios available for fetching:', portfolios.map(p => p.name));
-      // Always fetch from all portfolios - "All Portfolios" is just absence of filter
-      fetchUnifiedEntriesFromAllPortfolios();
-    } else {
+      fetchingRef.current = true;
+      fetchUnifiedEntriesFromAllPortfolios().finally(() => {
+        fetchingRef.current = false;
+      });
+    } else if (portfolios.length === 0) {
       console.log('📊 No portfolios available yet, skipping data fetch');
+    } else if (fetchingRef.current) {
+      console.log('📊 Fetch already in progress, skipping duplicate request');
     }
-  }, [portfolios.length]); // FIXED: Removed fetchUnifiedEntriesFromAllPortfolios to prevent infinite loop
+  }, [portfolioIds]); // ULTRA-STABLE: Use portfolioIds string instead of portfolios.length
 
   const handleEditEntry = (entry: UnifiedEntry) => {
     if (entry.type === 'transaction') {
