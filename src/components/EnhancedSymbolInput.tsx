@@ -12,7 +12,7 @@ import { SymbolSuggestions } from './SymbolSuggestions';
 import { useAISymbolLookup } from '../hooks/useAISymbolLookup';
 import { EnhancedAISymbolParser } from '../services/ai/enhancedSymbolParser';
 import { YahooFinanceValidator } from '../services/yahooFinanceValidator';
-import { debug, PerformanceTracker } from '../utils/debug';
+import { debug } from '../utils/debug';
 import type { SymbolLookupResult } from '../types/ai';
 import type { AssetType } from '../types/portfolio';
 
@@ -254,7 +254,6 @@ export const EnhancedSymbolInput: React.FC<EnhancedSymbolInputProps> = ({
   const [isFocused, setIsFocused] = useState(false);
   const [isAIProcessing, setIsAIProcessing] = useState(false);
   const [processedResult, setProcessedResult] = useState<string>('');
-  const [lastProcessedQuery, setLastProcessedQuery] = useState('');
   
   // Add cleanup flag to prevent updates after reset
   const isCleanedUpRef = useRef(false);
@@ -269,7 +268,6 @@ export const EnhancedSymbolInput: React.FC<EnhancedSymbolInputProps> = ({
     // Clear all state variables in the correct order
     setIsAIProcessing(false);
     setProcessedResult('');
-    setLastProcessedQuery('');
     setValidationStatus('idle');
     setErrorMessage('');
     setSuggestion('');
@@ -315,152 +313,18 @@ export const EnhancedSymbolInput: React.FC<EnhancedSymbolInputProps> = ({
   // Debug value changes
   useEffect(() => {
     debug.debug('EnhancedSymbolInput value changed', { 
-      oldValue: lastProcessedQuery, 
       newValue: value 
     }, 'EnhancedSymbolInput');
-  }, [value, lastProcessedQuery]);
+  }, [value]);
   
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   
   const { validateSymbol } = useAISymbolLookup();
 
-  // Check if input looks like a natural language query that needs AI processing
-  const needsAIProcessing = useCallback((inputValue: string, processedQuery: string): boolean => {
-    const trimmed = inputValue.trim().toLowerCase();
-    
-    // Skip if too short or already processed - reduced minimum length for better UX
-    if (trimmed.length < 3 || trimmed === processedQuery) return false;
-    
-    // Check for natural language patterns - made more inclusive
-    const nlPatterns = [
-      /\b(call|put)\b/i,
-      /\$\d+.*\b(call|put)\b/i,
-      /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+\d+/i,
-      /\d{1,2}\/\d{1,2}/i,
-      /\b(option|options)\b/i,
-      /\b(strike|expir)/i,
-      /(\s+\$\d+\s+)|(\s+\d+\s+\$)/i, // Money amounts with spaces
-      /\b(apple|microsoft|tesla|google|amazon|meta|nvidia|amd)\b/i, // Common company names
-      /\b\w+\s+(inc|corp|company|ltd)\b/i, // Company suffixes
-      /\s+and\s+|\s+or\s+|\s+stock\s+|\s+shares\s+/i // Natural language indicators
-    ];
-    
-    return nlPatterns.some(pattern => pattern.test(trimmed));
-  }, []); // No dependencies - make it stable
+  // Natural language detection removed - now manual AI processing only
 
-  // AI Processing for natural language queries
-  useEffect(() => {
-    if (!value.trim() || !needsAIProcessing(value, lastProcessedQuery) || isCleanedUpRef.current) {
-      setIsAIProcessing(false);
-      setProcessedResult('');
-      return;
-    }
-
-    const timeoutId = setTimeout(async () => {
-      if (value.trim() === lastProcessedQuery || isCleanedUpRef.current) return;
-      
-      debug.info('Starting AI processing', { query: value }, 'EnhancedSymbolInput');
-      PerformanceTracker.mark('ai-processing-start');
-      
-      // Check cleanup flag before setting processing state
-      if (isCleanedUpRef.current) return;
-      
-      setIsAIProcessing(true);
-      setProcessedResult('');
-      
-      try {
-        debug.debug('Processing AI query', { query: value }, 'EnhancedSymbolInput');
-        const result = await EnhancedAISymbolParser.parseQuery(value);
-        
-        // Check cleanup flag before processing results
-        if (isCleanedUpRef.current) return;
-        
-        debug.info('AI processing result', { 
-          query: value, 
-          result: result.parsedSymbol, 
-          confidence: result.confidence 
-        }, 'EnhancedSymbolInput');
-        
-        if (result.confidence > 0.6 && result.parsedSymbol !== value.trim()) {
-          // Validate with Yahoo Finance (with fallback)
-          debug.debug('Validating AI result with Yahoo Finance (with fallback)', { symbol: result.parsedSymbol }, 'EnhancedSymbolInput');
-          const validation = await YahooFinanceValidator.validateSymbolWithFallback(result.parsedSymbol);
-          
-          // Check cleanup flag before updating state
-          if (isCleanedUpRef.current) return;
-          
-          if (validation.isValid) {
-            debug.info('AI symbol validation successful', { 
-              originalQuery: value,
-              parsedSymbol: result.parsedSymbol,
-              validatedName: validation.name 
-            }, 'EnhancedSymbolInput');
-            
-            // Map AI parser types to our AssetType
-            const mapToAssetType = (type: string): AssetType => {
-              switch (type) {
-                case 'option': return 'option';
-                case 'etf': return 'etf';
-                case 'stock':
-                case 'index':
-                default: return 'stock';
-              }
-            };
-            
-            // Auto-fill with the validated symbol
-            onChange(result.parsedSymbol, {
-              symbol: result.parsedSymbol,
-              name: validation.name || result.parsedSymbol,
-              exchange: 'UNKNOWN',
-              assetType: mapToAssetType(result.type), // Use AI-detected asset type with mapping
-              confidence: result.confidence
-            });
-            
-            setProcessedResult(`✨ Converted "${value}" → ${result.parsedSymbol}${validation.name ? ` (${validation.name})` : ''}`);
-            setLastProcessedQuery(value.trim());
-          } else {
-            debug.warn('AI symbol validation failed', { 
-              originalQuery: value,
-              parsedSymbol: result.parsedSymbol,
-              validationError: validation.error,
-              validationDetails: validation
-            }, 'EnhancedSymbolInput');
-            
-            // More helpful error message based on the actual error
-            const errorMsg = validation.error?.includes('Too Many Requests') || validation.error?.includes('429')
-              ? `⏳ Rate limited - try again in a moment`
-              : validation.error?.includes('CORS') || validation.error?.includes('network')
-              ? `🌐 Network issue - check connection`
-              : `⚠️ Unable to validate symbol "${result.parsedSymbol}"`;
-              
-            setProcessedResult(errorMsg);
-          }
-        } else {
-          debug.warn('AI parsing confidence too low', { 
-            query: value,
-            confidence: result.confidence,
-            threshold: 0.6 
-          }, 'EnhancedSymbolInput');
-          setProcessedResult(`🤔 Couldn't parse "${value}" - try: "AAPL Jun 21 $200 Call"`);
-        }
-      } catch (error) {
-        // Check cleanup flag before updating error state
-        if (isCleanedUpRef.current) return;
-        
-        debug.error('AI processing failed', error, 'EnhancedSymbolInput');
-        setProcessedResult(`⚠️ Processing failed - you can still enter symbols manually`);
-      } finally {
-        // Check cleanup flag before finalizing
-        if (!isCleanedUpRef.current) {
-          setIsAIProcessing(false);
-        }
-        PerformanceTracker.measure('ai-processing', 'ai-processing-start');
-      }
-    }, 1500); // Wait 1.5 seconds for user to finish typing
-
-    return () => clearTimeout(timeoutId);
-  }, [value, onChange, lastProcessedQuery]);
+  // Automatic AI processing removed - now manual-only via AI button
 
   // Debounced validation
   useEffect(() => {
@@ -546,21 +410,19 @@ export const EnhancedSymbolInput: React.FC<EnhancedSymbolInputProps> = ({
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
     
-    // For natural language queries, allow more characters and be more permissive
-    const cleanValue = needsAIProcessing(newValue, lastProcessedQuery) 
-      ? newValue // Keep original for AI processing - allow spaces, punctuation, etc.
-      : newValue.toUpperCase().replace(/[^A-Z0-9.\-: $]/g, ''); // More permissive cleaning for symbols
+    // Apply consistent input cleaning for all input
+    const cleanValue = newValue.toUpperCase().replace(/[^A-Z0-9.\-: $]/g, '');
     
     onChange(cleanValue);
     
-    // Show suggestions when typing (but not during AI processing)
-    if (showSuggestions && cleanValue.length >= 2 && !needsAIProcessing(cleanValue, lastProcessedQuery)) {
+    // Show suggestions when typing
+    if (showSuggestions && cleanValue.length >= 2) {
       setShowSuggestionsList(true);
       setHighlightedIndex(-1);
     } else {
       setShowSuggestionsList(false);
     }
-  }, [onChange, showSuggestions, needsAIProcessing, lastProcessedQuery]);
+  }, [onChange, showSuggestions]);
 
   // Handle suggestion selection
   const handleSelectSuggestion = useCallback((symbol: string, metadata?: SymbolLookupResult) => {
@@ -578,12 +440,10 @@ export const EnhancedSymbolInput: React.FC<EnhancedSymbolInputProps> = ({
     console.log('🔧 AI button - current component state:', { 
       value, 
       isAIProcessing, 
-      processedResult, 
-      lastProcessedQuery 
+      processedResult 
     });
     setIsAIProcessing(true);
     setProcessedResult('');
-    setLastProcessedQuery(''); // Clear to force processing
     
     try {
       // Directly call the AI parser
@@ -617,7 +477,6 @@ export const EnhancedSymbolInput: React.FC<EnhancedSymbolInputProps> = ({
           });
           
           setProcessedResult(`✨ Converted "${value}" → ${result.parsedSymbol}${validation.name ? ` (${validation.name})` : ''}`);
-          setLastProcessedQuery(value.trim());
         } else {
           setProcessedResult(`⚠️ Unable to validate symbol "${result.parsedSymbol}"`);
         }
@@ -630,7 +489,7 @@ export const EnhancedSymbolInput: React.FC<EnhancedSymbolInputProps> = ({
     } finally {
       setIsAIProcessing(false);
     }
-  }, [value, onChange]);
+  }, [value, onChange, isAIProcessing, processedResult]);
 
   // Handle clicks outside to close suggestions
   useEffect(() => {
