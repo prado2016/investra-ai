@@ -173,6 +173,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     { value: 'buy', label: 'Buy' },
     { value: 'sell', label: 'Sell' },
     { value: 'dividend', label: 'Dividend' },
+    { value: 'dividend_reinvested', label: 'Dividend Reinvested' },
     { value: 'option_expired', label: 'Option Expired' },
     { value: 'short_option_expired', label: 'Short Option Expired' },
     { value: 'short_option_assigned', label: 'Short Option Assigned' }

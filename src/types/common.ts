@@ -2,7 +2,7 @@
 
 export type AssetType = 'stock' | 'option' | 'forex' | 'crypto' | 'reit' | 'etf';
 
-export type TransactionType = 'buy' | 'sell' | 'dividend' | 'split' | 'merger' | 'option_expired' | 'short_option_expired' | 'short_option_assigned';
+export type TransactionType = 'buy' | 'sell' | 'dividend' | 'dividend_reinvested' | 'split' | 'merger' | 'option_expired' | 'short_option_expired' | 'short_option_assigned';
 
 export type Currency = 'USD' | 'EUR' | 'GBP' | 'JPY' | 'CAD' | 'AUD' | 'CHF' | 'CNY' | 'BTC' | 'ETH';
 

@@ -1,7 +1,7 @@
 // Database types for Supabase integration
 
 export type AssetType = 'stock' | 'option' | 'forex' | 'crypto' | 'reit' | 'etf'
-export type TransactionType = 'buy' | 'sell' | 'dividend' | 'split' | 'merger' | 'transfer' | 'option_expired' | 'short_option_expired' | 'short_option_assigned'
+export type TransactionType = 'buy' | 'sell' | 'dividend' | 'dividend_reinvested' | 'split' | 'merger' | 'transfer' | 'option_expired' | 'short_option_expired' | 'short_option_assigned'
 
 export type OptionStrategyType = 
   | 'covered_call'

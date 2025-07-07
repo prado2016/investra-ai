@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import styled from 'styled-components';
-import { ArrowDownCircle, ArrowUpCircle, Gift, Edit3, Trash2, Info, Clock, ArrowLeftRight, Shuffle, TrendingDown, Target } from 'lucide-react';
+import { ArrowDownCircle, ArrowUpCircle, Gift, Edit3, Trash2, Info, Clock, ArrowLeftRight, Shuffle, TrendingDown, Target, RefreshCw } from 'lucide-react';
 import { formatCurrency, formatDate, formatTransactionAmount } from '../utils/formatting';
 import { parseOptionSymbol } from '../utils/assetCategorization';
 import CompanyLogo from './CompanyLogo';
@@ -303,6 +303,18 @@ const TransactionBadge = styled.span<{ type: string }>`
             border-color: hsla(var(--color-accent-500)/0.3);
           }
         `;
+      case 'dividend_reinvested':
+        return `
+          background-color: var(--color-teal-100); /* Teal for dividend reinvested */
+          color: var(--color-teal-700);
+          border-color: var(--color-teal-300);
+          
+          [data-theme="dark"] & {
+            background-color: hsla(var(--color-teal-500)/0.2);
+            color: var(--color-teal-300); /* Lighter teal for dark */
+            border-color: hsla(var(--color-teal-500)/0.3);
+          }
+        `;
       case 'option_expired':
         return `
           background-color: var(--color-warning-100); /* Using warning for expired */
@@ -583,6 +595,7 @@ const TransactionList: React.FC<TransactionListProps> = ({
           <option value="buy">Buy</option>
           <option value="sell">Sell</option>
           <option value="dividend">Dividend</option>
+          <option value="dividend_reinvested">Dividend Reinvested</option>
           <option value="option_expired">Option Expired</option>
         </FilterSelect>
         
@@ -727,16 +740,18 @@ const TransactionList: React.FC<TransactionListProps> = ({
                   {transaction.transactionType === 'buy' && <ArrowDownCircle size="0.9em" />}
                   {transaction.transactionType === 'sell' && <ArrowUpCircle size="0.9em" />}
                   {transaction.transactionType === 'dividend' && <Gift size="0.9em" />}
+                  {transaction.transactionType === 'dividend_reinvested' && <RefreshCw size="0.9em" />}
                   {transaction.transactionType === 'split' && <Shuffle size="0.9em" />}
                   {transaction.transactionType === 'merger' && <ArrowLeftRight size="0.9em" />}
                   {transaction.transactionType === 'option_expired' && <Clock size="0.9em" />}
                   {transaction.transactionType === 'short_option_expired' && <TrendingDown size="0.9em" />}
                   {transaction.transactionType === 'short_option_assigned' && <Target size="0.9em" />}
-                  {!['buy', 'sell', 'dividend', 'split', 'merger', 'option_expired', 'short_option_expired', 'short_option_assigned'].includes(transaction.transactionType) && <Info size="0.9em" />}
+                  {!['buy', 'sell', 'dividend', 'dividend_reinvested', 'split', 'merger', 'option_expired', 'short_option_expired', 'short_option_assigned'].includes(transaction.transactionType) && <Info size="0.9em" />}
                   <span style={{ marginLeft: '0.25em' }}>
                     {transaction.transactionType === 'option_expired' ? 'Option Expired' : 
                      transaction.transactionType === 'short_option_expired' ? 'Short Expired' :
                      transaction.transactionType === 'short_option_assigned' ? 'Short Assigned' :
+                     transaction.transactionType === 'dividend_reinvested' ? 'Dividend Reinvested' :
                      transaction.transactionType || 'buy'}
                   </span>
                 </TransactionBadge>

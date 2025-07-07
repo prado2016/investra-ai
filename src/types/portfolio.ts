@@ -1,6 +1,6 @@
 // Duplicate types to avoid module resolution issues
 export type AssetType = 'stock' | 'option' | 'forex' | 'crypto' | 'reit' | 'etf';
-export type TransactionType = 'buy' | 'sell' | 'dividend' | 'split' | 'merger' | 'option_expired' | 'short_option_expired' | 'short_option_assigned';
+export type TransactionType = 'buy' | 'sell' | 'dividend' | 'dividend_reinvested' | 'split' | 'merger' | 'option_expired' | 'short_option_expired' | 'short_option_assigned';
 
 export type OptionStrategyType = 
   | 'covered_call'
