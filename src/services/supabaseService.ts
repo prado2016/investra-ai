@@ -1533,8 +1533,6 @@ export class TransactionService {
         return { data: [], error: error.message, success: false }
       }
 
-      
-
       return { data: data || [], error: null, success: true }
     } catch (error) {
       return { 
