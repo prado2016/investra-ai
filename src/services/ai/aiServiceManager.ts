@@ -277,8 +277,56 @@ export class AIServiceManager {
     }
 
     try {
-      return await service.parseEmailForTransaction(request);
+      const result = await service.parseEmailForTransaction(request);
+      
+      // Check if the result indicates failure (e.g., 503 errors, API overload)
+      if (!result.success && result.error) {
+        console.warn(`Primary AI service ${provider} failed:`, result.error);
+        
+        // Trigger fallback for failed responses, not just exceptions
+        const context: ProviderSelectionContext = {
+          useCase: 'email_parsing',
+          urgency: 'high', // High urgency since primary failed
+          maxResponseTime: 15000,
+          fallbackEnabled: true,
+          costSensitive: false
+        };
+
+        const availableServices = new Set(
+          Array.from(this.services.entries())
+            .filter(([p, service]) => p !== provider && service.isConfigured) // Exclude failed provider
+            .map(([provider]) => provider)
+        );
+
+        const fallbackProvider = await dynamicProviderSelector.getFallbackProvider(provider, context, availableServices);
+        
+        if (fallbackProvider) {
+          console.log(`Attempting fallback to ${fallbackProvider} after ${provider} failed`);
+          const fallbackService = this.getService(fallbackProvider);
+          if (fallbackService) {
+            try {
+              const fallbackResult = await fallbackService.parseEmailForTransaction(request);
+              if (fallbackResult.success) {
+                console.log(`Fallback to ${fallbackProvider} successful`);
+                return fallbackResult;
+              } else {
+                console.error('Fallback service also returned failure:', fallbackResult.error);
+              }
+            } catch (fallbackError) {
+              console.error('Fallback service threw exception:', fallbackError);
+            }
+          }
+        }
+        
+        // Return the original failure if no fallback succeeded
+        return result;
+      }
+      
+      return result;
     } catch (error) {
+      // Handle exceptions (network errors, etc.)
+      console.error(`Primary AI service ${provider} threw exception:`, error);
+      
       // Use dynamic provider selector for intelligent fallback
       const context: ProviderSelectionContext = {
         useCase: 'email_parsing',
@@ -297,12 +345,19 @@ export class AIServiceManager {
       const fallbackProvider = await dynamicProviderSelector.getFallbackProvider(provider, context, availableServices);
       
       if (fallbackProvider) {
+        console.log(`Attempting fallback to ${fallbackProvider} after ${provider} exception`);
         const fallbackService = this.getService(fallbackProvider);
         if (fallbackService) {
           try {
-            return await fallbackService.parseEmailForTransaction(request);
+            const fallbackResult = await fallbackService.parseEmailForTransaction(request);
+            if (fallbackResult.success) {
+              console.log(`Fallback to ${fallbackProvider} successful`);
+              return fallbackResult;
+            } else {
+              console.error('Fallback service also returned failure:', fallbackResult.error);
+            }
           } catch (fallbackError) {
-            console.error('Intelligent fallback service also failed:', fallbackError);
+            console.error('Fallback service also threw exception:', fallbackError);
           }
         }
       }
