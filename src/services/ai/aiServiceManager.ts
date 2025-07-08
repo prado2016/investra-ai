@@ -16,7 +16,6 @@ import type {
 } from '../../types/ai';
 import { GeminiAIService } from './geminiService';
 import { OpenRouterAIService } from './openrouterService';
-// import { ApiKeyService } from '../apiKeyService'; // TODO: Re-enable when database is set up
 import { ApiKeyStorage } from '../../utils/apiKeyStorage';
 import { dynamicProviderSelector, type ProviderSelectionContext } from './dynamicProviderSelector';
 // providerHealthMonitor is used in dynamicProviderSelector - no direct import needed here
@@ -34,6 +33,7 @@ export class AIServiceManager {
     return AIServiceManager.instance;
   }
 
+
   /**
    * Initialize AI service for a specific provider
    */
@@ -43,25 +43,18 @@ export class AIServiceManager {
       
       // Get API key from storage if not provided in config
       let apiKey = config?.apiKey;
+      let model = config?.model;
+      
       if (!apiKey) {
-        // For now, use direct environment variable access (same as EnhancedSymbolInput)
-        // This bypasses the database requirement until proper API key management is set up
-        apiKey = ApiKeyStorage.getApiKeyWithFallback(provider) || undefined;
-        console.log(`🔑 API key lookup for ${provider}:`, apiKey ? 'found' : 'not found');
-        
-        // TODO: Uncomment this when api_keys table is properly set up in database
-        // try {
-        //   // Try database first
-        //   const activeKey = await ApiKeyService.getActiveKeyForProvider(provider);
-        //   if (activeKey) {
-        //     // Use the service method to get decrypted key
-        //     apiKey = await ApiKeyService.getDecryptedApiKey(activeKey.id);
-        //   }
-        // } catch (dbError) {
-        //   console.warn(`Database API key lookup failed for ${provider}, using fallback:`, dbError);
-        //   // Fallback to ApiKeyStorage utility (localStorage + env vars)
-        //   apiKey = ApiKeyStorage.getApiKeyWithFallback(provider) || undefined;
-        // }
+        // Try to get API key using enhanced ApiKeyStorage with database-first approach
+        const keyResult = await ApiKeyStorage.getApiKeyWithFallbackAsync(provider);
+        if (keyResult.apiKey) {
+          apiKey = keyResult.apiKey;
+          model = model || keyResult.model; // Use database model if not provided in config
+          console.log(`🔑 Using API key from enhanced storage for ${provider}`);
+        } else {
+          console.log(`🔑 No API key found for ${provider}`);
+        }
       }
 
       if (!apiKey) {
@@ -72,7 +65,7 @@ export class AIServiceManager {
       const serviceConfig: AIServiceConfig = {
         provider,
         apiKey,
-        model: config?.model,
+        model: model, // Use model from database or config
         maxTokens: config?.maxTokens || 8192,
         temperature: config?.temperature || 0.1,
         timeout: config?.timeout || 30000,
@@ -538,9 +531,22 @@ export class AIServiceManager {
   }
 
   private async getBestProviderForEmailParsing(): Promise<AIProvider> {
-    // Get user's preferred provider
-    const defaultProvider = ApiKeyStorage.getDefaultProvider() as AIProvider;
-    console.log('🔍 Default provider from storage:', defaultProvider);
+    // Get user's preferred provider - try database first, then fallback to storage
+    let defaultProvider: AIProvider = 'gemini'; // Default fallback
+    
+    try {
+      // Use enhanced ApiKeyStorage with database-first approach
+      const dbDefaultProvider = await ApiKeyStorage.getDefaultProviderAsync();
+      if (dbDefaultProvider) {
+        defaultProvider = dbDefaultProvider as AIProvider;
+        console.log('🔍 Default provider from enhanced storage:', defaultProvider);
+      } else {
+        console.log('🔍 No default provider found, using fallback');
+      }
+    } catch (error) {
+      console.warn('Failed to get default provider, using fallback:', error);
+    }
+    
     console.log('🔍 Available services:', Array.from(this.services.keys()));
     
     const context: ProviderSelectionContext = {
