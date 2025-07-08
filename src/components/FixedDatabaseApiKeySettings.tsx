@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
-import { Key, Save, Eye, EyeOff, TestTube, CheckCircle, AlertCircle, Loader2, RefreshCw, Plus, Trash2, Star } from 'lucide-react';
+import { Key, Save, Eye, EyeOff, TestTube, CheckCircle, AlertCircle, Loader2, RefreshCw, Plus, Trash2, Star, Edit } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AIServiceManager } from '../services/ai/aiServiceManager';
 
@@ -302,6 +302,7 @@ interface StoredApiKey {
   createdAt: string;
   isActive: boolean;
   isDefault: boolean;
+  originalConfigKey: string;
 }
 
 const API_PROVIDERS = [
@@ -361,6 +362,15 @@ const FixedDatabaseApiKeySettings: React.FC = () => {
     isDefault: false
   });
 
+  // Edit key form state
+  const [editingKey, setEditingKey] = useState<StoredApiKey | null>(null);
+  const [editForm, setEditForm] = useState({
+    keyName: '',
+    apiKey: '',
+    model: '',
+    isDefault: false
+  });
+
   // Load API keys from database
   const loadApiKeys = async () => {
     console.log('🔄 Loading API keys from database...');
@@ -410,7 +420,8 @@ const FixedDatabaseApiKeySettings: React.FC = () => {
               model: modelData?.config_value || API_PROVIDERS.find(p => p.value === provider)?.defaultModel || '',
               createdAt: item.created_at,
               isActive: true,
-              isDefault: keyName === 'default'
+              isDefault: keyName === 'default',
+              originalConfigKey: item.config_key
             });
           }
         }
@@ -599,6 +610,109 @@ const FixedDatabaseApiKeySettings: React.FC = () => {
     }
   };
 
+  // Start editing a key
+  const startEditingKey = (key: StoredApiKey) => {
+    setEditingKey(key);
+    setEditForm({
+      keyName: key.keyName,
+      apiKey: key.apiKey,
+      model: key.model || '',
+      isDefault: key.isDefault
+    });
+    setShowAddForm(false); // Close add form if open
+  };
+
+  // Cancel editing
+  const cancelEditing = () => {
+    setEditingKey(null);
+    setEditForm({
+      keyName: '',
+      apiKey: '',
+      model: '',
+      isDefault: false
+    });
+  };
+
+  // Save edited key
+  const saveEditedKey = async () => {
+    if (!editingKey) return;
+
+    console.log('💾 Saving edited API key:', { 
+      keyId: editingKey.id,
+      keyName: editForm.keyName,
+      isDefault: editForm.isDefault,
+      model: editForm.model 
+    });
+
+    if (!editForm.keyName.trim()) {
+      setMessage({ type: 'error', text: 'Please enter a name for this API key' });
+      return;
+    }
+
+    if (!editForm.apiKey.trim()) {
+      setMessage({ type: 'error', text: 'Please enter the API key' });
+      return;
+    }
+
+    setSaving(true);
+    try {
+      // Determine the config key format
+      const configKey = editForm.isDefault 
+        ? `${editingKey.provider}_api_key`
+        : `${editingKey.provider}_${editForm.keyName}_api_key`;
+
+      // Update API key
+      const { error: keyError } = await supabase
+        .from('system_config')
+        .update({
+          config_key: configKey,
+          config_value: editForm.apiKey,
+          description: `${editForm.keyName} API key for ${editingKey.provider}`,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('config_key', editingKey.originalConfigKey);
+
+      if (keyError) {
+        console.error('❌ Error updating API key:', keyError);
+        throw keyError;
+      }
+
+      // Update model if provided
+      if (editForm.model) {
+        const modelKey = editForm.isDefault 
+          ? `${editingKey.provider}_model`
+          : `${editingKey.provider}_${editForm.keyName}_model`;
+
+        const { error: modelError } = await supabase
+          .from('system_config')
+          .upsert({
+            config_key: modelKey,
+            config_value: editForm.model,
+            config_type: 'string',
+            description: `Default model for ${editingKey.provider}`,
+            is_encrypted: false,
+            updated_at: new Date().toISOString(),
+          });
+
+        if (modelError) {
+          console.error('❌ Error updating model:', modelError);
+          throw modelError;
+        }
+      }
+
+      console.log('✅ API key updated successfully');
+      setMessage({ type: 'success', text: `Updated "${editForm.keyName}" API key` });
+      cancelEditing();
+      await loadApiKeys();
+
+    } catch (error) {
+      console.error('❌ Error updating API key:', error);
+      setMessage({ type: 'error', text: 'Failed to update API key' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // Test API key
   const testApiKey = async (key: StoredApiKey) => {
     console.log('🧪 Testing API key:', key);
@@ -716,7 +830,7 @@ const FixedDatabaseApiKeySettings: React.FC = () => {
           Store multiple API keys per provider with default/fallback logic. Keys are encrypted in the database.
         </p>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <Button onClick={() => setShowAddForm(!showAddForm)}>
+          <Button onClick={() => { setShowAddForm(!showAddForm); cancelEditing(); }}>
             <Plus size={16} />
             Add Key
           </Button>
@@ -822,6 +936,78 @@ const FixedDatabaseApiKeySettings: React.FC = () => {
         </AddKeyForm>
       )}
 
+      {/* Edit Key Form */}
+      {editingKey && (
+        <AddKeyForm>
+          <h4 style={{ margin: '0 0 1.5rem 0', color: '#374151', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Edit size={20} />
+            Edit {API_PROVIDERS.find(p => p.value === editingKey.provider)?.label} API Key
+          </h4>
+
+          <FormGrid>
+            <FormGroup>
+              <Label>Key Name</Label>
+              <Input
+                type="text"
+                value={editForm.keyName}
+                onChange={(e) => setEditForm({ ...editForm, keyName: e.target.value })}
+                placeholder="Enter a name for this key"
+              />
+            </FormGroup>
+
+            <FormGroup>
+              <Label>Model</Label>
+              <Select
+                value={editForm.model}
+                onChange={(e) => setEditForm({ ...editForm, model: e.target.value })}
+              >
+                <option value="">Select a model (optional)</option>
+                {API_PROVIDERS.find(p => p.value === editingKey.provider)?.modelOptions.map(model => (
+                  <option key={model} value={model}>{model}</option>
+                ))}
+              </Select>
+            </FormGroup>
+          </FormGrid>
+
+          <FormGroup>
+            <Label>API Key</Label>
+            <Input
+              type="text"
+              value={editForm.apiKey}
+              onChange={(e) => setEditForm({ ...editForm, apiKey: e.target.value })}
+              placeholder={API_PROVIDERS.find(p => p.value === editingKey.provider)?.keyFormat}
+            />
+          </FormGroup>
+
+          <CheckboxGroup>
+            <Checkbox
+              checked={editForm.isDefault}
+              onChange={(e) => setEditForm({ ...editForm, isDefault: e.target.checked })}
+            />
+            <Label>Set as default for {editingKey.provider}</Label>
+          </CheckboxGroup>
+
+          <ActionButtons>
+            <Button $variant="primary" onClick={saveEditedKey} disabled={saving}>
+              {saving ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save size={16} />
+                  Save Changes
+                </>
+              )}
+            </Button>
+            <Button $variant="ghost" onClick={cancelEditing}>
+              Cancel
+            </Button>
+          </ActionButtons>
+        </AddKeyForm>
+      )}
+
       {/* Provider Groups */}
       {API_PROVIDERS.map(provider => {
         const providerKeys = storedKeys.filter(key => key.provider === provider.value);
@@ -882,6 +1068,11 @@ const FixedDatabaseApiKeySettings: React.FC = () => {
                 )}
 
                 <ActionButtons>
+                  <Button onClick={() => startEditingKey(key)}>
+                    <Edit size={16} />
+                    Edit
+                  </Button>
+
                   {!key.isDefault && (
                     <Button onClick={() => setAsDefault(key)}>
                       <Star size={16} />

@@ -39,12 +39,15 @@ export class AIServiceManager {
    */
   async initializeService(provider: AIProvider, config?: Partial<AIServiceConfig>): Promise<boolean> {
     try {
+      console.log(`🔧 Initializing AI service for provider: ${provider}`);
+      
       // Get API key from storage if not provided in config
       let apiKey = config?.apiKey;
       if (!apiKey) {
         // For now, use direct environment variable access (same as EnhancedSymbolInput)
         // This bypasses the database requirement until proper API key management is set up
         apiKey = ApiKeyStorage.getApiKeyWithFallback(provider) || undefined;
+        console.log(`🔑 API key lookup for ${provider}:`, apiKey ? 'found' : 'not found');
         
         // TODO: Uncomment this when api_keys table is properly set up in database
         // try {
@@ -62,7 +65,7 @@ export class AIServiceManager {
       }
 
       if (!apiKey) {
-        console.warn(`No API key found for provider: ${provider}`);
+        console.warn(`❌ No API key found for provider: ${provider}`);
         return false;
       }
 
@@ -82,12 +85,14 @@ export class AIServiceManager {
       const service = this.createService(provider, serviceConfig);
       if (service) {
         this.services.set(provider, service);
+        console.log(`✅ Successfully initialized ${provider} service`);
         return true;
       }
 
+      console.warn(`❌ Failed to create service instance for ${provider}`);
       return false;
     } catch (error) {
-      console.error(`Failed to initialize AI service for ${provider}:`, error);
+      console.error(`❌ Failed to initialize AI service for ${provider}:`, error);
       return false;
     }
   }
@@ -297,6 +302,8 @@ export class AIServiceManager {
             .filter(([p, service]) => p !== provider && service.isConfigured) // Exclude failed provider
             .map(([provider]) => provider)
         );
+        
+        console.log(`🔄 Looking for fallback providers. Failed: ${provider}, Available: [${Array.from(availableServices).join(', ')}]`);
 
         const fallbackProvider = await dynamicProviderSelector.getFallbackProvider(provider, context, availableServices);
         

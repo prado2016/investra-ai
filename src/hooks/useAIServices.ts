@@ -81,7 +81,7 @@ export const useAIServices = (): UseAIServicesReturn => {
                 firstProvider = provider;
               }
             } else {
-              console.log(`❌ ${provider} service initialization failed`);
+              console.log(`❌ ${provider} service initialization failed - likely missing API key`);
             }
           } catch (error) {
             console.warn(`❌ Failed to initialize ${provider} service:`, error);
