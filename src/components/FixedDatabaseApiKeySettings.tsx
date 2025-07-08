@@ -393,37 +393,59 @@ const FixedDatabaseApiKeySettings: React.FC = () => {
       
       // Process API keys
       if (data) {
+        const validProviders = API_PROVIDERS.map(p => p.value);
+        
         for (const item of data) {
-          const keyParts = item.config_key.split('_');
+          if (!item.config_key.endsWith('_api_key')) continue;
           
-          // Handle different key formats
-          if (keyParts.length >= 3 && keyParts[keyParts.length - 2] === 'api' && keyParts[keyParts.length - 1] === 'key') {
-            // Format: provider_keyname_api_key or provider_api_key
-            const provider = keyParts.slice(0, -2).join('_');
-            const keyName = keyParts.length > 3 ? keyParts[keyParts.length - 3] : 'default';
-            
-            console.log(`🔑 Processing key: ${item.config_key} -> provider: ${provider}, keyName: ${keyName}`);
-            
-            // Load corresponding model
-            const modelKey = `${provider}_${keyName !== 'default' ? keyName + '_' : ''}model`;
-            const { data: modelData } = await supabase
-              .from('system_config')
-              .select('config_value')
-              .eq('config_key', modelKey)
-              .single();
-
-            keys.push({
-              id: `${provider}_${keyName}`,
-              provider: provider,
-              keyName: keyName,
-              apiKey: item.config_value,
-              model: modelData?.config_value || API_PROVIDERS.find(p => p.value === provider)?.defaultModel || '',
-              createdAt: item.created_at,
-              isActive: true,
-              isDefault: keyName === 'default',
-              originalConfigKey: item.config_key
-            });
+          // Find the provider by checking against known providers
+          let provider: string | null = null;
+          let keyName = 'default';
+          
+          // Check for exact provider match (e.g., "openrouter_api_key" -> provider: "openrouter")
+          for (const validProvider of validProviders) {
+            if (item.config_key === `${validProvider}_api_key`) {
+              provider = validProvider;
+              keyName = 'default';
+              break;
+            }
+            // Check for provider with custom key name (e.g., "openrouter_mykey_api_key" -> provider: "openrouter", keyName: "mykey")
+            if (item.config_key.startsWith(`${validProvider}_`) && item.config_key.endsWith('_api_key')) {
+              const middle = item.config_key.slice(validProvider.length + 1, -8); // Remove provider_ prefix and _api_key suffix
+              if (middle && !middle.includes('_')) { // Ensure it's a simple key name, not nested
+                provider = validProvider;
+                keyName = middle;
+                break;
+              }
+            }
           }
+          
+          if (!provider) {
+            console.warn(`🚫 Skipping unrecognized API key format: ${item.config_key}`);
+            continue;
+          }
+          
+          console.log(`🔑 Processing key: ${item.config_key} -> provider: ${provider}, keyName: ${keyName}`);
+          
+          // Load corresponding model with corrected format
+          const modelKey = keyName === 'default' ? `${provider}_model` : `${provider}_${keyName}_model`;
+          const { data: modelData } = await supabase
+            .from('system_config')
+            .select('config_value')
+            .eq('config_key', modelKey)
+            .single();
+
+          keys.push({
+            id: `${provider}_${keyName}`,
+            provider: provider,
+            keyName: keyName,
+            apiKey: item.config_value,
+            model: modelData?.config_value || API_PROVIDERS.find(p => p.value === provider)?.defaultModel || '',
+            createdAt: item.created_at,
+            isActive: true,
+            isDefault: keyName === 'default',
+            originalConfigKey: item.config_key
+          });
         }
       }
 
