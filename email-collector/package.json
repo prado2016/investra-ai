@@ -1,13 +1,13 @@
 {
-  "name": "investra-email-puller",
+  "name": "investra-email-collector",
   "version": "1.0.0",
-  "description": "Standalone IMAP email puller for Investra AI",
-  "main": "dist/imap-puller.js",
+  "description": "Standalone IMAP email collector for Investra AI",
+  "main": "dist/imap-puller-db-config.js",
   "type": "module",
   "scripts": {
     "build": "tsc",
-    "dev": "tsc && node dist/imap-puller.js",
-    "start": "node dist/imap-puller.js",
+    "dev": "tsc && node dist/imap-puller-db-config.js",
+    "start": "node dist/imap-puller-db-config.js",
     "watch": "tsc --watch",
     "clean": "rm -rf dist",
     "lint": "eslint src/ --ext .ts",

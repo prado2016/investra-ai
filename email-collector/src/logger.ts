@@ -2,7 +2,7 @@
  * Simple logging utility for the email puller
  */
 
-import { config } from './config.js';
+// Config is now loaded from database-config.ts
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
@@ -17,11 +17,14 @@ class Logger {
   private currentLevel: number;
 
   constructor() {
-    this.currentLevel = this.logLevels[config.logLevel] || this.logLevels.info;
+    // Default to info level, can be overridden by environment or database config
+    const logLevel = (process.env.LOG_LEVEL as LogLevel) || 'info';
+    this.currentLevel = this.logLevels[logLevel] || this.logLevels.info;
   }
 
   private shouldLog(level: LogLevel): boolean {
-    return config.enableLogging && this.logLevels[level] >= this.currentLevel;
+    const enableLogging = process.env.ENABLE_LOGGING !== 'false';
+    return enableLogging && this.logLevels[level] >= this.currentLevel;
   }
 
   private formatMessage(level: LogLevel, message: string, ...args: any[]): string {

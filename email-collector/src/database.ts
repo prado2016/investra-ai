@@ -4,7 +4,7 @@
  */
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { config } from './config.js';
+// Config is now loaded from database-config.ts
 import { logger } from './logger.js';
 
 export interface ImapConfiguration {

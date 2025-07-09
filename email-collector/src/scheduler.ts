@@ -4,7 +4,7 @@
 
 import cron from 'node-cron';
 import { logger } from './logger.js';
-import { config } from './config.js';
+// Config is now loaded from database-config.ts
 import { EmailSyncManager } from './sync-manager.js';
 
 export class EmailScheduler {

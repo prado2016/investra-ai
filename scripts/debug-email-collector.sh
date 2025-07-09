@@ -1,7 +1,7 @@
 #!/bin/bash
 
-echo "🔍 Email-Puller Diagnostic Script"
-echo "=================================="
+echo "🔍 Email-Collector Diagnostic Script"
+echo "===================================="
 echo "Timestamp: $(date)"
 echo ""
 
@@ -10,34 +10,34 @@ echo "----------------------"
 pm2 list
 echo ""
 
-echo "📋 2. Email-Puller Process Details"
-echo "---------------------------------"
-pm2 describe investra-email-puller 2>/dev/null || echo "❌ Service not found or not running"
+echo "📋 2. Email-Collector Process Details"
+echo "------------------------------------"
+pm2 describe investra-email-collector 2>/dev/null || echo "❌ Service not found or not running"
 echo ""
 
-echo "📝 3. Recent Email-Puller Logs (Last 50 lines)"
-echo "----------------------------------------------"
-pm2 logs investra-email-puller --lines=50 --nostream 2>/dev/null || echo "❌ No logs available"
+echo "📝 3. Recent Email-Collector Logs (Last 50 lines)"
+echo "-----------------------------------------------"
+pm2 logs investra-email-collector --lines=50 --nostream 2>/dev/null || echo "❌ No logs available"
 echo ""
 
-echo "📁 4. Email-Puller Directory Structure"
-echo "-------------------------------------"
-echo "Directory: /opt/investra/email-puller"
-ls -la /opt/investra/email-puller/
+echo "📁 4. Email-Collector Directory Structure"
+echo "----------------------------------------"
+echo "Directory: /opt/investra/email-collector"
+ls -la /opt/investra/email-collector/
 echo ""
 echo "Dist directory:"
-ls -la /opt/investra/email-puller/dist/ 2>/dev/null || echo "❌ No dist directory"
+ls -la /opt/investra/email-collector/dist/ 2>/dev/null || echo "❌ No dist directory"
 echo ""
 
 echo "🔐 5. Environment Configuration"
 echo "------------------------------"
 echo "Checking for .env files..."
-if [ -f "/opt/investra/email-puller/.env" ]; then
-    echo "✅ Found .env in email-puller directory"
+if [ -f "/opt/investra/email-collector/.env" ]; then
+    echo "✅ Found .env in email-collector directory"
     echo "Environment variables (without sensitive values):"
-    grep -E "^[A-Z_]+" /opt/investra/email-puller/.env | sed 's/=.*/=***/' 2>/dev/null || echo "❌ Cannot read .env"
+    grep -E "^[A-Z_]+" /opt/investra/email-collector/.env | sed 's/=.*/=***/' 2>/dev/null || echo "❌ Cannot read .env"
 else
-    echo "❌ No .env file in /opt/investra/email-puller/"
+    echo "❌ No .env file in /opt/investra/email-collector/"
 fi
 
 # Check other possible locations
@@ -91,8 +91,8 @@ echo ""
 
 echo "🔍 10. Recent System Logs"
 echo "------------------------"
-echo "Checking for email-puller related system logs..."
-sudo journalctl --since "1 hour ago" | grep -i email | tail -10 2>/dev/null || echo "❌ No recent email-puller system logs"
+echo "Checking for email-collector related system logs..."
+sudo journalctl --since "1 hour ago" | grep -i email | tail -10 2>/dev/null || echo "❌ No recent email-collector system logs"
 echo ""
 
 echo "✅ Diagnostic complete!"

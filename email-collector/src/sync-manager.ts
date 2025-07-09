@@ -5,7 +5,7 @@
 import { logger } from './logger.js';
 import { database, type ImapConfiguration } from './database.js';
 import { ImapClient } from './imap-client.js';
-import { config } from './config.js';
+// Config is now loaded from database-config.ts
 
 export interface SyncResult {
   success: boolean;

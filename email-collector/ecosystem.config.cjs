@@ -1,5 +1,5 @@
 /**
- * PM2 Ecosystem Configuration for Investra Email Puller
+ * PM2 Ecosystem Configuration for Investra Email Collector
  * Production-ready process management with environment variables and monitoring
  */
 
@@ -7,24 +7,24 @@
 module.exports = {
   apps: [
     {
-      // Email puller service
-      name: 'investra-email-puller',
-      script: 'dist/imap-puller.js',
-      cwd: '/Users/eduardo/investra-ai/email-puller',
+      // Email collector service
+      name: 'investra-email-collector',
+      script: 'dist/imap-puller-db-config.js',
+      cwd: process.env.EMAIL_COLLECTOR_DIR || '/opt/investra/email-collector',
       interpreter: 'node',
       
       // Environment configuration
       env: {
         NODE_ENV: 'production',
-        SUPABASE_URL: 'https://ecbuwhpipphdssqjwgfm.supabase.co',
-        SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjYnV3aHBpcHBoZHNzcWp3Z2ZtIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0ODg3NTg2MSwiZXhwIjoyMDY0NDUxODYxfQ.Tf9CrI7XB9UHcx3FZH5BGu9EmyNS3rX4UIiPuKhU-5I',
-        VITE_SUPABASE_URL: 'https://ecbuwhpipphdssqjwgfm.supabase.co',
-        VITE_SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjYnV3aHBpcHBoZHNzcWp3Z2ZtIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0ODg3NTg2MSwiZXhwIjoyMDY0NDUxODYxfQ.Tf9CrI7XB9UHcx3FZH5BGu9EmyNS3rX4UIiPuKhU-5I',
+        SUPABASE_URL: process.env.SUPABASE_URL || 'https://ecbuwhpipphdssqjwgfm.supabase.co',
+        SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY || 'SET_IN_PRODUCTION',
+        VITE_SUPABASE_URL: process.env.VITE_SUPABASE_URL || 'https://ecbuwhpipphdssqjwgfm.supabase.co',
+        VITE_SUPABASE_ANON_KEY: process.env.VITE_SUPABASE_ANON_KEY || 'SET_IN_PRODUCTION',
         IMAP_HOST: 'imap.gmail.com',
         IMAP_PORT: '993',
         IMAP_SECURE: 'true',
-        IMAP_USERNAME: 'investra.transactions@gmail.com',
-        IMAP_PASSWORD: 'opzq svvv oqzx noco',
+        IMAP_USERNAME: process.env.IMAP_USERNAME || 'SET_IN_PRODUCTION',
+        IMAP_PASSWORD: process.env.IMAP_PASSWORD || 'SET_IN_PRODUCTION',
         SYNC_INTERVAL_MINUTES: '30',
         MAX_EMAILS_PER_SYNC: '50',
         ENABLE_LOGGING: 'true',

@@ -1,6 +1,6 @@
-# Investra Email Puller
+# Investra Email Collector
 
-Standalone Node.js application for pulling emails from Gmail via IMAP and storing them in Supabase for manual review.
+Standalone Node.js application for collecting emails from Gmail via IMAP and storing them in Supabase for processing.
 
 ## Features
 
@@ -17,7 +17,7 @@ Standalone Node.js application for pulling emails from Gmail via IMAP and storin
 ### 1. Install Dependencies
 
 ```bash
-cd email-puller
+cd email-collector
 npm install
 ```
 
@@ -60,7 +60,7 @@ npm start
 
 ### Database Configuration
 
-The email puller loads IMAP configurations from the `imap_configurations` table. Each configuration includes:
+The email collector loads IMAP configurations from the `imap_configurations` table. Each configuration includes:
 
 - Gmail email address
 - Encrypted app password
@@ -85,7 +85,7 @@ Stores user IMAP settings:
 ```
 
 #### `imap_inbox`
-Stores pulled emails:
+Stores collected emails:
 ```sql
 {
   "id": "uuid",
@@ -126,12 +126,12 @@ Stores pulled emails:
 2. **Copy files to server**:
    ```bash
    # Copy dist/ and package.json to production server
-   scp -r dist/ package.json user@server:/opt/investra/email-puller/
+   scp -r dist/ package.json user@server:/opt/investra/email-collector/
    ```
 
 3. **Install production dependencies**:
    ```bash
-   cd /opt/investra/email-puller
+   cd /opt/investra/email-collector
    npm ci --only=production
    ```
 
@@ -144,7 +144,7 @@ Stores pulled emails:
 
 5. **Start with PM2**:
    ```bash
-   pm2 start dist/imap-puller.js --name investra-email-puller
+   pm2 start dist/imap-puller-db-config.js --name investra-email-collector
    pm2 save
    ```
 
@@ -157,7 +157,7 @@ COPY package*.json ./
 RUN npm ci --only=production
 COPY dist/ ./dist/
 EXPOSE 3000
-CMD ["node", "dist/imap-puller.js"]
+CMD ["node", "dist/imap-puller-db-config.js"]
 ```
 
 ## Operations
@@ -165,28 +165,28 @@ CMD ["node", "dist/imap-puller.js"]
 ### Manual Sync
 ```bash
 # Run sync once
-RUN_ONCE=true node dist/imap-puller.js
+RUN_ONCE=true node dist/imap-puller-db-config.js
 ```
 
 ### Check Status
 ```bash
 # View PM2 status
-pm2 status investra-email-puller
+pm2 status investra-email-collector
 
 # View logs
-pm2 logs investra-email-puller
+pm2 logs investra-email-collector
 ```
 
 ### Stop/Start
 ```bash
 # Stop
-pm2 stop investra-email-puller
+pm2 stop investra-email-collector
 
 # Start  
-pm2 start investra-email-puller
+pm2 start investra-email-collector
 
 # Restart
-pm2 restart investra-email-puller
+pm2 restart investra-email-collector
 ```
 
 ## Monitoring
@@ -249,12 +249,12 @@ Database access is restricted by Supabase RLS policies ensuring users only see t
 
 ### Debug Mode
 ```bash
-LOG_LEVEL=debug node dist/imap-puller.js
+LOG_LEVEL=debug node dist/imap-puller-db-config.js
 ```
 
 ## API Integration
 
-The email puller can be triggered via API calls to the main Investra application:
+The email collector can be triggered via API calls to the main Investra application:
 
 ```typescript
 // Trigger manual sync
