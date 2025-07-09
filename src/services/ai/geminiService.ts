@@ -424,54 +424,7 @@ Return only valid JSON, no additional text.`;
   }
 
   private buildFinancialAnalysisPrompt(request: FinancialAnalysisRequest): string {
-    const { symbol, data, analysisType, timeframe } = request;
-    
-    return `You are a financial analyst. Analyze the following data for ${symbol}:
-
-Analysis Type: ${analysisType}
-Timeframe: ${timeframe || 'Current'}
-Symbol: ${symbol}
-
-Data:
-${data.prices ? `Prices: ${data.prices.slice(-20).join(', ')}` : ''}
-${data.volumes ? `Volumes: ${data.volumes.slice(-20).join(', ')}` : ''}
-${data.marketData ? `Market Data: ${JSON.stringify(data.marketData, null, 2)}` : ''}
-${data.newsData ? `Recent News: ${data.newsData.slice(0, 3).join(' | ')}` : ''}
-${data.fundamentals ? `Fundamentals: ${JSON.stringify(data.fundamentals, null, 2)}` : ''}
-
-Please provide analysis in the following JSON format:
-
-{
-  "symbol": "${symbol}",
-  "analysisType": "${analysisType}",
-  "insights": [
-    "Key insight 1",
-    "Key insight 2",
-    "Key insight 3"
-  ],
-  "score": 7.5,
-  "confidence": 0.85,
-  "recommendations": [
-    "Specific recommendation 1",
-    "Specific recommendation 2"
-  ],
-  "riskLevel": "medium",
-  "timeframe": "${timeframe || 'Current'}",
-  "metadata": {
-    "keyMetrics": {},
-    "technicalIndicators": {},
-    "fundamentalRatios": {}
-  }
-}
-
-Rules:
-1. Score should be 1-10 scale
-2. Confidence should be 0-1 scale
-3. Risk level: low, medium, high
-4. Provide actionable insights
-5. Include relevant metrics in metadata
-
-Return only valid JSON, no additional text.`;
+    return request.prompt;
   }
 
   private parseSymbolLookupResponse(text: string): SymbolLookupResult[] {
@@ -629,8 +582,8 @@ Return only valid JSON, no additional text.`;
       const parsed = JSON.parse(cleanText);
       
       return {
-        symbol: parsed.symbol || request.symbol,
-        analysisType: parsed.analysisType || request.analysisType,
+        symbol: parsed.symbol || request.symbol || 'UNKNOWN_SYMBOL',
+        analysisType: parsed.analysisType || request.analysisType || 'UNKNOWN_ANALYSIS_TYPE',
         insights: Array.isArray(parsed.insights) ? parsed.insights : [],
         score: Math.max(1, Math.min(10, parsed.score || 5)),
         confidence: Math.max(0, Math.min(1, parsed.confidence || 0.5)),

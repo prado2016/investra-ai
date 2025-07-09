@@ -141,8 +141,11 @@ export class AIIntegrationService {
     purchasePrice?: number
   ): Promise<FinancialAnalysisResponse> {
     try {
+      const prompt = `Provide insights for ${symbol} position. Current price: ${currentPrice}, Quantity: ${quantity}, Purchase Price: ${purchasePrice}.`;
       const request: FinancialAnalysisRequest = {
+        prompt,
         symbol,
+        analysisType: 'trend',
         data: {
           prices: currentPrice ? [currentPrice] : undefined,
           marketData: {
@@ -151,7 +154,6 @@ export class AIIntegrationService {
             currentPrice
           }
         },
-        analysisType: 'trend',
         timeframe: 'current'
       };
 
@@ -179,7 +181,9 @@ export class AIIntegrationService {
       const totalValue = positions.reduce((sum, pos) => sum + pos.value, 0);
       const symbols = positions.map(pos => pos.symbol).join(', ');
       
+      const prompt = `Analyze the following portfolio: ${symbols}. Total value: ${totalValue}. Top holdings: ${JSON.stringify(positions.map(p => ({ symbol: p.symbol, value: p.value })))}.`;
       const request: FinancialAnalysisRequest = {
+        prompt,
         symbol: 'PORTFOLIO',
         data: {
           marketData: {
@@ -220,7 +224,9 @@ export class AIIntegrationService {
     context?: string
   ): Promise<FinancialAnalysisResponse> {
     try {
+      const prompt = `Provide AI-powered trading insights for ${symbol} with a ${action} signal. Context: ${context || 'None'}.`;
       const request: FinancialAnalysisRequest = {
+        prompt,
         symbol,
         data: {
           marketData: { action, context }

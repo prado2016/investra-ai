@@ -13,7 +13,15 @@ export interface SyncRequest {
   status: 'pending' | 'processing' | 'completed' | 'failed';
   requested_at: string;
   processed_at?: string;
-  result?: any;
+  result?: SyncRequestResult;
+}
+
+export interface SyncRequestResult {
+  success: boolean;
+  message?: string;
+  error?: string;
+  emailsProcessed?: number;
+  timestamp: string;
 }
 
 export class SyncRequestMonitor {
@@ -219,10 +227,10 @@ export class SyncRequestMonitor {
   private async updateSyncRequestStatus(
     requestId: string, 
     status: SyncRequest['status'], 
-    result?: any
+    result?: SyncRequestResult
   ): Promise<void> {
     try {
-      const updateData: any = {
+      const updateData: { status: SyncRequest['status']; processed_at: string; result?: SyncRequestResult } = {
         status,
         processed_at: new Date().toISOString()
       };

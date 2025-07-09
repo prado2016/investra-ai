@@ -119,7 +119,7 @@ export class ImapClient {
       }
 
       // Create the folder
-      await (this.client as any).mailboxCreate(folderName);
+      await (this.client as ImapFlow).mailboxCreate(folderName);
       logger.info(`Successfully created folder: ${folderName}`);
 
     } catch (error) {
@@ -152,7 +152,7 @@ export class ImapClient {
       const uidSet = uids.join(',');
       logger.info(`Moving ${uids.length} emails to ${folderName}`);
       
-      await (this.client as any).messageMove(uidSet, folderName, { uid: true });
+      await (this.client as ImapFlow).messageMove(uidSet, folderName, { uid: true });
       logger.info(`Successfully moved ${uids.length} emails to ${folderName}`);
 
     } catch (error) {
@@ -188,7 +188,7 @@ export class ImapClient {
       await this.ensureFolder(folderName);
 
       // Move all messages (use sequence numbers 1:*)
-      await (this.client as any).messageMove('1:*', folderName);
+      await (this.client as ImapFlow).messageMove('1:*', folderName);
       logger.info(`Successfully moved all ${totalMessages} emails to ${folderName}`);
       
       return totalMessages;

@@ -4,7 +4,7 @@
  */
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { BarChart3, TrendingUp, Settings, ArrowLeftRight, Calendar, Menu, X, Mail, Bell, Database } from 'lucide-react';
+import { BarChart3, TrendingUp, Settings, ArrowLeftRight, Calendar, Menu, X, Mail, Bell, Database, Wrench } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 
 interface NavigationProps {
@@ -14,6 +14,7 @@ interface NavigationProps {
 const Navigation: React.FC<NavigationProps> = ({ className }) => {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isToolsMenuOpen, setIsToolsMenuOpen] = useState(false);
 
   const navItems = [
     { path: '/', label: 'Dashboard', icon: BarChart3 },
@@ -151,6 +152,62 @@ const Navigation: React.FC<NavigationProps> = ({ className }) => {
               );
             })}
           </ul>
+
+          <div className="nav-item" onMouseEnter={() => setIsToolsMenuOpen(true)} onMouseLeave={() => setIsToolsMenuOpen(false)}>
+            <button
+              className={`nav-link ${isToolsMenuOpen ? 'nav-link-active' : ''}`}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'var(--space-2)',
+                color: isToolsMenuOpen ? 'var(--color-primary-600)' : 'var(--text-secondary)',
+                textDecoration: 'none',
+                padding: 'var(--space-2) var(--space-4)',
+                borderRadius: 'var(--radius-md)',
+                transition: 'all var(--transition-fast)',
+                fontWeight: 'var(--font-weight-medium)',
+                fontSize: 'var(--text-sm)',
+                background: isToolsMenuOpen ? 'rgba(202, 138, 4, 0.1)' : 'transparent',
+                border: isToolsMenuOpen ? '1px solid rgba(202, 138, 4, 0.2)' : '1px solid transparent',
+                minHeight: 'var(--input-height-sm)',
+                cursor: 'pointer'
+              }}
+            >
+              <Wrench size={18} />
+              <span className="nav-link-text">Tools</span>
+            </button>
+            {isToolsMenuOpen && (
+              <div
+                className="dropdown-menu"
+                style={{
+                  position: 'absolute',
+                  top: '100%',
+                  right: 0,
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border-primary)',
+                  borderRadius: 'var(--radius-md)',
+                  boxShadow: 'var(--shadow-lg)',
+                  zIndex: 'var(--z-dropdown)',
+                  minWidth: '200px',
+                  padding: 'var(--space-2) 0',
+                }}
+              >
+                <Link
+                  to="/tools/stock-finder"
+                  onClick={() => setIsToolsMenuOpen(false)}
+                  className="dropdown-item"
+                  style={{
+                    display: 'block',
+                    padding: 'var(--space-2) var(--space-4)',
+                    color: 'var(--text-primary)',
+                    textDecoration: 'none',
+                  }}
+                >
+                  Stock Finder
+                </Link>
+              </div>
+            )}
+          </div>
 
           <ThemeToggle />
         </div>

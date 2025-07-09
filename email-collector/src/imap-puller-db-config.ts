@@ -129,7 +129,7 @@ class DatabaseDrivenEmailPuller {
   /**
    * Start continuous operation with scheduler and monitoring
    */
-  private async startContinuousOperation(config: any): Promise<void> {
+  private async startContinuousOperation(config: SystemConfig): Promise<void> {
     try {
       logger.info('📅 Starting continuous email operation');
       logger.info(`  - Sync interval: ${config.syncIntervalMinutes} minutes`);

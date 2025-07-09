@@ -106,8 +106,9 @@ export interface SymbolLookupResponse {
 
 // Financial analysis types
 export interface FinancialAnalysisRequest {
+  prompt: string;
   symbol: string;
-  data: FinancialDataInput;
+  data?: FinancialDataInput;
   analysisType: 'trend' | 'risk' | 'valuation' | 'comparison' | 'sentiment';
   timeframe?: string;
 }
@@ -134,6 +135,7 @@ export interface FinancialAnalysisResult {
 
 export interface FinancialAnalysisResponse {
   success: boolean;
+  insight?: string;
   result?: FinancialAnalysisResult;
   error?: string;
   timestamp: Date;

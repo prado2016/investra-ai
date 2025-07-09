@@ -35,7 +35,7 @@ export interface SystemConfig {
 export class DatabaseConfig {
   private client: SupabaseClient;
   private config: SystemConfig | null = null;
-  private configCache: Map<string, any> = new Map();
+  private configCache: Map<string, string | number | boolean | object> = new Map();
 
   constructor(supabaseUrl: string, supabaseKey: string) {
     this.client = createClient(supabaseUrl, supabaseKey);
@@ -55,7 +55,7 @@ export class DatabaseConfig {
         throw error;
       }
 
-      const configMap = new Map<string, any>();
+      const configMap = new Map<string, string | number | boolean | object>();
       
       for (const row of data || []) {
         let value = row.config_value;
@@ -161,7 +161,7 @@ export class DatabaseConfig {
   /**
    * Set a configuration value
    */
-  async setConfig(key: string, value: any, encrypted: boolean = false): Promise<void> {
+  async setConfig(key: string, value: string | number | boolean | object, encrypted: boolean = false): Promise<void> {
     try {
       let configType = 'string';
       if (typeof value === 'number') configType = 'number';
@@ -198,7 +198,7 @@ export class DatabaseConfig {
   /**
    * Get a specific configuration value
    */
-  async getConfigValue(key: string): Promise<any> {
+  async getConfigValue(key: string): Promise<string | number | boolean | object | null> {
     if (this.configCache.has(key)) {
       return this.configCache.get(key);
     }

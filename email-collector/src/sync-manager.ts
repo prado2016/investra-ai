@@ -25,6 +25,14 @@ export interface SyncSummary {
   duration: number;
 }
 
+export interface SyncStats {
+  totalConfigurations: number;
+  activeConfigurations: number;
+  recentSyncs: number;
+  totalEmailsSynced: number;
+  configurationsWithErrors: number;
+}
+
 export class EmailSyncManager {
   
   /**
@@ -228,10 +236,7 @@ export class EmailSyncManager {
     }
   }
 
-  /**
-   * Get sync statistics
-   */
-  async getSyncStats(): Promise<any> {
+  async getSyncStats(): Promise<SyncStats> {
     try {
       const configurations = await database.getActiveImapConfigurations();
       

@@ -27,6 +27,7 @@ import BatchUpdatePortfolios from './pages/BatchUpdatePortfolios';
 import Notifications from './pages/Notifications';
 import DebugLogs from './pages/DebugLogs';
 import HeatMap from './pages/HeatMap';
+import StockFinder from './pages/StockFinder';
 import { debug, ErrorTracker, isDev } from './utils/debug';
 import './styles/App.css';
 
@@ -199,6 +200,7 @@ function AppContent() {
         <Route path="/settings" element={<Settings />} />
         <Route path="/debug-logs" element={<DebugLogs />} />
         <Route path="/portfolio-summary/heat-map" element={<HeatMap />} />
+        <Route path="/tools/stock-finder" element={<StockFinder />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>
