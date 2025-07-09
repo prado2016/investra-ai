@@ -1,4 +1,4 @@
-import yahooFinance from 'yahoo-finance2';
+
 
 export interface Stock {
     symbol: string;
@@ -55,14 +55,14 @@ export interface Stock {
           const from = new Date();
           from.setFullYear(from.getFullYear() - 1); // 1 year of data
     
-          const result = await yahooFinance.historical(symbol, {
-            period1: from.toISOString().split('T')[0],
-            period2: to.toISOString().split('T')[0],
-            interval: '1d',
-          });
-    
-          return result.map((item: any) => ({
-            date: item.date,
+          const response = await fetch(`/api/stock-data/${symbol}?period1=${from.toISOString().split('T')[0]}&period2=${to.toISOString().split('T')[0]}&interval=1d`);
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          const data = await response.json();
+          
+          return data.data.map((item: any) => ({
+            date: new Date(item.date),
             open: item.open,
             high: item.high,
             low: item.low,

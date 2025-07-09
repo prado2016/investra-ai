@@ -55,7 +55,11 @@ const StockFinder: React.FC = () => {
     }
 
     const prompt = `Provide a brief investment insight for ${result.stock.name} (${result.stock.symbol}) which has a '${result.signal}' signal.`;
-    const insightResult = await analyzeFinancialData({ prompt });
+    const insightResult = await analyzeFinancialData({
+      prompt,
+      symbol: result.stock.symbol,
+      analysisType: 'trend',
+    });
     const insight = insightResult.insight;
 
     setResults((prevResults) =>

@@ -2004,6 +2004,38 @@ app.post('/api/manual-review/action', async (req, res) => {
   }
 });
 
+// New endpoint for historical stock data
+app.get('/api/stock-data/:symbol', async (req, res) => {
+  try {
+    const { symbol } = req.params;
+    const { period1, period2, interval } = req.query;
+
+    // Validate inputs
+    if (!symbol) {
+      return res.status(400).json({ success: false, error: 'Symbol is required' });
+    }
+
+    // Import yahoo-finance2 dynamically to avoid global import issues
+    const yahooFinance = await import('yahoo-finance2');
+
+    const result = await yahooFinance.historical(symbol.toUpperCase(), {
+      period1: period1 ? String(period1) : undefined,
+      period2: period2 ? String(period2) : undefined,
+      interval: interval ? String(interval) : '1d',
+    });
+
+    res.json({ success: true, data: result });
+  } catch (error) {
+    logger.error(`Error fetching stock data for ${req.params.symbol}:`, error);
+    res.status(500).json({ success: false, error: 'Failed to fetch stock data' });
+  }
+});
+      error: 'Failed to process review action',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 // Failed Imports endpoints
 app.get('/api/failed-imports', async (req, res) => {
   try {
