@@ -9,7 +9,7 @@ module.exports = {
     {
       // Main production application
       name: 'investra-email-api',
-      script: 'dist/standalone-enhanced-server-production.js',
+      script: 'dist/email-server.js',
       cwd: process.env.SERVER_DIR || '/opt/investra/email-api',
       instances: process.env.PM2_INSTANCES || 2, // Run 2 instances for load balancing
       exec_mode: 'cluster',
