@@ -125,9 +125,9 @@ function AppContent() {
        window.location.hostname === 'localhost' && 
        window.location.port === '5173') ||
       // Emergency flag from index.html (only set for actual test environments now)
-      (typeof window !== 'undefined' && (window as unknown as Record<string, unknown>).__EMERGENCY_E2E_MODE__) ||
+      (typeof window !== 'undefined' && (window as Window & typeof globalThis & { __EMERGENCY_E2E_MODE__?: boolean }).__EMERGENCY_E2E_MODE__) ||
       // Explicit window flags (only set by test setup scripts)
-      (typeof window !== 'undefined' && (window as unknown as Record<string, unknown>).__E2E_TEST_MODE__);
+      (typeof window !== 'undefined' && (window as Window & typeof globalThis & { __E2E_TEST_MODE__?: boolean }).__E2E_TEST_MODE__);
     
     // Debug logging to see what's triggering (but don't expose detailed indicators in production)
     if (isActualTestEnvironment) {
@@ -175,9 +175,12 @@ function AppContent() {
       debug.info('Route navigation', { pathname: location.pathname, search: location.search }, 'App');
       
       // Reset circuit breaker on navigation to allow fresh data fetching
-      if (typeof window !== 'undefined' && (window as any).__resetSupabaseCircuitBreaker) {
-        (window as any).__resetSupabaseCircuitBreaker();
-        console.log('🔄 Circuit breaker reset for fresh route');
+      if (typeof window !== 'undefined' && (window as Window & typeof globalThis & { __resetSupabaseCircuitBreaker?: () => void }).__resetSupabaseCircuitBreaker) {
+        const resetFunc = (window as Window & typeof globalThis & { __resetSupabaseCircuitBreaker?: () => void }).__resetSupabaseCircuitBreaker;
+        if (resetFunc) {
+          resetFunc();
+          console.log('🔄 Circuit breaker reset for fresh route');
+        }
       }
     }, [location]);
     return null;

@@ -15,9 +15,10 @@ import { usePortfolios } from '../contexts/PortfolioContext';
 import { useNotify } from '../hooks/useNotify';
 import { SupabaseService } from '../services/supabaseService';
 import { positionAnalyticsService, type PositionAnalytics } from '../services/positionAnalyticsService';
-import { formatCurrency, formatDate, parseDatabaseDate } from '../utils/formatting';
+import { formatCurrency, formatDate } from '../utils/formatting';
 import TransactionEditModal from './TransactionEditModal';
 import type { UnifiedTransactionEntry } from '../types/unifiedEntry';
+import type { TransactionSummary } from '../services/positionAnalyticsService';
 
 const ToolContainer = styled(Card)`
   margin-top: 2rem;
@@ -430,23 +431,23 @@ const BatchPositionManager: React.FC = () => {
   }, [positions]);
   
   // Handle transaction editing
-  const handleEditTransaction = async (transaction: any, position: EnhancedPosition) => {
+  const handleEditTransaction = async (transaction: TransactionSummary, position: EnhancedPosition) => {
     try {
       // Convert to UnifiedTransactionEntry format
       const unifiedTransaction: UnifiedTransactionEntry = {
         id: transaction.id,
         type: 'transaction',
         portfolioId: position.portfolioId,
-        date: parseDatabaseDate(transaction.date),
+        date: new Date(transaction.date),
         amount: transaction.amount || 0,
-        currency: 'USD',
+        currency: position.currency,
         notes: transaction.notes || '',
         createdAt: new Date(),
         updatedAt: new Date(),
         transactionType: transaction.type,
         assetId: position.assetId,
         assetSymbol: position.assetSymbol,
-        assetType: 'stock' as const,
+        assetType: position.assetType as UnifiedTransactionEntry['assetType'],
         quantity: transaction.quantity,
         price: transaction.price,
         fees: transaction.fees || 0
@@ -460,7 +461,7 @@ const BatchPositionManager: React.FC = () => {
   };
   
   // Handle transaction deletion
-  const handleDeleteTransaction = async (transaction: any, position: EnhancedPosition) => {
+  const handleDeleteTransaction = async (transaction: TransactionSummary, position: EnhancedPosition) => {
     if (!confirm(`Are you sure you want to delete this ${transaction.type} transaction of ${transaction.quantity} ${position.assetSymbol}?`)) {
       return;
     }
@@ -641,14 +642,14 @@ const BatchPositionManager: React.FC = () => {
                   <TransactionsList>
                     {[...position.buyTransactions, ...position.sellTransactions]
                       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-                      .map((transaction) => (
+                      .map((transaction: TransactionSummary) => (
                       <TransactionItem key={transaction.id}>
                         <TransactionInfo>
                           <div style={{ fontWeight: '600' }}>
                             {transaction.type.toUpperCase()} {transaction.quantity} @ {formatCurrency(transaction.price)}
                           </div>
                           <div style={{ color: 'var(--text-secondary)' }}>
-                            {formatDate(parseDatabaseDate(transaction.date))} • {formatCurrency(transaction.amount)}
+                            {formatDate(new Date(transaction.date))} • {formatCurrency(transaction.amount)}
                           </div>
                         </TransactionInfo>
                         <TransactionActions>

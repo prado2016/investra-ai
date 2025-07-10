@@ -180,8 +180,8 @@ interface AssetSearchResult {
 
 interface AssetSearchProps {
   placeholder?: string;
-  onSelect?: (result: AssetSearchResult) => void;
-  value?: string;
+  onSelect?: (_result: AssetSearchResult) => void;
+  _value?: string;
   onChange?: (value: string) => void;
   className?: string;
   disabled?: boolean;
@@ -190,12 +190,12 @@ interface AssetSearchProps {
 export const AssetSearch: React.FC<AssetSearchProps> = ({
   placeholder = "Search for stocks, crypto, forex...",
   onSelect,
-  value = '',
+  _value = '',
   onChange,
   className,
   disabled = false
 }) => {
-  const [query, setQuery] = useState(value);
+  const [query, setQuery] = useState(_value);
   const [isOpen, setIsOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -208,10 +208,10 @@ export const AssetSearch: React.FC<AssetSearchProps> = ({
 
   // Sync with external value changes
   useEffect(() => {
-    if (value !== query) {
-      setQuery(value);
+    if (_value !== query) {
+      setQuery(_value);
     }
-  }, [value, query]);
+  }, [_value, query]);
 
   // Handle clicks outside to close dropdown
   useEffect(() => {

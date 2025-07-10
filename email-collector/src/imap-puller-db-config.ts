@@ -6,7 +6,7 @@
  */
 
 import * as Sentry from '@sentry/node';
-import { DatabaseConfig } from './database-config.js';
+import { DatabaseConfig, SystemConfig } from './database-config.js';
 import { logger } from './logger.js';
 import { database } from './database.js';
 import { emailSyncManager } from './sync-manager.js';

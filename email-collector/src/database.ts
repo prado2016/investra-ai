@@ -51,7 +51,14 @@ export class Database {
   private client: SupabaseClient;
 
   constructor() {
-    this.client = createClient(config.supabaseUrl, config.supabaseKey);
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+    const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+    
+    if (!supabaseUrl || !supabaseKey) {
+      throw new Error('Supabase URL and key are required');
+    }
+    
+    this.client = createClient(supabaseUrl, supabaseKey);
     logger.info('Database client initialized');
   }
 

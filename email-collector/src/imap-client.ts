@@ -108,6 +108,10 @@ export class ImapClient {
     }
 
     try {
+      if (!this.client) {
+        throw new Error('IMAP client not connected');
+      }
+
       // Try to select the folder first
       try {
         await this.client.mailboxOpen(folderName);
@@ -119,7 +123,7 @@ export class ImapClient {
       }
 
       // Create the folder
-      await (this.client as ImapFlow).mailboxCreate(folderName);
+      await (this.client as any).mailboxCreate(folderName);
       logger.info(`Successfully created folder: ${folderName}`);
 
     } catch (error) {
@@ -148,11 +152,15 @@ export class ImapClient {
       // Ensure the destination folder exists
       await this.ensureFolder(folderName);
 
+      if (!this.client) {
+        throw new Error('IMAP client not connected');
+      }
+
       // Move emails by UID
       const uidSet = uids.join(',');
       logger.info(`Moving ${uids.length} emails to ${folderName}`);
       
-      await (this.client as ImapFlow).messageMove(uidSet, folderName, { uid: true });
+      await (this.client as any).messageMove(uidSet, folderName, { uid: true });
       logger.info(`Successfully moved ${uids.length} emails to ${folderName}`);
 
     } catch (error) {
@@ -184,11 +192,15 @@ export class ImapClient {
 
       logger.info(`Found ${totalMessages} messages in INBOX to move`);
       
+      if (!this.client) {
+        throw new Error('IMAP client not connected');
+      }
+
       // Ensure destination folder exists
       await this.ensureFolder(folderName);
 
       // Move all messages (use sequence numbers 1:*)
-      await (this.client as ImapFlow).messageMove('1:*', folderName);
+      await (this.client as any).messageMove('1:*', folderName);
       logger.info(`Successfully moved all ${totalMessages} emails to ${folderName}`);
       
       return totalMessages;

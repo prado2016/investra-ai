@@ -229,7 +229,7 @@ const MessageBox = styled.div<{ type: 'info' | 'warning' | 'error' | 'success' }
 interface AssetTypeOverrideComponentProps {
   symbol: string;
   name?: string;
-  onOverrideChange?: (hasOverride: boolean, assetType: AssetType | null) => void;
+  onOverrideChange?: (_hasOverride: boolean, _assetType: AssetType | null) => void;
   className?: string;
 }
 

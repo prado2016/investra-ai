@@ -153,7 +153,8 @@ export class EmailSyncManager {
       result.emailsSynced = insertedCount;
 
       // Move emails to processed folder if archiving is enabled and emails were inserted
-      if (config.archiveAfterSync && insertedCount > 0) {
+      // For now, always archive (this can be made configurable per IMAP config later)
+      if (insertedCount > 0) {
         try {
           // Get UIDs of emails that were actually inserted (not skipped duplicates)
           // For now, move all fetched emails since we fetched recent ones
@@ -161,8 +162,9 @@ export class EmailSyncManager {
           
           if (allUIDs.length > 0) {
             // Move emails in Gmail
-            await imapClient.moveEmailsToFolder(allUIDs, config.processedFolderName);
-            logger.info(`Moved ${allUIDs.length} emails to ${config.processedFolderName} in Gmail`);
+            const processedFolderName = 'Investra/Processed';
+            await imapClient.moveEmailsToFolder(allUIDs, processedFolderName);
+            logger.info(`Moved ${allUIDs.length} emails to ${processedFolderName} in Gmail`);
             
             // Move emails from inbox to processed table
             const emailMessageIds = emails.map(email => email.messageId);

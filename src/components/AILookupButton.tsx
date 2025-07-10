@@ -235,8 +235,8 @@ const Tooltip = styled.div<{ $visible: boolean }>`
 interface AILookupButtonProps {
   onClick?: () => void;
   onSearchStart?: () => void;
-  onSearchComplete?: (results: unknown) => void;
-  onError?: (error: string) => void;
+  onSearchComplete?: (_results: unknown) => void;
+  onError?: (_error: string) => void;
   variant?: 'primary' | 'secondary' | 'minimal';
   size?: 'small' | 'medium' | 'large';
   isLoading?: boolean;

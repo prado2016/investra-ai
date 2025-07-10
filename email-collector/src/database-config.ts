@@ -92,30 +92,30 @@ export class DatabaseConfig {
       }
 
       this.config = {
-        emailEncryptionKey: encryptionKey,
-        syncIntervalMinutes: configMap.get('sync_interval_minutes') || 30,
-        maxEmailsPerSync: configMap.get('max_emails_per_sync') || 50,
-        imapHost: configMap.get('imap_host') || 'imap.gmail.com',
-        imapPort: configMap.get('imap_port') || 993,
-        imapSecure: configMap.get('imap_secure') ?? true,
-        enableLogging: configMap.get('enable_logging') ?? true,
-        logLevel: (configMap.get('log_level') || 'info') as SystemConfig['logLevel'],
-        enableScheduler: configMap.get('enable_scheduler') ?? true,
-        archiveAfterSync: configMap.get('archive_after_sync') ?? true,
-        processedFolderName: configMap.get('processed_folder_name') || 'Investra/Processed',
-        syncRequestPollInterval: configMap.get('sync_request_poll_interval') || 10,
-        cleanupOldRequestsDays: configMap.get('cleanup_old_requests_days') || 7
+        emailEncryptionKey: encryptionKey as string,
+        syncIntervalMinutes: (configMap.get('sync_interval_minutes') as number) || 30,
+        maxEmailsPerSync: (configMap.get('max_emails_per_sync') as number) || 50,
+        imapHost: (configMap.get('imap_host') as string) || 'imap.gmail.com',
+        imapPort: (configMap.get('imap_port') as number) || 993,
+        imapSecure: (configMap.get('imap_secure') as boolean) ?? true,
+        enableLogging: (configMap.get('enable_logging') as boolean) ?? true,
+        logLevel: (configMap.get('log_level') as SystemConfig['logLevel']) || 'info',
+        enableScheduler: (configMap.get('enable_scheduler') as boolean) ?? true,
+        archiveAfterSync: (configMap.get('archive_after_sync') as boolean) ?? true,
+        processedFolderName: (configMap.get('processed_folder_name') as string) || 'Investra/Processed',
+        syncRequestPollInterval: (configMap.get('sync_request_poll_interval') as number) || 10,
+        cleanupOldRequestsDays: (configMap.get('cleanup_old_requests_days') as number) || 7
       };
 
       this.configCache = configMap;
       logger.info('System configuration loaded from database:', {
-        syncInterval: this.config.syncIntervalMinutes,
-        maxEmails: this.config.maxEmailsPerSync,
-        scheduler: this.config.enableScheduler,
-        logLevel: this.config.logLevel
+        syncInterval: this.config!.syncIntervalMinutes,
+        maxEmails: this.config!.maxEmailsPerSync,
+        scheduler: this.config!.enableScheduler,
+        logLevel: this.config!.logLevel
       });
       
-      return this.config;
+      return this.config!;
 
     } catch (error) {
       logger.error('Error loading configuration from database:', error);
@@ -200,7 +200,7 @@ export class DatabaseConfig {
    */
   async getConfigValue(key: string): Promise<string | number | boolean | object | null> {
     if (this.configCache.has(key)) {
-      return this.configCache.get(key);
+      return this.configCache.get(key) ?? null;
     }
 
     try {
