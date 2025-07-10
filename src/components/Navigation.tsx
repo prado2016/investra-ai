@@ -299,47 +299,6 @@ const Navigation: React.FC<NavigationProps> = ({ className }) => {
             );
           })}
           
-          {/* Tools section in mobile menu */}
-          <li style={{ borderTop: '1px solid var(--border-primary)', marginTop: 'var(--space-4)', paddingTop: 'var(--space-4)' }}>
-            <div style={{ padding: '0 var(--space-6)', marginBottom: 'var(--space-2)' }}>
-              <span style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)', fontWeight: 'var(--font-weight-medium)' }}>Tools</span>
-            </div>
-            <Link
-              to="/tools/stock-finder"
-              onClick={closeMobileMenu}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 'var(--space-3)',
-                color: 'var(--text-primary)',
-                textDecoration: 'none',
-                padding: 'var(--space-3) var(--space-6)',
-                transition: 'all var(--transition-fast)',
-                background: 'transparent',
-                marginLeft: 'var(--space-4)'
-              }}
-            >
-              Stock Finder
-            </Link>
-            <Link
-              to="/tools/covered-call-processor"
-              onClick={closeMobileMenu}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 'var(--space-3)',
-                color: 'var(--text-primary)',
-                textDecoration: 'none',
-                padding: 'var(--space-3) var(--space-6)',
-                transition: 'all var(--transition-fast)',
-                background: 'transparent',
-                marginLeft: 'var(--space-4)'
-              }}
-            >
-              Covered Call Processor
-            </Link>
-          </li>
-          
           <li style={{ borderTop: '1px solid var(--border-primary)', marginTop: 'var(--space-4)', paddingTop: 'var(--space-4)' }}>
             <div style={{ padding: '0 var(--space-6)', display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
               <span style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>Theme</span>
@@ -350,6 +309,10 @@ const Navigation: React.FC<NavigationProps> = ({ className }) => {
       </div>
 
       <style>{`
+        .tools-dropdown-container {
+          display: flex !important;
+        }
+        
         @media (max-width: 768px) {
           .mobile-menu-button {
             display: block !important;
@@ -359,7 +322,7 @@ const Navigation: React.FC<NavigationProps> = ({ className }) => {
             display: none !important;
           }
           
-          .nav-desktop-content .tools-dropdown-container {
+          .tools-dropdown-container {
             display: none !important;
           }
           
