@@ -61,7 +61,7 @@ export class CoveredCallProcessor {
       // Process each symbol
       for (const [symbol, transactions] of transactionsBySymbol.entries()) {
         try {
-          const symbolAnalysis = this.analyzeSymbolTransactions(symbol, transactions, portfolioId);
+          const symbolAnalysis = await this.analyzeSymbolTransactions(symbol, transactions, portfolioId);
           orphanSells.push(...symbolAnalysis.orphanSells);
           coveredCallPairs.push(...symbolAnalysis.coveredCallPairs);
           newRules.push(...symbolAnalysis.newRules);
@@ -111,11 +111,11 @@ export class CoveredCallProcessor {
   /**
    * Analyze transactions for a specific symbol to identify covered call patterns
    */
-  private analyzeSymbolTransactions(
+  private async analyzeSymbolTransactions(
     symbol: string, 
     transactions: EnhancedTransaction[], 
     portfolioId: string
-  ): CoveredCallAnalysis {
+  ): Promise<CoveredCallAnalysis> {
     const orphanSells: EnhancedTransaction[] = [];
     const coveredCallPairs: CoveredCallRule[] = [];
     const newRules: CoveredCallRule[] = [];
@@ -161,7 +161,7 @@ export class CoveredCallProcessor {
           newRules.push(rule);
           
           // Update transaction to mark as covered call
-          this.markTransactionAsCoveredCall(transaction);
+          await this.markTransactionAsCoveredCall(transaction);
         } else {
           // Normal sell - match against buy queue
           let remainingToSell = transaction.quantity;
@@ -184,7 +184,7 @@ export class CoveredCallProcessor {
     }
 
     // Now look for buy-back transactions that might close covered calls
-    this.findCoveredCallBuybacks(newRules, transactions);
+    await this.findCoveredCallBuybacks(newRules, transactions);
 
     return {
       orphanSells,
@@ -197,7 +197,7 @@ export class CoveredCallProcessor {
   /**
    * Find buy transactions that might be buying back covered calls
    */
-  private findCoveredCallBuybacks(rules: CoveredCallRule[], transactions: EnhancedTransaction[]): void {
+  private async findCoveredCallBuybacks(rules: CoveredCallRule[], transactions: EnhancedTransaction[]): Promise<void> {
     for (const rule of rules) {
       if (rule.status === 'open') {
         // Look for buy transactions after the sell date
@@ -219,7 +219,7 @@ export class CoveredCallProcessor {
           console.log(`🔄 Found buyback for ${rule.symbol}: profit=${rule.profit} (premium ${rule.premiumReceived} - buyback ${buyback.total_amount})`);
           
           // Mark buyback transaction
-          this.markTransactionAsCoveredCallBuyback(buyback);
+          await this.markTransactionAsCoveredCallBuyback(buyback);
         }
       }
     }
@@ -242,17 +242,49 @@ export class CoveredCallProcessor {
   /**
    * Mark transaction as covered call sell
    */
-  private markTransactionAsCoveredCall(transaction: EnhancedTransaction): void {
-    // We could update the strategy_type in the database here
-    // For now, just log the intention
-    console.log(`📝 Would mark transaction ${transaction.id} as covered_call sell`);
+  private async markTransactionAsCoveredCall(transaction: EnhancedTransaction): Promise<void> {
+    try {
+      console.log(`📝 Marking transaction ${transaction.id} as covered_call sell`);
+      
+      const result = await SupabaseService.transaction.updateTransaction(
+        transaction.id,
+        { strategy_type: 'covered_call' }
+      );
+      
+      if (!result.success) {
+        console.error(`❌ Failed to mark transaction ${transaction.id} as covered_call: ${result.error}`);
+      } else {
+        console.log(`✅ Successfully marked transaction ${transaction.id} as covered_call`);
+        // Update the local transaction object
+        transaction.strategy_type = 'covered_call';
+      }
+    } catch (error) {
+      console.error(`❌ Error marking transaction ${transaction.id} as covered_call:`, error);
+    }
   }
 
   /**
    * Mark transaction as covered call buyback
    */
-  private markTransactionAsCoveredCallBuyback(transaction: EnhancedTransaction): void {
-    console.log(`📝 Would mark transaction ${transaction.id} as covered_call buyback`);
+  private async markTransactionAsCoveredCallBuyback(transaction: EnhancedTransaction): Promise<void> {
+    try {
+      console.log(`📝 Marking transaction ${transaction.id} as covered_call buyback`);
+      
+      const result = await SupabaseService.transaction.updateTransaction(
+        transaction.id,
+        { strategy_type: 'covered_call' }
+      );
+      
+      if (!result.success) {
+        console.error(`❌ Failed to mark transaction ${transaction.id} as covered_call buyback: ${result.error}`);
+      } else {
+        console.log(`✅ Successfully marked transaction ${transaction.id} as covered_call buyback`);
+        // Update the local transaction object
+        transaction.strategy_type = 'covered_call';
+      }
+    } catch (error) {
+      console.error(`❌ Error marking transaction ${transaction.id} as covered_call buyback:`, error);
+    }
   }
 
   /**

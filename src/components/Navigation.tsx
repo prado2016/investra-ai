@@ -205,6 +205,19 @@ const Navigation: React.FC<NavigationProps> = ({ className }) => {
                 >
                   Stock Finder
                 </Link>
+                <Link
+                  to="/tools/covered-call-processor"
+                  onClick={() => setIsToolsMenuOpen(false)}
+                  className="dropdown-item"
+                  style={{
+                    display: 'block',
+                    padding: 'var(--space-2) var(--space-4)',
+                    color: 'var(--text-primary)',
+                    textDecoration: 'none',
+                  }}
+                >
+                  Covered Call Processor
+                </Link>
               </div>
             )}
           </div>
