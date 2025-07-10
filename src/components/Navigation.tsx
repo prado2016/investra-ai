@@ -153,7 +153,12 @@ const Navigation: React.FC<NavigationProps> = ({ className }) => {
             })}
           </ul>
 
-          <div className="nav-item" onMouseEnter={() => setIsToolsMenuOpen(true)} onMouseLeave={() => setIsToolsMenuOpen(false)}>
+          <div 
+            className="tools-dropdown-container" 
+            style={{ position: 'relative' }}
+            onMouseEnter={() => setIsToolsMenuOpen(true)} 
+            onMouseLeave={() => setIsToolsMenuOpen(false)}
+          >
             <button
               className={`nav-link ${isToolsMenuOpen ? 'nav-link-active' : ''}`}
               style={{
@@ -294,6 +299,47 @@ const Navigation: React.FC<NavigationProps> = ({ className }) => {
             );
           })}
           
+          {/* Tools section in mobile menu */}
+          <li style={{ borderTop: '1px solid var(--border-primary)', marginTop: 'var(--space-4)', paddingTop: 'var(--space-4)' }}>
+            <div style={{ padding: '0 var(--space-6)', marginBottom: 'var(--space-2)' }}>
+              <span style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)', fontWeight: 'var(--font-weight-medium)' }}>Tools</span>
+            </div>
+            <Link
+              to="/tools/stock-finder"
+              onClick={closeMobileMenu}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'var(--space-3)',
+                color: 'var(--text-primary)',
+                textDecoration: 'none',
+                padding: 'var(--space-3) var(--space-6)',
+                transition: 'all var(--transition-fast)',
+                background: 'transparent',
+                marginLeft: 'var(--space-4)'
+              }}
+            >
+              Stock Finder
+            </Link>
+            <Link
+              to="/tools/covered-call-processor"
+              onClick={closeMobileMenu}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'var(--space-3)',
+                color: 'var(--text-primary)',
+                textDecoration: 'none',
+                padding: 'var(--space-3) var(--space-6)',
+                transition: 'all var(--transition-fast)',
+                background: 'transparent',
+                marginLeft: 'var(--space-4)'
+              }}
+            >
+              Covered Call Processor
+            </Link>
+          </li>
+          
           <li style={{ borderTop: '1px solid var(--border-primary)', marginTop: 'var(--space-4)', paddingTop: 'var(--space-4)' }}>
             <div style={{ padding: '0 var(--space-6)', display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
               <span style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>Theme</span>
@@ -310,6 +356,10 @@ const Navigation: React.FC<NavigationProps> = ({ className }) => {
           }
           
           .nav-desktop-content .nav-list {
+            display: none !important;
+          }
+          
+          .nav-desktop-content .tools-dropdown-container {
             display: none !important;
           }
           
