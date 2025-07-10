@@ -2030,11 +2030,6 @@ app.get('/api/stock-data/:symbol', async (req, res) => {
     res.status(500).json({ success: false, error: 'Failed to fetch stock data' });
   }
 });
-      error: 'Failed to process review action',
-      timestamp: new Date().toISOString()
-    });
-  }
-});
 
 // Failed Imports endpoints
 app.get('/api/failed-imports', async (req, res) => {
