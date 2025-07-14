@@ -23,47 +23,47 @@ export interface Theme {
     info: string;
   };
 }
-// Light theme
+// Light theme - Matching CSS variables
 export const lightTheme: Theme = {
   mode: 'light',
   colors: {
-    primary: '#007bff',
-    secondary: '#6c757d',
-    accent: '#4ade80',
-    background: '#f8fafc',
+    primary: '#D97706',
+    secondary: '#4A5568',
+    accent: '#F59E0B',
+    background: '#ffffff',
     surface: '#ffffff',
     text: {
-      primary: '#333333',
-      secondary: '#666666',
-      muted: '#9ca3af',
+      primary: '#1A202C',
+      secondary: '#4A5568',
+      muted: '#A0AEC0',
     },
-    border: '#e5e7eb',
+    border: '#E2E8F0',
     shadow: 'rgba(0, 0, 0, 0.1)',
-    success: '#22c55e',
-    warning: '#f59e0b',
+    success: '#10b981',
+    warning: '#F59E0B',
     error: '#ef4444',
     info: '#3b82f6',
   },
 };
 
-// Dark theme
+// Dark theme - Matching CSS variables
 export const darkTheme: Theme = {
   mode: 'dark',
   colors: {
-    primary: '#3b82f6',
-    secondary: '#6b7280',
-    accent: '#4ade80',
-    background: '#0f172a',
-    surface: '#1e293b',
+    primary: '#D97706',
+    secondary: '#4A5568',
+    accent: '#F59E0B',
+    background: '#1a1410',
+    surface: '#241e18',
     text: {
-      primary: '#f1f5f9',
-      secondary: '#cbd5e1',
-      muted: '#64748b',
+      primary: '#FEF3C7',
+      secondary: '#FDE047',
+      muted: '#EAB308',
     },
-    border: '#334155',
-    shadow: 'rgba(0, 0, 0, 0.3)',
-    success: '#22c55e',
-    warning: '#f59e0b',
+    border: '#CA8A04',
+    shadow: 'rgba(202, 138, 4, 0.2)',
+    success: '#10b981',
+    warning: '#F59E0B',
     error: '#ef4444',
     info: '#3b82f6',
   },
@@ -105,11 +105,9 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
 
   useEffect(() => {
     localStorage.setItem('darkMode', JSON.stringify(isDark));
-    // Update CSS custom properties for global styles
-    const root = document.documentElement;
-    root.style.setProperty('--background-color', theme.colors.background);
-    root.style.setProperty('--text-color', theme.colors.text.primary);
-  }, [isDark, theme]);
+    // Update data-theme attribute for CSS variables
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+  }, [isDark]);
 
   const contextValue: ThemeContextType = {
     theme,
