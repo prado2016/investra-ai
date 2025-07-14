@@ -12,7 +12,10 @@
     "clean": "rm -rf dist",
     "lint": "echo 'ESLint temporarily disabled due to configuration conflict - TypeScript compiler provides basic checks'",
     "type-check": "tsc --noEmit",
-    "test": "echo \"No tests yet\" && exit 0"
+    "test": "echo \"No tests yet\" && exit 0",
+    "archive-existing": "tsc && node dist/archive-existing-emails.js",
+    "sync:once": "tsc && node -e \"import('./dist/sync-manager.js').then(m => m.emailSyncManager.syncAllConfigurations().then(console.log))\"",
+    "sync:status": "tsc && node -e \"import('./dist/database.js').then(m => m.database.testConnection().then(console.log))\""
   },
   "dependencies": {
     "@sentry/node": "^9.31.0",

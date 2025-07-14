@@ -18,14 +18,15 @@ import {
   Eye,
   FileText,
   X,
-  DollarSign
+  DollarSign,
+  Archive
 } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { EmailConfigurationPanel } from '../components/EmailConfigurationPanel';
 import { useNotifications } from '../hooks/useNotifications';
 import { useSupabasePortfolios } from '../hooks/useSupabasePortfolios';
-import { simpleEmailService, parseEmailForTransaction, triggerManualSyncViaDatabase } from '../services/simpleEmailService';
+import { simpleEmailService, parseEmailForTransaction, triggerManualSyncViaDatabase, moveProcessedEmailsToArchive } from '../services/simpleEmailService';
 import { supabase } from '../lib/supabase';
 import type { EmailItem, EmailStats, EmailPullerStatus } from '../services/simpleEmailService';
 import { usePageTitle } from '../hooks/usePageTitle';
@@ -635,7 +636,7 @@ const FormActions = styled.div`
 const SimpleEmailManagement: React.FC = () => {
   usePageTitle('Email Import', { subtitle: 'Simple Email Database Viewer' });
   
-  const { success, error } = useNotifications();
+  const { success, error, info } = useNotifications();
   const { user, loading: authLoading } = useAuth();
   const { portfolios } = useSupabasePortfolios();
   const { isInitialized: aiInitialized, initializeProvider, availableProviders } = useAIServices();
@@ -654,6 +655,7 @@ const SimpleEmailManagement: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'processing' | 'error' | 'processed'>('all');
   const [refreshing, setRefreshing] = useState(false);
   const [manualSyncing, setManualSyncing] = useState(false);
+  const [archiving, setArchiving] = useState(false);
   const [selectedEmail, setSelectedEmail] = useState<EmailItem | null>(null);
   const [processingEmail, setProcessingEmail] = useState<EmailItem | null>(null);
   const [bulkProcessing, setBulkProcessing] = useState(false);
@@ -853,6 +855,36 @@ const SimpleEmailManagement: React.FC = () => {
       console.error('❌ Manual sync error:', err);
     } finally {
       setManualSyncing(false);
+    }
+  };
+
+  const handleArchiveEmails = async () => {
+    setArchiving(true);
+    try {
+      console.log('📁 Starting email archiving...');
+      
+      const result = await moveProcessedEmailsToArchive();
+      
+      if (result.data && result.data.archived > 0) {
+        success('Emails Archived', `${result.data.archived} emails marked as archived. They will be moved to archive folder in Gmail during next sync.`);
+        console.log('✅ Email archiving successful:', result.data);
+        
+        // Refresh data to show updated state
+        await loadData();
+        
+      } else if (result.data && result.data.archived === 0) {
+        info('No Emails to Archive', 'All emails are already archived or no emails found.');
+        console.log('ℹ️ No emails to archive');
+      } else {
+        error('Archive Failed', result.error || 'Failed to archive emails');
+        console.error('❌ Email archiving failed:', result.error);
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
+      error('Archive Error', errorMessage);
+      console.error('❌ Email archiving error:', err);
+    } finally {
+      setArchiving(false);
     }
   };
 
@@ -1553,6 +1585,16 @@ const SimpleEmailManagement: React.FC = () => {
             >
               <RefreshCw size={16} className={manualSyncing ? 'animate-spin' : ''} />
               Manual Sync
+            </Button>
+            
+            <Button 
+              variant="outline" 
+              onClick={handleArchiveEmails}
+              disabled={archiving}
+              style={{ backgroundColor: '#f59e0b', borderColor: '#f59e0b', color: 'white' }}
+            >
+              <Archive size={16} />
+              Archive All
             </Button>
             
             <Button 

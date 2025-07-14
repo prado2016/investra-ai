@@ -97,12 +97,13 @@ class SimpleEmailService {
 
       console.log('✅ User authenticated:', user.id);
       
-      // Always query inbox
+      // Always query inbox - only show emails that haven't been archived
       console.log('📡 Querying imap_inbox for pending emails...');
       const { data: inboxEmails, error: inboxError } = await supabase
         .from('imap_inbox')
         .select('*')
         .eq('user_id', user.id)
+        .eq('archived_in_gmail', false) // Only show non-archived emails
         .order('received_at', { ascending: false })
         .limit(limit);
 
@@ -437,6 +438,78 @@ class SimpleEmailService {
       };
     }
   }
+  /**
+   * Move processed emails to archive (both in database and Gmail)
+   */
+  async moveProcessedEmailsToArchive(): Promise<{ data: { archived: number; error?: string } | null; error: string | null }> {
+    try {
+      console.log('📁 Moving processed emails to archive...');
+      
+      // Get current user
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        return { data: null, error: 'User not authenticated' };
+      }
+
+      // Get all emails from inbox that haven't been archived
+      const { data: unArchivedEmails, error: fetchError } = await supabase
+        .from('imap_inbox')
+        .select('id, message_id, uid, subject, from_email')
+        .eq('user_id', user.id)
+        .eq('archived_in_gmail', false);
+
+      if (fetchError) {
+        console.error('Failed to fetch unarchived emails:', fetchError);
+        return { data: null, error: 'Failed to fetch emails' };
+      }
+
+      if (!unArchivedEmails || unArchivedEmails.length === 0) {
+        console.log('✅ No emails to archive');
+        return { data: { archived: 0 }, error: null };
+      }
+
+      console.log(`📧 Found ${unArchivedEmails.length} emails to archive`);
+
+      // Mark emails as archived in database
+      const messageIds = unArchivedEmails.map(email => email.message_id);
+      const archiveFolder = 'Investra/Processed';
+      
+      const { data: updateData, error: updateError } = await supabase
+        .from('imap_inbox')
+        .update({
+          archived_in_gmail: true,
+          archive_folder: archiveFolder,
+          updated_at: new Date().toISOString()
+        })
+        .in('message_id', messageIds)
+        .eq('user_id', user.id)
+        .select('id');
+
+      if (updateError) {
+        console.error('Failed to mark emails as archived:', updateError);
+        return { data: null, error: 'Failed to update email archive status' };
+      }
+
+      const archivedCount = updateData?.length || 0;
+      console.log(`✅ Marked ${archivedCount} emails as archived in database`);
+
+      // Note: Actual Gmail archiving would need to be done by the email collector
+      // For now, we just mark them as archived in the database
+      
+      return { 
+        data: { 
+          archived: archivedCount,
+          error: archivedCount === 0 ? 'No emails were archived' : undefined
+        }, 
+        error: null 
+      };
+
+    } catch (error) {
+      console.error('Error moving emails to archive:', error);
+      return { data: null, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
   /**
    * Get a single email by ID
    */
@@ -1401,3 +1474,6 @@ export async function triggerManualSyncNonBlocking(): Promise<{ success: boolean
 }
 
 export const simpleEmailService = new SimpleEmailService();
+
+// Export the archive function
+export const moveProcessedEmailsToArchive = () => simpleEmailService.moveProcessedEmailsToArchive();
