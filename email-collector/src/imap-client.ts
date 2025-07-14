@@ -282,6 +282,79 @@ export class ImapClient {
   }
 
   /**
+   * Fetch emails newer than a specific UID
+   */
+  async fetchEmailsAboveUID(lastUID: number, maxCount: number = 50): Promise<ParsedEmail[]> {
+    if (!this.client) {
+      throw new Error('IMAP client not connected');
+    }
+
+    try {
+      // Select INBOX
+      await this.client.mailboxOpen('INBOX');
+      logger.debug('Opened INBOX mailbox');
+
+      // Get message count and UID validity
+      const mailboxStatus = await this.client.status('INBOX', {
+        messages: true,
+        unseen: true,
+        uidNext: true,
+        uidValidity: true
+      });
+      
+      logger.info(`Mailbox status: ${mailboxStatus.messages} total, ${mailboxStatus.unseen} unseen, uidNext: ${mailboxStatus.uidNext}`);
+
+      if (mailboxStatus.messages === 0) {
+        logger.info('No messages in mailbox');
+        return [];
+      }
+
+      // If lastUID is 0, fetch recent emails
+      if (lastUID === 0) {
+        logger.info('No last UID, fetching recent emails');
+        return this.fetchRecentEmails(maxCount);
+      }
+
+      // Search for messages with UID greater than lastUID
+      const searchQuery = `UID ${lastUID + 1}:*`;
+      logger.debug(`Searching for messages with query: ${searchQuery}`);
+
+      const messages = [];
+      let messageCount = 0;
+
+      for await (const message of this.client.fetch(searchQuery, {
+        source: true,
+        envelope: true,
+        uid: true,
+        flags: true,
+        internalDate: true,
+        size: true
+      })) {
+        if (messageCount >= maxCount) {
+          break;
+        }
+
+        try {
+          const parsed = await this.parseMessage(message);
+          if (parsed) {
+            messages.push(parsed);
+            messageCount++;
+          }
+        } catch (error) {
+          logger.warn(`Failed to parse message ${message.seq}:`, error);
+        }
+      }
+
+      logger.info(`Successfully fetched ${messages.length} messages newer than UID ${lastUID}`);
+      return messages.reverse(); // Return newest first
+
+    } catch (error) {
+      logger.error(`Failed to fetch emails above UID ${lastUID}:`, error);
+      throw error;
+    }
+  }
+
+  /**
    * Parse a raw IMAP message into our email format
    */
   private async parseMessage(message: { seq: number; source: Buffer; uid: number; size: number; internalDate: Date; }): Promise<ParsedEmail | null> {
@@ -336,6 +409,7 @@ export class ImapClient {
       user_id: userId,
       message_id: email.messageId,
       thread_id: email.threadId,
+      uid: email.uid,
       subject: email.subject,
       from_email: email.from?.email,
       from_name: email.from?.name,
@@ -352,7 +426,8 @@ export class ImapClient {
       })) as { filename: string; contentType: string; size: number; }[],
       email_size: email.size,
       priority: 'normal',
-      status: 'pending'
+      status: 'pending',
+      archived_in_gmail: false
     };
   }
 

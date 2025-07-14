@@ -132,9 +132,9 @@ export class EmailSyncManager {
       imapClient = new ImapClient(imapConfig);
       await imapClient.connect();
 
-      // Fetch recent emails
-      logger.debug(`Fetching up to ${imapConfig.max_emails_per_sync} emails for ${imapConfig.gmail_email}`);
-      const emails = await imapClient.fetchRecentEmails(imapConfig.max_emails_per_sync);
+      // Fetch emails newer than last processed UID
+      logger.debug(`Fetching emails newer than UID ${imapConfig.last_processed_uid} for ${imapConfig.gmail_email}`);
+      const emails = await imapClient.fetchEmailsAboveUID(imapConfig.last_processed_uid, imapConfig.max_emails_per_sync);
 
       if (emails.length === 0) {
         logger.info(`No new emails found for ${imapConfig.gmail_email}`);
@@ -152,29 +152,36 @@ export class EmailSyncManager {
       const insertedCount = await database.insertEmails(emailData);
       result.emailsSynced = insertedCount;
 
-      // Move emails to processed folder if archiving is enabled and emails were inserted
-      // For now, always archive (this can be made configurable per IMAP config later)
-      if (insertedCount > 0) {
+      // Archive emails if enabled and emails were inserted
+      if (insertedCount > 0 && imapConfig.archive_emails_after_import) {
         try {
           // Get UIDs of emails that were actually inserted (not skipped duplicates)
-          // For now, move all fetched emails since we fetched recent ones
-          const allUIDs = emails.map(email => email.uid);
+          const insertedEmails = emails.filter(email => 
+            emailData.some(data => data.message_id === email.messageId)
+          );
           
-          if (allUIDs.length > 0) {
+          if (insertedEmails.length > 0) {
             // Move emails in Gmail
-            const processedFolderName = 'Investra/Processed';
-            await imapClient.moveEmailsToFolder(allUIDs, processedFolderName);
-            logger.info(`Moved ${allUIDs.length} emails to ${processedFolderName} in Gmail`);
+            const uidsToMove = insertedEmails.map(email => email.uid);
+            await imapClient.moveEmailsToFolder(uidsToMove, imapConfig.archive_folder);
+            logger.info(`Moved ${uidsToMove.length} emails to ${imapConfig.archive_folder} in Gmail`);
             
-            // Move emails from inbox to processed table
-            const emailMessageIds = emails.map(email => email.messageId);
-            const movedCount = await database.moveEmailsToProcessed(emailMessageIds, imapConfig.user_id);
-            logger.info(`Moved ${movedCount} emails from inbox to processed table`);
+            // Mark emails as archived in database
+            const messageIds = insertedEmails.map(email => email.messageId);
+            const archivedCount = await database.markEmailsAsArchived(messageIds, imapConfig.user_id, imapConfig.archive_folder);
+            logger.info(`Marked ${archivedCount} emails as archived in database`);
           }
         } catch (moveError) {
-          logger.warn(`Failed to move emails to processed folder: ${moveError instanceof Error ? moveError.message : 'Unknown error'}`);
-          // Don't fail the entire sync if moving fails
+          logger.warn(`Failed to archive emails: ${moveError instanceof Error ? moveError.message : 'Unknown error'}`);
+          // Don't fail the entire sync if archiving fails
         }
+      }
+
+      // Update last processed UID
+      const highestUID = database.getHighestUID(emails);
+      if (highestUID > imapConfig.last_processed_uid) {
+        await database.updateLastProcessedUID(imapConfig.id, highestUID);
+        logger.debug(`Updated last processed UID to ${highestUID} for ${imapConfig.gmail_email}`);
       }
 
       // Update configuration status and email count

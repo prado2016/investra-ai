@@ -23,6 +23,9 @@ export interface ImapConfiguration {
   emails_synced: number;
   sync_interval_minutes: number;
   max_emails_per_sync: number;
+  archive_emails_after_import: boolean;
+  archive_folder: string;
+  last_processed_uid: number;
   created_at: string;
   updated_at: string;
 }
@@ -31,6 +34,7 @@ export interface EmailData {
   user_id: string;
   message_id: string;
   thread_id?: string;
+  uid?: number;
   subject?: string;
   from_email?: string;
   from_name?: string;
@@ -45,6 +49,8 @@ export interface EmailData {
   priority?: 'low' | 'normal' | 'high';
   status?: 'pending' | 'processing' | 'error';
   error_message?: string;
+  archived_in_gmail?: boolean;
+  archive_folder?: string;
 }
 
 export class Database {
@@ -431,6 +437,97 @@ export class Database {
       logger.error('Error removing processed emails from inbox:', error);
       throw error;
     }
+  }
+
+  /**
+   * Get emails with UID greater than last processed UID
+   */
+  async getEmailsAboveUID(userId: string, lastUID: number = 0, limit: number = 50): Promise<EmailData[]> {
+    try {
+      const { data, error } = await this.client
+        .from('imap_inbox')
+        .select('*')
+        .eq('user_id', userId)
+        .gt('uid', lastUID)
+        .eq('archived_in_gmail', false)
+        .order('received_at', { ascending: false })
+        .limit(limit);
+
+      if (error) {
+        logger.error('Failed to get emails above UID:', error);
+        throw error;
+      }
+
+      return data || [];
+    } catch (error) {
+      logger.error('Error getting emails above UID:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Mark emails as archived in Gmail
+   */
+  async markEmailsAsArchived(messageIds: string[], userId: string, archiveFolder: string): Promise<number> {
+    if (messageIds.length === 0) return 0;
+
+    try {
+      const { data, error } = await this.client
+        .from('imap_inbox')
+        .update({
+          archived_in_gmail: true,
+          archive_folder: archiveFolder,
+          updated_at: new Date().toISOString()
+        })
+        .in('message_id', messageIds)
+        .eq('user_id', userId)
+        .select('id');
+
+      if (error) {
+        logger.error('Failed to mark emails as archived:', error);
+        throw error;
+      }
+
+      const updatedCount = data?.length || 0;
+      logger.info(`Marked ${updatedCount} emails as archived in database`);
+      return updatedCount;
+    } catch (error) {
+      logger.error('Error marking emails as archived:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update the last processed UID for a configuration
+   */
+  async updateLastProcessedUID(configId: string, lastUID: number): Promise<void> {
+    try {
+      const { error } = await this.client
+        .from('imap_configurations')
+        .update({
+          last_processed_uid: lastUID,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', configId);
+
+      if (error) {
+        logger.error('Failed to update last processed UID:', error);
+        throw error;
+      }
+
+      logger.debug(`Updated last processed UID for config ${configId}: ${lastUID}`);
+    } catch (error) {
+      logger.error('Error updating last processed UID:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get highest UID from a list of emails
+   */
+  getHighestUID(emails: { uid: number }[]): number {
+    if (emails.length === 0) return 0;
+    return Math.max(...emails.map(email => email.uid));
   }
 
   /**
