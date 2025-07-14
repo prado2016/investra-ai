@@ -5,7 +5,7 @@
  * This solves the problem where emails appear in both Gmail INBOX and the database
  */
 
-import { database } from './database.js';
+import { database, type ImapConfiguration } from './database.js';
 import { ImapClient } from './imap-client.js';
 import { logger } from './logger.js';
 
@@ -43,7 +43,7 @@ class ExistingEmailArchiver {
   /**
    * Archive emails for a specific configuration
    */
-  private async archiveEmailsForConfig(config: any): Promise<void> {
+  private async archiveEmailsForConfig(config: ImapConfiguration): Promise<void> {
     let imapClient: ImapClient | null = null;
 
     try {

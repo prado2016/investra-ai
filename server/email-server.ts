@@ -44,19 +44,24 @@ import * as winston from 'winston';
 import { createServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import * as Sentry from '@sentry/node';
+import { exec } from 'child_process';
 
 // Define AuthenticatedRequest interface locally
-interface AuthenticatedRequest extends express.Request {
-  user?: any;
+interface _AuthenticatedRequest extends express.Request {
+  user?: {
+    id: string;
+    email: string;
+  };
   userId?: string;
   body: Record<string, unknown>;
-  headers: any;
+  headers: Record<string, string>;
   ip: string | undefined;
 }
 
 // Import authentication middleware with robust error handling
-let authenticateUser: any = null;
-let optionalAuth: any = null;
+type AuthMiddleware = (req: express.Request, res: express.Response, next: express.NextFunction) => void;
+let authenticateUser: AuthMiddleware | null = null;
+let _optionalAuth: AuthMiddleware | null = null;
 
 // Try multiple paths for the authentication middleware
 const authPaths = [
@@ -71,7 +76,7 @@ for (const authPath of authPaths) {
   try {
     const authModule = require(authPath);
     authenticateUser = authModule.authenticateUser;
-    optionalAuth = authModule.optionalAuth;
+    _optionalAuth = authModule.optionalAuth;
     console.log(`✅ Authentication middleware loaded successfully from: ${authPath}`);
     authLoaded = true;
     break;
@@ -86,7 +91,7 @@ if (!authLoaded) {
   console.warn('   Creating fallback authentication handlers...');
 
   // Create fallback middleware that properly handles authentication requirements
-  authenticateUser = (req: express.Request, res: express.Response) => {
+  authenticateUser = (req: express.Request, res: express.Response, _next: express.NextFunction) => {
     // Check if Supabase is configured
     if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
       return res.status(500).json({
@@ -104,7 +109,7 @@ if (!authLoaded) {
     });
   };
 
-  optionalAuth = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  _optionalAuth = (req: express.Request, res: express.Response, next: express.NextFunction) => {
     console.warn('Optional authentication disabled - continuing without auth');
     next();
   };
@@ -212,7 +217,7 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
 }
 
 // Initialize Supabase client with fallback values
-let supabase: any = null;
+let supabase: ReturnType<typeof createClient> | null = null;
 try {
   supabase = createClient(
     SUPABASE_URL || 'https://placeholder.supabase.co',
@@ -224,7 +229,7 @@ try {
 }
 
 // Initialize service role client for admin operations (bypasses RLS)
-let supabaseServiceRole: any = null;
+let supabaseServiceRole: ReturnType<typeof createClient> | null = null;
 try {
   const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjYnV3aHBpcHBoZHNzcWp3Z2ZtIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0ODg3NTg2MSwiZXhwIjoyMDY0NDUxODYxfQ.Tf9CrI7XB9UHcx3FZH5BGu9EmyNS3rX4UIiPuKhU-5I';
   supabaseServiceRole = createClient(
@@ -541,7 +546,7 @@ if (wss) {
 // })); // Commented out for deployment compatibility
 
 app.use(cors({
-  origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
+  origin: function (origin: string | undefined, callback: (_err: Error | null, allow?: boolean) => void) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
 
@@ -1036,7 +1041,7 @@ class StandaloneEmailProcessingService {
       }
       
       // Look for portfolios that contain the account type in their name
-      const matchingPortfolio = portfolios.find((p: any) => 
+      const matchingPortfolio = portfolios.find((p: { name: string }) => 
         p.name.toUpperCase().includes(accountType.toUpperCase())
       );
       
@@ -1140,7 +1145,7 @@ class StandaloneEmailProcessingService {
     messageId: string,
     userId: string,
     transactionId: string,
-    emailData: any
+    emailData: Record<string, unknown>
   ) {
     try {
       // First, get the email from inbox
@@ -1369,7 +1374,7 @@ class StandaloneConfigurationService {
 
 // Email Cleanup Automation Service
 class StandaloneEmailCleanupService {
-  private static cleanupInterval: NodeJS.Timeout | null = null;
+  private static cleanupInterval: ReturnType<typeof setInterval> | null = null;
   private static readonly CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
   private static readonly OLD_EMAIL_THRESHOLD_DAYS = 30; // 30 days
 
@@ -1796,7 +1801,7 @@ app.post('/api/imap/restart', async (req, res) => {
     logger.info('⚡ Executing email-puller restart command');
     
     const restartPromise = new Promise((resolve) => {
-      exec(restartCommand, { timeout: 10000 }, (error: any, stdout: any, stderr: any) => {
+      exec(restartCommand, { timeout: 10000 }, (error: Error | null, stdout: string, stderr: string) => {
         if (error) {
           logger.warn('⚠️ Restart command failed, but this is expected in some cases:', error.message);
           // Even if the command "fails", the restart might succeed
@@ -2287,7 +2292,7 @@ app.post('/api/configuration/reload', async (req, res) => {
 });
 
 // Manual Email Review endpoints for the new manual workflow
-app.get('/api/manual-review/emails', authenticateUser, async (req: any, res: express.Response) => {
+app.get('/api/manual-review/emails', authenticateUser, async (req: express.Request, res: express.Response) => {
   try {
     const userId = req.userId;
     if (!userId) {
@@ -2345,7 +2350,7 @@ app.get('/api/manual-review/emails', authenticateUser, async (req: any, res: exp
   }
 });
 
-app.post('/api/manual-review/process', authenticateUser, async (req: any, res: express.Response) => {
+app.post('/api/manual-review/process', authenticateUser, async (req: express.Request, res: express.Response) => {
   try {
     const { emailId } = req.body;
     const userId = req.userId;
@@ -2448,7 +2453,7 @@ app.post('/api/manual-review/process', authenticateUser, async (req: any, res: e
   }
 });
 
-app.post('/api/manual-review/reject', authenticateUser, async (req: any, res: express.Response) => {
+app.post('/api/manual-review/reject', authenticateUser, async (req: express.Request, res: express.Response) => {
   try {
     const { emailId } = req.body;
     const userId = req.userId;
@@ -2505,7 +2510,7 @@ app.post('/api/manual-review/reject', authenticateUser, async (req: any, res: ex
   }
 });
 
-app.delete('/api/manual-review/delete', authenticateUser, async (req: any, res: express.Response) => {
+app.delete('/api/manual-review/delete', authenticateUser, async (req: express.Request, res: express.Response) => {
   try {
     const { emailId } = req.body;
     const userId = req.userId;
@@ -2563,7 +2568,7 @@ app.delete('/api/manual-review/delete', authenticateUser, async (req: any, res: 
 });
 
 // Update the existing manual-review/stats endpoint to work with the new workflow
-app.get('/api/manual-review/stats', authenticateUser, async (req: any, res: express.Response) => {
+app.get('/api/manual-review/stats', authenticateUser, async (req: express.Request, res: express.Response) => {
   try {
     const userId = req.userId;
     if (!userId) {
@@ -2728,7 +2733,7 @@ app.post('/api/email/test-connection', async (req, res) => {
 });
 
 // Manual email cleanup trigger endpoint
-app.post('/api/email/cleanup', async (req: any, res: express.Response) => {
+app.post('/api/email/cleanup', async (req: express.Request, res: express.Response) => {
   try {
     logger.info('📧 Manual email cleanup triggered');
     
@@ -2755,7 +2760,7 @@ app.post('/api/email/cleanup', async (req: any, res: express.Response) => {
 });
 
 // Manual email sync trigger endpoint
-app.post('/api/email/manual-sync', async (req: any, res: express.Response) => {
+app.post('/api/email/manual-sync', async (req: express.Request, res: express.Response) => {
   try {
     logger.info('📧 Manual sync trigger requested (auth bypassed for testing)', { 
       timestamp: new Date().toISOString(),
@@ -2889,7 +2894,7 @@ process.on('uncaughtException', (error: Error) => {
 });
 
 // Handle unhandled promise rejections
-process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
+process.on('unhandledRejection', (reason: unknown, promise: Promise<unknown>) => {
   logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
   console.error('Unhandled Rejection at:', promise, 'reason:', reason);
   process.exit(1);
