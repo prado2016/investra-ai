@@ -1230,8 +1230,20 @@ const SimpleEmailManagement: React.FC = () => {
       try {
         console.log(`🔄 Bulk processing email ${i + 1}/${emailsToProcess.length}: ${email.subject}`);
         
+        // Check for cancellation before AI parsing
+        if (bulkCancelled) {
+          console.log('🛑 Bulk processing cancelled during AI parsing');
+          break;
+        }
+        
         // Parse email content to extract transaction information
         const extracted = await parseEmailForTransaction(email);
+        
+        // Check for cancellation after AI parsing
+        if (bulkCancelled) {
+          console.log('🛑 Bulk processing cancelled after AI parsing');
+          break;
+        }
         
         if (extracted?.rawData && Object.keys(extracted.rawData).length > 0) {
           // Email contains transaction data - attempt to process it
@@ -1346,8 +1358,26 @@ const SimpleEmailManagement: React.FC = () => {
           }
         }
         
-        // Reasonable delay to prevent API rate limiting (5 seconds per email)
-        await new Promise(resolve => setTimeout(resolve, 5000)); // 5 second delay
+        // Check for cancellation before delay
+        if (bulkCancelled) {
+          console.log('🛑 Bulk processing cancelled before delay');
+          break;
+        }
+        
+        // Interruptible delay to prevent API rate limiting (5 seconds per email)
+        let delayCancelled = false;
+        for (let delayStep = 0; delayStep < 50; delayStep++) {
+          if (bulkCancelled) {
+            console.log('🛑 Bulk processing cancelled during delay');
+            delayCancelled = true;
+            break;
+          }
+          await new Promise(resolve => setTimeout(resolve, 100)); // 100ms steps
+        }
+        
+        if (delayCancelled) {
+          break;
+        }
         
       } catch (error) {
         console.error(`❌ Error processing email ${email.id}:`, error);
