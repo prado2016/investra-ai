@@ -1237,21 +1237,88 @@ const SimpleEmailManagement: React.FC = () => {
           // Email contains transaction data - attempt to process it
           console.log('📧 Email contains transaction data, processing...', extracted);
           
-          // Use the simple processEmail method for automatic processing
-          const result = await simpleEmailService.processEmail(email.id, {
-            type: 'expense',
-            amount: 0, // Will be updated based on parsed data
-            description: email.subject || 'Processed email',
-            category: 'Trading',
-            date: new Date().toISOString()
-          });
-          
-          if (result.error) {
-            console.error(`❌ Failed to process email ${email.id}:`, result.error);
-            errors++;
+          // Try to create actual trading transaction if we have enough data
+          if (extracted.symbol && extracted.transactionType && extracted.quantity && extracted.price) {
+            console.log('🔄 Creating trading transaction from parsed data...');
+            
+            try {
+              // Create the actual trading transaction
+              const transactionResult = await simpleEmailService.createTradingTransaction({
+                portfolioName: extracted.portfolioName || 'Default',
+                symbol: extracted.symbol,
+                assetType: extracted.assetType || 'stock',
+                transactionType: extracted.transactionType,
+                quantity: extracted.quantity,
+                price: extracted.price,
+                totalAmount: extracted.totalAmount || (extracted.quantity * extracted.price),
+                fees: extracted.fees || 0,
+                currency: extracted.currency || 'USD',
+                transactionDate: extracted.transactionDate || new Date().toISOString().split('T')[0],
+                emailId: email.id
+              });
+              
+              if (transactionResult.success && transactionResult.transactionId) {
+                console.log('✅ Trading transaction created successfully');
+                // Process the email with transaction reference
+                const result = await simpleEmailService.processEmailWithTransaction(email.id, transactionResult.transactionId);
+                if (result.error) {
+                  console.error(`❌ Failed to link email to transaction:`, result.error);
+                  errors++;
+                } else {
+                  processed++;
+                }
+              } else {
+                console.warn('⚠️ Trading transaction creation failed, processing as reviewed email');
+                // Fall back to regular processing
+                const result = await simpleEmailService.processEmail(email.id, {
+                  type: 'expense',
+                  amount: extracted.totalAmount || 0,
+                  description: `Trading: ${extracted.symbol} ${extracted.transactionType}`,
+                  category: 'Trading',
+                  date: extracted.transactionDate || new Date().toISOString()
+                });
+                
+                if (result.error) {
+                  console.error(`❌ Failed to process email ${email.id}:`, result.error);
+                  errors++;
+                } else {
+                  processed++;
+                }
+              }
+            } catch (transactionError) {
+              console.error('❌ Error creating trading transaction:', transactionError);
+              // Fall back to regular processing
+              const result = await simpleEmailService.processEmail(email.id, {
+                type: 'expense',
+                amount: extracted.totalAmount || 0,
+                description: `Trading: ${extracted.symbol || email.subject}`,
+                category: 'Trading',
+                date: extracted.transactionDate || new Date().toISOString()
+              });
+              
+              if (result.error) {
+                errors++;
+              } else {
+                processed++;
+              }
+            }
           } else {
-            console.log(`✅ Successfully processed email ${email.id}`);
-            processed++;
+            // Partial data - process as reviewed with available info
+            const result = await simpleEmailService.processEmail(email.id, {
+              type: 'expense',
+              amount: extracted.totalAmount || extracted.amount || 0,
+              description: extracted.description || `Trading: ${extracted.symbol || email.subject}`,
+              category: 'Trading',
+              date: extracted.transactionDate || new Date().toISOString()
+            });
+            
+            if (result.error) {
+              console.error(`❌ Failed to process email ${email.id}:`, result.error);
+              errors++;
+            } else {
+              console.log(`✅ Successfully processed email ${email.id}`);
+              processed++;
+            }
           }
         } else {
           // Email doesn't contain transaction data - mark as processed but no transaction created
@@ -1271,8 +1338,8 @@ const SimpleEmailManagement: React.FC = () => {
           }
         }
         
-        // 60 second delay to prevent Gemini API rate limiting (1 email per minute)
-        await new Promise(resolve => setTimeout(resolve, 60000)); // 60 second delay
+        // Reasonable delay to prevent API rate limiting (5 seconds per email)
+        await new Promise(resolve => setTimeout(resolve, 5000)); // 5 second delay
         
       } catch (error) {
         console.error(`❌ Error processing email ${email.id}:`, error);

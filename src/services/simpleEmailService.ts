@@ -757,6 +757,151 @@ class SimpleEmailService {
   }
 
   /**
+   * Create a trading transaction from parsed email data
+   */
+  async createTradingTransaction(data: {
+    portfolioName: string;
+    symbol: string;
+    assetType: 'stock' | 'option';
+    transactionType: 'buy' | 'sell';
+    quantity: number;
+    price: number;
+    totalAmount: number;
+    fees: number;
+    currency: string;
+    transactionDate: string;
+    emailId: string;
+  }): Promise<{ success: boolean; transactionId?: string; error?: string }> {
+    try {
+      // Check authentication first
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError || !user) {
+        console.error('Authentication required for createTradingTransaction:', authError?.message);
+        return { 
+          success: false, 
+          error: authError?.message || 'Authentication required' 
+        };
+      }
+
+      // Get portfolio ID
+      const portfolioResult = await this.getPortfolioByName(data.portfolioName);
+      if (portfolioResult.error || !portfolioResult.data) {
+        console.error('Portfolio not found:', data.portfolioName);
+        return { success: false, error: `Portfolio '${data.portfolioName}' not found` };
+      }
+
+      // Create the transaction
+      const { data: transaction, error: transactionError } = await supabase
+        .from('transactions')
+        .insert([{
+          user_id: user.id,
+          portfolio_id: portfolioResult.data.id,
+          symbol: data.symbol,
+          asset_type: data.assetType,
+          transaction_type: data.transactionType,
+          quantity: data.quantity,
+          price: data.price,
+          total_amount: data.totalAmount,
+          fees: data.fees,
+          currency: data.currency,
+          transaction_date: data.transactionDate,
+          source: 'email',
+          email_id: data.emailId,
+          created_at: new Date().toISOString()
+        }])
+        .select('id')
+        .single();
+
+      if (transactionError) {
+        console.error('Error creating trading transaction:', transactionError);
+        return { success: false, error: transactionError.message };
+      }
+
+      console.log('✅ Trading transaction created:', transaction.id);
+      return { success: true, transactionId: transaction.id };
+
+    } catch (err) {
+      console.error('Failed to create trading transaction:', err);
+      return { 
+        success: false, 
+        error: err instanceof Error ? err.message : 'Failed to create trading transaction' 
+      };
+    }
+  }
+
+  /**
+   * Process email and link it to a transaction
+   */
+  async processEmailWithTransaction(
+    emailId: string, 
+    transactionId: string
+  ): Promise<{ success: boolean; error: string | null }> {
+    try {
+      // Check authentication first
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError || !user) {
+        console.error('Authentication required for processEmailWithTransaction:', authError?.message);
+        return { 
+          success: false, 
+          error: authError?.message || 'Authentication required' 
+        };
+      }
+
+      // Get the email first
+      const emailResult = await this.getEmailById(emailId);
+      if (emailResult.error || !emailResult.data) {
+        return { success: false, error: emailResult.error || 'Email not found' };
+      }
+
+      const email = emailResult.data;
+
+      // Move email to processed table with transaction reference
+      const { error: processedError } = await supabase
+        .from('imap_processed')
+        .insert([{
+          user_id: user.id,
+          original_inbox_id: email.id,
+          message_id: email.message_id,
+          subject: email.subject,
+          from_email: email.from_email,
+          received_at: email.received_at,
+          processing_result: 'approved',
+          transaction_id: transactionId,
+          processed_at: new Date().toISOString(),
+          processed_by_user_id: user.id,
+          processing_notes: 'Processed with trading transaction',
+          created_at: new Date().toISOString()
+        }]);
+
+      if (processedError) {
+        console.error('Error moving to processed:', processedError);
+        return { success: false, error: processedError.message };
+      }
+
+      // Delete from inbox
+      const { error: deleteError } = await supabase
+        .from('imap_inbox')
+        .delete()
+        .eq('id', emailId);
+
+      if (deleteError) {
+        console.error('Error deleting from inbox:', deleteError);
+        console.warn('Email processed but not removed from inbox');
+      }
+
+      return { success: true, error: null };
+    } catch (err) {
+      console.error('Failed to process email with transaction:', err);
+      return { 
+        success: false, 
+        error: err instanceof Error ? err.message : 'Failed to process email with transaction' 
+      };
+    }
+  }
+
+  /**
    * Get portfolio ID by name
    */
   async getPortfolioByName(portfolioName: string): Promise<{ data: { id: string, name: string } | null; error: string | null }> {
