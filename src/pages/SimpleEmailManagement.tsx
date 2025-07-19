@@ -1238,6 +1238,14 @@ const SimpleEmailManagement: React.FC = () => {
           console.log('📧 Email contains transaction data, processing...', extracted);
           
           // Try to create actual trading transaction if we have enough data
+          console.log('🔍 Checking extracted data for transaction creation:', {
+            symbol: extracted.symbol,
+            transactionType: extracted.transactionType,
+            quantity: extracted.quantity,
+            price: extracted.price,
+            hasAllRequired: !!(extracted.symbol && extracted.transactionType && extracted.quantity && extracted.price)
+          });
+          
           if (extracted.symbol && extracted.transactionType && extracted.quantity && extracted.price) {
             console.log('🔄 Creating trading transaction from parsed data...');
             
