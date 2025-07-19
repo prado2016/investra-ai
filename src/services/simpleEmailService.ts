@@ -97,7 +97,7 @@ class SimpleEmailService {
 
       console.log('✅ User authenticated:', user.id);
       
-      // Always query inbox - only show emails that haven't been archived
+      // Always query inbox - try with archived_in_gmail filter first, fallback without
       console.log('📡 Querying imap_inbox for pending emails...');
       const { data: inboxEmails, error: inboxError } = await supabase
         .from('imap_inbox')
@@ -106,6 +106,31 @@ class SimpleEmailService {
         .eq('archived_in_gmail', false) // Only show non-archived emails
         .order('received_at', { ascending: false })
         .limit(limit);
+      
+      // If we get a 400 error that might indicate the column doesn't exist, retry without the filter
+      if (inboxError && inboxError.message && inboxError.message.includes('column')) {
+        console.log('⚠️ archived_in_gmail column might not exist, trying without filter...');
+        const { data: fallbackEmails, error: fallbackError } = await supabase
+          .from('imap_inbox')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('received_at', { ascending: false })
+          .limit(limit);
+        
+        if (!fallbackError) {
+          console.log('✅ Fallback query successful, proceeding with emails...');
+          
+          console.log(`📧 Found ${fallbackEmails?.length || 0} emails in inbox, ${0} in processed`);
+          console.log(`📧 Total combined emails: ${fallbackEmails?.length || 0}`);
+          
+          if (!fallbackEmails || fallbackEmails.length === 0) {
+            console.log('📭 No emails found in either inbox or processed tables');
+            return { data: [], error: null };
+          }
+          
+          return { data: fallbackEmails || [], error: null };
+        }
+      }
 
       let processedEmails = null;
       let processedError = null;
@@ -452,11 +477,30 @@ class SimpleEmailService {
       }
 
       // Get all emails from inbox that haven't been archived
-      const { data: unArchivedEmails, error: fetchError } = await supabase
+      let unArchivedEmails = null;
+      let fetchError = null;
+      
+      // Try with archived_in_gmail filter first
+      const result = await supabase
         .from('imap_inbox')
         .select('id, message_id, uid, subject, from_email')
         .eq('user_id', user.id)
         .eq('archived_in_gmail', false);
+      
+      unArchivedEmails = result.data;
+      fetchError = result.error;
+      
+      // If column doesn't exist, try without the filter
+      if (fetchError && fetchError.message && fetchError.message.includes('column')) {
+        console.log('⚠️ archived_in_gmail column might not exist, trying without filter...');
+        const fallbackResult = await supabase
+          .from('imap_inbox')
+          .select('id, message_id, uid, subject, from_email')
+          .eq('user_id', user.id);
+        
+        unArchivedEmails = fallbackResult.data;
+        fetchError = fallbackResult.error;
+      }
 
       if (fetchError) {
         console.error('Failed to fetch unarchived emails:', fetchError);
