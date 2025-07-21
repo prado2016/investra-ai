@@ -480,7 +480,7 @@ class SimpleEmailService {
       let unArchivedEmails = null;
       let fetchError = null;
       
-      // Try with archived_in_gmail filter first
+      // Try with full schema first (including uid and archived_in_gmail columns)
       const result = await supabase
         .from('imap_inbox')
         .select('id, message_id, uid, subject, from_email')
@@ -490,8 +490,8 @@ class SimpleEmailService {
       unArchivedEmails = result.data;
       fetchError = result.error;
       
-      // If column doesn't exist, try without the filter
-      if (fetchError && fetchError.message && fetchError.message.includes('column')) {
+      // If archived_in_gmail column doesn't exist, try without the filter
+      if (fetchError && fetchError.message && fetchError.message.includes('archived_in_gmail')) {
         console.log('⚠️ archived_in_gmail column might not exist, trying without filter...');
         const fallbackResult = await supabase
           .from('imap_inbox')
@@ -500,6 +500,18 @@ class SimpleEmailService {
         
         unArchivedEmails = fallbackResult.data;
         fetchError = fallbackResult.error;
+      }
+      
+      // If uid column also doesn't exist, try with minimal schema
+      if (fetchError && fetchError.message && fetchError.message.includes('uid')) {
+        console.log('⚠️ uid column might not exist, trying with minimal schema...');
+        const minimalResult = await supabase
+          .from('imap_inbox')
+          .select('id, message_id, subject, from_email')
+          .eq('user_id', user.id);
+        
+        unArchivedEmails = minimalResult.data;
+        fetchError = minimalResult.error;
       }
 
       if (fetchError) {
@@ -518,7 +530,11 @@ class SimpleEmailService {
       const messageIds = unArchivedEmails.map(email => email.message_id);
       const archiveFolder = 'Investra/Processed';
       
-      const { data: updateData, error: updateError } = await supabase
+      // Try to update with archiving columns
+      let updateData = null;
+      let updateError = null;
+      
+      const updateResult = await supabase
         .from('imap_inbox')
         .update({
           archived_in_gmail: true,
@@ -528,6 +544,28 @@ class SimpleEmailService {
         .in('message_id', messageIds)
         .eq('user_id', user.id)
         .select('id');
+
+      updateData = updateResult.data;
+      updateError = updateResult.error;
+
+      // If archiving columns don't exist, just update the timestamp
+      if (updateError && (
+        updateError.message.includes('archived_in_gmail') || 
+        updateError.message.includes('archive_folder')
+      )) {
+        console.log('⚠️ Archive columns might not exist, updating timestamp only...');
+        const fallbackUpdate = await supabase
+          .from('imap_inbox')
+          .update({
+            updated_at: new Date().toISOString()
+          })
+          .in('message_id', messageIds)
+          .eq('user_id', user.id)
+          .select('id');
+        
+        updateData = fallbackUpdate.data;
+        updateError = fallbackUpdate.error;
+      }
 
       if (updateError) {
         console.error('Failed to mark emails as archived:', updateError);
