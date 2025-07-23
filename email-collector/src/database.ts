@@ -217,6 +217,35 @@ export class Database {
   }
 
   /**
+   * Check if an email exists in the processed table only
+   */
+  async emailExistsInProcessed(messageId: string, userId: string): Promise<boolean> {
+    try {
+      const { data: processedData, error: processedError } = await this.client
+        .from('imap_processed')
+        .select('id')
+        .eq('message_id', messageId)
+        .eq('user_id', userId)
+        .limit(1);
+
+      if (processedError) {
+        logger.error('Failed to check email existence in processed:', processedError);
+        throw processedError;
+      }
+
+      const exists = (processedData?.length || 0) > 0;
+      if (exists) {
+        logger.debug(`Email ${messageId} found in imap_processed`);
+      }
+      
+      return exists;
+    } catch (error) {
+      logger.error('Error checking email existence in processed table:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Insert a new email into the inbox
    */
   async insertEmail(emailData: EmailData): Promise<string | null> {

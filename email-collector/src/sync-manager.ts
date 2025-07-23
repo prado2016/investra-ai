@@ -152,22 +152,30 @@ export class EmailSyncManager {
       const insertedCount = await database.insertEmails(emailData);
       result.emailsSynced = insertedCount;
 
-      // Archive emails if enabled and emails were inserted
-      if (insertedCount > 0 && imapConfig.archive_emails_after_import) {
+      // Archive emails if enabled 
+      if (imapConfig.archive_emails_after_import && emails.length > 0) {
         try {
-          // Get UIDs of emails that were actually inserted (not skipped duplicates)
-          const insertedEmails = emails.filter(email => 
-            emailData.some(data => data.message_id === email.messageId)
-          );
+          // Check which emails from this batch should be archived
+          const emailsToArchive = [];
           
-          if (insertedEmails.length > 0) {
+          for (const email of emails) {
+            // Archive if email was newly inserted OR if it already exists in processed table
+            const isNewlyInserted = emailData.some(data => data.message_id === email.messageId);
+            const isAlreadyProcessed = await database.emailExistsInProcessed(email.messageId, imapConfig.user_id);
+            
+            if (isNewlyInserted || isAlreadyProcessed) {
+              emailsToArchive.push(email);
+            }
+          }
+          
+          if (emailsToArchive.length > 0) {
             // Move emails in Gmail
-            const uidsToMove = insertedEmails.map(email => email.uid);
+            const uidsToMove = emailsToArchive.map(email => email.uid);
             await imapClient.moveEmailsToFolder(uidsToMove, imapConfig.archive_folder);
-            logger.info(`Moved ${uidsToMove.length} emails to ${imapConfig.archive_folder} in Gmail`);
+            logger.info(`Moved ${uidsToMove.length} emails to ${imapConfig.archive_folder} in Gmail (${insertedCount} new, ${emailsToArchive.length - insertedCount} already processed)`);
             
             // Mark emails as archived in database
-            const messageIds = insertedEmails.map(email => email.messageId);
+            const messageIds = emailsToArchive.map(email => email.messageId);
             const archivedCount = await database.markEmailsAsArchived(messageIds, imapConfig.user_id, imapConfig.archive_folder);
             logger.info(`Marked ${archivedCount} emails as archived in database`);
           }
