@@ -297,12 +297,10 @@ export class ImapClient {
       // Get message count and UID validity
       const mailboxStatus = await this.client.status('INBOX', {
         messages: true,
-        unseen: true,
-        uidNext: true,
-        uidValidity: true
+        unseen: true
       });
       
-      logger.info(`Mailbox status: ${mailboxStatus.messages} total, ${mailboxStatus.unseen} unseen, uidNext: ${mailboxStatus.uidNext}`);
+      logger.info(`Mailbox status: ${mailboxStatus.messages} total, ${mailboxStatus.unseen} unseen`);
 
       if (mailboxStatus.messages === 0) {
         logger.info('No messages in mailbox');

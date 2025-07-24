@@ -132,9 +132,10 @@ export class EmailSyncManager {
       imapClient = new ImapClient(imapConfig);
       await imapClient.connect();
 
-      // Fetch emails newer than last processed UID
-      logger.debug(`Fetching emails newer than UID ${imapConfig.last_processed_uid} for ${imapConfig.gmail_email}`);
-      const emails = await imapClient.fetchEmailsAboveUID(imapConfig.last_processed_uid, imapConfig.max_emails_per_sync);
+      // Fetch emails newer than last processed UID (ensure UID is not null/undefined)
+      const lastUID = imapConfig.last_processed_uid || 0;
+      logger.debug(`Fetching emails newer than UID ${lastUID} for ${imapConfig.gmail_email}`);
+      const emails = await imapClient.fetchEmailsAboveUID(lastUID, imapConfig.max_emails_per_sync);
 
       if (emails.length === 0) {
         logger.info(`No new emails found for ${imapConfig.gmail_email}`);
@@ -174,10 +175,15 @@ export class EmailSyncManager {
             await imapClient.moveEmailsToFolder(uidsToMove, imapConfig.archive_folder);
             logger.info(`Moved ${uidsToMove.length} emails to ${imapConfig.archive_folder} in Gmail (${insertedCount} new, ${emailsToArchive.length - insertedCount} already processed)`);
             
-            // Mark emails as archived in database
-            const messageIds = emailsToArchive.map(email => email.messageId);
-            const archivedCount = await database.markEmailsAsArchived(messageIds, imapConfig.user_id, imapConfig.archive_folder);
-            logger.info(`Marked ${archivedCount} emails as archived in database`);
+            // Try to mark emails as archived in database (if column exists)
+            try {
+              const messageIds = emailsToArchive.map(email => email.messageId);
+              const archivedCount = await database.markEmailsAsArchived(messageIds, imapConfig.user_id, imapConfig.archive_folder);
+              logger.info(`Marked ${archivedCount} emails as archived in database`);
+            } catch (dbError) {
+              logger.warn(`Could not mark emails as archived in database (column may not exist): ${dbError instanceof Error ? dbError.message : 'Unknown error'}`);
+              // Continue anyway - Gmail archiving is the important part
+            }
           }
         } catch (moveError) {
           logger.warn(`Failed to archive emails: ${moveError instanceof Error ? moveError.message : 'Unknown error'}`);
@@ -187,7 +193,7 @@ export class EmailSyncManager {
 
       // Update last processed UID
       const highestUID = database.getHighestUID(emails);
-      if (highestUID > imapConfig.last_processed_uid) {
+      if (highestUID > lastUID) {
         await database.updateLastProcessedUID(imapConfig.id, highestUID);
         logger.debug(`Updated last processed UID to ${highestUID} for ${imapConfig.gmail_email}`);
       }
