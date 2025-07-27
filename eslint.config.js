@@ -212,7 +212,7 @@ export default [
       'no-console': 'off',
       'no-debugger': 'warn',
       '@typescript-eslint/no-explicit-any': 'warn',
-      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '_', varsIgnorePattern: '_', caughtErrorsIgnorePattern: '_', }],
+      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_', }],
       'no-prototype-builtins': 'off',
       '@typescript-eslint/no-require-imports': 'off',
       'no-useless-escape': 'off', // Disable for now
@@ -297,6 +297,40 @@ export default [
     },
     rules: {
       'no-undef': 'off',
+    },
+  },
+
+  // Scripts directory Node.js files
+  {
+    files: ['scripts/**/*.js'],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+        __dirname: 'readonly',
+        __filename: 'readonly',
+        process: 'readonly',
+        Buffer: 'readonly',
+        setTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearTimeout: 'readonly',
+        clearInterval: 'readonly',
+        console: 'readonly',
+        module: 'readonly',
+        exports: 'readonly',
+        require: 'readonly',
+        fetch: 'readonly',
+      },
+    },
+    rules: {
+      'no-unused-vars': 'warn',
+      'no-undef': 'warn',
+      'no-console': 'off',
+      'no-debugger': 'warn',
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_', }],
+      'no-prototype-builtins': 'off',
+      '@typescript-eslint/no-require-imports': 'off',
+      'no-useless-escape': 'off',
     },
   },
 

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-env node */
 
 /**
  * Direct Supabase query to check system_config table
@@ -86,7 +87,7 @@ async function checkSystemConfig() {
   
   for (const key of expectedKeys) {
     try {
-      const { data, error } = await supabase
+      const { data: _data, error } = await supabase
         .from('system_config')
         .select('config_value')
         .eq('config_key', key)
@@ -99,7 +100,7 @@ async function checkSystemConfig() {
       } else {
         console.log(`   ✅ ${key}: EXISTS`);
       }
-    } catch (err) {
+    } catch (_err) {
       console.log(`   ❌ ${key}: QUERY FAILED`);
     }
   }

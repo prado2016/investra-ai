@@ -44,24 +44,24 @@ import * as winston from 'winston';
 import { createServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import * as Sentry from '@sentry/node';
-import { exec } from 'child_process';
+// import { exec } from 'child_process';
 
 // Define AuthenticatedRequest interface locally
-interface _AuthenticatedRequest extends express.Request {
-  user?: {
-    id: string;
-    email: string;
-  };
-  userId?: string;
-  body: Record<string, unknown>;
-  headers: Record<string, string>;
-  ip: string | undefined;
-}
+// interface _AuthenticatedRequest extends express.Request {
+//   user?: {
+//     id: string;
+//     email: string;
+//   };
+//   userId?: string;
+//   body: Record<string, unknown>;
+//   headers: Record<string, string>;
+//   ip: string | undefined;
+// }
 
 // Import authentication middleware with robust error handling
-type AuthMiddleware = (req: express.Request, res: express.Response, next: express.NextFunction) => void;
+type AuthMiddleware = (_req: express.Request, _res: express.Response, _next: express.NextFunction) => void;
 let authenticateUser: AuthMiddleware | null = null;
-let _optionalAuth: AuthMiddleware | null = null;
+// let _optionalAuth: AuthMiddleware | null = null;
 
 // Try multiple paths for the authentication middleware
 const authPaths = [
@@ -76,7 +76,7 @@ for (const authPath of authPaths) {
   try {
     const authModule = require(authPath);
     authenticateUser = authModule.authenticateUser;
-    _optionalAuth = authModule.optionalAuth;
+    // _optionalAuth = authModule.optionalAuth;
     console.log(`✅ Authentication middleware loaded successfully from: ${authPath}`);
     authLoaded = true;
     break;
@@ -91,7 +91,7 @@ if (!authLoaded) {
   console.warn('   Creating fallback authentication handlers...');
 
   // Create fallback middleware that properly handles authentication requirements
-  authenticateUser = (req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  authenticateUser = (_req: express.Request, res: express.Response, _next: express.NextFunction) => {
     // Check if Supabase is configured
     if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
       return res.status(500).json({
@@ -109,10 +109,10 @@ if (!authLoaded) {
     });
   };
 
-  _optionalAuth = (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    console.warn('Optional authentication disabled - continuing without auth');
-    next();
-  };
+  // _optionalAuth = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  //   console.warn('Optional authentication disabled - continuing without auth');
+  //   next();
+  // };
 }
 
 // Initialize Sentry for error tracking
@@ -546,7 +546,7 @@ if (wss) {
 // })); // Commented out for deployment compatibility
 
 app.use(cors({
-  origin: function (origin: string | undefined, callback: (_err: Error | null, allow?: boolean) => void) {
+  origin: function (origin: string | undefined, callback: (_err: Error | null, _allow?: boolean) => void) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
 
