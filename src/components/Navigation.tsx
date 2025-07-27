@@ -23,7 +23,7 @@ const Navigation: React.FC<NavigationProps> = ({ className }) => {
     { path: '/summary', label: 'Summary', icon: Calendar },
     { path: '/portfolio-summary/heat-map', label: 'Heat Map', icon: BarChart3 },
     { path: '/email-management', label: 'Email Import', icon: Mail },
-    { path: '/batch-update-portfolios', label: 'Batch Update', icon: Database },
+    { path: '/tools', label: 'Tools', icon: Database },
     { path: '/notifications', label: 'Alerts', icon: Bell },
     { path: '/settings', label: 'Settings', icon: Settings },
   ];
