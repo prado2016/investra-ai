@@ -36,7 +36,7 @@ interface UseDashboardMetricsReturn {
 }
 
 export function useDashboardMetrics(): UseDashboardMetricsReturn {
-  const { activePortfolio } = usePortfolios();
+  const { activePortfolio, portfolios } = usePortfolios();
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,11 +44,15 @@ export function useDashboardMetrics(): UseDashboardMetricsReturn {
   const calculateMetrics = useCallback(async () => {
     console.log('🔍 DashboardMetrics: calculateMetrics called', { 
       activePortfolio: activePortfolio?.id, 
-      activePortfolioName: activePortfolio?.name 
+      activePortfolioName: activePortfolio?.name,
+      portfoliosCount: portfolios.length
     });
     
-    if (!activePortfolio) {
-      console.log('🔍 DashboardMetrics: All Portfolios view - metrics not supported yet');
+    // If no specific portfolio is selected, aggregate all portfolios
+    const targetPortfolios = activePortfolio ? [activePortfolio] : portfolios;
+    
+    if (targetPortfolios.length === 0) {
+      console.log('🔍 DashboardMetrics: No portfolios available');
       setMetrics(null);
       return;
     }
@@ -78,103 +82,135 @@ export function useDashboardMetrics(): UseDashboardMetricsReturn {
       const today = new Date();
       console.log('🔍 DashboardMetrics: Fetching today data for date:', today.toISOString());
       
-      const todayResult = await dailyPLAnalyticsService.getDayPLDetails(
-        activePortfolio.id,
-        today
-      );
+      // Aggregate data from all target portfolios
+      const aggregatedTodayData = {
+        totalPL: 0,
+        tradeVolume: 0,
+        netCashFlow: 0,
+        transactionCount: 0
+      };
+      
+      const todayErrors: string[] = [];
+      
+      for (const portfolio of targetPortfolios) {
+        const todayResult = await dailyPLAnalyticsService.getDayPLDetails(
+          portfolio.id,
+          today
+        );
+        
+        if (todayResult.error) {
+          todayErrors.push(`${portfolio.name}: ${todayResult.error}`);
+        } else if (todayResult.data) {
+          aggregatedTodayData.totalPL += todayResult.data.totalPL || 0;
+          aggregatedTodayData.tradeVolume += todayResult.data.tradeVolume || 0;
+          aggregatedTodayData.netCashFlow += todayResult.data.netCashFlow || 0;
+          aggregatedTodayData.transactionCount += todayResult.data.transactionCount || 0;
+        }
+      }
 
-      console.log('🔍 DashboardMetrics: Today result:', { 
-        error: todayResult.error, 
-        hasData: !!todayResult.data,
-        totalPL: todayResult.data?.totalPL 
+      console.log('🔍 DashboardMetrics: Aggregated today result:', { 
+        errors: todayErrors, 
+        aggregatedData: aggregatedTodayData
       });
 
       // More resilient error handling - don't fail completely if today's data is missing
-      let todayData = null;
-      if (todayResult.error) {
-        console.warn('⚠️ DashboardMetrics: Today data fetch failed:', todayResult.error);
-        // Continue with null data - we'll provide fallback values
-      } else {
-        todayData = todayResult.data;
+      const todayData = aggregatedTodayData;
+      if (todayErrors.length > 0) {
+        console.warn('⚠️ DashboardMetrics: Some today data fetch failed:', todayErrors);
+        // Continue with aggregated data - we'll provide fallback values
       }
 
-      // Get current month data for additional context
+      // Get current month data for additional context - aggregate across portfolios
       console.log('🔍 DashboardMetrics: Fetching current month data...');
-      const monthResult = await dailyPLAnalyticsService.getCurrentMonthPL(
-        activePortfolio.id
-      );
-
-      console.log('🔍 DashboardMetrics: Month result:', { 
-        error: monthResult.error, 
-        hasData: !!monthResult.data 
-      });
-
+      
       let monthlyRealizedPL = 0;
       let monthlyDividends = 0;
       let monthlyFees = 0;
-
-      if (monthResult.data) {
-        monthlyRealizedPL = monthResult.data.totalRealizedPL;
-        monthlyDividends = monthResult.data.totalDividends;
-        monthlyFees = monthResult.data.totalFees;
-        console.log('🔍 DashboardMetrics: Month data extracted:', {
-          monthlyRealizedPL,
-          monthlyDividends,
-          monthlyFees
-        });
-      } else if (monthResult.error) {
-        console.warn('⚠️ DashboardMetrics: Month data fetch failed:', monthResult.error);
+      const monthErrors: string[] = [];
+      
+      for (const portfolio of targetPortfolios) {
+        const monthResult = await dailyPLAnalyticsService.getCurrentMonthPL(
+          portfolio.id
+        );
+        
+        if (monthResult.error) {
+          monthErrors.push(`${portfolio.name}: ${monthResult.error}`);
+        } else if (monthResult.data) {
+          monthlyRealizedPL += monthResult.data.totalRealizedPL || 0;
+          monthlyDividends += monthResult.data.totalDividends || 0;
+          monthlyFees += monthResult.data.totalFees || 0;
+        }
       }
+      
+      console.log('🔍 DashboardMetrics: Aggregated month data:', {
+        monthlyRealizedPL,
+        monthlyDividends,
+        monthlyFees,
+        errors: monthErrors
+      });
 
-      // Calculate current unrealized P/L from positions
+      // Calculate current unrealized P/L from positions - aggregate across portfolios
       console.log('🔍 DashboardMetrics: Fetching positions...');
-      const positionsResult = await SupabaseService.position.getPositions(activePortfolio.id);
       let currentUnrealizedPL = 0;
+      const positionsErrors: string[] = [];
       
-      console.log('🔍 DashboardMetrics: Positions result:', { 
-        success: positionsResult.success, 
-        count: positionsResult.data?.length 
-      });
-      
-      if (positionsResult.success && positionsResult.data) {
-        // For now, use the average cost basis as a placeholder
-        // In a real implementation, you'd fetch current market prices
-        positionsResult.data.forEach(position => {
-          // Placeholder calculation - in reality you'd use current market price
-          const estimatedValue = position.quantity * position.average_cost_basis;
-          const costBasis = position.total_cost_basis;
-          currentUnrealizedPL += (estimatedValue - costBasis);
-        });
-        console.log('🔍 DashboardMetrics: Calculated unrealized P/L:', currentUnrealizedPL);
+      for (const portfolio of targetPortfolios) {
+        const positionsResult = await SupabaseService.position.getPositions(portfolio.id);
+        
+        if (positionsResult.success && positionsResult.data) {
+          // For now, use the average cost basis as a placeholder
+          // In a real implementation, you'd fetch current market prices
+          positionsResult.data.forEach(position => {
+            // Placeholder calculation - in reality you'd use current market price
+            const estimatedValue = position.quantity * position.average_cost_basis;
+            const costBasis = position.total_cost_basis;
+            currentUnrealizedPL += (estimatedValue - costBasis);
+          });
+        } else {
+          positionsErrors.push(`${portfolio.name}: Failed to fetch positions`);
+        }
       }
-
-      // Calculate all-time total return
-      console.log('🔍 DashboardMetrics: Fetching total return data...');
-      const totalReturnResult = await totalReturnAnalyticsService.calculateTotalReturn(
-        activePortfolio.id,
-        { includeDividends: true, includeFees: true }
-      );
-
-      console.log('🔍 DashboardMetrics: Total return result:', { 
-        error: totalReturnResult.error, 
-        hasData: !!totalReturnResult.data,
-        totalReturn: totalReturnResult.data?.totalReturn,
-        totalReturnPercent: totalReturnResult.data?.totalReturnPercent
+      
+      console.log('🔍 DashboardMetrics: Aggregated positions result:', { 
+        currentUnrealizedPL,
+        errors: positionsErrors
       });
 
+      // Calculate all-time total return - aggregate across portfolios
+      console.log('🔍 DashboardMetrics: Fetching total return data...');
+      
       let allTimeTotalReturn = 0;
       let allTimeTotalReturnPercent = 0;
-
-      if (totalReturnResult.data) {
-        allTimeTotalReturn = totalReturnResult.data.totalReturn;
-        allTimeTotalReturnPercent = totalReturnResult.data.totalReturnPercent;
-        console.log('🔍 DashboardMetrics: Total return extracted:', {
-          allTimeTotalReturn,
-          allTimeTotalReturnPercent
-        });
-      } else if (totalReturnResult.error) {
-        console.warn('⚠️ DashboardMetrics: Total return fetch failed:', totalReturnResult.error);
+      const totalReturnErrors: string[] = [];
+      let totalInitialValue = 0;
+      
+      for (const portfolio of targetPortfolios) {
+        const totalReturnResult = await totalReturnAnalyticsService.calculateTotalReturn(
+          portfolio.id,
+          { includeDividends: true, includeFees: true }
+        );
+        
+        if (totalReturnResult.error) {
+          totalReturnErrors.push(`${portfolio.name}: ${totalReturnResult.error}`);
+        } else if (totalReturnResult.data) {
+          allTimeTotalReturn += totalReturnResult.data.totalReturn || 0;
+          // For percentage calculation, we need to weight by initial values
+          // This is a simplified approach - in reality you'd want more sophisticated calculation
+          totalInitialValue += (totalReturnResult.data as any).initialValue || 0;
+        }
       }
+      
+      // Calculate weighted average return percentage
+      if (totalInitialValue > 0) {
+        allTimeTotalReturnPercent = (allTimeTotalReturn / totalInitialValue) * 100;
+      }
+      
+      console.log('🔍 DashboardMetrics: Aggregated total return result:', { 
+        allTimeTotalReturn,
+        allTimeTotalReturnPercent,
+        totalInitialValue,
+        errors: totalReturnErrors
+      });
 
       const dashboardMetrics: DashboardMetrics = {
         totalDailyPL: todayData?.totalPL || 0,
@@ -196,8 +232,9 @@ export function useDashboardMetrics(): UseDashboardMetricsReturn {
       setMetrics(dashboardMetrics);
       
       // Set warning if some data failed to load
-      if (todayResult.error || monthResult.error) {
-        setError(`Some data unavailable: ${todayResult.error || monthResult.error}`);
+      const allErrors = [...todayErrors, ...monthErrors, ...positionsErrors, ...totalReturnErrors];
+      if (allErrors.length > 0) {
+        setError(`Some data unavailable: ${allErrors.join('; ')}`);
       }
     } catch (err) {
       console.error('❌ DashboardMetrics: Critical error, falling back to mock data:', err);
@@ -208,18 +245,18 @@ export function useDashboardMetrics(): UseDashboardMetricsReturn {
     } finally {
       setLoading(false);
     }
-  }, [activePortfolio]);
+  }, [activePortfolio, portfolios]);
 
   const refreshMetrics = useCallback(async () => {
     await calculateMetrics();
   }, [calculateMetrics]);
 
-  // Calculate metrics when active portfolio changes
+  // Calculate metrics when active portfolio changes or when portfolios are loaded
   useEffect(() => {
-    if (activePortfolio) {
+    if (portfolios.length > 0) {
       calculateMetrics();
     }
-  }, [activePortfolio, calculateMetrics]);
+  }, [activePortfolio, portfolios, calculateMetrics]);
 
   return {
     metrics,
