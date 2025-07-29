@@ -75,6 +75,90 @@ function getTotalAvailableQuantity(buyLots: BuyQueueItem[]): number {
 
 export class DailyPLAnalyticsService {
   private readonly DEFAULT_THRESHOLD = 0.01; // $0.01 threshold for neutral
+  
+  // Cache for monthly P/L data to prevent duplicate API calls
+  private monthlyPLCache = new Map<string, {
+    data: MonthlyPLSummary;
+    timestamp: number;
+    expiresAt: number;
+  }>();
+  
+  // Cache duration: 5 minutes
+  private readonly CACHE_DURATION_MS = 5 * 60 * 1000;
+  
+  // Pending requests to prevent duplicate simultaneous calls
+  private pendingRequests = new Map<string, Promise<{ data: MonthlyPLSummary | null; error: string | null }>>();
+
+  /**
+   * Generate cache key for monthly P/L data
+   */
+  private getCacheKey(portfolioId: string, year: number, month: number): string {
+    return `${portfolioId}-${year}-${month}`;
+  }
+
+  /**
+   * Check if cache entry is valid (not expired)
+   */
+  private isCacheValid(cacheKey: string): boolean {
+    const entry = this.monthlyPLCache.get(cacheKey);
+    if (!entry) return false;
+    
+    const now = Date.now();
+    return now < entry.expiresAt;
+  }
+
+  /**
+   * Get data from cache if valid
+   */
+  private getFromCache(cacheKey: string): MonthlyPLSummary | null {
+    if (this.isCacheValid(cacheKey)) {
+      const entry = this.monthlyPLCache.get(cacheKey);
+      if (entry) {
+        console.log(`📋 Cache HIT for ${cacheKey}`, { 
+          age: Date.now() - entry.timestamp,
+          expiresIn: entry.expiresAt - Date.now()
+        });
+        return entry.data;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Store data in cache
+   */
+  private setCache(cacheKey: string, data: MonthlyPLSummary): void {
+    const now = Date.now();
+    this.monthlyPLCache.set(cacheKey, {
+      data,
+      timestamp: now,
+      expiresAt: now + this.CACHE_DURATION_MS
+    });
+    
+    console.log(`📋 Cache SET for ${cacheKey}`, { 
+      expiresIn: this.CACHE_DURATION_MS,
+      cacheSize: this.monthlyPLCache.size
+    });
+  }
+
+  /**
+   * Clear expired cache entries
+   */
+  private clearExpiredCache(): void {
+    const now = Date.now();
+    const beforeSize = this.monthlyPLCache.size;
+    
+    for (const [key, entry] of this.monthlyPLCache.entries()) {
+      if (now >= entry.expiresAt) {
+        this.monthlyPLCache.delete(key);
+      }
+    }
+    
+    const afterSize = this.monthlyPLCache.size;
+    if (beforeSize !== afterSize) {
+      console.log(`🧹 Cache cleanup: removed ${beforeSize - afterSize} expired entries`);
+    }
+  }
 
   /**
    * Get daily P/L data for multiple portfolios (aggregated) for a specific month
@@ -263,15 +347,69 @@ export class DailyPLAnalyticsService {
     month: number, // 0-11 (January = 0)
     options?: PLServiceOptions
   ): Promise<{ data: MonthlyPLSummary | null; error: string | null }> {
-      try {
+    // Clean up expired cache entries periodically
+    this.clearExpiredCache();
+    
+    const cacheKey = this.getCacheKey(portfolioId, year, month);
+    
+    // Check cache first
+    const cachedData = this.getFromCache(cacheKey);
+    if (cachedData) {
+      return { data: cachedData, error: null };
+    }
+    
+    // Check if there's already a pending request for this data
+    const existingRequest = this.pendingRequests.get(cacheKey);
+    if (existingRequest) {
+      console.log(`⏳ Request already in progress for ${cacheKey}, waiting...`);
+      return existingRequest;
+    }
+
+    // Create and track new request
+    const requestPromise = this.fetchMonthlyPLData(portfolioId, year, month, options, cacheKey);
+    this.pendingRequests.set(cacheKey, requestPromise);
+    
+    try {
+      const result = await requestPromise;
+      
+      // Cache successful results
+      if (result.data && !result.error) {
+        this.setCache(cacheKey, result.data);
+      }
+      
+      return result;
+    } finally {
+      // Remove from pending requests when done
+      this.pendingRequests.delete(cacheKey);
+    }
+  }
+
+  /**
+   * Internal method to fetch monthly P/L data (without caching logic)
+   */
+  private async fetchMonthlyPLData(
+    portfolioId: string,
+    year: number,
+    month: number,
+    options?: PLServiceOptions,
+    cacheKey?: string
+  ): Promise<{ data: MonthlyPLSummary | null; error: string | null }> {
+    try {
       // Log the service call with detailed information
       debug.info('Daily P/L service called for monthly data', {
         portfolioId,
         year,
         month,
-        monthName: new Date(year, month).toLocaleString('default', { month: 'long' })
+        monthName: new Date(year, month).toLocaleString('default', { month: 'long' }),
+        cacheKey
       }, 'DailyPL');
-      console.log('🔍 DAILY_PL_DEBUG: getMonthlyPLData called:', { year, month, portfolioId, timestamp: new Date().toISOString() });
+      console.log('🔍 DAILY_PL_DEBUG: fetchMonthlyPLData called:', { 
+        year, 
+        month, 
+        portfolioId, 
+        cacheKey,
+        timestamp: new Date().toISOString() 
+      });
 
       // Get all transactions for the portfolio, sorted by date
       const transactionsResult = await SupabaseService.transaction.getTransactions(portfolioId);
@@ -740,15 +878,47 @@ export class DailyPLAnalyticsService {
   }
 
   /**
+   * Clear all cached data (useful for manual refresh)
+   */
+  clearCache(): void {
+    this.monthlyPLCache.clear();
+    this.pendingRequests.clear();
+    console.log('🧹 All cache and pending requests cleared');
+  }
+
+  /**
+   * Clear cache for a specific portfolio and month
+   */
+  clearCacheFor(portfolioId: string, year: number, month: number): void {
+    const cacheKey = this.getCacheKey(portfolioId, year, month);
+    this.monthlyPLCache.delete(cacheKey);
+    console.log(`🧹 Cache cleared for ${cacheKey}`);
+  }
+
+  /**
+   * Get cache statistics
+   */
+  getCacheStats() {
+    const now = Date.now();
+    const cacheEntries = Array.from(this.monthlyPLCache.entries()).map(([key, entry]) => ({
+      key,
+      age: now - entry.timestamp,
+      expiresIn: entry.expiresAt - now
+    }));
+
+    return {
+      cacheSize: this.monthlyPLCache.size,
+      pendingRequests: this.pendingRequests.size,
+      cacheEntries
+    };
+  }
+
+  /**
    * Get service information and capabilities
    */
-  getServiceInfo(): {
-    version: string;
-    supportedFeatures: string[];
-    integration: string;
-  } {
+  getServiceInfo() {
     return {
-      version: '2.1.0', // Updated version
+      version: '2.2.0', // Updated version with caching
       integration: 'Supabase',
       supportedFeatures: [
         'Daily P/L calculation with stateful FIFO logic',
@@ -759,8 +929,15 @@ export class DailyPLAnalyticsService {
         'Realized P/L breakdown',
         'Dividend income tracking',
         'Trading fees calculation',
-        'Net cash flow analysis'
-      ]
+        'Net cash flow analysis',
+        'In-memory caching with rate limit protection',
+        'Duplicate request deduplication'
+      ],
+      cacheInfo: {
+        enabled: true,
+        duration: this.CACHE_DURATION_MS,
+        stats: this.getCacheStats()
+      }
     };
   }
 }
