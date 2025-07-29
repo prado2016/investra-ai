@@ -7,6 +7,7 @@
  */
 
 import { supabase } from '../supabase'
+import { loadMigrationSQL } from './migration-runner-utils'
 
 export interface Migration {
   name: string
@@ -47,8 +48,23 @@ export const MIGRATIONS: Omit<Migration, 'sql'>[] = [
     version: '1.3.0'
   },
   {
-    name: 'create_email_configuration_tables',
-    file: '007_create_email_configuration_tables.sql',
+    name: 'api_key_functions',
+    file: '004_api_key_functions.sql',
+    version: '1.4.0'
+  },
+  {
+    name: 'add_option_expired_transaction_type',
+    file: '005_add_option_expired_transaction_type.sql',
+    version: '1.5.0'
+  },
+  {
+    name: 'fix_option_expired_quantity_constraint',
+    file: '006_fix_option_expired_quantity_constraint.sql',
+    version: '1.6.0'
+  },
+  {
+    name: 'add_email_archiving_columns',
+    file: '007_add_email_archiving_columns.sql',
     version: '1.7.0'
   }
 ]
@@ -153,5 +169,88 @@ export async function executeMigration(migration: Migration): Promise<MigrationR
       executionTime,
       error: errorMessage
     }
+  }
+}
+
+/**
+ * Run all pending migrations
+ */
+export async function runAllMigrations(): Promise<{
+  success: boolean
+  results: MigrationResult[]
+  totalExecutionTime: number
+}> {
+  const results: MigrationResult[] = []
+  const startTime = Date.now()
+  
+  console.log('Starting database migration process...')
+  
+  for (const migrationConfig of MIGRATIONS) {
+    try {
+      // Check if migration already executed
+      const alreadyExecuted = await isMigrationExecuted(migrationConfig.name)
+      
+      if (alreadyExecuted) {
+        console.log(`Migration ${migrationConfig.name} already executed, skipping`)
+        continue
+      }
+      
+      // Load migration SQL
+      const sql = await loadMigrationSQL(migrationConfig.file)
+      
+      if (!sql) {
+        console.error(`No SQL content found for migration ${migrationConfig.name}`)
+        results.push({
+          success: false,
+          migration: migrationConfig.name,
+          executionTime: 0,
+          error: 'No SQL content found'
+        })
+        continue
+      }
+      
+      // Create full migration object
+      const migration: Migration = {
+        ...migrationConfig,
+        sql
+      }
+      
+      // Execute migration
+      const result = await executeMigration(migration)
+      results.push(result)
+      
+      if (!result.success) {
+        console.error(`Migration ${migrationConfig.name} failed: ${result.error}`)
+        // Stop on first failure to prevent cascade errors
+        break
+      }
+      
+      console.log(`Migration ${migrationConfig.name} completed successfully`)
+      
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      console.error(`Error executing migration ${migrationConfig.name}:`, error)
+      
+      results.push({
+        success: false,
+        migration: migrationConfig.name,
+        executionTime: 0,
+        error: errorMessage
+      })
+      
+      // Stop on error
+      break
+    }
+  }
+  
+  const totalExecutionTime = Date.now() - startTime
+  const allSuccessful = results.every(r => r.success)
+  
+  console.log(`Migration process completed. ${results.length} migrations processed in ${totalExecutionTime}ms`)
+  
+  return {
+    success: allSuccessful,
+    results,
+    totalExecutionTime
   }
 }

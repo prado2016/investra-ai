@@ -678,7 +678,7 @@ class SimpleEmailService {
             .update({
               archived_in_gmail: true,
               archive_folder: 'Investra/Deleted',
-              status: 'processed',
+              // Don't change status - keep original status but mark as archived
               updated_at: new Date().toISOString()
             })
             .eq('id', id);
