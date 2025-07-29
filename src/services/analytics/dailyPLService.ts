@@ -513,12 +513,21 @@ export class DailyPLAnalyticsService {
                 const availableQuantity = queue ? getTotalAvailableQuantity(queue) : 0;
                 
                 if (availableQuantity < quantityToSell) {
-                  console.warn(`❌ Invalid historical SELL: insufficient quantity for ${symbol} on ${t.transaction_date}`, {
+                  const isOption = t.asset.asset_type === 'option';
+                  const warningMessage = isOption 
+                    ? `❌ Invalid historical SELL: insufficient quantity for ${symbol} on ${t.transaction_date}. This might be a covered call - run the Covered Call Processor tool under Tools → Covered Call Processor to fix this.`
+                    : `❌ Invalid historical SELL: insufficient quantity for ${symbol} on ${t.transaction_date}. Check transaction data integrity.`;
+                  
+                  console.warn(warningMessage, {
                     symbol,
                     requestedQuantity: quantityToSell,
                     availableQuantity,
                     transactionId: t.id,
-                    date: t.transaction_date
+                    date: t.transaction_date,
+                    isOption,
+                    assetType: t.asset.asset_type,
+                    strategyType: t.strategy_type,
+                    recommendation: isOption ? 'Run Covered Call Processor tool' : 'Check transaction data'
                   });
                   // Add to orphan transactions but continue processing
                   orphanTransactions.push(t);
@@ -635,19 +644,33 @@ export class DailyPLAnalyticsService {
             
             continue; // Skip normal FIFO processing for covered calls
           } else {
-            console.warn(`❌ Invalid SELL: insufficient quantity for ${symbol} on ${dateString}`, {
+            const isOption = sell.asset.asset_type === 'option';
+            const warningMessage = isOption 
+              ? `❌ Invalid SELL: insufficient quantity for ${symbol} on ${dateString}. This might be a covered call - run the Covered Call Processor tool under Tools → Covered Call Processor to fix this.`
+              : `❌ Invalid SELL: insufficient quantity for ${symbol} on ${dateString}. Check transaction data integrity.`;
+            
+            console.warn(warningMessage, {
               symbol,
               requestedQuantity: quantityToSell,
               availableQuantity,
               transactionId: sell.id,
-              date: dateString
+              date: dateString,
+              isOption,
+              assetType: sell.asset.asset_type,
+              strategyType: sell.strategy_type,
+              recommendation: isOption ? 'Run Covered Call Processor tool' : 'Check transaction data'
             });
+            
             debug.warn(`Invalid SELL: insufficient quantity for ${symbol}`, {
               symbol,
               requestedQuantity: quantityToSell,
               availableQuantity,
               transactionId: sell.id,
               transactionDate: sell.transaction_date,
+              isOption,
+              assetType: sell.asset.asset_type,
+              strategyType: sell.strategy_type,
+              recommendation: isOption ? 'Run Covered Call Processor tool' : 'Check transaction data'
             }, 'DailyPL');
             
             // Add to orphan transactions and skip processing
