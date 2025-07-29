@@ -82,7 +82,8 @@ class SimpleEmailService {
   async getEmails(
     status?: 'pending' | 'processing' | 'error' | 'processed',
     limit: number = 100,
-    includeProcessed: boolean = true
+    includeProcessed: boolean = true,
+    includeArchived: boolean = false
   ): Promise<{ data: EmailItem[] | null; error: string | null }> {
     try {
       console.log(`🔄 Fetching emails from database (inbox${includeProcessed ? ' and processed' : ' only'})`);
@@ -97,13 +98,19 @@ class SimpleEmailService {
 
       console.log('✅ User authenticated:', user.id);
       
-      // Always query inbox - try with archived_in_gmail filter first, fallback without
-      console.log('📡 Querying imap_inbox for pending emails...');
-      const { data: inboxEmails, error: inboxError } = await supabase
+      // Query inbox - apply archived filter based on includeArchived parameter
+      console.log(`📡 Querying imap_inbox (includeArchived: ${includeArchived})...`);
+      let inboxQuery = supabase
         .from('imap_inbox')
         .select('*')
-        .eq('user_id', user.id)
-        .eq('archived_in_gmail', false) // Only show non-archived emails
+        .eq('user_id', user.id);
+      
+      // Only filter by archived status if includeArchived is false
+      if (!includeArchived) {
+        inboxQuery = inboxQuery.eq('archived_in_gmail', false);
+      }
+      
+      const { data: inboxEmails, error: inboxError } = await inboxQuery
         .order('received_at', { ascending: false })
         .limit(limit);
       
@@ -649,6 +656,45 @@ class SimpleEmailService {
    */
   async deleteEmail(id: string): Promise<{ success: boolean; error: string | null }> {
     try {
+      console.log(`🗑️ Deleting email ID: ${id}`);
+      
+      // First, try to mark the email as archived instead of deleting
+      // This prevents re-import by the email collector
+      const { data: emailData, error: fetchError } = await supabase
+        .from('imap_inbox')
+        .select('message_id, uid')
+        .eq('id', id)
+        .single();
+
+      if (fetchError || !emailData) {
+        console.warn(`⚠️ Could not fetch email data for archiving, proceeding with deletion: ${fetchError?.message}`);
+      } else {
+        console.log(`📧 Found email to delete: message_id=${emailData.message_id}, uid=${emailData.uid}`);
+        
+        // Try to mark as archived first to prevent re-import
+        try {
+          const { error: archiveError } = await supabase
+            .from('imap_inbox')
+            .update({
+              archived_in_gmail: true,
+              archive_folder: 'Investra/Deleted',
+              status: 'processed',
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', id);
+
+          if (!archiveError) {
+            console.log(`✅ Successfully marked email ${id} as archived/deleted`);
+            return { success: true, error: null };
+          } else {
+            console.warn(`⚠️ Could not mark as archived, falling back to deletion: ${archiveError.message}`);
+          }
+        } catch (archiveErr) {
+          console.warn(`⚠️ Archive update failed, falling back to deletion:`, archiveErr);
+        }
+      }
+
+      // Fallback: delete the email if archiving fails or columns don't exist
       const { error } = await supabase
         .from('imap_inbox')
         .delete()
@@ -659,6 +705,7 @@ class SimpleEmailService {
         return { success: false, error: error.message };
       }
 
+      console.log(`✅ Email ${id} deleted from database`);
       return { success: true, error: null };
     } catch (err) {
       console.error('Failed to delete email:', err);
