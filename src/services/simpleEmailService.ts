@@ -1078,9 +1078,9 @@ class SimpleEmailService {
         .from('assets')
         .select('id, symbol, name, asset_type')
         .eq('symbol', normalizedSymbol)
-        .single();
+        .maybeSingle();
 
-      if (lookupError && lookupError.code !== 'PGRST116') { // PGRST116 = no rows found
+      if (lookupError) {
         console.error('Error looking up asset:', lookupError);
         return { data: null, error: lookupError.message };
       }
