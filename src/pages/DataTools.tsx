@@ -1,6 +1,6 @@
 /**
- * Tools Page - Central hub for all administrative and utility tools
- * Provides organized access to portfolio management, transaction analysis, and system tools
+ * Data Tools Page - Central hub for data management and administrative tools
+ * Provides organized access to portfolio management, transaction processing, and data import tools
  */
 import React from 'react';
 import { Link } from 'react-router-dom';
@@ -20,8 +20,8 @@ import {
 } from 'lucide-react';
 import { usePageTitle } from '../hooks/usePageTitle';
 
-const Tools: React.FC = () => {
-  usePageTitle('Tools');
+const DataTools: React.FC = () => {
+  usePageTitle('Data Tools');
 
   const toolCategories = [
     {
@@ -42,28 +42,6 @@ const Tools: React.FC = () => {
           description: 'Identify and process covered call transactions',
           path: '/tools/covered-call-processor',
           icon: Target,
-          status: 'stable'
-        }
-      ]
-    },
-    {
-      title: 'Analysis & Research',
-      description: 'Data analysis and research utilities',
-      icon: BarChart3,
-      color: 'var(--color-success-600)',
-      tools: [
-        {
-          name: 'Stock Finder',
-          description: 'Search and analyze stock information',
-          path: '/tools/stock-finder',
-          icon: Search,
-          status: 'stable'
-        },
-        {
-          name: 'Heat Map',
-          description: 'Visual portfolio performance analysis',
-          path: '/portfolio-summary/heat-map',
-          icon: TrendingUp,
           status: 'stable'
         }
       ]
@@ -169,7 +147,7 @@ const Tools: React.FC = () => {
               marginBottom: 'var(--space-2)'
             }}
           >
-            Tools & Utilities
+            Data Tools & Utilities
           </h1>
           <p 
             style={{
@@ -178,7 +156,7 @@ const Tools: React.FC = () => {
               margin: 0
             }}
           >
-            Access all administrative tools and utilities for portfolio management and data analysis
+            Access data management tools for portfolio administration, transaction processing, and data import
           </p>
         </div>
       </div>
@@ -187,8 +165,12 @@ const Tools: React.FC = () => {
       <div 
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(500px, 1fr))',
-          gap: 'var(--space-8)'
+          gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))',
+          gap: 'var(--space-8)',
+          '@media (max-width: 768px)': {
+            gridTemplateColumns: '1fr',
+            gap: 'var(--space-6)'
+          }
         }}
       >
         {toolCategories.map((category) => {
@@ -346,8 +328,25 @@ const Tools: React.FC = () => {
           );
         })}
       </div>
+
+      {/* Additional styling for responsiveness */}
+      <style>{`
+        @media (max-width: 768px) {
+          .data-tools-page {
+            padding: var(--space-4) !important;
+          }
+          
+          .data-tools-page h1 {
+            font-size: var(--text-2xl) !important;
+          }
+        }
+        
+        .dropdown-item:hover {
+          background: var(--bg-hover) !important;
+        }
+      `}</style>
     </div>
   );
 };
 
-export default Tools;
+export default DataTools;

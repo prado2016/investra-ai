@@ -4,7 +4,7 @@
  */
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { BarChart3, TrendingUp, Settings, ArrowLeftRight, Calendar, Menu, X, Mail, Bell, Database, Wrench } from 'lucide-react';
+import { BarChart3, TrendingUp, Settings, ArrowLeftRight, Calendar, Menu, X, Mail, Bell, Database, Wrench, Activity } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 
 interface NavigationProps {
@@ -14,7 +14,8 @@ interface NavigationProps {
 const Navigation: React.FC<NavigationProps> = ({ className }) => {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isToolsMenuOpen, setIsToolsMenuOpen] = useState(false);
+  const [isDataToolsMenuOpen, setIsDataToolsMenuOpen] = useState(false);
+  const [isAnalyzeToolsMenuOpen, setIsAnalyzeToolsMenuOpen] = useState(false);
 
   const navItems = [
     { path: '/', label: 'Dashboard', icon: BarChart3 },
@@ -23,7 +24,8 @@ const Navigation: React.FC<NavigationProps> = ({ className }) => {
     { path: '/summary', label: 'Summary', icon: Calendar },
     { path: '/portfolio-summary/heat-map', label: 'Heat Map', icon: BarChart3 },
     { path: '/email-management', label: 'Email Import', icon: Mail },
-    { path: '/tools', label: 'Tools', icon: Database },
+    { path: '/data-tools', label: 'Data Tools', icon: Database },
+    { path: '/analyze-tools', label: 'Analyze Tools', icon: Activity },
     { path: '/notifications', label: 'Alerts', icon: Bell },
     { path: '/settings', label: 'Settings', icon: Settings },
   ];
@@ -153,35 +155,36 @@ const Navigation: React.FC<NavigationProps> = ({ className }) => {
             })}
           </ul>
 
+          {/* Data Tools Dropdown */}
           <div 
-            className="tools-dropdown-container" 
+            className="data-tools-dropdown-container" 
             style={{ position: 'relative' }}
-            onMouseEnter={() => setIsToolsMenuOpen(true)} 
-            onMouseLeave={() => setIsToolsMenuOpen(false)}
+            onMouseEnter={() => setIsDataToolsMenuOpen(true)} 
+            onMouseLeave={() => setIsDataToolsMenuOpen(false)}
           >
             <button
-              className={`nav-link ${isToolsMenuOpen ? 'nav-link-active' : ''}`}
+              className={`nav-link ${isDataToolsMenuOpen ? 'nav-link-active' : ''}`}
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: 'var(--space-2)',
-                color: isToolsMenuOpen ? 'var(--color-primary-600)' : 'var(--text-secondary)',
+                color: isDataToolsMenuOpen ? 'var(--color-primary-600)' : 'var(--text-secondary)',
                 textDecoration: 'none',
                 padding: 'var(--space-2) var(--space-4)',
                 borderRadius: 'var(--radius-md)',
                 transition: 'all var(--transition-fast)',
                 fontWeight: 'var(--font-weight-medium)',
                 fontSize: 'var(--text-sm)',
-                background: isToolsMenuOpen ? 'rgba(202, 138, 4, 0.1)' : 'transparent',
-                border: isToolsMenuOpen ? '1px solid rgba(202, 138, 4, 0.2)' : '1px solid transparent',
+                background: isDataToolsMenuOpen ? 'rgba(202, 138, 4, 0.1)' : 'transparent',
+                border: isDataToolsMenuOpen ? '1px solid rgba(202, 138, 4, 0.2)' : '1px solid transparent',
                 minHeight: 'var(--input-height-sm)',
                 cursor: 'pointer'
               }}
             >
-              <Wrench size={18} />
-              <span className="nav-link-text">Tools</span>
+              <Database size={18} />
+              <span className="nav-link-text">Data Tools</span>
             </button>
-            {isToolsMenuOpen && (
+            {isDataToolsMenuOpen && (
               <div
                 className="dropdown-menu"
                 style={{
@@ -193,13 +196,114 @@ const Navigation: React.FC<NavigationProps> = ({ className }) => {
                   borderRadius: 'var(--radius-md)',
                   boxShadow: 'var(--shadow-lg)',
                   zIndex: 'var(--z-dropdown)',
-                  minWidth: '200px',
+                  minWidth: '220px',
                   padding: 'var(--space-2) 0',
                 }}
               >
                 <Link
+                  to="/data-tools"
+                  onClick={() => setIsDataToolsMenuOpen(false)}
+                  className="dropdown-item"
+                  style={{
+                    display: 'block',
+                    padding: 'var(--space-2) var(--space-4)',
+                    color: 'var(--text-primary)',
+                    textDecoration: 'none',
+                  }}
+                >
+                  All Data Tools
+                </Link>
+                <Link
+                  to="/tools/covered-call-processor"
+                  onClick={() => setIsDataToolsMenuOpen(false)}
+                  className="dropdown-item"
+                  style={{
+                    display: 'block',
+                    padding: 'var(--space-2) var(--space-4)',
+                    color: 'var(--text-primary)',
+                    textDecoration: 'none',
+                  }}
+                >
+                  Covered Call Processor
+                </Link>
+                <Link
+                  to="/email-management"
+                  onClick={() => setIsDataToolsMenuOpen(false)}
+                  className="dropdown-item"
+                  style={{
+                    display: 'block',
+                    padding: 'var(--space-2) var(--space-4)',
+                    color: 'var(--text-primary)',
+                    textDecoration: 'none',
+                  }}
+                >
+                  Email Import
+                </Link>
+              </div>
+            )}
+          </div>
+
+          {/* Analyze Tools Dropdown */}
+          <div 
+            className="analyze-tools-dropdown-container" 
+            style={{ position: 'relative' }}
+            onMouseEnter={() => setIsAnalyzeToolsMenuOpen(true)} 
+            onMouseLeave={() => setIsAnalyzeToolsMenuOpen(false)}
+          >
+            <button
+              className={`nav-link ${isAnalyzeToolsMenuOpen ? 'nav-link-active' : ''}`}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'var(--space-2)',
+                color: isAnalyzeToolsMenuOpen ? 'var(--color-primary-600)' : 'var(--text-secondary)',
+                textDecoration: 'none',
+                padding: 'var(--space-2) var(--space-4)',
+                borderRadius: 'var(--radius-md)',
+                transition: 'all var(--transition-fast)',
+                fontWeight: 'var(--font-weight-medium)',
+                fontSize: 'var(--text-sm)',
+                background: isAnalyzeToolsMenuOpen ? 'rgba(202, 138, 4, 0.1)' : 'transparent',
+                border: isAnalyzeToolsMenuOpen ? '1px solid rgba(202, 138, 4, 0.2)' : '1px solid transparent',
+                minHeight: 'var(--input-height-sm)',
+                cursor: 'pointer'
+              }}
+            >
+              <Activity size={18} />
+              <span className="nav-link-text">Analyze Tools</span>
+            </button>
+            {isAnalyzeToolsMenuOpen && (
+              <div
+                className="dropdown-menu"
+                style={{
+                  position: 'absolute',
+                  top: '100%',
+                  right: 0,
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border-primary)',
+                  borderRadius: 'var(--radius-md)',
+                  boxShadow: 'var(--shadow-lg)',
+                  zIndex: 'var(--z-dropdown)',
+                  minWidth: '220px',
+                  padding: 'var(--space-2) 0',
+                }}
+              >
+                <Link
+                  to="/analyze-tools"
+                  onClick={() => setIsAnalyzeToolsMenuOpen(false)}
+                  className="dropdown-item"
+                  style={{
+                    display: 'block',
+                    padding: 'var(--space-2) var(--space-4)',
+                    color: 'var(--text-primary)',
+                    textDecoration: 'none',
+                  }}
+                >
+                  All Analyze Tools
+                </Link>
+                <Link
                   to="/tools/stock-finder"
-                  onClick={() => setIsToolsMenuOpen(false)}
+                  onClick={() => setIsAnalyzeToolsMenuOpen(false)}
                   className="dropdown-item"
                   style={{
                     display: 'block',
@@ -211,8 +315,8 @@ const Navigation: React.FC<NavigationProps> = ({ className }) => {
                   Stock Finder
                 </Link>
                 <Link
-                  to="/tools/covered-call-processor"
-                  onClick={() => setIsToolsMenuOpen(false)}
+                  to="/portfolio-summary/heat-map"
+                  onClick={() => setIsAnalyzeToolsMenuOpen(false)}
                   className="dropdown-item"
                   style={{
                     display: 'block',
@@ -221,7 +325,7 @@ const Navigation: React.FC<NavigationProps> = ({ className }) => {
                     textDecoration: 'none',
                   }}
                 >
-                  Covered Call Processor
+                  Heat Map
                 </Link>
               </div>
             )}
@@ -309,7 +413,8 @@ const Navigation: React.FC<NavigationProps> = ({ className }) => {
       </div>
 
       <style>{`
-        .tools-dropdown-container {
+        .data-tools-dropdown-container,
+        .analyze-tools-dropdown-container {
           display: flex !important;
         }
         
@@ -322,7 +427,8 @@ const Navigation: React.FC<NavigationProps> = ({ className }) => {
             display: none !important;
           }
           
-          .tools-dropdown-container {
+          .data-tools-dropdown-container,
+          .analyze-tools-dropdown-container {
             display: none !important;
           }
           
