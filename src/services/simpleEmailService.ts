@@ -876,14 +876,20 @@ class SimpleEmailService {
         return { success: false, error: `Portfolio '${data.portfolioName}' not found` };
       }
 
+      // Get or create asset
+      const assetResult = await this.getOrCreateAsset(data.symbol, data.assetType);
+      if (assetResult.error || !assetResult.data) {
+        console.error('Asset not found/created:', data.symbol);
+        return { success: false, error: `Asset '${data.symbol}' not found/created: ${assetResult.error}` };
+      }
+
       // Create the transaction
       const { data: transaction, error: transactionError } = await supabase
         .from('transactions')
         .insert([{
           user_id: user.id,
           portfolio_id: portfolioResult.data.id,
-          symbol: data.symbol,
-          asset_type: data.assetType,
+          asset_id: assetResult.data.id,
           transaction_type: data.transactionType,
           quantity: data.quantity,
           price: data.price,
@@ -891,9 +897,12 @@ class SimpleEmailService {
           fees: data.fees,
           currency: data.currency,
           transaction_date: data.transactionDate,
-          source: 'email',
-          email_id: data.emailId,
-          created_at: new Date().toISOString()
+          settlement_date: data.transactionDate, // Use same date as settlement for now
+          exchange_rate: 1, // Default to 1 for same currency
+          external_id: `email-${data.emailId}`,
+          notes: `Transaction created from email processing`,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         }])
         .select('id')
         .single();

@@ -6,11 +6,8 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { 
   Database, 
-  Search, 
-  TrendingUp, 
   Settings, 
-  Mail, 
-  BarChart3,
+  Mail,
   Wrench,
   Target,
   FileText,
@@ -165,12 +162,8 @@ const DataTools: React.FC = () => {
       <div 
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))',
-          gap: 'var(--space-8)',
-          '@media (max-width: 768px)': {
-            gridTemplateColumns: '1fr',
-            gap: 'var(--space-6)'
-          }
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(450px, 100%), 1fr))',
+          gap: 'var(--space-8)'
         }}
       >
         {toolCategories.map((category) => {

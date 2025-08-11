@@ -4,7 +4,7 @@
  */
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { BarChart3, TrendingUp, Settings, ArrowLeftRight, Calendar, Menu, X, Mail, Bell, Database, Wrench, Activity } from 'lucide-react';
+import { BarChart3, TrendingUp, Settings, ArrowLeftRight, Calendar, Menu, X, Mail, Bell, Database, Activity } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 
 interface NavigationProps {
