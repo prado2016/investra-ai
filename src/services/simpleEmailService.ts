@@ -883,11 +883,10 @@ class SimpleEmailService {
         return { success: false, error: `Asset '${data.symbol}' not found/created: ${assetResult.error}` };
       }
 
-      // Create the transaction
+      // Create the transaction with minimal required fields
       const { data: transaction, error: transactionError } = await supabase
         .from('transactions')
         .insert([{
-          user_id: user.id,
           portfolio_id: portfolioResult.data.id,
           asset_id: assetResult.data.id,
           transaction_type: data.transactionType,
@@ -897,12 +896,7 @@ class SimpleEmailService {
           fees: data.fees,
           currency: data.currency,
           transaction_date: data.transactionDate,
-          settlement_date: data.transactionDate, // Use same date as settlement for now
-          exchange_rate: 1, // Default to 1 for same currency
-          external_id: `email-${data.emailId}`,
-          notes: `Transaction created from email processing`,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          exchange_rate: 1
         }])
         .select('id')
         .single();
