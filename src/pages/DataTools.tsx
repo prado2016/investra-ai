@@ -40,6 +40,13 @@ const DataTools: React.FC = () => {
           path: '/tools/covered-call-processor',
           icon: Target,
           status: 'stable'
+        },
+        {
+          name: 'Close Unmatched Positions',
+          description: 'Identify and close unmatched sell transactions',
+          path: '/tools/unmatched-positions',
+          icon: AlertTriangle,
+          status: 'stable'
         }
       ]
     },

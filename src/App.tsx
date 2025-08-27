@@ -31,6 +31,7 @@ import DebugLogs from './pages/DebugLogs';
 import HeatMap from './pages/HeatMap';
 import StockFinder from './pages/StockFinder';
 import { CoveredCallProcessor } from './components/CoveredCallProcessor';
+import UnmatchedPositionsManager from './components/UnmatchedPositionsManager';
 import { debug, ErrorTracker, isDev } from './utils/debug';
 import './styles/App.css';
 
@@ -211,6 +212,7 @@ function AppContent() {
         <Route path="/portfolio-summary/heat-map" element={<HeatMap />} />
         <Route path="/tools/stock-finder" element={<StockFinder />} />
         <Route path="/tools/covered-call-processor" element={<CoveredCallProcessor />} />
+        <Route path="/tools/unmatched-positions" element={<UnmatchedPositionsManager />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>

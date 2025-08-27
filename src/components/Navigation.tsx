@@ -227,6 +227,19 @@ const Navigation: React.FC<NavigationProps> = ({ className }) => {
                   Covered Call Processor
                 </Link>
                 <Link
+                  to="/tools/unmatched-positions"
+                  onClick={() => setIsDataToolsMenuOpen(false)}
+                  className="dropdown-item"
+                  style={{
+                    display: 'block',
+                    padding: 'var(--space-2) var(--space-4)',
+                    color: 'var(--text-primary)',
+                    textDecoration: 'none',
+                  }}
+                >
+                  Close Unmatched Positions
+                </Link>
+                <Link
                   to="/email-management"
                   onClick={() => setIsDataToolsMenuOpen(false)}
                   className="dropdown-item"

@@ -7,7 +7,6 @@ import PortfolioCreationForm from '../components/PortfolioCreationForm';
 import { usePortfolios } from '../contexts/PortfolioContext';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useDailyPL } from '../hooks/useDailyPL';
-import OrphanTransactionsPanel from '../components/OrphanTransactionsPanel';
 import PortfolioSelectorComponent from '../components/PortfolioSelector';
 import { formatTransactionAmount } from '../utils/formatting';
 import type { DailyPLData } from '../services/analytics/dailyPLService';
@@ -304,7 +303,7 @@ const Summary: React.FC = () => {
   const { portfolios, activePortfolio, loading: portfoliosLoading, error: portfoliosError, setActivePortfolio: _setActivePortfolio, refreshPortfolios } = usePortfolios();
   const [selectedDayData, setSelectedDayData] = useState<DailyPLData | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const { orphanTransactions } = useDailyPL(activePortfolio?.id || null);
+  const {} = useDailyPL(activePortfolio?.id || null);
 
   // Helper function to get portfolio name by ID
   const getPortfolioName = (portfolioId: string): string => {
@@ -429,9 +428,6 @@ const Summary: React.FC = () => {
         portfolioId={activePortfolio?.id || null}
         onDayClick={handleDayClick}
       />
-      {orphanTransactions.length > 0 && (
-        <OrphanTransactionsPanel transactions={orphanTransactions} />
-      )}
 
       <DayDetailsModal $isOpen={isModalOpen}>
         <ModalContent>
