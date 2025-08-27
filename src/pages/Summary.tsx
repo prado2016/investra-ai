@@ -6,7 +6,6 @@ import MonthlyCalendar from '../components/MonthlyCalendar';
 import PortfolioCreationForm from '../components/PortfolioCreationForm';
 import { usePortfolios } from '../contexts/PortfolioContext';
 import { usePageTitle } from '../hooks/usePageTitle';
-import { useDailyPL } from '../hooks/useDailyPL';
 import PortfolioSelectorComponent from '../components/PortfolioSelector';
 import { formatTransactionAmount } from '../utils/formatting';
 import type { DailyPLData } from '../services/analytics/dailyPLService';
@@ -303,7 +302,7 @@ const Summary: React.FC = () => {
   const { portfolios, activePortfolio, loading: portfoliosLoading, error: portfoliosError, setActivePortfolio: _setActivePortfolio, refreshPortfolios } = usePortfolios();
   const [selectedDayData, setSelectedDayData] = useState<DailyPLData | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const {} = useDailyPL(activePortfolio?.id || null);
+  // Daily PL hook removed - no longer needed after removing orphan transactions panel
 
   // Helper function to get portfolio name by ID
   const getPortfolioName = (portfolioId: string): string => {

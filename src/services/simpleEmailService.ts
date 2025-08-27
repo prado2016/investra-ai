@@ -1146,6 +1146,8 @@ class SimpleEmailService {
       notes?: string;
     }
   ): Promise<{ success: boolean; transactionId?: string; error: string | null }> {
+    console.log(`🔄 Starting processTradingEmail for emailId: ${emailId}`);
+    
     try {
       // Check authentication first
       const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -1158,15 +1160,20 @@ class SimpleEmailService {
         };
       }
 
+      console.log(`✅ Authentication successful for user: ${user.id}`);
+
       // Get the email first
       const emailResult = await this.getEmailById(emailId);
       if (emailResult.error || !emailResult.data) {
+        console.error(`❌ Email not found: ${emailResult.error}`);
         return { success: false, error: emailResult.error || 'Email not found' };
       }
 
       const email = emailResult.data;
+      console.log(`✅ Email retrieved: ${email.subject}`);
 
       // Create trading transaction
+      console.log('🏗️ Creating trading transaction...');
       const { data: transaction, error: transactionError } = await supabase
         .from('transactions')
         .insert([{
@@ -1187,50 +1194,66 @@ class SimpleEmailService {
         .single();
 
       if (transactionError) {
-        console.error('Error creating trading transaction:', transactionError);
+        console.error('❌ Error creating trading transaction:', transactionError);
         return { success: false, error: transactionError.message };
       }
 
+      console.log(`✅ Transaction created successfully: ${transaction.id}`);
+
       // Move email to processed table
+      console.log('📦 Moving email to processed table...');
+      const processedData = {
+        user_id: user.id,
+        original_inbox_id: email.id,
+        message_id: email.message_id,
+        subject: email.subject,
+        from_email: email.from_email,
+        received_at: email.received_at,
+        processing_result: 'approved',
+        transaction_id: transaction.id,
+        processed_at: new Date().toISOString(),
+        processed_by_user_id: user.id,
+        processing_notes: `Processed as trading transaction: ${tradingData.transaction_type.toUpperCase()} ${tradingData.quantity} ${tradingData.asset_id}`,
+        created_at: new Date().toISOString()
+      };
+      
+      console.log('📦 Processed data to insert:', processedData);
+      
       const { error: processedError } = await supabase
         .from('imap_processed')
-        .insert([{
-          user_id: user.id,
-          original_inbox_id: email.id,
-          message_id: email.message_id,
-          subject: email.subject,
-          from_email: email.from_email,
-          received_at: email.received_at,
-          processing_result: 'approved',
-          transaction_id: transaction.id,
-          processed_at: new Date().toISOString(),
-          processed_by_user_id: user.id,
-          processing_notes: `Processed as trading transaction: ${tradingData.transaction_type.toUpperCase()} ${tradingData.quantity} ${tradingData.asset_id}`,
-          created_at: new Date().toISOString()
-        }]);
+        .insert([processedData]);
 
       if (processedError) {
-        console.error('Error moving to processed:', processedError);
+        console.error('❌ Error moving to processed:', processedError);
+        console.error('❌ Full error details:', JSON.stringify(processedError, null, 2));
         // Try to delete the transaction we just created
+        console.log('🗑️ Cleaning up transaction...');
         await supabase.from('transactions').delete().eq('id', transaction.id);
         return { success: false, error: processedError.message };
       }
 
+      console.log('✅ Email moved to processed table successfully');
+
       // Delete from inbox
+      console.log('🗑️ Deleting email from inbox...');
       const { error: deleteError } = await supabase
         .from('imap_inbox')
         .delete()
         .eq('id', emailId);
 
       if (deleteError) {
-        console.error('Error deleting from inbox:', deleteError);
+        console.error('❌ Error deleting from inbox:', deleteError);
+        console.error('❌ Delete error details:', JSON.stringify(deleteError, null, 2));
         // Don't fail the whole operation if delete fails - email is already processed
-        console.warn('Email processed but not removed from inbox');
+        console.warn('⚠️ Email processed but not removed from inbox');
+      } else {
+        console.log('✅ Email deleted from inbox successfully');
       }
 
+      console.log(`🎉 Successfully processed trading email ${emailId} -> transaction ${transaction.id}`);
       return { success: true, transactionId: transaction.id, error: null };
     } catch (err) {
-      console.error('Failed to process trading email:', err);
+      console.error('💥 Failed to process trading email:', err);
       return { 
         success: false, 
         error: err instanceof Error ? err.message : 'Failed to process trading email' 
