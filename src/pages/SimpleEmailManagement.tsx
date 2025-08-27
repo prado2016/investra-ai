@@ -1262,51 +1262,87 @@ const SimpleEmailManagement: React.FC = () => {
             console.log('🔄 Creating trading transaction from parsed data...');
             
             try {
-              // Create the actual trading transaction
-              const transactionResult = await simpleEmailService.createTradingTransaction({
-                portfolioName: extracted.portfolioName || 'Default',
-                symbol: extracted.symbol,
-                assetType: extracted.assetType || 'stock',
-                transactionType: extracted.transactionType,
-                quantity: extracted.quantity,
-                price: extracted.price,
-                totalAmount: extracted.totalAmount || (extracted.quantity * extracted.price),
-                fees: extracted.fees || 0,
-                currency: extracted.currency || 'USD',
-                transactionDate: extracted.transactionDate || new Date().toISOString().split('T')[0],
-                emailId: email.id
-              });
+              // First, resolve portfolio ID similar to manual processing
+              let portfolioId = '';
               
-              if (transactionResult.success && transactionResult.transactionId) {
-                console.log('✅ Trading transaction created successfully');
-                // Process the email with transaction reference
-                const result = await simpleEmailService.processEmailWithTransaction(email.id, transactionResult.transactionId);
-                if (result.error) {
-                  console.error(`❌ Failed to link email to transaction:`, result.error);
-                  errors++;
+              if (extracted.portfolioName) {
+                // Try to find matching portfolio by name
+                const portfolioResult = await simpleEmailService.getPortfolioByName(extracted.portfolioName);
+                if (portfolioResult.data) {
+                  portfolioId = portfolioResult.data.id;
+                  console.log(`Found portfolio: ${portfolioResult.data.name} (${portfolioId})`);
                 } else {
-                  processed++;
-                }
-              } else {
-                console.warn('⚠️ Trading transaction creation failed, processing as reviewed email');
-                // Fall back to regular processing
-                const result = await simpleEmailService.processEmail(email.id, {
-                  type: 'expense',
-                  amount: extracted.totalAmount || 0,
-                  description: `Trading: ${extracted.symbol} ${extracted.transactionType}`,
-                  category: 'Trading',
-                  date: extracted.transactionDate || new Date().toISOString()
-                });
-                
-                if (result.error) {
-                  console.error(`❌ Failed to process email ${email.id}:`, result.error);
-                  errors++;
-                } else {
-                  processed++;
+                  console.warn(`Portfolio '${extracted.portfolioName}' not found, using first available portfolio`);
                 }
               }
+              
+              // Fallback to first available portfolio if no match found
+              if (!portfolioId && portfolios.length > 0) {
+                portfolioId = portfolios[0].id;
+                console.log(`Using fallback portfolio: ${portfolios[0].name} (${portfolioId})`);
+              }
+              
+              if (!portfolioId) {
+                throw new Error('No portfolio available for transaction');
+              }
+
+              // Get or create asset (similar to manual processing)
+              const assetResult = await simpleEmailService.getOrCreateAsset(
+                extracted.symbol,
+                extracted.assetType || 'stock'
+              );
+
+              if (assetResult.error || !assetResult.data) {
+                throw new Error(`Failed to create asset: ${assetResult.error}`);
+              }
+
+              const assetId = assetResult.data.id;
+              
+              // Calculate values (similar to manual processing)
+              const quantity = extracted.quantity;
+              const price = extracted.price;
+              const fees = extracted.fees || 0;
+              
+              // For options, convert contracts to shares (multiply by 100)
+              const actualQuantity = (extracted.assetType === 'option') ? quantity * 100 : quantity;
+              
+              // Calculate total amount if not provided
+              const totalAmount = extracted.totalAmount || (quantity * price);
+
+              // Create the trading transaction data (same structure as manual processing)
+              const tradingTransactionData = {
+                portfolio_id: portfolioId,
+                asset_id: assetId,
+                transaction_type: extracted.transactionType,
+                quantity: actualQuantity,
+                price: price,
+                total_amount: totalAmount,
+                fees: fees,
+                transaction_date: extracted.transactionDate || new Date().toISOString().split('T')[0],
+                currency: extracted.currency || 'USD',
+                notes: JSON.stringify({
+                  processed_from_email: true,
+                  bulk_processed: true,
+                  original_quantity_display: (extracted.assetType === 'option') ? `${quantity} contracts` : `${quantity} shares`,
+                  ai_confidence: extracted.confidence || 0
+                })
+              };
+
+              // Use the same method as manual processing
+              const result = await simpleEmailService.processTradingEmail(
+                email.id, 
+                tradingTransactionData
+              );
+
+              if (result.error) {
+                console.error(`❌ Failed to process trading email ${email.id}:`, result.error);
+                errors++;
+              } else {
+                console.log(`✅ Successfully processed trading email ${email.id}`);
+                processed++;
+              }
             } catch (transactionError) {
-              console.error('❌ Error creating trading transaction:', transactionError);
+              console.error('❌ Error in bulk trading transaction processing:', transactionError);
               // Fall back to regular processing
               const result = await simpleEmailService.processEmail(email.id, {
                 type: 'expense',

@@ -66,12 +66,12 @@ export const PortfolioProvider: React.FC<PortfolioProviderProps> = ({ children }
         console.log('🏦 PortfolioContext: Fetched portfolios:', result.data);
         setPortfolios(result.data);
         
-        // Set active portfolio if none is selected, using a functional update to avoid stale closure
+        // Keep activePortfolio as null by default to show "All Portfolios"
+        // Users can manually select a specific portfolio if needed
         setActivePortfolio(prevActivePortfolio => {
           if (!prevActivePortfolio && result.data.length > 0) {
-            const defaultPortfolio = result.data.find(p => p.is_default) || result.data[0];
-            console.log('🏦 PortfolioContext: Set active portfolio:', defaultPortfolio);
-            return defaultPortfolio;
+            console.log('🏦 PortfolioContext: Keeping active portfolio as null for "All Portfolios" view');
+            return null; // This will show "All Portfolios" in the selector
           }
           return prevActivePortfolio; // Keep current active portfolio if already set
         });
