@@ -234,6 +234,11 @@ const UnmatchedPositionsManager: React.FC<UnmatchedPositionsManagerProps> = ({
 
     try {
       // Create an offsetting buy transaction to close the position
+      // IMPORTANT: Date the buy transaction BEFORE the sell to ensure FIFO processing works correctly
+      const sellDate = new Date(transaction.transaction_date);
+      const buyDate = new Date(sellDate);
+      buyDate.setDate(buyDate.getDate() - 1); // 1 day before the sell
+      
       const offsetTransaction = {
         portfolio_id: transaction.portfolio_id,
         asset_id: transaction.asset_id,
@@ -243,12 +248,12 @@ const UnmatchedPositionsManager: React.FC<UnmatchedPositionsManagerProps> = ({
         total_amount: Math.abs(transaction.quantity) * 0.01,
         fees: 0,
         currency: transaction.currency || 'USD',
-        transaction_date: new Date().toISOString().split('T')[0],
+        transaction_date: buyDate.toISOString().split('T')[0], // One day before the sell
         notes: JSON.stringify({
           closing_orphan_position: true,
           original_transaction_id: transaction.id,
           original_transaction_date: transaction.transaction_date,
-          reason: 'Administrative close of unmatched sell transaction'
+          reason: 'Administrative close of unmatched sell transaction - buy dated before sell for FIFO matching'
         }),
         exchange_rate: transaction.exchange_rate || 1
       };
@@ -268,7 +273,7 @@ const UnmatchedPositionsManager: React.FC<UnmatchedPositionsManagerProps> = ({
       );
       
       if (result.success) {
-        notify.success('Position Closed', `Successfully closed unmatched position for ${transaction.asset.symbol}`);
+        notify.success('Position Closed', `Successfully closed unmatched position for ${transaction.asset.symbol}. Created buy transaction dated ${buyDate.toISOString().split('T')[0]} to match FIFO processing.`);
         await refreshData();
       } else {
         throw new Error(result.error || 'Failed to create closing transaction');
@@ -289,7 +294,7 @@ const UnmatchedPositionsManager: React.FC<UnmatchedPositionsManagerProps> = ({
     if (orphanTransactions.length === 0) return;
 
     const confirmed = window.confirm(
-      `Close all ${orphanTransactions.length} unmatched positions? This will create offsetting buy transactions at $0.01 per share.`
+      `Close all ${orphanTransactions.length} unmatched positions? This will create offsetting buy transactions at $0.01 per share, dated before the sell transactions for proper FIFO matching.`
     );
 
     if (!confirmed) return;
@@ -308,6 +313,11 @@ const UnmatchedPositionsManager: React.FC<UnmatchedPositionsManagerProps> = ({
             continue;
           }
 
+          // Date the buy transaction BEFORE the sell for proper FIFO processing
+          const sellDate = new Date(transaction.transaction_date);
+          const buyDate = new Date(sellDate);
+          buyDate.setDate(buyDate.getDate() - 1); // 1 day before the sell
+
           const offsetTransaction = {
             portfolio_id: transaction.portfolio_id,
             asset_id: transaction.asset_id,
@@ -317,12 +327,12 @@ const UnmatchedPositionsManager: React.FC<UnmatchedPositionsManagerProps> = ({
             total_amount: Math.abs(transaction.quantity) * 0.01,
             fees: 0,
             currency: transaction.currency || 'USD',
-            transaction_date: new Date().toISOString().split('T')[0],
+            transaction_date: buyDate.toISOString().split('T')[0], // One day before the sell
             notes: JSON.stringify({
               closing_orphan_position: true,
               original_transaction_id: transaction.id,
               original_transaction_date: transaction.transaction_date,
-              reason: 'Batch administrative close of unmatched sell transactions'
+              reason: 'Batch administrative close of unmatched sell transactions - buy dated before sell for FIFO matching'
             }),
             exchange_rate: transaction.exchange_rate || 1
           };
@@ -357,7 +367,7 @@ const UnmatchedPositionsManager: React.FC<UnmatchedPositionsManagerProps> = ({
       }
 
       if (successCount > 0) {
-        notify.success('Batch Close Complete', `Successfully closed ${successCount} positions`);
+        notify.success('Batch Close Complete', `Successfully closed ${successCount} positions with buy transactions dated before the corresponding sells for proper FIFO matching.`);
       }
       
       if (errorCount > 0) {
