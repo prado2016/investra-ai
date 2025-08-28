@@ -273,8 +273,30 @@ const UnmatchedPositionsManager: React.FC<UnmatchedPositionsManagerProps> = ({
       );
       
       if (result.success) {
-        notify.success('Position Closed', `Successfully closed unmatched position for ${transaction.asset.symbol}. Created buy transaction dated ${buyDate.toISOString().split('T')[0]} to match FIFO processing.`);
-        await refreshData();
+        // CRITICAL: Clear the cache to force fresh data reload
+        const currentDate = new Date();
+        const currentYear = currentDate.getFullYear();
+        const currentMonth = currentDate.getMonth();
+        
+        // Import the analytics service dynamically to avoid circular imports
+        const { dailyPLAnalyticsService } = await import('../services/analytics/dailyPLService');
+        
+        // Clear cache for current month to force refresh
+        if (transaction.portfolio_id) {
+          dailyPLAnalyticsService.clearCacheFor(transaction.portfolio_id, currentYear, currentMonth);
+          console.log(`🗑️ Cleared cache for portfolio ${transaction.portfolio_id} to force fresh orphan transaction data`);
+        }
+        
+        // Also clear the entire cache to handle aggregated portfolio data
+        dailyPLAnalyticsService.clearCache();
+        console.log(`🗑️ Cleared entire analytics cache to force fresh data reload`);
+        
+        notify.success('Position Closed', `Successfully closed unmatched position for ${transaction.asset.symbol}. Cache cleared to refresh data.`);
+        
+        // Small delay to ensure cache is cleared before refresh
+        setTimeout(async () => {
+          await refreshData();
+        }, 100);
       } else {
         throw new Error(result.error || 'Failed to create closing transaction');
       }
@@ -367,14 +389,25 @@ const UnmatchedPositionsManager: React.FC<UnmatchedPositionsManagerProps> = ({
       }
 
       if (successCount > 0) {
-        notify.success('Batch Close Complete', `Successfully closed ${successCount} positions with buy transactions dated before the corresponding sells for proper FIFO matching.`);
+        // CRITICAL: Clear the cache to force fresh data reload after batch operations
+        // Import the analytics service dynamically to avoid circular imports
+        const { dailyPLAnalyticsService } = await import('../services/analytics/dailyPLService');
+        
+        // Clear the entire cache to handle all portfolio data
+        dailyPLAnalyticsService.clearCache();
+        console.log(`🗑️ Cleared entire analytics cache after batch close operation`);
+        
+        notify.success('Batch Close Complete', `Successfully closed ${successCount} positions. Cache cleared to refresh data.`);
       }
       
       if (errorCount > 0) {
         notify.error('Some Errors Occurred', `${errorCount} positions could not be closed`);
       }
 
-      await refreshData();
+      // Small delay to ensure cache is cleared before refresh
+      setTimeout(async () => {
+        await refreshData();
+      }, 200);
     } catch (error) {
       console.error('Error in batch close:', error);
       notify.error('Error', 'Failed to complete batch close operation');
