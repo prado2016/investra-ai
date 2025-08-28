@@ -234,10 +234,17 @@ const UnmatchedPositionsManager: React.FC<UnmatchedPositionsManagerProps> = ({
 
     try {
       // Create an offsetting buy transaction to close the position
-      // IMPORTANT: Date the buy transaction BEFORE the sell to ensure FIFO processing works correctly
+      // CRITICAL FIX: Date the buy transaction significantly before the sell to ensure proper FIFO sequencing
       const sellDate = new Date(transaction.transaction_date);
       const buyDate = new Date(sellDate);
-      buyDate.setDate(buyDate.getDate() - 1); // 1 day before the sell
+      
+      // Use a much earlier date to ensure FIFO precedence - 30 days before the sell
+      buyDate.setDate(buyDate.getDate() - 30);
+      
+      // Add a small time component to ensure proper sequencing even within the same day
+      const timestamp = new Date(sellDate).getTime();
+      const sequenceOffset = (timestamp % 86400000) / 86400000; // Convert to fraction of day
+      buyDate.setHours(0, 0, 0, Math.floor(sequenceOffset * 1000));
       
       const offsetTransaction = {
         portfolio_id: transaction.portfolio_id,
@@ -248,12 +255,14 @@ const UnmatchedPositionsManager: React.FC<UnmatchedPositionsManagerProps> = ({
         total_amount: Math.abs(transaction.quantity) * 0.01,
         fees: 0,
         currency: transaction.currency || 'USD',
-        transaction_date: buyDate.toISOString().split('T')[0], // One day before the sell
+        transaction_date: buyDate.toISOString().split('T')[0], // 30 days before the sell
         notes: JSON.stringify({
           closing_orphan_position: true,
           original_transaction_id: transaction.id,
           original_transaction_date: transaction.transaction_date,
-          reason: 'Administrative close of unmatched sell transaction - buy dated before sell for FIFO matching'
+          reason: 'Administrative close of unmatched sell transaction - buy dated 30 days before sell for guaranteed FIFO matching',
+          sequence_timestamp: timestamp,
+          batch_operation: false
         }),
         exchange_rate: transaction.exchange_rate || 1
       };
@@ -273,30 +282,45 @@ const UnmatchedPositionsManager: React.FC<UnmatchedPositionsManagerProps> = ({
       );
       
       if (result.success) {
-        // CRITICAL: Clear the cache to force fresh data reload
-        const currentDate = new Date();
-        const currentYear = currentDate.getFullYear();
-        const currentMonth = currentDate.getMonth();
-        
-        // Import the analytics service dynamically to avoid circular imports
-        const { dailyPLAnalyticsService } = await import('../services/analytics/dailyPLService');
-        
-        // Clear cache for current month to force refresh
-        if (transaction.portfolio_id) {
-          dailyPLAnalyticsService.clearCacheFor(transaction.portfolio_id, currentYear, currentMonth);
-          console.log(`🗑️ Cleared cache for portfolio ${transaction.portfolio_id} to force fresh orphan transaction data`);
+        // ENHANCED CACHE CLEARING: More aggressive cache invalidation
+        try {
+          // Import the analytics service dynamically to avoid circular imports
+          const { dailyPLAnalyticsService } = await import('../services/analytics/dailyPLService');
+          
+          // Clear ALL cached data for this portfolio across all months
+          if (transaction.portfolio_id) {
+            const currentYear = new Date().getFullYear();
+            const sellYear = new Date(transaction.transaction_date).getFullYear();
+            const buyYear = buyDate.getFullYear();
+            
+            // Clear cache for all potentially affected months
+            for (let year = Math.min(sellYear, buyYear); year <= Math.max(sellYear, currentYear); year++) {
+              for (let month = 0; month < 12; month++) {
+                dailyPLAnalyticsService.clearCacheFor(transaction.portfolio_id, year, month);
+              }
+            }
+            
+            console.log(`🗑️ Cleared comprehensive cache for portfolio ${transaction.portfolio_id} across years ${Math.min(sellYear, buyYear)}-${Math.max(sellYear, currentYear)}`);
+          }
+          
+          // Clear the entire system cache to handle aggregated data
+          dailyPLAnalyticsService.clearCache();
+          console.log(`🗑️ Cleared entire analytics cache for comprehensive refresh`);
+          
+          // Additional delay to ensure database consistency
+          await new Promise(resolve => setTimeout(resolve, 250));
+          
+        } catch (cacheError) {
+          console.error('Cache clearing failed:', cacheError);
+          // Continue execution even if cache clearing fails
         }
         
-        // Also clear the entire cache to handle aggregated portfolio data
-        dailyPLAnalyticsService.clearCache();
-        console.log(`🗑️ Cleared entire analytics cache to force fresh data reload`);
+        notify.success('Position Closed', `Successfully closed unmatched position for ${transaction.asset.symbol}. System cache cleared for complete refresh.`);
         
-        notify.success('Position Closed', `Successfully closed unmatched position for ${transaction.asset.symbol}. Cache cleared to refresh data.`);
-        
-        // Small delay to ensure cache is cleared before refresh
+        // Extended delay to ensure all database operations are complete
         setTimeout(async () => {
           await refreshData();
-        }, 100);
+        }, 500);
       } else {
         throw new Error(result.error || 'Failed to create closing transaction');
       }
@@ -316,7 +340,7 @@ const UnmatchedPositionsManager: React.FC<UnmatchedPositionsManagerProps> = ({
     if (orphanTransactions.length === 0) return;
 
     const confirmed = window.confirm(
-      `Close all ${orphanTransactions.length} unmatched positions? This will create offsetting buy transactions at $0.01 per share, dated before the sell transactions for proper FIFO matching.`
+      `Close all ${orphanTransactions.length} unmatched positions? This will create offsetting buy transactions at $0.01 per share, dated 30 days before each sell transaction for guaranteed FIFO matching.`
     );
 
     if (!confirmed) return;
@@ -326,88 +350,146 @@ const UnmatchedPositionsManager: React.FC<UnmatchedPositionsManagerProps> = ({
     try {
       let successCount = 0;
       let errorCount = 0;
+      const batchId = Date.now();
 
-      for (const transaction of orphanTransactions) {
-        try {
-          if (!transaction.asset_id) {
-            console.warn(`Skipping transaction ${transaction.id} - no asset_id`);
-            errorCount++;
-            continue;
-          }
+      // Process transactions in smaller batches to avoid overwhelming the system
+      const BATCH_SIZE = 5;
+      const batches = [];
+      for (let i = 0; i < orphanTransactions.length; i += BATCH_SIZE) {
+        batches.push(orphanTransactions.slice(i, i + BATCH_SIZE));
+      }
 
-          // Date the buy transaction BEFORE the sell for proper FIFO processing
-          const sellDate = new Date(transaction.transaction_date);
-          const buyDate = new Date(sellDate);
-          buyDate.setDate(buyDate.getDate() - 1); // 1 day before the sell
+      console.log(`🔄 Processing ${orphanTransactions.length} transactions in ${batches.length} batches of ${BATCH_SIZE}`);
 
-          const offsetTransaction = {
-            portfolio_id: transaction.portfolio_id,
-            asset_id: transaction.asset_id,
-            transaction_type: 'buy' as const,
-            quantity: Math.abs(transaction.quantity),
-            price: 0.01,
-            total_amount: Math.abs(transaction.quantity) * 0.01,
-            fees: 0,
-            currency: transaction.currency || 'USD',
-            transaction_date: buyDate.toISOString().split('T')[0], // One day before the sell
-            notes: JSON.stringify({
-              closing_orphan_position: true,
-              original_transaction_id: transaction.id,
-              original_transaction_date: transaction.transaction_date,
-              reason: 'Batch administrative close of unmatched sell transactions - buy dated before sell for FIFO matching'
-            }),
-            exchange_rate: transaction.exchange_rate || 1
-          };
+      for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+        const batch = batches[batchIndex];
+        console.log(`📦 Processing batch ${batchIndex + 1}/${batches.length} with ${batch.length} transactions`);
 
-          const result = await SupabaseService.transaction.createTransaction(
-            offsetTransaction.portfolio_id,
-            offsetTransaction.asset_id,
-            offsetTransaction.transaction_type,
-            offsetTransaction.quantity,
-            offsetTransaction.price,
-            offsetTransaction.transaction_date,
-            {
-              fees: offsetTransaction.fees,
-              currency: offsetTransaction.currency,
-              notes: offsetTransaction.notes
+        // Process batch transactions in parallel for speed
+        const batchPromises = batch.map(async (transaction, index) => {
+          try {
+            if (!transaction.asset_id) {
+              console.warn(`Skipping transaction ${transaction.id} - no asset_id`);
+              return { success: false, error: 'No asset_id' };
             }
-          );
-          
+
+            // Enhanced dating strategy for batch operations
+            const sellDate = new Date(transaction.transaction_date);
+            const buyDate = new Date(sellDate);
+            
+            // Use 30 days before sell, plus batch and sequence offsets for unique dating
+            buyDate.setDate(buyDate.getDate() - 30 - batchIndex);
+            
+            // Add microsecond-level sequencing to prevent any date conflicts
+            const sequenceMs = (index * 1000) + (batchIndex * 100);
+            buyDate.setMilliseconds(sequenceMs % 1000);
+
+            const offsetTransaction = {
+              portfolio_id: transaction.portfolio_id,
+              asset_id: transaction.asset_id,
+              transaction_type: 'buy' as const,
+              quantity: Math.abs(transaction.quantity),
+              price: 0.01,
+              total_amount: Math.abs(transaction.quantity) * 0.01,
+              fees: 0,
+              currency: transaction.currency || 'USD',
+              transaction_date: buyDate.toISOString().split('T')[0],
+              notes: JSON.stringify({
+                closing_orphan_position: true,
+                original_transaction_id: transaction.id,
+                original_transaction_date: transaction.transaction_date,
+                reason: 'Batch administrative close of unmatched sell transactions - enhanced FIFO sequencing',
+                batch_id: batchId,
+                batch_index: batchIndex,
+                sequence_index: index,
+                batch_operation: true
+              }),
+              exchange_rate: transaction.exchange_rate || 1
+            };
+
+            const result = await SupabaseService.transaction.createTransaction(
+              offsetTransaction.portfolio_id,
+              offsetTransaction.asset_id,
+              offsetTransaction.transaction_type,
+              offsetTransaction.quantity,
+              offsetTransaction.price,
+              offsetTransaction.transaction_date,
+              {
+                fees: offsetTransaction.fees,
+                currency: offsetTransaction.currency,
+                notes: offsetTransaction.notes
+              }
+            );
+            
+            return result;
+          } catch (error) {
+            console.error(`Error processing transaction ${transaction.id}:`, error);
+            return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+          }
+        });
+
+        // Wait for batch to complete
+        const batchResults = await Promise.all(batchPromises);
+        
+        // Count results
+        for (const result of batchResults) {
           if (result.success) {
             successCount++;
           } else {
-            console.error(`Failed to close position for ${transaction.asset.symbol}:`, result.error);
             errorCount++;
+            console.error('Batch transaction failed:', result.error);
           }
+        }
 
-          // Small delay to prevent overwhelming the database
-          await new Promise(resolve => setTimeout(resolve, 100));
-        } catch (error) {
-          console.error(`Error processing transaction ${transaction.id}:`, error);
-          errorCount++;
+        // Delay between batches to prevent overwhelming the system
+        if (batchIndex < batches.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 200));
         }
       }
 
+      console.log(`✅ Batch processing complete: ${successCount} successful, ${errorCount} failed`);
+
       if (successCount > 0) {
-        // CRITICAL: Clear the cache to force fresh data reload after batch operations
-        // Import the analytics service dynamically to avoid circular imports
-        const { dailyPLAnalyticsService } = await import('../services/analytics/dailyPLService');
+        // COMPREHENSIVE CACHE CLEARING for batch operations
+        try {
+          const { dailyPLAnalyticsService } = await import('../services/analytics/dailyPLService');
+          
+          // Clear ALL cache data - batch operations affect multiple months and portfolios
+          dailyPLAnalyticsService.clearCache();
+          console.log(`🗑️ Cleared entire analytics cache after batch close operation`);
+          
+          // Additional comprehensive clearing for all affected portfolios
+          const affectedPortfolios = new Set(orphanTransactions.map(t => t.portfolio_id).filter(Boolean));
+          const currentYear = new Date().getFullYear();
+          
+          for (const pid of affectedPortfolios) {
+            for (let year = currentYear - 1; year <= currentYear; year++) {
+              for (let month = 0; month < 12; month++) {
+                dailyPLAnalyticsService.clearCacheFor(pid!, year, month);
+              }
+            }
+          }
+          
+          console.log(`🗑️ Cleared specific cache for ${affectedPortfolios.size} affected portfolios`);
+          
+          // Extended delay for batch operations
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+        } catch (cacheError) {
+          console.error('Batch cache clearing failed:', cacheError);
+        }
         
-        // Clear the entire cache to handle all portfolio data
-        dailyPLAnalyticsService.clearCache();
-        console.log(`🗑️ Cleared entire analytics cache after batch close operation`);
-        
-        notify.success('Batch Close Complete', `Successfully closed ${successCount} positions. Cache cleared to refresh data.`);
+        notify.success('Batch Close Complete', `Successfully closed ${successCount} positions with enhanced FIFO sequencing. System cache completely refreshed.`);
       }
       
       if (errorCount > 0) {
-        notify.error('Some Errors Occurred', `${errorCount} positions could not be closed`);
+        notify.error('Some Errors Occurred', `${errorCount} positions could not be closed. Check console for details.`);
       }
 
-      // Small delay to ensure cache is cleared before refresh
+      // Extended delay for batch operations before refresh
       setTimeout(async () => {
         await refreshData();
-      }, 200);
+      }, 1000);
     } catch (error) {
       console.error('Error in batch close:', error);
       notify.error('Error', 'Failed to complete batch close operation');

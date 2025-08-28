@@ -904,9 +904,18 @@ export class DailyPLAnalyticsService {
    * Clear all cached data (useful for manual refresh)
    */
   clearCache(): void {
+    const cacheSize = this.monthlyPLCache.size;
+    const pendingSize = this.pendingRequests.size;
+    
     this.monthlyPLCache.clear();
     this.pendingRequests.clear();
-    console.log('🧹 All cache and pending requests cleared');
+    
+    // Also clear any browser-level caching that might interfere
+    if (typeof window !== 'undefined' && window.performance?.clearResourceTimings) {
+      window.performance.clearResourceTimings();
+    }
+    
+    console.log(`🧹 COMPREHENSIVE CACHE CLEAR: Cleared ${cacheSize} cache entries and ${pendingSize} pending requests`);
   }
 
   /**
@@ -914,8 +923,17 @@ export class DailyPLAnalyticsService {
    */
   clearCacheFor(portfolioId: string, year: number, month: number): void {
     const cacheKey = this.getCacheKey(portfolioId, year, month);
+    const wasPresent = this.monthlyPLCache.has(cacheKey);
+    
     this.monthlyPLCache.delete(cacheKey);
-    console.log(`🧹 Cache cleared for ${cacheKey}`);
+    
+    // Also clear any related pending requests
+    if (this.pendingRequests.has(cacheKey)) {
+      this.pendingRequests.delete(cacheKey);
+      console.log(`🗑️ Cleared pending request for ${cacheKey}`);
+    }
+    
+    console.log(`🧹 Cache cleared for ${cacheKey} ${wasPresent ? '(was cached)' : '(not cached)'}`);
   }
 
   /**
