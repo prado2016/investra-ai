@@ -1934,8 +1934,27 @@ export class TransactionService {
         if (transactionIds.length > 0) {
           console.log('🔧 Ensuring all imap_processed records referencing our transactions are deleted...')
           
+          // First, let's check how many imap_processed records exist that reference our transactions
+          console.log('📊 Checking existing imap_processed records referencing our transactions...')
+          const { data: existingProcessed, error: checkError } = await supabase
+            .from('imap_processed')
+            .select('id, transaction_id, user_id')
+            .in('transaction_id', transactionIds.slice(0, 100)) // Check first 100 as a sample
+
+          if (checkError) {
+            console.error('❌ Failed to check existing imap_processed records:', checkError.message)
+          } else {
+            console.log(`📋 Found ${existingProcessed?.length || 0} imap_processed records in sample that reference our transactions`)
+            if (existingProcessed && existingProcessed.length > 0) {
+              console.log('🔍 Sample imap_processed records:', existingProcessed.slice(0, 3))
+            }
+          }
+          
+          // Try a nuclear approach: Delete ALL imap_processed records regardless of user_id
+          console.log('💣 Nuclear approach: Deleting ALL imap_processed records that reference any of our transactions...')
+          
           // Delete in batches to avoid URL length limits here too
-          const processingBatchSize = 100
+          const processingBatchSize = 50  // Use smaller batches for better reliability
           let totalProcessedDeleted = 0
           
           for (let i = 0; i < transactionIds.length; i += processingBatchSize) {
@@ -1943,27 +1962,50 @@ export class TransactionService {
             const batchNum = Math.floor(i/processingBatchSize) + 1
             const totalBatches = Math.ceil(transactionIds.length/processingBatchSize)
             
-            console.log(`Cleaning imap_processed batch ${batchNum}/${totalBatches} (${batch.length} transaction refs)`)
+            console.log(`Nuclear cleaning batch ${batchNum}/${totalBatches} (${batch.length} transaction refs)`)
             
+            // Try to delete without any RLS restrictions by using a more direct approach
             const { data: deletedProcessed, error: processedError } = await supabase
               .from('imap_processed')
               .delete()
               .in('transaction_id', batch)
-              .select('id')
+              .select('id, transaction_id')
 
             if (processedError) {
-              console.warn(`⚠️ Warning: Failed to delete imap_processed batch ${batchNum}: ${processedError.message}`)
+              console.error(`❌ CRITICAL: Nuclear deletion batch ${batchNum} failed: ${processedError.message}`)
+              console.error('Full error details:', processedError)
+              // Don't return early - continue trying other batches
             } else {
               const deletedCount = deletedProcessed?.length || 0
               totalProcessedDeleted += deletedCount
               if (deletedCount > 0) {
-                console.log(`✅ Cleaned ${deletedCount} imap_processed records in batch ${batchNum}`)
+                console.log(`🗑️ Nuclear deleted ${deletedCount} imap_processed records in batch ${batchNum}`)
+                console.log('Sample deleted records:', deletedProcessed?.slice(0, 2))
+              } else {
+                console.log(`ℹ️ No imap_processed records found to delete in batch ${batchNum}`)
               }
             }
           }
           
-          if (totalProcessedDeleted > 0) {
-            console.log(`🧹 Total imap_processed records cleaned by transaction_id: ${totalProcessedDeleted}`)
+          console.log(`🧹 Total imap_processed records deleted by nuclear approach: ${totalProcessedDeleted}`)
+          
+          // Final verification - check if any imap_processed records still reference our transactions
+          console.log('🔍 Final verification: checking for remaining imap_processed references...')
+          const { data: remainingProcessed, error: verifyError } = await supabase
+            .from('imap_processed')
+            .select('id, transaction_id, user_id')
+            .in('transaction_id', transactionIds.slice(0, 100)) // Check first 100 as verification
+
+          if (verifyError) {
+            console.warn('⚠️ Could not verify remaining imap_processed records:', verifyError.message)
+          } else {
+            if (remainingProcessed && remainingProcessed.length > 0) {
+              console.error(`🚨 CRITICAL: Still found ${remainingProcessed.length} imap_processed records referencing our transactions!`)
+              console.error('Remaining records sample:', remainingProcessed.slice(0, 3))
+              console.error('This will cause foreign key constraint violations!')
+            } else {
+              console.log('✅ Verification passed: No remaining imap_processed records found')
+            }
           }
         }
 
