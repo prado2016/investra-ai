@@ -1861,61 +1861,87 @@ export class TransactionService {
       const portfolioIds = userPortfolios?.map(p => p.id) || []
 
       if (portfolioIds.length === 0) {
-        // No portfolios to delete, but this is still considered success
-        return { data: true, error: null, success: true }
+        // Still need to clean up email-related tables even if no portfolios
+        console.log('No portfolios found, but still cleaning up email-related data...')
       }
 
       // Delete in order due to foreign key constraints
-      // 1. First delete email processing records that reference transactions
+      // 1. Delete all email-related tables that might reference transactions or portfolios
+      
+      // Delete email inbox records
+      const { error: inboxError } = await supabase
+        .from('imap_inbox')
+        .delete()
+        .eq('processed_by_user_id', user.id)
+
+      if (inboxError) {
+        console.warn(`Warning: Failed to delete imap_inbox records: ${inboxError.message}`)
+        // Continue anyway - this is not critical for data reset
+      }
+
+      // Delete email processing records that reference transactions
       const { error: imapProcessedError } = await supabase
         .from('imap_processed')
         .delete()
         .eq('processed_by_user_id', user.id)
 
       if (imapProcessedError) {
-        console.warn(`Warning: Failed to delete imap_processed records: ${imapProcessedError.message}`);
+        console.warn(`Warning: Failed to delete imap_processed records: ${imapProcessedError.message}`)
         // Continue anyway - this is not critical for data reset
       }
 
-      // Also delete any fund movements that reference portfolios
-      const { error: fundMovementsError } = await supabase
-        .from('fund_movements')
-        .delete()
-        .in('portfolio_id', portfolioIds)
-
-      if (fundMovementsError) {
-        console.warn(`Warning: Failed to delete fund movements: ${fundMovementsError.message}`);
-        // Continue anyway
-      }
-
-      // 2. Delete transactions
-      const { error: transactionsError } = await supabase
-        .from('transactions')
-        .delete()
-        .in('portfolio_id', portfolioIds)
-
-      if (transactionsError) {
-        return { data: null, error: `Failed to delete transactions: ${transactionsError.message}`, success: false }
-      }
-
-      // 3. Delete positions
-      const { error: positionsError } = await supabase
-        .from('positions')
-        .delete()
-        .in('portfolio_id', portfolioIds)
-
-      if (positionsError) {
-        return { data: null, error: `Failed to delete positions: ${positionsError.message}`, success: false }
-      }
-
-      // 4. Delete portfolios
-      const { error: portfoliosError } = await supabase
-        .from('portfolios')
+      // Delete email configurations
+      const { error: configError } = await supabase
+        .from('imap_configurations')
         .delete()
         .eq('user_id', user.id)
 
-      if (portfoliosError) {
-        return { data: null, error: `Failed to delete portfolios: ${portfoliosError.message}`, success: false }
+      if (configError) {
+        console.warn(`Warning: Failed to delete imap_configurations: ${configError.message}`)
+        // Continue anyway
+      }
+
+      if (portfolioIds.length > 0) {
+        // Delete fund movements that reference portfolios
+        const { error: fundMovementsError } = await supabase
+          .from('fund_movements')
+          .delete()
+          .in('portfolio_id', portfolioIds)
+
+        if (fundMovementsError) {
+          console.warn(`Warning: Failed to delete fund movements: ${fundMovementsError.message}`)
+          // Continue anyway
+        }
+
+        // 2. Delete transactions
+        const { error: transactionsError } = await supabase
+          .from('transactions')
+          .delete()
+          .in('portfolio_id', portfolioIds)
+
+        if (transactionsError) {
+          return { data: null, error: `Failed to delete transactions: ${transactionsError.message}`, success: false }
+        }
+
+        // 3. Delete positions
+        const { error: positionsError } = await supabase
+          .from('positions')
+          .delete()
+          .in('portfolio_id', portfolioIds)
+
+        if (positionsError) {
+          return { data: null, error: `Failed to delete positions: ${positionsError.message}`, success: false }
+        }
+
+        // 4. Delete portfolios
+        const { error: portfoliosError } = await supabase
+          .from('portfolios')
+          .delete()
+          .eq('user_id', user.id)
+
+        if (portfoliosError) {
+          return { data: null, error: `Failed to delete portfolios: ${portfoliosError.message}`, success: false }
+        }
       }
 
       return { data: true, error: null, success: true }
