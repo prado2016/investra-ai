@@ -1930,6 +1930,43 @@ export class TransactionService {
           console.log('✅ Deleted fund movements')
         }
 
+        // CRITICAL: Delete any remaining imap_processed records by transaction_id to avoid foreign key constraints
+        if (transactionIds.length > 0) {
+          console.log('🔧 Ensuring all imap_processed records referencing our transactions are deleted...')
+          
+          // Delete in batches to avoid URL length limits here too
+          const processingBatchSize = 100
+          let totalProcessedDeleted = 0
+          
+          for (let i = 0; i < transactionIds.length; i += processingBatchSize) {
+            const batch = transactionIds.slice(i, i + processingBatchSize)
+            const batchNum = Math.floor(i/processingBatchSize) + 1
+            const totalBatches = Math.ceil(transactionIds.length/processingBatchSize)
+            
+            console.log(`Cleaning imap_processed batch ${batchNum}/${totalBatches} (${batch.length} transaction refs)`)
+            
+            const { data: deletedProcessed, error: processedError } = await supabase
+              .from('imap_processed')
+              .delete()
+              .in('transaction_id', batch)
+              .select('id')
+
+            if (processedError) {
+              console.warn(`⚠️ Warning: Failed to delete imap_processed batch ${batchNum}: ${processedError.message}`)
+            } else {
+              const deletedCount = deletedProcessed?.length || 0
+              totalProcessedDeleted += deletedCount
+              if (deletedCount > 0) {
+                console.log(`✅ Cleaned ${deletedCount} imap_processed records in batch ${batchNum}`)
+              }
+            }
+          }
+          
+          if (totalProcessedDeleted > 0) {
+            console.log(`🧹 Total imap_processed records cleaned by transaction_id: ${totalProcessedDeleted}`)
+          }
+        }
+
         // FIXED: Delete transactions in batches to avoid URL length limits
         if (transactionIds.length > 0) {
           console.log(`🗑️ Deleting ${transactionIds.length} transactions in batches...`)
