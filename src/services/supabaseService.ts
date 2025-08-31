@@ -1866,7 +1866,29 @@ export class TransactionService {
       }
 
       // Delete in order due to foreign key constraints
-      // 1. Delete transactions first
+      // 1. First delete email processing records that reference transactions
+      const { error: imapProcessedError } = await supabase
+        .from('imap_processed')
+        .delete()
+        .eq('processed_by_user_id', user.id)
+
+      if (imapProcessedError) {
+        console.warn(`Warning: Failed to delete imap_processed records: ${imapProcessedError.message}`);
+        // Continue anyway - this is not critical for data reset
+      }
+
+      // Also delete any fund movements that reference portfolios
+      const { error: fundMovementsError } = await supabase
+        .from('fund_movements')
+        .delete()
+        .in('portfolio_id', portfolioIds)
+
+      if (fundMovementsError) {
+        console.warn(`Warning: Failed to delete fund movements: ${fundMovementsError.message}`);
+        // Continue anyway
+      }
+
+      // 2. Delete transactions
       const { error: transactionsError } = await supabase
         .from('transactions')
         .delete()
@@ -1876,7 +1898,7 @@ export class TransactionService {
         return { data: null, error: `Failed to delete transactions: ${transactionsError.message}`, success: false }
       }
 
-      // 2. Delete positions
+      // 3. Delete positions
       const { error: positionsError } = await supabase
         .from('positions')
         .delete()
@@ -1886,7 +1908,7 @@ export class TransactionService {
         return { data: null, error: `Failed to delete positions: ${positionsError.message}`, success: false }
       }
 
-      // 3. Delete portfolios
+      // 4. Delete portfolios
       const { error: portfoliosError } = await supabase
         .from('portfolios')
         .delete()
