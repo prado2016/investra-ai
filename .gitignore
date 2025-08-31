@@ -91,3 +91,5 @@ test-*.mjs
 src/test/e2e/.auth/ 
 # Sentry Config File
 .env.sentry-build-plugin
+
+broker_csv/*

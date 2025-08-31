@@ -7,7 +7,42 @@
 
 // Inline types to avoid import issues
 type AssetType = 'stock' | 'option' | 'forex' | 'crypto' | 'reit' | 'etf';
-type TransactionType = 'buy' | 'sell' | 'dividend' | 'dividend_reinvested' | 'split' | 'merger' | 'option_expired' | 'short_option_expired' | 'short_option_assigned';
+type TransactionType = 
+  // Stock trades
+  | 'buy' 
+  | 'sell'
+  
+  // Options trading
+  | 'buy_to_open'      // BUYTOOPEN - Opening long options position
+  | 'sell_to_open'     // SELLTOOPEN - Opening short options position  
+  | 'buy_to_close'     // BUYTOCLOSE - Closing short options position
+  | 'sell_to_close'    // SELLTOCLOSE - Closing long options position
+  
+  // Dividends and distributions
+  | 'dividend'
+  | 'dividend_reinvested'
+  
+  // Money movements  
+  | 'transfer_in'      // TRFIN, CONT - Money transferred into account
+  | 'transfer_out'     // TRFOUT - Money transferred out of account
+  
+  // Fees and interest
+  | 'fee'              // INTCHARGED - Account fees
+  | 'interest'         // FPLINT - Interest payments
+  
+  // Stock lending
+  | 'loan'             // LOAN - Shares loaned out
+  | 'recall'           // RECALL - Shares recalled from loan
+  
+  // Corporate actions
+  | 'split'
+  | 'merger' 
+  | 'option_expired'
+  | 'short_option_expired'
+  | 'short_option_assigned'
+  
+  // Generic (for backward compatibility)
+  | 'transfer';
 type Currency = 'USD' | 'EUR' | 'GBP' | 'JPY' | 'CAD' | 'AUD' | 'CHF' | 'CNY' | 'BTC' | 'ETH';
 type CostBasisMethod = 'FIFO' | 'LIFO' | 'AVERAGE_COST' | 'SPECIFIC_LOT';
 

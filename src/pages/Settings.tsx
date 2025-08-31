@@ -395,6 +395,23 @@ const Settings: React.FC = () => {
     }
   };
 
+  const handleBatchCSVImport = async () => {
+    setIsLoading(true);
+    try {
+      showMessage('Starting batch CSV import. This may take several minutes...', 'info');
+      
+      // For now, we'll show a message that this feature needs to be implemented
+      // In a real implementation, this would read all CSV files from broker_csv directory
+      showMessage('Batch CSV import feature is not yet fully implemented. Please use individual file upload for now.', 'error');
+      
+    } catch (error) {
+      console.error('Batch CSV import error:', error);
+      showMessage('Failed to process CSV files. Please try again.', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleClearAllData = async () => {
     setIsLoading(true);
     try {
@@ -500,14 +517,19 @@ const Settings: React.FC = () => {
       <Section>
         <SectionTitle>Data Import</SectionTitle>
         <Description>
-          Import portfolio data from a previously exported JSON file. This will merge 
-          with your existing data.
+          Import portfolio data from JSON export files or broker CSV files. 
+          CSV files will be automatically converted to the correct format.
         </Description>
         <FileInput
           type="file"
-          accept=".json"
+          accept=".json,.csv"
           onChange={(e) => setImportFile(e.target.files?.[0] || null)}
         />
+        {importFile && (
+          <Description style={{ fontSize: '0.875rem', marginTop: '0.5rem', color: '#666' }}>
+            Selected: {importFile.name} ({importFile.name.endsWith('.csv') ? 'CSV' : 'JSON'})
+          </Description>
+        )}
         <ButtonGroup>
           <Button 
             $variant="primary" 
@@ -515,6 +537,24 @@ const Settings: React.FC = () => {
             disabled={isLoading || !importFile}
           >
             {isLoading ? 'Importing...' : 'Import Data'}
+          </Button>
+        </ButtonGroup>
+      </Section>
+
+      <Section>
+        <SectionTitle>Batch CSV Import</SectionTitle>
+        <Description>
+          Import all CSV files from the broker_csv directory. This will process all broker 
+          transaction files and automatically create portfolios, assets, and transactions.
+          <br /><strong>Recommended:</strong> Clear all data first to ensure clean import.
+        </Description>
+        <ButtonGroup>
+          <Button 
+            $variant="secondary" 
+            onClick={handleBatchCSVImport}
+            disabled={isLoading}
+          >
+            {isLoading ? 'Processing CSV files...' : 'Import All CSV Files'}
           </Button>
         </ButtonGroup>
       </Section>

@@ -2,10 +2,46 @@
 import { useState, useEffect, useCallback } from 'react';
 import { storageService } from '../services/storageService';
 import { useNotify } from './useNotify';
+import { CSVImportService } from '../services/csvImportService';
 
 // Inline types to avoid import issues  
 type AssetType = 'stock' | 'option' | 'forex' | 'crypto' | 'reit' | 'etf';
-type TransactionType = 'buy' | 'sell' | 'dividend' | 'dividend_reinvested' | 'split' | 'merger' | 'option_expired' | 'short_option_expired' | 'short_option_assigned';
+type TransactionType = 
+  // Stock trades
+  | 'buy' 
+  | 'sell'
+  
+  // Options trading
+  | 'buy_to_open'      // BUYTOOPEN - Opening long options position
+  | 'sell_to_open'     // SELLTOOPEN - Opening short options position  
+  | 'buy_to_close'     // BUYTOCLOSE - Closing short options position
+  | 'sell_to_close'    // SELLTOCLOSE - Closing long options position
+  
+  // Dividends and distributions
+  | 'dividend'
+  | 'dividend_reinvested'
+  
+  // Money movements  
+  | 'transfer_in'      // TRFIN, CONT - Money transferred into account
+  | 'transfer_out'     // TRFOUT - Money transferred out of account
+  
+  // Fees and interest
+  | 'fee'              // INTCHARGED - Account fees
+  | 'interest'         // FPLINT - Interest payments
+  
+  // Stock lending
+  | 'loan'             // LOAN - Shares loaned out
+  | 'recall'           // RECALL - Shares recalled from loan
+  
+  // Corporate actions
+  | 'split'
+  | 'merger' 
+  | 'option_expired'
+  | 'short_option_expired'
+  | 'short_option_assigned'
+  
+  // Generic (for backward compatibility)
+  | 'transfer';
 type Currency = 'USD' | 'EUR' | 'GBP' | 'JPY' | 'CAD' | 'AUD' | 'CHF' | 'CNY' | 'BTC' | 'ETH';
 type CostBasisMethod = 'FIFO' | 'LIFO' | 'AVERAGE_COST' | 'SPECIFIC_LOT';
 
@@ -397,19 +433,42 @@ export function useDataManagement() {
       setError(null);
       
       // Read file contents
-      const jsonData = await new Promise<string>((resolve, reject) => {
+      const fileContent = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = (e) => resolve(e.target?.result as string);
         reader.onerror = () => reject(new Error('Failed to read file'));
         reader.readAsText(file);
       });
       
-      const success = storageService.importData(jsonData);
+      let success = false;
+      
+      // Handle CSV files
+      if (file.name.endsWith('.csv')) {
+        console.log('🔄 Processing CSV file:', file.name);
+        
+        // Use dedicated CSV import service for proper database handling
+        const importResult = await CSVImportService.importCSVFile(fileContent, file.name);
+        
+        if (!importResult.success) {
+          throw new Error(importResult.error || 'CSV import failed');
+        }
+        
+        console.log('📊 Import stats:', importResult.stats);
+        success = true;
+      } else {
+        // Handle JSON files (existing logic)
+        console.log('🔄 Processing JSON file:', file.name);
+        success = storageService.importData(fileContent);
+      }
+      
       if (!success) {
         throw new Error('Failed to import data');
       }
+      
+      console.log('✅ Import completed successfully');
       return true;
     } catch (err) {
+      console.error('❌ Import failed:', err);
       setError(err instanceof Error ? err.message : 'Failed to import data');
       return false;
     } finally {
