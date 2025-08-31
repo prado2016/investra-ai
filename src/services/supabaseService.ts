@@ -1880,15 +1880,28 @@ export class TransactionService {
       if (transactionIds.length > 0) {
         console.log(`Unlinking ${transactionIds.length} transaction references from imap_processed...`)
         
-        const { error: unlinkError } = await supabase
-          .from('imap_processed')
-          .update({ transaction_id: null })
-          .in('transaction_id', transactionIds)
+        // Process in batches to avoid URL length limits (max ~100 IDs per batch)
+        const batchSize = 100
+        let totalUnlinked = 0
+        
+        for (let i = 0; i < transactionIds.length; i += batchSize) {
+          const batch = transactionIds.slice(i, i + batchSize)
+          console.log(`Processing batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(transactionIds.length/batchSize)} (${batch.length} transaction IDs)`)
+          
+          const { error: unlinkError } = await supabase
+            .from('imap_processed')
+            .update({ transaction_id: null })
+            .in('transaction_id', batch)
 
-        if (unlinkError) {
-          console.warn(`Warning: Failed to unlink imap_processed transaction references: ${unlinkError.message}`)
-          // Continue anyway - we'll try a different approach
+          if (unlinkError) {
+            console.warn(`Warning: Failed to unlink batch ${Math.floor(i/batchSize) + 1}: ${unlinkError.message}`)
+            // Continue with next batch
+          } else {
+            totalUnlinked += batch.length
+          }
         }
+        
+        console.log(`Successfully processed ${totalUnlinked} transaction reference unlinking operations`)
       }
 
       // 2. Delete all email-related tables for the user
