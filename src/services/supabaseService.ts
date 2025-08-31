@@ -1868,29 +1868,29 @@ export class TransactionService {
       // Delete in order due to foreign key constraints
       // 1. Delete all email-related tables that might reference transactions or portfolios
       
-      // Delete email inbox records
+      // Delete email inbox records (uses user_id)
       const { error: inboxError } = await supabase
         .from('imap_inbox')
         .delete()
-        .eq('processed_by_user_id', user.id)
+        .eq('user_id', user.id)
 
       if (inboxError) {
         console.warn(`Warning: Failed to delete imap_inbox records: ${inboxError.message}`)
         // Continue anyway - this is not critical for data reset
       }
 
-      // Delete email processing records that reference transactions
+      // Delete email processing records (uses user_id for filtering)
       const { error: imapProcessedError } = await supabase
         .from('imap_processed')
         .delete()
-        .eq('processed_by_user_id', user.id)
+        .eq('user_id', user.id)
 
       if (imapProcessedError) {
         console.warn(`Warning: Failed to delete imap_processed records: ${imapProcessedError.message}`)
         // Continue anyway - this is not critical for data reset
       }
 
-      // Delete email configurations
+      // Delete email configurations (uses user_id)
       const { error: configError } = await supabase
         .from('imap_configurations')
         .delete()
