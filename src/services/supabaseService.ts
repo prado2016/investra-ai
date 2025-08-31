@@ -1860,14 +1860,38 @@ export class TransactionService {
 
       const portfolioIds = userPortfolios?.map(p => p.id) || []
 
-      if (portfolioIds.length === 0) {
-        // Still need to clean up email-related tables even if no portfolios
-        console.log('No portfolios found, but still cleaning up email-related data...')
+      // Get all transaction IDs for the user's portfolios first
+      let transactionIds: string[] = []
+      if (portfolioIds.length > 0) {
+        const { data: userTransactions, error: transactionFetchError } = await supabase
+          .from('transactions')
+          .select('id')
+          .in('portfolio_id', portfolioIds)
+
+        if (transactionFetchError) {
+          return { data: null, error: `Failed to fetch transactions: ${transactionFetchError.message}`, success: false }
+        }
+
+        transactionIds = userTransactions?.map(t => t.id) || []
       }
 
       // Delete in order due to foreign key constraints
-      // 1. Delete all email-related tables that might reference transactions or portfolios
-      
+      // 1. First, unlink any imap_processed records that reference these transactions
+      if (transactionIds.length > 0) {
+        console.log(`Unlinking ${transactionIds.length} transaction references from imap_processed...`)
+        
+        const { error: unlinkError } = await supabase
+          .from('imap_processed')
+          .update({ transaction_id: null })
+          .in('transaction_id', transactionIds)
+
+        if (unlinkError) {
+          console.warn(`Warning: Failed to unlink imap_processed transaction references: ${unlinkError.message}`)
+          // Continue anyway - we'll try a different approach
+        }
+      }
+
+      // 2. Delete all email-related tables for the user
       // Delete email inbox records (uses user_id)
       const { error: inboxError } = await supabase
         .from('imap_inbox')
@@ -1902,7 +1926,7 @@ export class TransactionService {
       }
 
       if (portfolioIds.length > 0) {
-        // Delete fund movements that reference portfolios
+        // 3. Delete fund movements that reference portfolios
         const { error: fundMovementsError } = await supabase
           .from('fund_movements')
           .delete()
@@ -1913,7 +1937,7 @@ export class TransactionService {
           // Continue anyway
         }
 
-        // 2. Delete transactions
+        // 4. Delete transactions
         const { error: transactionsError } = await supabase
           .from('transactions')
           .delete()
@@ -1923,7 +1947,7 @@ export class TransactionService {
           return { data: null, error: `Failed to delete transactions: ${transactionsError.message}`, success: false }
         }
 
-        // 3. Delete positions
+        // 5. Delete positions
         const { error: positionsError } = await supabase
           .from('positions')
           .delete()
@@ -1933,7 +1957,7 @@ export class TransactionService {
           return { data: null, error: `Failed to delete positions: ${positionsError.message}`, success: false }
         }
 
-        // 4. Delete portfolios
+        // 6. Delete portfolios
         const { error: portfoliosError } = await supabase
           .from('portfolios')
           .delete()
