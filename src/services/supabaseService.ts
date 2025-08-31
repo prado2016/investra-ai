@@ -1863,69 +1863,26 @@ export class TransactionService {
       const portfolioIds = userPortfolios?.map(p => p.id) || []
       console.log(`Found ${portfolioIds.length} portfolios to clean up`)
 
-      // Get ALL transaction IDs for our portfolios - this is critical for bypassing RLS
-      let transactionIds: string[] = []
+      // Get ALL transaction IDs for our portfolios
+      let transactions: { id: string; portfolio_id: string }[] = []
       if (portfolioIds.length > 0) {
         const { data: userTransactions, error: txnFetchError } = await supabase
           .from('transactions')
-          .select('id')
+          .select('id, portfolio_id')
           .in('portfolio_id', portfolioIds)
 
         if (txnFetchError) {
-          return { data: null, error: `Failed to fetch transaction IDs: ${txnFetchError.message}`, success: false }
+          return { data: null, error: `Failed to fetch transactions: ${txnFetchError.message}`, success: false }
         }
 
-        transactionIds = userTransactions?.map(t => t.id) || []
-        console.log(`Found ${transactionIds.length} transactions that need foreign key cleanup`)
+        transactions = userTransactions || []
+        console.log(`Found ${transactions.length} transactions to delete`)
       }
 
-      // 🚀 CRITICAL FIX: Delete imap_processed records by TRANSACTION_ID, not USER_ID
-      // This bypasses RLS and removes ALL references regardless of user ownership
-      if (transactionIds.length > 0) {
-        console.log('🗑️ Deleting ALL imap_processed records that reference our transactions (bypassing RLS)...')
-        
-        // Process in batches to avoid URL length limits
-        const batchSize = 100
-        let totalDeleted = 0
-        
-        for (let i = 0; i < transactionIds.length; i += batchSize) {
-          const batch = transactionIds.slice(i, i + batchSize)
-          console.log(`Deleting batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(transactionIds.length/batchSize)} (${batch.length} transaction IDs)`)
-          
-          const { error: deleteError } = await supabase
-            .from('imap_processed')
-            .delete()
-            .in('transaction_id', batch)
-
-          if (deleteError) {
-            console.warn(`Warning: Batch ${Math.floor(i/batchSize) + 1} deletion failed: ${deleteError.message}`)
-            // Continue with other batches
-          } else {
-            totalDeleted += batch.length
-            console.log(`✅ Batch ${Math.floor(i/batchSize) + 1} completed`)
-          }
-        }
-        
-        console.log(`🎯 Processed deletion for ${totalDeleted} transaction reference batches`)
-      }
-
-      // Also delete any remaining records by user_id as a backup
-      console.log('🗑️ Cleaning up any remaining email records by user_id...')
+      // Delete ALL email-related data first - this should remove any possible references
+      console.log('🗑️ NUCLEAR OPTION: Deleting ALL email data first...')
       
-      const { error: deleteByUserError } = await supabase
-        .from('imap_processed')
-        .delete()
-        .eq('user_id', user.id)
-
-      if (deleteByUserError) {
-        console.warn(`Warning: User-based cleanup failed: ${deleteByUserError.message}`)
-      } else {
-        console.log('✅ User-based cleanup completed')
-      }
-
-      // Delete other email-related tables
-      console.log('🗑️ Deleting other email-related data...')
-      
+      // Delete email inbox records
       const { error: inboxError } = await supabase
         .from('imap_inbox')
         .delete()
@@ -1937,6 +1894,31 @@ export class TransactionService {
         console.log('✅ Deleted imap_inbox records')
       }
 
+      // Delete email processing records by user_id
+      const { error: imapProcessedByUserError } = await supabase
+        .from('imap_processed')
+        .delete()
+        .eq('user_id', user.id)
+
+      if (imapProcessedByUserError) {
+        console.warn(`Warning: Failed to delete imap_processed by user_id: ${imapProcessedByUserError.message}`)
+      } else {
+        console.log('✅ Deleted imap_processed records by user_id')
+      }
+
+      // Also try deleting by processed_by_user_id
+      const { error: imapProcessedByProcessedUserError } = await supabase
+        .from('imap_processed')
+        .delete()
+        .eq('processed_by_user_id', user.id)
+
+      if (imapProcessedByProcessedUserError) {
+        console.warn(`Note: processed_by_user_id field may not exist: ${imapProcessedByProcessedUserError.message}`)
+      } else {
+        console.log('✅ Deleted imap_processed records by processed_by_user_id')
+      }
+
+      // Delete email configurations
       const { error: configError } = await supabase
         .from('imap_configurations')
         .delete()
@@ -1963,18 +1945,78 @@ export class TransactionService {
           console.log('✅ Deleted fund movements')
         }
 
-        // NOW delete transactions - this should work since we removed ALL references
-        console.log('🗑️ Deleting transactions (should work now!)...')
-        const { error: transactionsError } = await supabase
-          .from('transactions')
-          .delete()
-          .in('portfolio_id', portfolioIds)
+        // NUCLEAR APPROACH: Delete transactions ONE BY ONE to isolate the problematic one
+        console.log('🚀 NUCLEAR: Deleting transactions ONE BY ONE to find the problematic one...')
+        
+        let successCount = 0
+        let failedTransactions: string[] = []
+        
+        for (let i = 0; i < Math.min(10, transactions.length); i++) { // Try first 10 only
+          const txn = transactions[i]
+          console.log(`Attempting to delete transaction ${i + 1}/10: ${txn.id}`)
+          
+          // First, try to remove ANY imap_processed references to this specific transaction
+          const { error: specificUnlinkError } = await supabase
+            .from('imap_processed')
+            .delete()
+            .eq('transaction_id', txn.id)
 
-        if (transactionsError) {
-          console.error('❌ Transaction deletion STILL failed:', transactionsError.message)
-          return { data: null, error: `Failed to delete transactions: ${transactionsError.message}`, success: false }
-        } else {
-          console.log('🎉 Successfully deleted all transactions!')
+          if (specificUnlinkError) {
+            console.warn(`Warning: Could not remove references for transaction ${txn.id}: ${specificUnlinkError.message}`)
+          }
+
+          // Now try to delete the transaction
+          const { error: deleteError } = await supabase
+            .from('transactions')
+            .delete()
+            .eq('id', txn.id)
+
+          if (deleteError) {
+            console.error(`❌ Failed to delete transaction ${txn.id}: ${deleteError.message}`)
+            failedTransactions.push(txn.id)
+            
+            // Try to get more info about what's referencing this transaction
+            const { data: referencingRecords } = await supabase
+              .from('imap_processed')
+              .select('*')
+              .eq('transaction_id', txn.id)
+
+            console.error(`References found for transaction ${txn.id}:`, referencingRecords)
+            
+            // Stop on first failure to analyze the issue
+            break
+          } else {
+            console.log(`✅ Successfully deleted transaction ${txn.id}`)
+            successCount++
+          }
+        }
+
+        console.log(`Transaction deletion summary: ${successCount} succeeded, ${failedTransactions.length} failed`)
+        
+        if (failedTransactions.length > 0) {
+          return { 
+            data: null, 
+            error: `Failed to delete ${failedTransactions.length} transactions. First failure: ${failedTransactions[0]}`, 
+            success: false 
+          }
+        }
+
+        // If individual deletions work, try bulk deletion of remaining transactions
+        if (successCount > 0 && transactions.length > 10) {
+          console.log('🗑️ Individual deletions worked, trying bulk deletion of remaining transactions...')
+          const remainingTransactionIds = transactions.slice(10).map(t => t.id)
+          
+          const { error: bulkDeleteError } = await supabase
+            .from('transactions')
+            .delete()
+            .in('id', remainingTransactionIds)
+
+          if (bulkDeleteError) {
+            console.error('❌ Bulk deletion still failed:', bulkDeleteError.message)
+            return { data: null, error: `Bulk deletion failed: ${bulkDeleteError.message}`, success: false }
+          } else {
+            console.log('✅ Bulk deletion of remaining transactions succeeded!')
+          }
         }
 
         // Delete positions
