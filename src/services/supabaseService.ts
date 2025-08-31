@@ -1949,7 +1949,7 @@ export class TransactionService {
         console.log('🚀 NUCLEAR: Deleting transactions ONE BY ONE to find the problematic one...')
         
         let successCount = 0
-        let failedTransactions: string[] = []
+        const failedTransactions: string[] = []
         
         for (let i = 0; i < Math.min(10, transactions.length); i++) { // Try first 10 only
           const txn = transactions[i]
