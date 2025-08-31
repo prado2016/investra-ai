@@ -1860,51 +1860,66 @@ export class TransactionService {
 
       const portfolioIds = userPortfolios?.map(p => p.id) || []
 
-      // Get all transaction IDs for the user's portfolios first
-      let transactionIds: string[] = []
-      if (portfolioIds.length > 0) {
-        const { data: userTransactions, error: transactionFetchError } = await supabase
-          .from('transactions')
-          .select('id')
-          .in('portfolio_id', portfolioIds)
-
-        if (transactionFetchError) {
-          return { data: null, error: `Failed to fetch transactions: ${transactionFetchError.message}`, success: false }
-        }
-
-        transactionIds = userTransactions?.map(t => t.id) || []
-      }
-
       // Delete in order due to foreign key constraints
-      // 1. First, unlink any imap_processed records that reference these transactions
-      if (transactionIds.length > 0) {
-        console.log(`Unlinking ${transactionIds.length} transaction references from imap_processed...`)
-        
-        // Process in batches to avoid URL length limits (max ~100 IDs per batch)
-        const batchSize = 100
-        let totalUnlinked = 0
-        
-        for (let i = 0; i < transactionIds.length; i += batchSize) {
-          const batch = transactionIds.slice(i, i + batchSize)
-          console.log(`Processing batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(transactionIds.length/batchSize)} (${batch.length} transaction IDs)`)
-          
-          const { error: unlinkError } = await supabase
-            .from('imap_processed')
-            .update({ transaction_id: null })
-            .in('transaction_id', batch)
+      // 1. First, unlink ALL imap_processed records that reference ANY transactions
+      // This is more aggressive but safer - we'll unlink all records for this user regardless of which transactions they reference
+      console.log('Unlinking ALL imap_processed records for user to avoid foreign key conflicts...')
+      
+      const { error: unlinkAllError } = await supabase
+        .from('imap_processed')
+        .update({ transaction_id: null })
+        .eq('user_id', user.id)
+        .not('transaction_id', 'is', null)
 
-          if (unlinkError) {
-            console.warn(`Warning: Failed to unlink batch ${Math.floor(i/batchSize) + 1}: ${unlinkError.message}`)
-            // Continue with next batch
-          } else {
-            totalUnlinked += batch.length
-          }
-        }
-        
-        console.log(`Successfully processed ${totalUnlinked} transaction reference unlinking operations`)
+      if (unlinkAllError) {
+        console.warn(`Warning: Failed to unlink all imap_processed records: ${unlinkAllError.message}`)
+        // Continue anyway - we'll try alternative approach
+      } else {
+        console.log('Successfully unlinked all imap_processed records for user')
       }
 
-      // 2. Delete all email-related tables for the user
+      // 2. Double-check: also unlink by processed_by_user_id if that field exists
+      const { error: unlinkByProcessedByError } = await supabase
+        .from('imap_processed')
+        .update({ transaction_id: null })
+        .eq('processed_by_user_id', user.id)
+        .not('transaction_id', 'is', null)
+
+      if (unlinkByProcessedByError) {
+        console.warn(`Note: processed_by_user_id field may not exist: ${unlinkByProcessedByError.message}`)
+        // This is expected if the field doesn't exist
+      } else {
+        console.log('Also unlinked imap_processed records by processed_by_user_id')
+      }
+
+      // 3. Verify no references remain
+      const { data: remainingRefs, error: checkError } = await supabase
+        .from('imap_processed')
+        .select('id, transaction_id')
+        .eq('user_id', user.id)
+        .not('transaction_id', 'is', null)
+
+      if (checkError) {
+        console.warn(`Warning: Could not verify unlinking: ${checkError.message}`)
+      } else if (remainingRefs && remainingRefs.length > 0) {
+        console.warn(`Warning: ${remainingRefs.length} imap_processed records still have transaction references. Attempting to clear them...`)
+        
+        // Force clear any remaining references
+        const { error: forceClearError } = await supabase
+          .from('imap_processed')
+          .update({ transaction_id: null })
+          .in('id', remainingRefs.map(r => r.id))
+
+        if (forceClearError) {
+          console.error(`Failed to force clear remaining references: ${forceClearError.message}`)
+        } else {
+          console.log('Successfully force cleared remaining transaction references')
+        }
+      } else {
+        console.log('✅ Verified: No transaction references remain in imap_processed')
+      }
+
+      // 4. Delete all email-related tables for the user
       // Delete email inbox records (uses user_id)
       const { error: inboxError } = await supabase
         .from('imap_inbox')
@@ -1939,7 +1954,7 @@ export class TransactionService {
       }
 
       if (portfolioIds.length > 0) {
-        // 3. Delete fund movements that reference portfolios
+        // 5. Delete fund movements that reference portfolios
         const { error: fundMovementsError } = await supabase
           .from('fund_movements')
           .delete()
@@ -1950,7 +1965,7 @@ export class TransactionService {
           // Continue anyway
         }
 
-        // 4. Delete transactions
+        // 6. Delete transactions (this should now work without foreign key conflicts)
         const { error: transactionsError } = await supabase
           .from('transactions')
           .delete()
@@ -1960,7 +1975,7 @@ export class TransactionService {
           return { data: null, error: `Failed to delete transactions: ${transactionsError.message}`, success: false }
         }
 
-        // 5. Delete positions
+        // 7. Delete positions
         const { error: positionsError } = await supabase
           .from('positions')
           .delete()
@@ -1970,7 +1985,7 @@ export class TransactionService {
           return { data: null, error: `Failed to delete positions: ${positionsError.message}`, success: false }
         }
 
-        // 6. Delete portfolios
+        // 8. Delete portfolios
         const { error: portfoliosError } = await supabase
           .from('portfolios')
           .delete()
