@@ -411,6 +411,8 @@ const FixedEmailPullerSettings: React.FC = () => {
             description: `Email-puller ${update.key.replace('_', ' ')} setting`,
             is_encrypted: false,
             updated_at: new Date().toISOString(),
+          }, {
+            onConflict: 'config_key'
           })
           .select();
 
@@ -432,7 +434,7 @@ const FixedEmailPullerSettings: React.FC = () => {
     } finally {
       setSaving(false);
     }
-  };
+  };;
 
   // Save environment variables to database
   const saveEnvVars = async () => {
@@ -467,6 +469,8 @@ const FixedEmailPullerSettings: React.FC = () => {
             description: `Email-puller environment variable: ${update.key}`,
             is_encrypted: update.sensitive,
             updated_at: new Date().toISOString(),
+          }, {
+            onConflict: 'config_key'
           })
           .select();
 
@@ -487,7 +491,7 @@ const FixedEmailPullerSettings: React.FC = () => {
     } finally {
       setSavingEnv(false);
     }
-  };
+  };;
 
   // Load config on component mount
   useEffect(() => {

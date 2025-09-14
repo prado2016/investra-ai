@@ -187,6 +187,17 @@ export interface EmailImportRule {
   updated_at: string
 }
 
+export interface SystemConfig {
+  id: string
+  config_key: string
+  config_value: string
+  config_type: string | null
+  description: string | null
+  is_encrypted: boolean
+  created_at: string
+  updated_at: string
+}
+
 // Database schema type for Supabase client
 export interface Database {
   public: {
@@ -230,6 +241,11 @@ export interface Database {
         Row: EmailImportRule
         Insert: Omit<EmailImportRule, 'id' | 'created_at' | 'updated_at'>
         Update: Partial<Omit<EmailImportRule, 'id' | 'created_at' | 'updated_at'>>
+      }
+      system_config: {
+        Row: SystemConfig
+        Insert: Omit<SystemConfig, 'id' | 'created_at' | 'updated_at'>
+        Update: Partial<Omit<SystemConfig, 'id' | 'created_at' | 'updated_at'>>
       }
     }
     Views: {

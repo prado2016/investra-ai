@@ -1950,44 +1950,65 @@ export class TransactionService {
             }
           }
           
-          // Try a nuclear approach: Delete ALL imap_processed records regardless of user_id
-          console.log('💣 Nuclear approach: Deleting ALL imap_processed records that reference any of our transactions...')
+          // NULLIFY APPROACH: Set transaction_id to NULL instead of deleting the records
+          // This breaks the foreign key reference without deleting the imap_processed records
+          console.log('🔓 NULLIFY APPROACH: Setting transaction_id to NULL in imap_processed records...')
           
-          // Delete in batches to avoid URL length limits here too
-          const processingBatchSize = 50  // Use smaller batches for better reliability
-          let totalProcessedDeleted = 0
+          // Delete in batches to avoid URL length limits
+          const processingBatchSize = 50  
+          let totalProcessedNullified = 0
           
           for (let i = 0; i < transactionIds.length; i += processingBatchSize) {
             const batch = transactionIds.slice(i, i + processingBatchSize)
             const batchNum = Math.floor(i/processingBatchSize) + 1
             const totalBatches = Math.ceil(transactionIds.length/processingBatchSize)
             
-            console.log(`Nuclear cleaning batch ${batchNum}/${totalBatches} (${batch.length} transaction refs)`)
+            console.log(`Nullify batch ${batchNum}/${totalBatches} (${batch.length} transaction refs)`)
             
-            // Try to delete without any RLS restrictions by using a more direct approach
-            const { data: deletedProcessed, error: processedError } = await supabase
-              .from('imap_processed')
-              .delete()
-              .in('transaction_id', batch)
-              .select('id, transaction_id')
+            try {
+              // Try to update transaction_id to NULL instead of deleting
+              const { data: nullifiedProcessed, error: nullifyError } = await supabase
+                .from('imap_processed')
+                .update({ transaction_id: null })
+                .in('transaction_id', batch)
+                .select('id, transaction_id')
 
-            if (processedError) {
-              console.error(`❌ CRITICAL: Nuclear deletion batch ${batchNum} failed: ${processedError.message}`)
-              console.error('Full error details:', processedError)
-              // Don't return early - continue trying other batches
-            } else {
-              const deletedCount = deletedProcessed?.length || 0
-              totalProcessedDeleted += deletedCount
-              if (deletedCount > 0) {
-                console.log(`🗑️ Nuclear deleted ${deletedCount} imap_processed records in batch ${batchNum}`)
-                console.log('Sample deleted records:', deletedProcessed?.slice(0, 2))
+              if (nullifyError) {
+                console.error(`❌ Nullify batch ${batchNum} failed: ${nullifyError.message}`)
+                
+                // Fallback: Try deletion again (might work now that we've tried update)
+                console.log('Trying deletion fallback...')
+                const { data: deletedProcessed, error: processedError } = await supabase
+                  .from('imap_processed')
+                  .delete()
+                  .in('transaction_id', batch)
+                  .select('id, transaction_id')
+
+                if (processedError) {
+                  console.error(`❌ Fallback deletion batch ${batchNum} also failed: ${processedError.message}`)
+                } else {
+                  const deletedCount = deletedProcessed?.length || 0
+                  totalProcessedNullified += deletedCount
+                  if (deletedCount > 0) {
+                    console.log(`🗑️ Fallback deleted ${deletedCount} imap_processed records in batch ${batchNum}`)
+                  }
+                }
               } else {
-                console.log(`ℹ️ No imap_processed records found to delete in batch ${batchNum}`)
+                const nullifiedCount = nullifiedProcessed?.length || 0
+                totalProcessedNullified += nullifiedCount
+                if (nullifiedCount > 0) {
+                  console.log(`✅ Nullified ${nullifiedCount} imap_processed records in batch ${batchNum}`)
+                } else {
+                  console.log(`ℹ️ No imap_processed records found to nullify in batch ${batchNum}`)
+                }
               }
+            } catch (error) {
+              console.error(`❌ Exception in batch ${batchNum}:`, error)
+              console.log('Continuing with next batch...')
             }
           }
           
-          console.log(`🧹 Total imap_processed records deleted by nuclear approach: ${totalProcessedDeleted}`)
+          console.log(`🧹 Total imap_processed records nullified/deleted: ${totalProcessedNullified}`)
           
           // Final verification - check if any imap_processed records still reference our transactions
           console.log('🔍 Final verification: checking for remaining imap_processed references...')
