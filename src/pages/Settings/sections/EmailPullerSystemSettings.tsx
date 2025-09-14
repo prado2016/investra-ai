@@ -14,12 +14,18 @@ import {
   Loader2,
   RefreshCw,
   Save,
-  Settings
+  Settings,
+  Plus,
+  Trash2,
+  Eye,
+  EyeOff,
+  User
 } from 'lucide-react';
 
 import { Button } from '../../../components/ui/Button';
 import { useNotifications } from '../../../hooks/useNotifications';
 import { supabase } from '../../../lib/supabase';
+import type { EmailConfiguration } from '../../../lib/database/types';
 
 // Styled components
 const SectionContainer = styled.div`
@@ -297,12 +303,27 @@ const defaultConfig: SystemConfig = {
 };
 
 const EmailPullerSystemSettings: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('email');
+  const [activeTab, setActiveTab] = useState('accounts');
   const [config, setConfig] = useState<SystemConfig>(defaultConfig);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+
+  // Email configurations state
+  const [emailConfigs, setEmailConfigs] = useState<EmailConfiguration[]>([]);
+  const [loadingEmails, setLoadingEmails] = useState(false);
+  const [showNewEmailForm, setShowNewEmailForm] = useState(false);
+  const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
+  const [newEmailConfig, setNewEmailConfig] = useState({
+    name: 'Gmail - Investra Transactions',
+    email_address: 'investra.transactions@gmail.com',
+    encrypted_password: '',
+    imap_host: 'imap.gmail.com',
+    imap_port: 993,
+    imap_secure: true,
+    provider: 'gmail' as const
+  });
 
   const { success, error: notifyError } = useNotifications();
 
@@ -422,6 +443,113 @@ const EmailPullerSystemSettings: React.FC = () => {
       return () => clearTimeout(timer);
     }
   }, [message]);
+
+  // Load email configurations from database
+  const loadEmailConfigurations = async () => {
+    setLoadingEmails(true);
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        console.error('No authenticated user for email configurations');
+        setEmailConfigs([]);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('email_configurations')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setEmailConfigs(data || []);
+    } catch (error) {
+      console.error('Error loading email configurations:', error);
+      notifyError('Load Failed', 'Failed to load email configurations');
+    } finally {
+      setLoadingEmails(false);
+    }
+  };
+
+  // Save new email configuration
+  const saveEmailConfiguration = async () => {
+    if (!newEmailConfig.email_address || !newEmailConfig.encrypted_password) {
+      notifyError('Validation Error', 'Please fill in all required fields');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        notifyError('Authentication Error', 'You must be logged in to save email configurations');
+        return;
+      }
+
+      const configData = {
+        user_id: user.id,
+        name: newEmailConfig.name,
+        email_address: newEmailConfig.email_address,
+        provider: newEmailConfig.provider,
+        imap_host: newEmailConfig.imap_host,
+        imap_port: newEmailConfig.imap_port,
+        imap_secure: newEmailConfig.imap_secure,
+        encrypted_password: newEmailConfig.encrypted_password,
+        is_active: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      const { error } = await supabase
+        .from('email_configurations')
+        .insert([configData]);
+
+      if (error) throw error;
+
+      success('Configuration Saved', 'Email configuration saved successfully');
+      setShowNewEmailForm(false);
+      setNewEmailConfig({
+        name: 'Gmail - Investra Transactions',
+        email_address: 'investra.transactions@gmail.com',
+        encrypted_password: '',
+        imap_host: 'imap.gmail.com',
+        imap_port: 993,
+        imap_secure: true,
+        provider: 'gmail' as const
+      });
+      await loadEmailConfigurations();
+    } catch (error) {
+      console.error('Error saving email configuration:', error);
+      notifyError('Save Failed', 'Failed to save email configuration');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Delete email configuration
+  const deleteEmailConfiguration = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this email configuration?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('email_configurations')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      success('Configuration Deleted', 'Email configuration deleted successfully');
+      await loadEmailConfigurations();
+    } catch (error) {
+      console.error('Error deleting email configuration:', error);
+      notifyError('Delete Failed', 'Failed to delete email configuration');
+    }
+  };
+
+  // Load configurations on component mount
+  useEffect(() => {
+    loadEmailConfigurations();
+  }, []);
 
   const handleInputChange = (key: keyof SystemConfig, value: any) => {
     setConfig(prev => ({ ...prev, [key]: value }));
@@ -578,8 +706,200 @@ const EmailPullerSystemSettings: React.FC = () => {
     </FormGrid>
   );
 
+  const renderEmailAccounts = () => (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+        <div>
+          <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600, color: '#1e293b' }}>Email Accounts</h3>
+          <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.875rem', color: '#64748b' }}>
+            Configure Gmail accounts for email synchronization
+          </p>
+        </div>
+        <Button
+          variant="primary"
+          size="sm"
+          onClick={() => setShowNewEmailForm(true)}
+          disabled={showNewEmailForm}
+        >
+          <Plus size={16} />
+          Add Account
+        </Button>
+      </div>
+
+      {showNewEmailForm && (
+        <div style={{
+          background: '#f8fafc',
+          border: '1px solid #e2e8f0',
+          borderRadius: '8px',
+          padding: '1.5rem',
+          marginBottom: '1.5rem'
+        }}>
+          <h4 style={{ margin: '0 0 1rem 0', fontSize: '1rem', fontWeight: 600 }}>Add New Gmail Account</h4>
+          <FormGrid>
+            <FormGroup>
+              <Label>Account Name</Label>
+              <Input
+                type="text"
+                value={newEmailConfig.name}
+                onChange={(e) => setNewEmailConfig(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="e.g., Gmail - Investra Transactions"
+              />
+              <HelpText>Descriptive name for this email account</HelpText>
+            </FormGroup>
+
+            <FormGroup>
+              <Label>Email Address</Label>
+              <Input
+                type="email"
+                value={newEmailConfig.email_address}
+                onChange={(e) => setNewEmailConfig(prev => ({ ...prev, email_address: e.target.value }))}
+                placeholder="your-email@gmail.com"
+              />
+              <HelpText>Gmail email address</HelpText>
+            </FormGroup>
+
+            <FormGroup>
+              <Label>App Password</Label>
+              <div style={{ position: 'relative' }}>
+                <Input
+                  type={showPasswords.new ? 'text' : 'password'}
+                  value={newEmailConfig.encrypted_password}
+                  onChange={(e) => setNewEmailConfig(prev => ({ ...prev, encrypted_password: e.target.value }))}
+                  placeholder="Gmail app password"
+                  style={{ paddingRight: '2.5rem' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPasswords(prev => ({ ...prev, new: !prev.new }))}
+                  style={{
+                    position: 'absolute',
+                    right: '0.5rem',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: '#6b7280'
+                  }}
+                >
+                  {showPasswords.new ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+              <HelpText>
+                Generate an app password in Gmail settings: Account → Security → 2-Step Verification → App passwords
+              </HelpText>
+            </FormGroup>
+          </FormGrid>
+
+          <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={saveEmailConfiguration}
+              disabled={saving}
+            >
+              {saving ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save size={16} />
+                  Save Account
+                </>
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setShowNewEmailForm(false);
+                setNewEmailConfig({
+                  name: 'Gmail - Investra Transactions',
+                  email_address: 'investra.transactions@gmail.com',
+                  encrypted_password: '',
+                  imap_host: 'imap.gmail.com',
+                  imap_port: 993,
+                  imap_secure: true,
+                  provider: 'gmail' as const
+                });
+              }}
+              disabled={saving}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {loadingEmails ? (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '3rem' }}>
+          <Loader2 size={24} className="animate-spin" />
+          <span style={{ marginLeft: '0.5rem' }}>Loading email accounts...</span>
+        </div>
+      ) : emailConfigs.length === 0 ? (
+        <div style={{
+          textAlign: 'center',
+          padding: '3rem',
+          color: '#6b7280',
+          background: '#f9fafb',
+          borderRadius: '8px',
+          border: '1px dashed #d1d5db'
+        }}>
+          <User size={48} style={{ margin: '0 auto 1rem', opacity: 0.5 }} />
+          <p style={{ margin: 0, fontSize: '1rem', fontWeight: 500 }}>No email accounts configured</p>
+          <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.875rem' }}>
+            Add your first Gmail account to start syncing emails
+          </p>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {emailConfigs.map((config) => (
+            <div
+              key={config.id}
+              style={{
+                background: '#ffffff',
+                border: '1px solid #e2e8f0',
+                borderRadius: '8px',
+                padding: '1.5rem'
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div style={{ flex: 1 }}>
+                  <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem', fontWeight: 600 }}>
+                    {config.name}
+                  </h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.875rem', color: '#6b7280' }}>
+                    <div><strong>Email:</strong> {config.email_address}</div>
+                    <div><strong>Provider:</strong> {config.provider}</div>
+                    <div><strong>Status:</strong> {config.is_active ? 'Active' : 'Inactive'}</div>
+                    <div><strong>Created:</strong> {new Date(config.created_at).toLocaleString()}</div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => deleteEmailConfiguration(config.id)}
+                    style={{ color: '#dc2626', borderColor: '#dc2626' }}
+                  >
+                    <Trash2 size={16} />
+                    Delete
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
   const renderTabContent = () => {
     switch (activeTab) {
+      case 'accounts':
+        return renderEmailAccounts();
       case 'email':
         return renderEmailSettings();
       case 'scheduling':
@@ -587,7 +907,7 @@ const EmailPullerSystemSettings: React.FC = () => {
       case 'monitoring':
         return renderMonitoringSettings();
       default:
-        return renderEmailSettings();
+        return renderEmailAccounts();
     }
   };
 
@@ -612,6 +932,10 @@ const EmailPullerSystemSettings: React.FC = () => {
         )}
 
         <TabContainer>
+          <Tab $active={activeTab === 'accounts'} onClick={() => setActiveTab('accounts')}>
+            <User size={16} />
+            Email Accounts
+          </Tab>
           <Tab $active={activeTab === 'email'} onClick={() => setActiveTab('email')}>
             <Mail size={16} />
             Email Settings
