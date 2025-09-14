@@ -21,7 +21,7 @@ import Dashboard from './pages/Dashboard';
 import Positions from './pages/Positions';
 import Transactions from './pages/Transactions';
 import Summary from './pages/Summary';
-import Settings from './pages/Settings';
+import Settings from './pages/Settings/SettingsPage';
 import SimpleEmailManagement from './pages/SimpleEmailManagement';
 import BatchUpdatePortfolios from './pages/BatchUpdatePortfolios';
 import DataTools from './pages/DataTools';
