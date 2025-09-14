@@ -208,62 +208,67 @@ interface SettingSection {
 }
 
 const settingSections: SettingSection[] = [
-  {
-    id: 'email',
-    label: 'Email Integration',
-    icon: Mail,
-    component: EmailIntegrationSettings,
-    description: 'Configure IMAP settings and email processing rules',
-    badge: 'Core'
-  },
+  // Core Features - Most commonly used
   {
     id: 'email-puller',
-    label: 'Email-Puller System',
-    icon: Settings,
+    label: 'Email Management',
+    icon: Mail,
     component: EmailPullerSystemSettings,
-    description: 'Configure database-driven email-puller system settings',
-    badge: 'System'
+    description: 'Configure Gmail accounts, sync settings, and email processing',
+    badge: 'Essential'
   },
   {
     id: 'ai',
     label: 'AI Services',
     icon: Brain,
     component: AIServicesSettings,
-    description: 'Manage Google AI and Gemini API configurations',
-    badge: 'AI'
+    description: 'Google AI, Gemini, and other AI service configurations',
+    badge: 'Essential'
   },
+
+  // System Configuration - Infrastructure settings
   {
     id: 'database',
     label: 'Database',
     icon: Database,
     component: DatabaseSettings,
-    description: 'Configure Supabase connection and database settings'
+    description: 'Supabase connection and database configuration'
+  },
+  {
+    id: 'server',
+    label: 'API & Server',
+    icon: Server,
+    component: ServerSettings,
+    description: 'Server settings, API keys, and environment configuration'
+  },
+
+  // Advanced Features - Less frequently used
+  {
+    id: 'email',
+    label: 'Advanced Email',
+    icon: Settings,
+    component: EmailIntegrationSettings,
+    description: 'Advanced IMAP rules and legacy email processing settings',
+    badge: 'Advanced'
   },
   {
     id: 'monitoring',
-    label: 'Monitoring',
+    label: 'Monitoring & Logs',
     icon: Activity,
     component: MonitoringSettings,
-    description: 'Set up health checks, alerts, and logging'
+    description: 'System health, alerts, logging, and performance monitoring'
   },
   {
     id: 'security',
     label: 'Security',
     icon: Shield,
     component: SecuritySettings,
-    description: 'Configure encryption, authentication, and access control'
-  },
-  {
-    id: 'server',
-    label: 'Server',
-    icon: Server,
-    component: ServerSettings,
-    description: 'Manage API settings and server configuration'
+    description: 'Authentication, encryption, and access control settings'
   }
 ];
 
 const SettingsPage: React.FC = () => {
-  const [activeSection, setActiveSection] = useState('email');
+  const [activeSection, setActiveSection] = useState('email-puller');
   const [unsavedChanges, setUnsavedChanges] = useState(false);
   
   // Set page title
