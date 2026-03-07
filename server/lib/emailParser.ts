@@ -10,21 +10,77 @@ export interface ParsedTransaction {
 
 /**
  * Parse broker confirmation email text into structured transactions.
- * Uses simple regex patterns covering common broker formats.
- * Falls back to Gemini AI for complex formats.
+ * Supports Wealthsimple and common US broker formats.
  */
 export function parseEmailText(text: string): ParsedTransaction[] {
+  // Try Wealthsimple format first
+  const ws = parseWealthsimple(text);
+  if (ws.length > 0) return ws;
+
+  // Fall back to generic US broker patterns
+  return parseGenericBroker(text);
+}
+
+function parseWealthsimple(text: string): ParsedTransaction[] {
   const results: ParsedTransaction[] = [];
 
-  // Common patterns across Fidelity, Schwab, TD Ameritrade, IBKR, Robinhood
+  // Normalize: remove zero-width chars and collapse whitespace
+  const clean = text.replace(/[\u200C\u200B\u00A0]/g, '').replace(/\s+/g, ' ');
+
+  // Wealthsimple stock: Type: *Limit* *Buy* Symbol: *TSLL* Shares: *100* Average price: *US$12.42* ... Time: *July 21, 2025 ...
+  const stockPattern = /Type:\s*\*[^*]*\*\s*\*(Buy|Sell)\*(?:\s*\*[^*]*\*)?\s*Symbol:\s*\*([A-Z]{1,10})\*\s*Shares:\s*\*([\d,.]+)\*\s*Average price:\s*\*(?:US\$|CA\$|\$)([\d,.]+)\*\s*Total (?:cost|value):\s*\*(?:US\$|CA\$|\$)([\d,.]+)\*\s*Time:\s*\*([^*]+)\*/gi;
+
+  let m: RegExpExecArray | null;
+  while ((m = stockPattern.exec(clean)) !== null) {
+    const [, action, symbol, shares, avgPrice, totalCost, timeStr] = m;
+    const total = parseNum(totalCost);
+    const qty = parseNum(shares);
+    const price = parseNum(avgPrice);
+    // Fees = total - (shares * avg price)
+    const fees = Math.max(0, Math.round((total - qty * price) * 100) / 100);
+    results.push({
+      symbol: symbol.toUpperCase(),
+      type: action.toLowerCase() === 'buy' ? 'buy' : 'sell',
+      quantity: qty,
+      price,
+      fees,
+      date: normalizeDate(timeStr.trim()),
+      notes: 'Imported from Wealthsimple email',
+    });
+  }
+
+  // Wealthsimple options: Type: *Limit* *Sell* *to Open* Option: *TSLA 335.00 call* Contracts: *2* Expiry: *2025-07-25* Average price: *US$8.90* Total value: *US$1,778.50* Time: *...*
+  const optionPattern = /Type:\s*\*[^*]*\*\s*\*(Buy|Sell)\*\s*\*to\s+(Open|Close)\*\s*Option:\s*\*([A-Z]{1,10})\s+([\d,.]+)\s+(call|put)\*\s*Contracts:\s*\*([\d,.]+)\*\s*Expiry:\s*\*([^*]+)\*\s*Average price:\s*\*(?:US\$|CA\$|\$)([\d,.]+)\*\s*Total value:\s*\*(?:US\$|CA\$|\$)([\d,.]+)\*\s*Time:\s*\*([^*]+)\*/gi;
+
+  while ((m = optionPattern.exec(clean)) !== null) {
+    const [, action, openClose, underlying, strike, callPut, contracts, expiry, avgPrice, totalVal, timeStr] = m;
+    const qty = parseNum(contracts);
+    const price = parseNum(avgPrice);
+    const total = parseNum(totalVal);
+    const fees = Math.max(0, Math.round((total - qty * price * 100) * 100) / 100);
+    const isBuy = (action.toLowerCase() === 'buy' && openClose.toLowerCase() === 'open') ||
+                  (action.toLowerCase() === 'sell' && openClose.toLowerCase() === 'close');
+    results.push({
+      symbol: `${underlying.toUpperCase()} ${strike} ${callPut.toUpperCase()} ${expiry}`,
+      type: isBuy ? 'buy' : 'sell',
+      quantity: qty,
+      price: price * 100, // options price per contract (x100 shares)
+      fees,
+      date: normalizeDate(timeStr.trim()),
+      notes: `Imported from Wealthsimple email (${action} to ${openClose})`,
+    });
+  }
+
+  return results;
+}
+
+function parseGenericBroker(text: string): ParsedTransaction[] {
+  const results: ParsedTransaction[] = [];
+
   const patterns = [
-    // "You bought 10 shares of AAPL at $150.00"
     /you\s+(bought|sold)\s+([\d,.]+)\s+shares?\s+of\s+([A-Z]{1,5})\s+at\s+\$?([\d,.]+)/gi,
-    // "BUY 10 AAPL @ 150.00"
     /(buy|sell)\s+([\d,.]+)\s+([A-Z]{1,5})\s+@\s+\$?([\d,.]+)/gi,
-    // "Executed: Bought 10 AAPL @ $150.00"
     /executed:?\s+(bought|sold)\s+([\d,.]+)\s+([A-Z]{1,5})\s+@?\s+\$?([\d,.]+)/gi,
-    // "Dividend: AAPL $0.24 per share × 100 shares"
     /dividend:?\s+([A-Z]{1,5})\s+\$?([\d,.]+)\s+per\s+share\s+[×x]\s+([\d,.]+)\s+shares?/gi,
   ];
 

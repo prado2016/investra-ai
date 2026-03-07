@@ -35,10 +35,14 @@ export async function syncEmails(userId: string, portfolioId: string): Promise<S
     const lock = await client.getMailboxLock('INBOX');
 
     try {
-      // Fetch last 50 unseen messages
-      for await (const msg of client.fetch('1:50', { source: true, flags: true })) {
-        if (msg.flags.has('\\Seen')) continue;
+      // Search for unseen messages with "order" in subject (Wealthsimple: "Your order has been filled")
+      const unseen = await client.search({ seen: false });
+      if (unseen.length === 0) {
+        return result;
+      }
 
+      // Fetch all unseen messages
+      for await (const msg of client.fetch(unseen, { source: true, uid: true })) {
         result.processed++;
         try {
           const parsed = await simpleParser(msg.source as Readable);
@@ -69,25 +73,30 @@ export async function syncEmails(userId: string, portfolioId: string): Promise<S
             await recalcPositions(portfolioId);
           }
 
+          // Mark as seen only if we successfully parsed transactions
+          if (created > 0) {
+            await client.messageFlagsAdd(msg.uid, ['\\Seen'], { uid: true });
+          }
+
           emailConfigQueries.logEmail({
             userId,
             emailConfigId: config.id,
             subject,
             fromAddress: from,
-            status: 'processed',
+            status: created > 0 ? 'processed' : 'skipped',
             transactionsCreated: created,
           });
 
           result.created += created;
         } catch (err) {
           result.failed++;
-          const msg = err instanceof Error ? err.message : String(err);
-          result.errors.push(msg);
+          const errMsg = err instanceof Error ? err.message : String(err);
+          result.errors.push(errMsg);
           emailConfigQueries.logEmail({
             userId,
             emailConfigId: config.id,
             status: 'failed',
-            errorMessage: msg,
+            errorMessage: errMsg,
           });
         }
       }
