@@ -55,7 +55,6 @@ jobs:
 
     env:
       DATABASE_URL: /opt/investra/data/investra.db
-      NODE_ENV: production
       PORT: 3001
       CLIENT_ORIGIN: http://10.0.0.61
 
@@ -92,6 +91,8 @@ jobs:
           rsync -av --delete node_modules/ "${{ env.APP_DIR }}/node_modules/"
 
       - name: Start or reload Hono API via PM2
+        env:
+          NODE_ENV: production
         run: |
           cd "${{ env.APP_DIR }}"
 
