@@ -80,6 +80,7 @@ jobs:
         env:
           NODE_ENV: production
           APP_DIR: ${{ github.workspace }}
+          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
         run: |
           # Stop existing process if running from a different directory
           pm2 delete investra 2>/dev/null || true

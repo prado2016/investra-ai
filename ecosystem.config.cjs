@@ -4,8 +4,7 @@ module.exports = {
     {
       name: 'investra',
       script: 'server/index.ts',
-      interpreter: 'node',
-      interpreter_args: '--import tsx/esm',
+      interpreter: './node_modules/.bin/tsx',
       cwd: process.env.APP_DIR || '/opt/investra/app',
 
       // Single instance — SQLite doesn't support multi-process writes
@@ -17,6 +16,8 @@ module.exports = {
         PORT: '3001',
         DATABASE_URL: '/opt/investra/data/investra.db',
         CLIENT_ORIGIN: 'http://10.0.0.61',
+        BETTER_AUTH_URL: 'http://10.0.0.61:3001',
+        BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET || 'change-me-in-production',
       },
 
       // Restart policy
