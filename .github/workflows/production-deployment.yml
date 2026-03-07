@@ -76,33 +76,16 @@ jobs:
         env:
           DATABASE_URL: ${{ env.DATABASE_URL }}
 
-      - name: Sync app to deployment directory
-        run: |
-          rsync -av --delete \
-            --exclude='.git' \
-            --exclude='node_modules' \
-            --exclude='dist' \
-            --exclude='data' \
-            --exclude='.env*' \
-            ./ "${{ env.APP_DIR }}/"
-
-          # Copy built frontend and node_modules to app dir
-          rsync -av --delete dist/         "${{ env.APP_DIR }}/dist/"
-          rsync -av --delete node_modules/ "${{ env.APP_DIR }}/node_modules/"
-
       - name: Start or reload Hono API via PM2
         env:
           NODE_ENV: production
+          APP_DIR: ${{ github.workspace }}
         run: |
-          cd "${{ env.APP_DIR }}"
+          # Stop existing process if running from a different directory
+          pm2 delete investra 2>/dev/null || true
 
-          # If the process exists, reload it (zero-downtime); otherwise start fresh
-          if pm2 describe investra > /dev/null 2>&1; then
-            pm2 reload ecosystem.config.cjs --env production --update-env
-          else
-            pm2 start ecosystem.config.cjs --env production
-          fi
-
+          # Start from the runner's work directory (avoids duplicating node_modules)
+          pm2 start ecosystem.config.cjs --env production
           pm2 save
           pm2 list
 
