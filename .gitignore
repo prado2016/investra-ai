@@ -76,6 +76,7 @@ test-*.mjs
 # Database exports and backups
 *-supabase-export-*.json
 *.sql
+!server/db/migrations/*.sql
 
 # Shell scripts (unless in tools/ directory)
 /*.sh
