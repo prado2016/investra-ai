@@ -93,3 +93,8 @@ src/test/e2e/.auth/
 .env.sentry-build-plugin
 
 broker_csv/*
+
+# SQLite database (persisted on server, not tracked in git)
+data/*.db
+data/*.db-shm
+data/*.db-wal

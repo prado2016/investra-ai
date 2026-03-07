@@ -2,333 +2,163 @@ name: Production Deployment
 
 on:
   push:
-    branches: [main]
+    branches: [main, claude/review-codebase-GfUeE]
     paths-ignore:
       - '**.md'
       - 'docs/**'
       - '.github/workflows-archive-*/**'
+  workflow_dispatch:
 
 env:
-  NODE_VERSION: '18'
-  PRODUCTION_URL: 'https://investra.ai'
-  FRONTEND_DEPLOY_DIR: '/var/www/investra-ai/current'
-  EMAIL_PULLER_DEPLOY_DIR: '/opt/investra/email-puller'
+  NODE_VERSION: '22'
+  APP_DIR: '/opt/investra/app'
+  DATA_DIR: '/opt/investra/data'
+  LOGS_DIR: '/opt/investra/logs'
 
 jobs:
-  pre-deployment-validation:
-    name: Pre-deployment Validation
+  # ─────────────────────────────────────────────────────────────────────────
+  # CI: lint + type-check + build  (runs on GitHub-hosted runner, fast)
+  # ─────────────────────────────────────────────────────────────────────────
+  ci:
+    name: CI Checks
     runs-on: ubuntu-latest
-    
-    outputs:
-      version: ${{ steps.version.outputs.version }}
-      
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Setup Node.js with caching
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ env.NODE_VERSION }}
-        cache: 'npm'
-        cache-dependency-path: 'package-lock.json'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
 
-    - name: Install dependencies
-      run: npm ci
+      - name: Install dependencies
+        run: npm ci
 
-    - name: Run all validations
-      run: |
-        echo "Running pre-deployment validations..."
-        npm run lint
-        npm run type-check
-        echo "⚠️ Unit tests skipped - no test files exist in project"
-        npm run build
+      - name: Lint
+        run: npm run lint
 
-    - name: Generate version
-      id: version
-      run: |
-        CURRENT_VERSION=$(node -p "require('./package.json').version")
-        echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
-        echo "Production deployment version: $CURRENT_VERSION"
+      - name: Type check
+        run: npm run type-check
 
-    - name: Upload production build
-      uses: actions/upload-artifact@v4
-      with:
-        name: production-build
-        path: dist/
-        retention-days: 30
+      - name: Build frontend
+        run: npm run build
 
-  production-deployment:
-    name: Deploy to Production
+      - name: Upload frontend build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: dist/
+          retention-days: 3
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Deploy: runs directly ON the VM via self-hosted runner
+  # Native modules (better-sqlite3) are compiled for the VM's platform here
+  # ─────────────────────────────────────────────────────────────────────────
+  deploy:
+    name: Deploy to VM
     runs-on: self-hosted
-    needs: pre-deployment-validation
-    environment:
-      name: production
-      url: ${{ env.PRODUCTION_URL }}
-    
+    needs: ci
+    environment: production
+
+    env:
+      DATABASE_URL: /opt/investra/data/investra.db
+      NODE_ENV: production
+      PORT: 3001
+      CLIENT_ORIGIN: http://10.0.0.61
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Download production build
-      uses: actions/download-artifact@v4
-      with:
-        name: production-build
-        path: dist/
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
 
-    - name: Create production backup
-      id: backup
-      run: |
-        TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-        BACKUP_DIR="${{ env.FRONTEND_DEPLOY_DIR }}.backup.$TIMESTAMP"
-        
-        if [ -d "${{ env.FRONTEND_DEPLOY_DIR }}" ]; then
-          sudo cp -r "${{ env.FRONTEND_DEPLOY_DIR }}" "$BACKUP_DIR"
-          echo "backup_dir=$BACKUP_DIR" >> $GITHUB_OUTPUT
-          echo "✅ Production backup created: $BACKUP_DIR"
-        else
-          echo "ℹ️ No existing production deployment found"
-        fi
+      - name: Download frontend build
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: dist/
 
-    - name: Deploy frontend to production
-      run: |
-        # Ensure deployment directory exists
-        sudo mkdir -p "${{ env.FRONTEND_DEPLOY_DIR }}"
-        
-        # Deploy with atomic operation
-        sudo rsync -av --delete dist/ "${{ env.FRONTEND_DEPLOY_DIR }}/"
-        
-        # Set proper permissions
-        # Use current user if www-data doesn't exist
-        if id "www-data" &>/dev/null; then
-          sudo chown -R www-data:www-data "${{ env.FRONTEND_DEPLOY_DIR }}"
-        else
-          # Fallback to current user or common web server users
-          WEB_USER=$(whoami)
-          if id "nginx" &>/dev/null; then
-            WEB_USER="nginx"
-          elif id "apache" &>/dev/null; then
-            WEB_USER="apache"
-          elif id "www" &>/dev/null; then
-            WEB_USER="www"
-          fi
-          sudo chown -R "$WEB_USER:$WEB_USER" "${{ env.FRONTEND_DEPLOY_DIR }}"
-        fi
-        sudo chmod -R 755 "${{ env.FRONTEND_DEPLOY_DIR }}"
-        
-        # Diagnostic information
-        echo "📋 Deployment diagnostic information:"
-        echo "  - Deployed to: ${{ env.FRONTEND_DEPLOY_DIR }}"
-        echo "  - Files deployed:"
-        ls -la "${{ env.FRONTEND_DEPLOY_DIR }}" || echo "Cannot list deployment directory"
-        echo "  - HTML file content check:"
-        head -5 "${{ env.FRONTEND_DEPLOY_DIR }}/index.html" 2>/dev/null || echo "Cannot read index.html"
-        echo "  - Available web directories:"
-        find /var/www -maxdepth 2 -type d 2>/dev/null || echo "Cannot scan /var/www"
-        
-        echo "✅ Frontend deployed to production"
-        
-        # Additional web server diagnostics
-        echo "🔍 Web server configuration check:"
-        echo "  - Looking for common web server processes:"
-        ps aux | grep -E "(nginx|apache|httpd)" | grep -v grep || echo "No common web servers found"
-        echo "  - Checking for common web root directories:"
-        for dir in /var/www/html /usr/share/nginx/html /var/www /srv/www /opt/www; do
-          if [ -d "$dir" ]; then
-            echo "    Found: $dir"
-            ls -la "$dir" 2>/dev/null | head -3
-          fi
-        done
+      - name: Install production dependencies (compiles native modules for this host)
+        run: npm ci --prefer-offline
 
-    - name: Build and deploy database-driven email-puller
-      run: |
-        if [ -d "email-puller" ]; then
-          echo "📧 Building database-driven email-puller for production..."
-          
-          cd email-puller
-          # Install all dependencies (including dev dependencies for build)
-          npm ci
-          # Build the project
-          npm run build
-          # Clean up dev dependencies after build
-          npm ci --production
-          
-          # Create deployment directory
-          sudo mkdir -p "${{ env.EMAIL_PULLER_DEPLOY_DIR }}"
-          
-          # Backup current email-puller
-          if [ -f "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/dist/imap-puller.js" ]; then
-            sudo cp "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/dist/imap-puller.js" "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/dist/imap-puller.js.backup"
-          fi
-          
-          # Deploy email-puller
-          sudo mkdir -p "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/dist"
-          sudo cp -r dist/* "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/dist/"
-          sudo cp package.json "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/"
-          
-          # Update .env file with database-stored environment variables
-          echo "🔄 Updating email-puller .env with database-stored environment variables..."
-          export EMAIL_PULLER_DEPLOY_DIR="${{ env.EMAIL_PULLER_DEPLOY_DIR }}"
-          cd ..
-          # Install dependencies for the env update script
-          npm install @supabase/supabase-js
-          node .github/workflows/update-email-puller-env.js
-          cd email-puller
-          
-          # Set permissions
-          # Use current user if investra user doesn't exist
-          if id "investra" &>/dev/null; then
-            sudo chown -R investra:investra "${{ env.EMAIL_PULLER_DEPLOY_DIR }}"
+      - name: Ensure data and logs directories exist
+        run: |
+          mkdir -p "${{ env.DATA_DIR }}" "${{ env.LOGS_DIR }}"
+
+      - name: Run database migrations
+        run: npm run db:migrate
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+
+      - name: Sync app to deployment directory
+        run: |
+          rsync -av --delete \
+            --exclude='.git' \
+            --exclude='node_modules' \
+            --exclude='dist' \
+            --exclude='data' \
+            --exclude='.env*' \
+            ./ "${{ env.APP_DIR }}/"
+
+          # Copy built frontend and node_modules to app dir
+          rsync -av --delete dist/         "${{ env.APP_DIR }}/dist/"
+          rsync -av --delete node_modules/ "${{ env.APP_DIR }}/node_modules/"
+
+      - name: Start or reload Hono API via PM2
+        run: |
+          cd "${{ env.APP_DIR }}"
+
+          # If the process exists, reload it (zero-downtime); otherwise start fresh
+          if pm2 describe investra > /dev/null 2>&1; then
+            pm2 reload ecosystem.config.cjs --env production --update-env
           else
-            # Fallback to current user
-            CURRENT_USER=$(whoami)
-            sudo chown -R "$CURRENT_USER:$CURRENT_USER" "${{ env.EMAIL_PULLER_DEPLOY_DIR }}"
+            pm2 start ecosystem.config.cjs --env production
           fi
-          sudo chmod 755 "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/dist/imap-puller.js"
-          
-          echo "✅ Database-driven email-puller deployed to production"
-          echo "📊 Configuration: Database-driven via system_config table"
-          echo "🎨 UI Settings: Available at Settings -> Email-Puller System"
-        else
-          echo "ℹ️ Email-puller not found - skipping"
-        fi
 
-    - name: Restart production services
-      run: |
-        # Restart email-puller service if it exists
-        if [ -d "email-puller" ] && [ -f "${{ env.EMAIL_PULLER_DEPLOY_DIR }}/dist/imap-puller.js" ]; then
-          cd "${{ env.EMAIL_PULLER_DEPLOY_DIR }}"
-          
-          # Graceful restart
-          pm2 reload investra-email-puller || pm2 start dist/imap-puller.js --name investra-email-puller
           pm2 save
-          
-          echo "✅ Email-puller service restarted"
-        fi
-        
-        # Reload web server configuration if needed
-        sudo nginx -t && sudo systemctl reload nginx || echo "⚠️ Nginx reload skipped"
+          pm2 list
 
-  post-deployment-verification:
-    name: Post-deployment Verification
-    runs-on: ubuntu-latest
-    needs: production-deployment
-    
-    steps:
-    - name: Wait for deployment propagation
-      uses: nick-fields/retry@v3
-      with:
-        timeout_minutes: 5
-        max_attempts: 10
-        retry_wait_seconds: 30
-        command: |
-          curl -f -s "${{ env.PRODUCTION_URL }}" > /dev/null
+      - name: Health check
+        run: |
+          echo "Waiting for server to be ready..."
+          sleep 5
 
-    - name: Production health check
-      run: |
-        echo "🔍 Running production health checks..."
-        
-        # Frontend health check with retries
-        for i in {1..5}; do
-          response=$(curl -s -o /dev/null -w "%{http_code}" "${{ env.PRODUCTION_URL }}")
-          if [ "$response" = "200" ]; then
-            echo "✅ Frontend production health check passed (HTTP $response)"
-            break
-          else
-            echo "⚠️ Attempt $i failed (HTTP $response), retrying in 30s..."
-            if [ $i -eq 5 ]; then
-              echo "❌ Frontend production health check failed after 5 attempts"
+          for i in $(seq 1 10); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3001/api/auth/get-session || echo "000")
+            if [ "$STATUS" = "200" ] || [ "$STATUS" = "401" ]; then
+              echo "✅ Server is up (HTTP $STATUS)"
+              break
+            fi
+            echo "Attempt $i: HTTP $STATUS — retrying in 3s..."
+            sleep 3
+            if [ "$i" = "10" ]; then
+              echo "❌ Server failed to start"
+              pm2 logs investra --lines 50
               exit 1
             fi
-            sleep 30
-          fi
-        done
-        
-    - name: Performance check
-      uses: actions/github-script@v7
-      with:
-        script: |
-          const https = require('https');
-          const start = Date.now();
-          
-          const req = https.get('${{ env.PRODUCTION_URL }}', (res) => {
-            const loadTime = (Date.now() - start) / 1000;
-            core.info(`⏱️ Frontend load time: ${loadTime}s`);
-            
-            if (loadTime > 5) {
-              core.warning(`Load time is high: ${loadTime}s`);
-            }
-          });
-          
-          req.on('error', (error) => {
-            core.setFailed(`Performance check failed: ${error.message}`);
-          });
+          done
 
-    - name: Create deployment tag
-      uses: actions/github-script@v7
-      with:
-        script: |
-          const version = '${{ needs.pre-deployment-validation.outputs.version }}';
-          const tagName = `production-${version}-${new Date().toISOString().slice(0,10)}`;
-          
-          try {
-            await github.rest.git.createRef({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              ref: `refs/tags/${tagName}`,
-              sha: context.sha
-            });
-            console.log(`✅ Created deployment tag: ${tagName}`);
-          } catch (error) {
-            console.log(`ℹ️ Tag creation skipped: ${error.message}`);
-          }
-
-  rollback-on-failure:
-    name: Rollback on Failure
-    runs-on: self-hosted
-    needs: [production-deployment, post-deployment-verification]
-    if: failure() && needs.production-deployment.outputs.backup_dir
-    
-    steps:
-    - name: Rollback production deployment
-      run: |
-        BACKUP_DIR="${{ needs.production-deployment.outputs.backup_dir }}"
-        
-        if [ -d "$BACKUP_DIR" ]; then
-          echo "🔄 Rolling back to previous version..."
-          sudo rsync -av --delete "$BACKUP_DIR/" "${{ env.FRONTEND_DEPLOY_DIR }}/"
-          echo "✅ Rollback completed successfully"
-        else
-          echo "❌ Backup directory not found - manual intervention required"
-          exit 1
-        fi
-
-  production-summary:
-    name: Production Deployment Summary
+  # ─────────────────────────────────────────────────────────────────────────
+  # Summary
+  # ─────────────────────────────────────────────────────────────────────────
+  summary:
+    name: Deployment Summary
     runs-on: ubuntu-latest
-    needs: [pre-deployment-validation, production-deployment, post-deployment-verification]
+    needs: [ci, deploy]
     if: always()
-    
+
     steps:
-    - name: Generate deployment summary
-      run: |
-        echo "## 🚀 Production Deployment Summary" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "| Component | Status |" >> $GITHUB_STEP_SUMMARY
-        echo "| --- | --- |" >> $GITHUB_STEP_SUMMARY
-        echo "| Pre-deployment Validation | ${{ needs.pre-deployment-validation.result }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| Production Deployment | ${{ needs.production-deployment.result }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| Post-deployment Verification | ${{ needs.post-deployment-verification.result }} |" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "**Production URL:** ${{ env.PRODUCTION_URL }}" >> $GITHUB_STEP_SUMMARY
-        echo "**Version:** ${{ needs.pre-deployment-validation.outputs.version }}" >> $GITHUB_STEP_SUMMARY
-        echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
-        echo "**Deployed by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
-        echo "**Deployment time:** $(date -u)" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        
-        if [[ "${{ needs.pre-deployment-validation.result }}" == "success" && "${{ needs.production-deployment.result }}" == "success" && "${{ needs.post-deployment-verification.result }}" == "success" ]]; then
-          echo "✅ **Production deployment completed successfully**" >> $GITHUB_STEP_SUMMARY
-        else
-          echo "❌ **Production deployment failed - check logs and consider rollback**" >> $GITHUB_STEP_SUMMARY
-        fi
+      - name: Write summary
+        run: |
+          echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "| --- | --- |" >> $GITHUB_STEP_SUMMARY
+          echo "| CI Checks | ${{ needs.ci.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Deploy to VM | ${{ needs.deploy.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Triggered by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY

@@ -5,7 +5,8 @@ import { fileURLToPath } from 'url';
 import * as schema from './schema.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DB_PATH = path.resolve(__dirname, '../../data/investra.db');
+// In production, DATABASE_URL points to the persistent data directory (e.g. /opt/investra/data/investra.db)
+const DB_PATH = process.env.DATABASE_URL ?? path.resolve(__dirname, '../../data/investra.db');
 
 const sqlite = new Database(DB_PATH);
 

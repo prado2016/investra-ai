@@ -27,7 +27,8 @@ export default [
       'email-puller/dist/', // Explicitly ignore email-puller's dist
       'server/dist/', // Explicitly ignore server's dist
       'email-collector/dist/', // Explicitly ignore email-collector's dist
-      'server/ecosystem.config.js', // Ignore PM2 config file
+      'server/ecosystem.config.js', // Ignore old PM2 config file
+      'ecosystem.config.cjs',       // Ignore root PM2 config file
       '**/*.d.ts', // Ignore all declaration files
     ],
   },
