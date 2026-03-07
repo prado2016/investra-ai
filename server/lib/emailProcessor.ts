@@ -26,9 +26,15 @@ export async function syncEmails(userId: string, portfolioId: string): Promise<S
     secure: true,
     auth: {
       user: config.emailAddress,
-      pass: config.encryptedPassword, // stored decrypted for now; encrypt at rest later
+      pass: config.encryptedPassword,
     },
     logger: false,
+    socketTimeout: 5 * 60_000, // 5 min socket timeout for large mailboxes
+  });
+
+  // Prevent unhandled 'error' event from crashing the process
+  client.on('error', (err: Error) => {
+    console.error('[emailSync] IMAP error:', err.message);
   });
 
   try {
@@ -36,82 +42,83 @@ export async function syncEmails(userId: string, portfolioId: string): Promise<S
     const lock = await client.getMailboxLock('INBOX');
 
     try {
-      // Search for unseen messages with "order" in subject (Wealthsimple: "Your order has been filled")
       const unseen = await client.search({ seen: false });
       if (unseen.length === 0) {
         syncStore.update(userId, { status: 'done', total: 0, completedAt: Date.now() });
         return result;
       }
 
-      // Update store with total count and transition to syncing
       syncStore.update(userId, { status: 'syncing', total: unseen.length });
 
-      // Fetch all unseen messages
-      for await (const msg of client.fetch(unseen, { source: true, uid: true })) {
-        result.processed++;
-        try {
-          const parsed = await simpleParser(msg.source as Readable);
-          const text = parsed.text ?? parsed.html?.replace(/<[^>]+>/g, ' ') ?? '';
-          const subject = parsed.subject ?? '';
-          const from = parsed.from?.text ?? '';
+      // Process in batches to avoid socket timeouts on large mailboxes
+      const BATCH_SIZE = 25;
+      for (let i = 0; i < unseen.length; i += BATCH_SIZE) {
+        const batch = unseen.slice(i, i + BATCH_SIZE);
 
-          const transactions = parseEmailText(text);
+        for await (const msg of client.fetch(batch, { source: true, uid: true })) {
+          result.processed++;
+          try {
+            const parsed = await simpleParser(msg.source as Readable);
+            const text = parsed.text ?? parsed.html?.replace(/<[^>]+>/g, ' ') ?? '';
+            const subject = parsed.subject ?? '';
+            const from = parsed.from?.text ?? '';
 
-          let created = 0;
-          for (const tx of transactions) {
-            const assetId = await ensureAsset(tx.symbol, tx.symbol);
-            await transactionQueries.create({
-              portfolioId,
-              assetId,
-              type: tx.type,
-              quantity: tx.quantity,
-              price: tx.price,
-              fees: tx.fees,
-              date: tx.date,
-              notes: tx.notes,
-              source: 'email',
+            const transactions = parseEmailText(text);
+
+            let created = 0;
+            for (const tx of transactions) {
+              const assetId = await ensureAsset(tx.symbol, tx.symbol);
+              await transactionQueries.create({
+                portfolioId,
+                assetId,
+                type: tx.type,
+                quantity: tx.quantity,
+                price: tx.price,
+                fees: tx.fees,
+                date: tx.date,
+                notes: tx.notes,
+                source: 'email',
+              });
+              created++;
+            }
+
+            if (created > 0) {
+              await recalcPositions(portfolioId);
+            }
+
+            if (created > 0) {
+              await client.messageFlagsAdd(msg.uid, ['\\Seen'], { uid: true });
+            }
+
+            emailConfigQueries.logEmail({
+              userId,
+              emailConfigId: config.id,
+              subject,
+              fromAddress: from,
+              status: created > 0 ? 'processed' : 'skipped',
+              transactionsCreated: created,
             });
-            created++;
+
+            result.created += created;
+          } catch (err) {
+            result.failed++;
+            const errMsg = err instanceof Error ? err.message : String(err);
+            result.errors.push(errMsg);
+            emailConfigQueries.logEmail({
+              userId,
+              emailConfigId: config.id,
+              status: 'failed',
+              errorMessage: errMsg,
+            });
           }
 
-          if (created > 0) {
-            await recalcPositions(portfolioId);
-          }
-
-          // Mark as seen only if we successfully parsed transactions
-          if (created > 0) {
-            await client.messageFlagsAdd(msg.uid, ['\\Seen'], { uid: true });
-          }
-
-          emailConfigQueries.logEmail({
-            userId,
-            emailConfigId: config.id,
-            subject,
-            fromAddress: from,
-            status: created > 0 ? 'processed' : 'skipped',
-            transactionsCreated: created,
-          });
-
-          result.created += created;
-        } catch (err) {
-          result.failed++;
-          const errMsg = err instanceof Error ? err.message : String(err);
-          result.errors.push(errMsg);
-          emailConfigQueries.logEmail({
-            userId,
-            emailConfigId: config.id,
-            status: 'failed',
-            errorMessage: errMsg,
+          syncStore.update(userId, {
+            processed: result.processed,
+            created: result.created,
+            failed: result.failed,
+            errors: result.errors,
           });
         }
-
-        // Update progress in sync store after each email
-        syncStore.update(userId, {
-          processed: result.processed,
-          created: result.created,
-          failed: result.failed,
-          errors: result.errors,
-        });
       }
     } finally {
       lock.release();
