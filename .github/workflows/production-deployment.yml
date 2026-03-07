@@ -2,7 +2,7 @@ name: Production Deployment
 
 on:
   push:
-    branches: [main, claude/review-codebase-GfUeE]
+    branches: [main]
     paths-ignore:
       - '**.md'
       - 'docs/**'
@@ -17,7 +17,7 @@ env:
 
 jobs:
   # ─────────────────────────────────────────────────────────────────────────
-  # CI: lint + type-check + build  (runs on GitHub-hosted runner, fast)
+  # CI: lint + type-check + build validation  (GitHub-hosted runner)
   # ─────────────────────────────────────────────────────────────────────────
   ci:
     name: CI Checks
@@ -40,19 +40,12 @@ jobs:
       - name: Type check
         run: npm run type-check
 
-      - name: Build frontend
+      - name: Build frontend (validation only)
         run: npm run build
-
-      - name: Upload frontend build artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend-dist
-          path: dist/
-          retention-days: 3
 
   # ─────────────────────────────────────────────────────────────────────────
   # Deploy: runs directly ON the VM via self-hosted runner
-  # Native modules (better-sqlite3) are compiled for the VM's platform here
+  # Builds frontend and compiles native modules for the VM's platform
   # ─────────────────────────────────────────────────────────────────────────
   deploy:
     name: Deploy to VM
@@ -69,16 +62,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download frontend build
-        uses: actions/download-artifact@v4
-        with:
-          name: frontend-dist
-          path: dist/
+      - name: Install dependencies (compiles native modules for this host)
+        run: npm ci
 
-      - name: Install production dependencies (compiles native modules for this host)
-        run: |
-          npm cache clean --force
-          npm ci
+      - name: Build frontend
+        run: npm run build
 
       - name: Ensure data and logs directories exist
         run: |
@@ -125,13 +113,13 @@ jobs:
           for i in $(seq 1 10); do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3001/api/auth/get-session || echo "000")
             if [ "$STATUS" = "200" ] || [ "$STATUS" = "401" ]; then
-              echo "✅ Server is up (HTTP $STATUS)"
+              echo "Server is up (HTTP $STATUS)"
               break
             fi
             echo "Attempt $i: HTTP $STATUS — retrying in 3s..."
             sleep 3
             if [ "$i" = "10" ]; then
-              echo "❌ Server failed to start"
+              echo "Server failed to start"
               pm2 logs investra --lines 50
               exit 1
             fi
@@ -149,7 +137,7 @@ jobs:
     steps:
       - name: Write summary
         run: |
-          echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
           echo "| --- | --- |" >> $GITHUB_STEP_SUMMARY
