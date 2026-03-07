@@ -29,6 +29,9 @@ export async function recalcPositions(portfolioId: string): Promise<void> {
     const { quantity, avgCostBasis, realizedPl } = calcPosition(rows);
     await positionQueries.upsert({ portfolioId, assetId, quantity, avgCostBasis, realizedPl });
   }
+
+  // Remove positions for assets that no longer have any transactions
+  await positionQueries.deleteOrphaned(portfolioId, [...byAsset.keys()]);
 }
 
 function calcPosition(txs: TxRow[]): { quantity: number; avgCostBasis: number; realizedPl: number } {

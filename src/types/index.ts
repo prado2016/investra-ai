@@ -150,6 +150,19 @@ export interface SyncResult {
   errors: string[];
 }
 
+export interface SyncTask {
+  userId: string;
+  portfolioId: string;
+  status: 'connecting' | 'syncing' | 'done' | 'error';
+  total: number;
+  processed: number;
+  created: number;
+  failed: number;
+  errors: string[];
+  startedAt: number;
+  completedAt?: number;
+}
+
 // ---------------------------------------------------------------------------
 // Dashboard computed types
 // ---------------------------------------------------------------------------

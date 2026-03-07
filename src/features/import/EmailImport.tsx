@@ -1,25 +1,79 @@
-import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Mail } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { Mail, Loader2, CheckCircle, XCircle } from 'lucide-react';
 import { Button } from '../../components/Button.js';
 import { Alert } from '../../components/Alert.js';
 import { Select } from '../../components/Select.js';
 import { usePortfolioStore } from '../../stores/portfolioStore.js';
 import { api } from '../../lib/apiClient.js';
-import type { SyncResult } from '../../types/index.js';
+import type { SyncTask } from '../../types/index.js';
 
 export function EmailImport() {
   const { portfolios, activePortfolioId } = usePortfolioStore();
   const [portfolioId, setPortfolioId] = useState(activePortfolioId ?? '');
+  const [syncTask, setSyncTask] = useState<SyncTask | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [starting, setStarting] = useState(false);
   const qc = useQueryClient();
 
-  const syncMutation = useMutation({
-    mutationFn: () => api.post<SyncResult>('/import/email-sync', { portfolioId }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['transactions', portfolioId] });
-      qc.invalidateQueries({ queryKey: ['positions', portfolioId] });
-    },
-  });
+  const isActive = syncTask?.status === 'connecting' || syncTask?.status === 'syncing';
+
+  // Check for existing sync status on mount
+  useEffect(() => {
+    api.get<SyncTask | null>('/import/email-sync/status')
+      .then((task) => {
+        if (task) setSyncTask(task);
+      })
+      .catch(() => {}); // ignore if endpoint not available
+  }, []);
+
+  // Subscribe to SSE events when sync is active
+  const subscribeToEvents = useCallback(() => {
+    const es = new EventSource('/api/import/email-sync/events', { withCredentials: true });
+
+    es.addEventListener('progress', (e) => {
+      const task: SyncTask = JSON.parse(e.data);
+      setSyncTask(task);
+      if (task.status === 'done' || task.status === 'error') {
+        es.close();
+        // Invalidate queries when sync completes
+        if (task.status === 'done' && task.created > 0) {
+          qc.invalidateQueries({ queryKey: ['transactions'] });
+          qc.invalidateQueries({ queryKey: ['positions'] });
+        }
+      }
+    });
+
+    es.addEventListener('status', (e) => {
+      const task = JSON.parse(e.data);
+      if (task) setSyncTask(task);
+      es.close();
+    });
+
+    es.onerror = () => {
+      es.close();
+    };
+
+    return es;
+  }, [qc]);
+
+  const startSync = async () => {
+    setError(null);
+    setStarting(true);
+    try {
+      await api.post('/import/email-sync', { portfolioId });
+      // Sync started — subscribe to SSE for progress
+      subscribeToEvents();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to start sync');
+    } finally {
+      setStarting(false);
+    }
+  };
+
+  const progressPercent = syncTask && syncTask.total > 0
+    ? Math.round((syncTask.processed / syncTask.total) * 100)
+    : 0;
 
   return (
     <div className="max-w-2xl space-y-5">
@@ -43,24 +97,66 @@ export function EmailImport() {
         />
 
         <Button
-          onClick={() => syncMutation.mutate()}
-          loading={syncMutation.isPending}
-          disabled={!portfolioId}
+          onClick={startSync}
+          loading={starting}
+          disabled={!portfolioId || isActive}
         >
-          Sync emails
+          {isActive ? 'Syncing...' : 'Sync emails'}
         </Button>
       </div>
 
-      {syncMutation.data && (
+      {/* Progress bar during sync */}
+      {isActive && syncTask && (
         <div className="rounded-xl border border-zinc-200 bg-white p-5">
-          <h2 className="mb-3 text-sm font-semibold text-zinc-900">Sync Result</h2>
+          <div className="flex items-center gap-2 mb-3">
+            <Loader2 size={16} className="animate-spin text-blue-600" />
+            <h2 className="text-sm font-semibold text-zinc-900">
+              {syncTask.status === 'connecting' ? 'Connecting to mailbox...' : 'Syncing emails'}
+            </h2>
+          </div>
+
+          {syncTask.status === 'syncing' && syncTask.total > 0 && (
+            <>
+              <div className="mb-2 flex items-center justify-between text-xs text-zinc-600">
+                <span>Processing {syncTask.processed} of {syncTask.total} emails...</span>
+                <span>{progressPercent}%</span>
+              </div>
+              <div className="h-2 w-full rounded-full bg-zinc-100 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-blue-600 transition-all duration-300"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+              {(syncTask.created > 0 || syncTask.failed > 0) && (
+                <p className="mt-2 text-xs text-zinc-500">
+                  {syncTask.created} transactions created
+                  {syncTask.failed > 0 && ` · ${syncTask.failed} failed`}
+                </p>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Completed sync result */}
+      {syncTask?.status === 'done' && (
+        <div className="rounded-xl border border-zinc-200 bg-white p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <CheckCircle size={16} className="text-green-600" />
+            <h2 className="text-sm font-semibold text-zinc-900">Sync Complete</h2>
+            {syncTask.completedAt && (
+              <span className="ml-auto text-xs text-zinc-400">
+                {new Date(syncTask.completedAt).toLocaleTimeString()}
+              </span>
+            )}
+          </div>
           <Alert variant="success">
-            Processed {syncMutation.data.processed} emails · Created {syncMutation.data.created} transactions
-            {syncMutation.data.failed > 0 && ` · ${syncMutation.data.failed} failed`}
+            Processed {syncTask.processed} emails · Created {syncTask.created} transactions
+            {syncTask.failed > 0 && ` · ${syncTask.failed} failed`}
           </Alert>
-          {syncMutation.data.errors.length > 0 && (
+          {syncTask.errors.length > 0 && (
             <div className="mt-3 space-y-1">
-              {syncMutation.data.errors.map((e, i) => (
+              {syncTask.errors.map((e, i) => (
                 <Alert key={i} variant="warning">{e}</Alert>
               ))}
             </div>
@@ -68,8 +164,21 @@ export function EmailImport() {
         </div>
       )}
 
-      {syncMutation.error && (
-        <Alert variant="error">{syncMutation.error.message}</Alert>
+      {/* Error state */}
+      {syncTask?.status === 'error' && (
+        <div className="rounded-xl border border-zinc-200 bg-white p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <XCircle size={16} className="text-red-600" />
+            <h2 className="text-sm font-semibold text-zinc-900">Sync Failed</h2>
+          </div>
+          {syncTask.errors.map((e, i) => (
+            <Alert key={i} variant="error">{e}</Alert>
+          ))}
+        </div>
+      )}
+
+      {error && !syncTask && (
+        <Alert variant="error">{error}</Alert>
       )}
     </div>
   );

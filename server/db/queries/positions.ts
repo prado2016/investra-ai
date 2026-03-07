@@ -1,4 +1,4 @@
-import { and, eq, gt } from 'drizzle-orm';
+import { and, eq, gt, notInArray } from 'drizzle-orm';
 import { db } from '../client.js';
 import { assets, positions } from '../schema.js';
 
@@ -50,4 +50,17 @@ export const positionQueries = {
 
   deleteByPortfolio: (portfolioId: string) =>
     db.delete(positions).where(eq(positions.portfolioId, portfolioId)),
+
+  deleteOrphaned: (portfolioId: string, activeAssetIds: string[]) => {
+    if (activeAssetIds.length === 0) {
+      // No transactions left — delete all positions for this portfolio
+      return db.delete(positions).where(eq(positions.portfolioId, portfolioId));
+    }
+    return db.delete(positions).where(
+      and(
+        eq(positions.portfolioId, portfolioId),
+        notInArray(positions.assetId, activeAssetIds),
+      )
+    );
+  },
 };

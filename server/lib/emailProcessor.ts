@@ -5,6 +5,7 @@ import { emailConfigQueries } from '../db/queries/emailConfigs.js';
 import { transactionQueries } from '../db/queries/transactions.js';
 import { recalcPositions, ensureAsset } from './positions.js';
 import { parseEmailText } from './emailParser.js';
+import { syncStore } from './syncStore.js';
 
 export interface SyncResult {
   processed: number;
@@ -38,8 +39,12 @@ export async function syncEmails(userId: string, portfolioId: string): Promise<S
       // Search for unseen messages with "order" in subject (Wealthsimple: "Your order has been filled")
       const unseen = await client.search({ seen: false });
       if (unseen.length === 0) {
+        syncStore.update(userId, { status: 'done', total: 0, completedAt: Date.now() });
         return result;
       }
+
+      // Update store with total count and transition to syncing
+      syncStore.update(userId, { status: 'syncing', total: unseen.length });
 
       // Fetch all unseen messages
       for await (const msg of client.fetch(unseen, { source: true, uid: true })) {
@@ -99,6 +104,14 @@ export async function syncEmails(userId: string, portfolioId: string): Promise<S
             errorMessage: errMsg,
           });
         }
+
+        // Update progress in sync store after each email
+        syncStore.update(userId, {
+          processed: result.processed,
+          created: result.created,
+          failed: result.failed,
+          errors: result.errors,
+        });
       }
     } finally {
       lock.release();
@@ -106,6 +119,9 @@ export async function syncEmails(userId: string, portfolioId: string): Promise<S
   } finally {
     await client.logout();
   }
+
+  // Mark as done
+  syncStore.update(userId, { status: 'done', completedAt: Date.now() });
 
   return result;
 }
