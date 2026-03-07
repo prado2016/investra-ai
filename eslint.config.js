@@ -187,7 +187,7 @@ export default [
     languageOptions: {
       parser: typescriptEslint.parser,
       parserOptions: {
-        project: './server/tsconfig.server.json',
+        project: './tsconfig.server.json',
         tsconfigRootDir: __dirname,
       },
       globals: {
