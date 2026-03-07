@@ -38,11 +38,15 @@ export async function syncEmails(userId: string, portfolioId: string): Promise<S
   });
 
   try {
+    console.log('[emailSync] Connecting to IMAP...');
     await client.connect();
+    console.log('[emailSync] Connected, locking INBOX...');
     const lock = await client.getMailboxLock('INBOX');
+    console.log('[emailSync] INBOX locked, searching unseen...');
 
     try {
       const unseen = await client.search({ seen: false });
+      console.log(`[emailSync] Found ${unseen.length} unseen messages`);
       if (unseen.length === 0) {
         syncStore.update(userId, { status: 'done', total: 0, completedAt: Date.now() });
         return result;
@@ -54,6 +58,7 @@ export async function syncEmails(userId: string, portfolioId: string): Promise<S
       const BATCH_SIZE = 25;
       for (let i = 0; i < unseen.length; i += BATCH_SIZE) {
         const batch = unseen.slice(i, i + BATCH_SIZE);
+        console.log(`[emailSync] Fetching batch ${i / BATCH_SIZE + 1} (messages ${i + 1}-${Math.min(i + BATCH_SIZE, unseen.length)})`);
 
         for await (const msg of client.fetch(batch, { source: true, uid: true })) {
           result.processed++;
@@ -121,13 +126,18 @@ export async function syncEmails(userId: string, portfolioId: string): Promise<S
         }
       }
     } finally {
+      console.log('[emailSync] Releasing lock...');
       lock.release();
     }
+  } catch (outerErr) {
+    console.error('[emailSync] Fatal error:', outerErr instanceof Error ? outerErr.message : outerErr);
+    throw outerErr;
   } finally {
+    console.log('[emailSync] Logging out...');
     await client.logout();
   }
 
-  // Mark as done
+  console.log(`[emailSync] Done: processed=${result.processed} created=${result.created} failed=${result.failed}`);
   syncStore.update(userId, { status: 'done', completedAt: Date.now() });
 
   return result;
