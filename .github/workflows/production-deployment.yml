@@ -81,7 +81,7 @@ jobs:
           path: dist/
 
       - name: Install production dependencies (compiles native modules for this host)
-        run: npm ci --prefer-offline
+        run: npm ci
 
       - name: Ensure data and logs directories exist
         run: |
