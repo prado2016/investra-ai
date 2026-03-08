@@ -88,10 +88,6 @@ export async function syncEmails(userId: string, portfolioId: string): Promise<S
             }
 
             if (created > 0) {
-              await recalcPositions(portfolioId);
-            }
-
-            if (created > 0) {
               await client.messageFlagsAdd(msg.uid, ['\\Seen'], { uid: true });
             }
 
@@ -135,6 +131,12 @@ export async function syncEmails(userId: string, portfolioId: string): Promise<S
   } finally {
     console.log('[emailSync] Logging out...');
     await client.logout();
+  }
+
+  // Recalculate positions once after all emails are processed
+  if (result.created > 0) {
+    console.log(`[emailSync] Recalculating positions for portfolio ${portfolioId}...`);
+    await recalcPositions(portfolioId);
   }
 
   console.log(`[emailSync] Done: processed=${result.processed} created=${result.created} failed=${result.failed}`);

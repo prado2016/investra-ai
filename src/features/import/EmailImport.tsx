@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Mail, Loader2, CheckCircle, XCircle } from 'lucide-react';
 import { Button } from '../../components/Button.js';
@@ -15,55 +15,72 @@ export function EmailImport() {
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
   const qc = useQueryClient();
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const isActive = syncTask?.status === 'connecting' || syncTask?.status === 'syncing';
+
+  // Poll for sync status updates
+  const startPolling = useCallback(() => {
+    // Don't double-start
+    if (pollRef.current) return;
+
+    const poll = async () => {
+      try {
+        const task = await api.get<SyncTask | null>('/import/email-sync/status');
+        if (task) {
+          setSyncTask(task);
+          if (task.status === 'done' || task.status === 'error') {
+            // Stop polling when sync finishes
+            if (pollRef.current) {
+              clearInterval(pollRef.current);
+              pollRef.current = null;
+            }
+            // Invalidate queries when sync completes with new data
+            if (task.status === 'done' && task.created > 0) {
+              qc.invalidateQueries({ queryKey: ['transactions'] });
+              qc.invalidateQueries({ queryKey: ['positions'] });
+            }
+          }
+        }
+      } catch {
+        // ignore polling errors
+      }
+    };
+
+    // Poll immediately, then every 1.5s
+    poll();
+    pollRef.current = setInterval(poll, 1500);
+  }, [qc]);
 
   // Check for existing sync status on mount
   useEffect(() => {
     api.get<SyncTask | null>('/import/email-sync/status')
       .then((task) => {
-        if (task) setSyncTask(task);
+        if (task) {
+          setSyncTask(task);
+          // If a sync is already active, start polling for updates
+          if (task.status === 'connecting' || task.status === 'syncing') {
+            startPolling();
+          }
+        }
       })
       .catch(() => {}); // ignore if endpoint not available
-  }, []);
 
-  // Subscribe to SSE events when sync is active
-  const subscribeToEvents = useCallback(() => {
-    const es = new EventSource('/api/import/email-sync/events', { withCredentials: true });
-
-    es.addEventListener('progress', (e) => {
-      const task: SyncTask = JSON.parse(e.data);
-      setSyncTask(task);
-      if (task.status === 'done' || task.status === 'error') {
-        es.close();
-        // Invalidate queries when sync completes
-        if (task.status === 'done' && task.created > 0) {
-          qc.invalidateQueries({ queryKey: ['transactions'] });
-          qc.invalidateQueries({ queryKey: ['positions'] });
-        }
+    return () => {
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
       }
-    });
-
-    es.addEventListener('status', (e) => {
-      const task = JSON.parse(e.data);
-      if (task) setSyncTask(task);
-      es.close();
-    });
-
-    es.onerror = () => {
-      es.close();
     };
-
-    return es;
-  }, [qc]);
+  }, [startPolling]);
 
   const startSync = async () => {
     setError(null);
     setStarting(true);
     try {
       await api.post('/import/email-sync', { portfolioId });
-      // Sync started — subscribe to SSE for progress
-      subscribeToEvents();
+      // Sync started — poll for progress updates
+      startPolling();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start sync');
     } finally {
