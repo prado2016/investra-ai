@@ -54,72 +54,73 @@ export async function syncEmails(userId: string, portfolioId: string): Promise<S
 
       syncStore.update(userId, { status: 'syncing', total: unseen.length });
 
-      // Process in batches to avoid socket timeouts on large mailboxes
-      const BATCH_SIZE = 25;
-      for (let i = 0; i < unseen.length; i += BATCH_SIZE) {
-        const batch = unseen.slice(i, i + BATCH_SIZE);
-        console.log(`[emailSync] Fetching batch ${i / BATCH_SIZE + 1} (messages ${i + 1}-${Math.min(i + BATCH_SIZE, unseen.length)})`);
+      // Process one message at a time to avoid Gmail IMAP throttling/stalling
+      // Batch fetch with source: true causes Gmail to stall on large requests
+      for (let i = 0; i < unseen.length; i++) {
+        const seqNo = unseen[i];
+        if (i % 25 === 0) {
+          console.log(`[emailSync] Processing message ${i + 1} of ${unseen.length}...`);
+        }
 
-        for await (const msg of client.fetch(batch, { source: true, uid: true })) {
-          result.processed++;
-          try {
-            const parsed = await simpleParser(msg.source as Readable);
-            const text = parsed.text ?? parsed.html?.replace(/<[^>]+>/g, ' ') ?? '';
-            const subject = parsed.subject ?? '';
-            const from = parsed.from?.text ?? '';
+        result.processed++;
+        try {
+          const msg = await client.fetchOne(seqNo, { source: true, uid: true });
+          const parsed = await simpleParser(msg.source as Readable);
+          const text = parsed.text ?? parsed.html?.replace(/<[^>]+>/g, ' ') ?? '';
+          const subject = parsed.subject ?? '';
+          const from = parsed.from?.text ?? '';
 
-            const transactions = parseEmailText(text);
+          const transactions = parseEmailText(text);
 
-            let created = 0;
-            for (const tx of transactions) {
-              const assetId = await ensureAsset(tx.symbol, tx.symbol);
-              await transactionQueries.create({
-                portfolioId,
-                assetId,
-                type: tx.type,
-                quantity: tx.quantity,
-                price: tx.price,
-                fees: tx.fees,
-                date: tx.date,
-                notes: tx.notes,
-                source: 'email',
-              });
-              created++;
-            }
-
-            if (created > 0) {
-              await client.messageFlagsAdd(msg.uid, ['\\Seen'], { uid: true });
-            }
-
-            emailConfigQueries.logEmail({
-              userId,
-              emailConfigId: config.id,
-              subject,
-              fromAddress: from,
-              status: created > 0 ? 'processed' : 'skipped',
-              transactionsCreated: created,
+          let created = 0;
+          for (const tx of transactions) {
+            const assetId = await ensureAsset(tx.symbol, tx.symbol);
+            await transactionQueries.create({
+              portfolioId,
+              assetId,
+              type: tx.type,
+              quantity: tx.quantity,
+              price: tx.price,
+              fees: tx.fees,
+              date: tx.date,
+              notes: tx.notes,
+              source: 'email',
             });
-
-            result.created += created;
-          } catch (err) {
-            result.failed++;
-            const errMsg = err instanceof Error ? err.message : String(err);
-            result.errors.push(errMsg);
-            emailConfigQueries.logEmail({
-              userId,
-              emailConfigId: config.id,
-              status: 'failed',
-              errorMessage: errMsg,
-            });
+            created++;
           }
 
-          syncStore.update(userId, {
-            processed: result.processed,
-            created: result.created,
-            failed: result.failed,
-            errors: result.errors,
+          if (created > 0) {
+            await client.messageFlagsAdd(msg.uid, ['\\Seen'], { uid: true });
+          }
+
+          emailConfigQueries.logEmail({
+            userId,
+            emailConfigId: config.id,
+            subject,
+            fromAddress: from,
+            status: created > 0 ? 'processed' : 'skipped',
+            transactionsCreated: created,
+          });
+
+          result.created += created;
+        } catch (err) {
+          result.failed++;
+          const errMsg = err instanceof Error ? err.message : String(err);
+          result.errors.push(errMsg);
+          emailConfigQueries.logEmail({
+            userId,
+            emailConfigId: config.id,
+            status: 'failed',
+            errorMessage: errMsg,
           });
         }
+
+        syncStore.update(userId, {
+          processed: result.processed,
+          created: result.created,
+          failed: result.failed,
+          errors: result.errors,
+        });
       }
     } finally {
       console.log('[emailSync] Releasing lock...');
