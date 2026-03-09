@@ -1,6 +1,6 @@
-import { and, asc, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 import { db } from '../client.js';
-import { assets, transactions } from '../schema.js';
+import { assets, portfolios, transactions } from '../schema.js';
 
 type TransactionUpdate = Partial<Pick<typeof transactions.$inferInsert,
   'type' | 'quantity' | 'price' | 'fees' | 'date' | 'notes' | 'strikePrice' | 'expirationDate' | 'optionType'
@@ -23,14 +23,45 @@ export const transactionQueries = {
       optionType: transactions.optionType,
       source: transactions.source,
       createdAt: transactions.createdAt,
+      portfolioName: portfolios.name,
       symbol: assets.symbol,
       assetName: assets.name,
       assetType: assets.assetType,
     })
       .from(transactions)
       .innerJoin(assets, eq(transactions.assetId, assets.id))
+      .innerJoin(portfolios, eq(transactions.portfolioId, portfolios.id))
       .where(eq(transactions.portfolioId, portfolioId))
       .orderBy(desc(transactions.date), desc(transactions.createdAt)),
+
+  listByPortfolioIds: async (portfolioIds: string[]) => {
+    if (portfolioIds.length === 0) return [];
+    return db.select({
+      id: transactions.id,
+      portfolioId: transactions.portfolioId,
+      assetId: transactions.assetId,
+      type: transactions.type,
+      quantity: transactions.quantity,
+      price: transactions.price,
+      fees: transactions.fees,
+      date: transactions.date,
+      notes: transactions.notes,
+      strikePrice: transactions.strikePrice,
+      expirationDate: transactions.expirationDate,
+      optionType: transactions.optionType,
+      source: transactions.source,
+      createdAt: transactions.createdAt,
+      portfolioName: portfolios.name,
+      symbol: assets.symbol,
+      assetName: assets.name,
+      assetType: assets.assetType,
+    })
+      .from(transactions)
+      .innerJoin(assets, eq(transactions.assetId, assets.id))
+      .innerJoin(portfolios, eq(transactions.portfolioId, portfolios.id))
+      .where(inArray(transactions.portfolioId, portfolioIds))
+      .orderBy(desc(transactions.date), desc(transactions.createdAt));
+  },
 
   get: (id: string) =>
     db.select().from(transactions).where(eq(transactions.id, id)).get(),

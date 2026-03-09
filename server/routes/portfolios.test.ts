@@ -10,6 +10,7 @@ vi.mock('../db/queries/portfolios.js', () => ({
     create: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
+    hasChildren: vi.fn(),
     setDefault: vi.fn(),
   },
 }));
@@ -43,6 +44,7 @@ describe('portfolio routes', () => {
       id: 'portfolio-2',
       userId: 'another-user',
       name: 'Foreign',
+      parentPortfolioId: null,
       currency: 'USD',
       isDefault: false,
       createdAt: new Date(),
@@ -60,6 +62,7 @@ describe('portfolio routes', () => {
       id: 'portfolio-1',
       userId: TEST_USER.id,
       name: 'Mine',
+      parentPortfolioId: null,
       currency: 'USD',
       isDefault: false,
       createdAt: new Date(),
@@ -68,6 +71,7 @@ describe('portfolio routes', () => {
       id: 'portfolio-1',
       userId: TEST_USER.id,
       name: 'Mine',
+      parentPortfolioId: null,
       currency: 'USD',
       isDefault: true,
       createdAt: new Date(),
@@ -78,5 +82,27 @@ describe('portfolio routes', () => {
 
     expect(response.status).toBe(200);
     expect(portfolioQueries.setDefault).toHaveBeenCalledWith(TEST_USER.id, 'portfolio-1');
+  });
+
+  it('rejects creating an account under another user portfolio', async () => {
+    vi.mocked(portfolioQueries.get).mockReturnValue({
+      id: 'portfolio-2',
+      userId: 'another-user',
+      name: 'Foreign',
+      parentPortfolioId: null,
+      currency: 'USD',
+      isDefault: false,
+      createdAt: new Date(),
+    });
+
+    const app = createApp();
+    const response = await app.request('/portfolios', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'TFSA', parentPortfolioId: 'portfolio-2' }),
+    });
+
+    expect(response.status).toBe(404);
+    expect(portfolioQueries.create).not.toHaveBeenCalled();
   });
 });

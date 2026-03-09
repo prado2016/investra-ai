@@ -10,7 +10,8 @@ import type { Portfolio, SyncTask } from '../../types/index.js';
 
 export function EmailImport() {
   const { portfolios, activePortfolioId, setPortfolios, setActivePortfolio } = usePortfolioStore();
-  const [portfolioId, setPortfolioId] = useState(activePortfolioId ?? '');
+  const masterPortfolios = portfolios.filter((portfolio) => !portfolio.parentPortfolioId);
+  const [portfolioId, setPortfolioId] = useState('');
   const [syncTask, setSyncTask] = useState<SyncTask | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
@@ -19,6 +20,16 @@ export function EmailImport() {
   const appliedSyncRef = useRef<number | null>(null);
 
   const isActive = syncTask?.status === 'connecting' || syncTask?.status === 'syncing';
+
+  useEffect(() => {
+    const activePortfolio = portfolios.find((portfolio) => portfolio.id === activePortfolioId);
+    const nextPortfolioId = activePortfolio?.parentPortfolioId ?? activePortfolio?.id ?? masterPortfolios[0]?.id ?? '';
+    setPortfolioId((current) => (
+      current && masterPortfolios.some((portfolio) => portfolio.id === current)
+        ? current
+        : nextPortfolioId
+    ));
+  }, [activePortfolioId, masterPortfolios, portfolios]);
 
   const applyCompletedSync = useCallback(async (task: SyncTask) => {
     if (task.status !== 'done' || task.created === 0) return;
@@ -115,16 +126,16 @@ export function EmailImport() {
           <div>
             <h2 className="text-sm font-semibold text-zinc-900">Email Sync</h2>
             <p className="mt-1 text-xs text-zinc-500">
-              Connect your broker email in Settings first. Emails that include an account name will import into a matching portfolio automatically. The selected portfolio below is only used as a fallback.
+              Connect your broker email in Settings first. Select the master portfolio that should own this import. Each broker account detected from email will be created as a child account under that master portfolio.
             </p>
           </div>
         </div>
 
         <Select
-          label="Fallback portfolio"
+          label="Master portfolio"
           value={portfolioId}
           onChange={(e) => setPortfolioId(e.target.value)}
-          options={portfolios.map((p) => ({ value: p.id, label: p.name }))}
+          options={masterPortfolios.map((portfolio) => ({ value: portfolio.id, label: portfolio.name }))}
           className="mb-4"
         />
 

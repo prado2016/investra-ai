@@ -1,0 +1,1 @@
+ALTER TABLE `portfolios` ADD `parent_portfolio_id` text REFERENCES portfolios(id);

@@ -8,6 +8,13 @@
       "when": 1772910534950,
       "tag": "0000_confused_punisher",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1773080767934,
+      "tag": "0001_broken_blazing_skull",
+      "breakpoints": true
     }
   ]
 }

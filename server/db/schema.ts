@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
+  foreignKey,
   integer,
   real,
   sqliteTable,
@@ -63,10 +64,16 @@ export const portfolios = sqliteTable('portfolios', {
   id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
+  parentPortfolioId: text('parent_portfolio_id'),
   currency: text('currency').notNull().default('USD'),
   isDefault: integer('is_default', { mode: 'boolean' }).notNull().default(false),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
-});
+}, (t) => [
+  foreignKey({
+    columns: [t.parentPortfolioId],
+    foreignColumns: [t.id],
+  }).onDelete('cascade'),
+]);
 
 // ---------------------------------------------------------------------------
 // Assets (financial instruments)

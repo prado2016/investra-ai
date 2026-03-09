@@ -15,6 +15,7 @@ const navItems = [
 export function Layout() {
   const { portfolios, activePortfolioId, setActivePortfolio } = usePortfolioStore();
   const { user, setUser } = useAuthStore();
+  const masterPortfolios = portfolios.filter((portfolio) => !portfolio.parentPortfolioId);
 
   async function signOut() {
     await api.post('/auth/sign-out', {});
@@ -38,9 +39,15 @@ export function Layout() {
               onChange={(e) => setActivePortfolio(e.target.value)}
               className="w-full appearance-none rounded-md border border-zinc-200 bg-zinc-50 py-2 pl-3 pr-8 text-sm text-zinc-900 outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200"
             >
-              {portfolios.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
+              {masterPortfolios.flatMap((masterPortfolio) => {
+                const childAccounts = portfolios.filter((portfolio) => portfolio.parentPortfolioId === masterPortfolio.id);
+                return [
+                  <option key={masterPortfolio.id} value={masterPortfolio.id}>{masterPortfolio.name}</option>,
+                  ...childAccounts.map((account) => (
+                    <option key={account.id} value={account.id}>- {account.name}</option>
+                  )),
+                ];
+              })}
               {portfolios.length === 0 && <option value="">No portfolios</option>}
             </select>
             <ChevronDown size={14} className="pointer-events-none absolute right-2.5 top-2.5 text-zinc-400" />

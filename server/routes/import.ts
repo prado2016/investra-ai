@@ -66,6 +66,7 @@ app.post('/email-sync', async (c) => {
   const { portfolioId } = await c.req.json<{ portfolioId: string }>();
   const portfolio = portfolioQueries.get(portfolioId);
   if (!portfolio || portfolio.userId !== user.id) return c.json({ error: 'Not found' }, 404);
+  const importRootPortfolioId = portfolio.parentPortfolioId ?? portfolio.id;
 
   // Prevent duplicate syncs
   if (syncStore.isActive(user.id)) {
@@ -73,10 +74,10 @@ app.post('/email-sync', async (c) => {
   }
 
   // Initialize sync task
-  syncStore.start(user.id, portfolioId);
+  syncStore.start(user.id, importRootPortfolioId);
 
   // Run sync in background (don't await)
-  syncEmails(user.id, portfolioId).catch((err) => {
+  syncEmails(user.id, importRootPortfolioId).catch((err) => {
     syncStore.update(user.id, {
       status: 'error',
       errors: [err instanceof Error ? err.message : String(err)],

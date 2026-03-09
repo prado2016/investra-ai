@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { transactionQueries } from '../db/queries/transactions.js';
 import { portfolioQueries } from '../db/queries/portfolios.js';
 import { recalcPositions, ensureAsset } from '../lib/positions.js';
+import { getPortfolioScope } from '../lib/portfolioScope.js';
 import type { AuthUser } from '../middleware/requireAuth.js';
 
 const app = new Hono<{ Variables: { user: AuthUser } }>();
@@ -18,8 +19,11 @@ app.get('/', async (c) => {
   const user = c.get('user');
   const portfolioId = c.req.query('portfolioId');
   if (!portfolioId) return c.json({ error: 'portfolioId is required' }, 400);
-  if (!await ownedPortfolio(user.id, portfolioId)) return c.json({ error: 'Not found' }, 404);
-  const rows = await transactionQueries.list(portfolioId);
+  const scope = await getPortfolioScope(user.id, portfolioId);
+  if (!scope) return c.json({ error: 'Not found' }, 404);
+  const rows = scope.isAggregate
+    ? await transactionQueries.listByPortfolioIds(scope.portfolioIds)
+    : await transactionQueries.list(scope.portfolio.id);
   return c.json(rows);
 });
 
