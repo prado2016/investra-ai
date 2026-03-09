@@ -5,8 +5,8 @@ import type { Portfolio } from '../types/index.js';
 interface PortfolioState {
   portfolios: Portfolio[];
   activePortfolioId: string | null;
-  setPortfolios: (portfolios: Portfolio[]) => void;
-  setActivePortfolio: (id: string) => void;
+  setPortfolios: (_portfolios: Portfolio[]) => void;
+  setActivePortfolio: (_id: string) => void;
   activePortfolio: () => Portfolio | undefined;
 }
 

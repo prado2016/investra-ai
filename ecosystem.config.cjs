@@ -5,7 +5,7 @@ module.exports = {
       name: 'investra',
       script: 'server/index.ts',
       interpreter: './node_modules/.bin/tsx',
-      cwd: process.env.APP_DIR || '/opt/investra/app',
+      cwd: process.env.APP_DIR || '/opt/investra',
 
       // Single instance — SQLite doesn't support multi-process writes
       instances: 1,

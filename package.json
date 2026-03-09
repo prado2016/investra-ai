@@ -16,7 +16,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
-    "clean": "rm -rf dist node_modules/.vite",
+    "clean": "rm -rf dist dist-server node_modules/.vite",
     "postinstall": "node -e \"const p=require('./node_modules/yahoo-finance2/package.json');if(!p.exports['.'].default){p.exports['.'].default=p.exports['.'].import;p.main=p.module;require('fs').writeFileSync('./node_modules/yahoo-finance2/package.json',JSON.stringify(p,null,2))}\""
   },
   "dependencies": {

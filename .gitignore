@@ -9,8 +9,11 @@ lerna-debug.log*
 
 node_modules
 dist
+dist-server
 dist-ssr
+build
 *.local
+._*
 
 # Editor directories and files
 .vscode/*
@@ -33,9 +36,12 @@ playwright/.cache/
 # Environment files
 .env
 .env.local
+.env.*
+.envrc
 .env.development.local
 .env.test.local
 .env.production.local
+!.env.example
 
 # Added by Task Master AI
 dev-debug.log
@@ -95,7 +101,7 @@ src/test/e2e/.auth/
 
 broker_csv/*
 
-# SQLite database (persisted on server, not tracked in git)
+# SQLite database (persisted locally/in production, not tracked in git)
 data/*.db
 data/*.db-shm
 data/*.db-wal

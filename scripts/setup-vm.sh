@@ -6,7 +6,7 @@
 # =============================================================================
 set -euo pipefail
 
-APP_DIR="/opt/investra/app"
+APP_DIR="/opt/investra"
 DATA_DIR="/opt/investra/data"
 LOGS_DIR="/opt/investra/logs"
 RUNNER_DIR="/opt/actions-runner"

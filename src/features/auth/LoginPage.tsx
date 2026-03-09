@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { Input } from '../../components/Input.js';
 import { Button } from '../../components/Button.js';
 import { Alert } from '../../components/Alert.js';
@@ -19,7 +19,7 @@ export function LoginPage() {
   const { setUser } = useAuthStore();
   const { setPortfolios } = usePortfolioStore();
 
-  async function submit(e: React.FormEvent) {
+  async function submit(e: FormEvent) {
     e.preventDefault();
     setError('');
     setLoading(true);

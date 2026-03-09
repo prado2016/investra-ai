@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 type BadgeVariant = 'green' | 'red' | 'zinc' | 'indigo' | 'yellow';
 
 const styles: Record<BadgeVariant, string> = {
@@ -10,7 +12,7 @@ const styles: Record<BadgeVariant, string> = {
 
 interface BadgeProps {
   variant?: BadgeVariant;
-  children: React.ReactNode;
+  children: ReactNode;
 }
 
 export function Badge({ variant = 'zinc', children }: BadgeProps) {
