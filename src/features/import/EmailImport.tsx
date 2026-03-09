@@ -100,13 +100,13 @@ export function EmailImport() {
           <div>
             <h2 className="text-sm font-semibold text-zinc-900">Email Sync</h2>
             <p className="mt-1 text-xs text-zinc-500">
-              Connect your broker email in Settings first. Then sync here to auto-import trade confirmations.
+              Connect your broker email in Settings first. Emails that include an account name will import into a matching portfolio automatically. The selected portfolio below is only used as a fallback.
             </p>
           </div>
         </div>
 
         <Select
-          label="Import into portfolio"
+          label="Fallback portfolio"
           value={portfolioId}
           onChange={(e) => setPortfolioId(e.target.value)}
           options={portfolios.map((p) => ({ value: p.id, label: p.name }))}

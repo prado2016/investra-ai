@@ -1,5 +1,6 @@
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
+import { portfolioQueries } from '../db/queries/portfolios.js';
 import { emailConfigQueries } from '../db/queries/emailConfigs.js';
 import { transactionQueries } from '../db/queries/transactions.js';
 import { recalcPositions, ensureAsset } from './positions.js';
@@ -14,11 +15,49 @@ export interface SyncResult {
   errors: string[];
 }
 
-export async function syncEmails(userId: string, portfolioId: string): Promise<SyncResult> {
+interface SyncOptions {
+  includeSeen?: boolean;
+}
+
+export function normalizePortfolioKey(name: string): string {
+  return name.trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+export async function resolvePortfolioIdForAccount(params: {
+  userId: string;
+  fallbackPortfolioId: string;
+  accountName?: string;
+  portfolioIdsByKey: Map<string, string>;
+}): Promise<string> {
+  const { userId, fallbackPortfolioId, accountName, portfolioIdsByKey } = params;
+
+  if (!accountName) return fallbackPortfolioId;
+
+  const normalizedAccountName = normalizePortfolioKey(accountName);
+  const existingPortfolioId = portfolioIdsByKey.get(normalizedAccountName);
+  if (existingPortfolioId) return existingPortfolioId;
+
+  const createdPortfolio = await portfolioQueries.create(userId, { name: accountName.trim() });
+  if (!createdPortfolio) {
+    throw new Error(`Failed to create portfolio for account "${accountName}"`);
+  }
+
+  portfolioIdsByKey.set(normalizedAccountName, createdPortfolio.id);
+  return createdPortfolio.id;
+}
+
+export async function syncEmails(userId: string, fallbackPortfolioId: string, options: SyncOptions = {}): Promise<SyncResult> {
   const config = emailConfigQueries.getByUser(userId);
   if (!config) throw new Error('No email configuration found');
 
   const result: SyncResult = { processed: 0, created: 0, failed: 0, errors: [] };
+  const existingPortfolios = await portfolioQueries.list(userId);
+  const portfolioIdsByKey = new Map(
+    existingPortfolios.map((portfolio) => [normalizePortfolioKey(portfolio.name), portfolio.id])
+  );
+  const hasPriorEmailLogs = (await emailConfigQueries.getLogs(userId, 1)).length > 0;
+  const includeSeen = options.includeSeen ?? !hasPriorEmailLogs;
+  const affectedPortfolioIds = new Set<string>();
 
   const client = new ImapFlow({
     host: config.imapHost,
@@ -42,12 +81,12 @@ export async function syncEmails(userId: string, portfolioId: string): Promise<S
     await client.connect();
     console.log('[emailSync] Connected, locking INBOX...');
     const lock = await client.getMailboxLock('INBOX');
-    console.log('[emailSync] INBOX locked, searching unseen...');
+    console.log(`[emailSync] INBOX locked, searching ${includeSeen ? 'all messages for backfill' : 'unseen messages'}...`);
 
     try {
-      const unseen = await client.search({ seen: false });
+      const unseen = await client.search(includeSeen ? {} : { seen: false });
       const unseenSeqNos = Array.isArray(unseen) ? unseen : [];
-      console.log(`[emailSync] Found ${unseenSeqNos.length} unseen messages`);
+      console.log(`[emailSync] Found ${unseenSeqNos.length} ${includeSeen ? 'messages' : 'unseen messages'}`);
       if (unseenSeqNos.length === 0) {
         syncStore.update(userId, { status: 'done', total: 0, completedAt: Date.now() });
         return result;
@@ -81,9 +120,15 @@ export async function syncEmails(userId: string, portfolioId: string): Promise<S
 
           let created = 0;
           for (const tx of transactions) {
+            const targetPortfolioId = await resolvePortfolioIdForAccount({
+              userId,
+              fallbackPortfolioId,
+              accountName: tx.accountName,
+              portfolioIdsByKey,
+            });
             const assetId = await ensureAsset(tx.symbol, tx.symbol);
             await transactionQueries.create({
-              portfolioId,
+              portfolioId: targetPortfolioId,
               assetId,
               type: tx.type,
               quantity: tx.quantity,
@@ -93,6 +138,7 @@ export async function syncEmails(userId: string, portfolioId: string): Promise<S
               notes: tx.notes,
               source: 'email',
             });
+            affectedPortfolioIds.add(targetPortfolioId);
             created++;
           }
 
@@ -145,8 +191,10 @@ export async function syncEmails(userId: string, portfolioId: string): Promise<S
 
   // Recalculate positions once after all emails are processed
   if (result.created > 0) {
-    console.log(`[emailSync] Recalculating positions for portfolio ${portfolioId}...`);
-    await recalcPositions(portfolioId);
+    for (const portfolioId of affectedPortfolioIds) {
+      console.log(`[emailSync] Recalculating positions for portfolio ${portfolioId}...`);
+      await recalcPositions(portfolioId);
+    }
   }
 
   console.log(`[emailSync] Done: processed=${result.processed} created=${result.created} failed=${result.failed}`);

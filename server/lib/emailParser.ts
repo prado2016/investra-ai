@@ -6,6 +6,7 @@ export interface ParsedTransaction {
   fees: number;
   date: string; // YYYY-MM-DD
   notes: string;
+  accountName?: string;
 }
 
 /**
@@ -26,6 +27,7 @@ function parseWealthsimple(text: string): ParsedTransaction[] {
 
   // Normalize: remove zero-width chars and collapse whitespace
   const clean = text.replace(/[\u200C\u200B\u00A0]/g, '').replace(/\s+/g, ' ');
+  const accountName = extractAccountName(clean);
 
   // Wealthsimple stock: Type: *Limit* *Buy* Symbol: *TSLL* Shares: *100* Average price: *US$12.42* ... Time: *July 21, 2025 ...
   const stockPattern = /Type:\s*\*[^*]*\*\s*\*(Buy|Sell)\*(?:\s*\*[^*]*\*)?\s*Symbol:\s*\*([A-Z]{1,10})\*\s*Shares:\s*\*([\d,.]+)\*\s*Average price:\s*\*(?:US\$|CA\$|\$)([\d,.]+)\*\s*Total (?:cost|value):\s*\*(?:US\$|CA\$|\$)([\d,.]+)\*\s*Time:\s*\*([^*]+)\*/gi;
@@ -46,6 +48,7 @@ function parseWealthsimple(text: string): ParsedTransaction[] {
       fees,
       date: normalizeDate(timeStr.trim()),
       notes: 'Imported from Wealthsimple email',
+      accountName,
     });
   }
 
@@ -68,6 +71,7 @@ function parseWealthsimple(text: string): ParsedTransaction[] {
       fees,
       date: normalizeDate(timeStr.trim()),
       notes: `Imported from Wealthsimple email (${action} to ${openClose})`,
+      accountName,
     });
   }
 
@@ -76,6 +80,7 @@ function parseWealthsimple(text: string): ParsedTransaction[] {
 
 function parseGenericBroker(text: string): ParsedTransaction[] {
   const results: ParsedTransaction[] = [];
+  const accountName = extractAccountName(text);
 
   const patterns = [
     /you\s+(bought|sold)\s+([\d,.]+)\s+shares?\s+of\s+([A-Z]{1,5})\s+at\s+\$?([\d,.]+)/gi,
@@ -101,6 +106,7 @@ function parseGenericBroker(text: string): ParsedTransaction[] {
           fees: 0,
           date,
           notes: 'Imported from email',
+          accountName,
         });
       } else {
         const [, action, qtyStr, symbol, priceStr] = match;
@@ -112,6 +118,7 @@ function parseGenericBroker(text: string): ParsedTransaction[] {
           fees: extractFees(text),
           date,
           notes: 'Imported from email',
+          accountName,
         });
       }
     }
@@ -135,4 +142,20 @@ function normalizeDate(raw: string): string {
     return d.toISOString().split('T')[0];
   }
   return new Date().toISOString().split('T')[0];
+}
+
+function extractAccountName(text: string): string | undefined {
+  const patterns = [
+    /Account:\s*\*([^*]+)\*/i,
+    /Account:\s*([A-Za-z0-9][A-Za-z0-9 &'()\/.-]{0,80}?)(?=\s+(?:Type:|Symbol:|Shares:|Contracts:|Option:|Expiry:|Average price:|Total (?:cost|value):|Time:|Date:|$))/i,
+    /(?:from|in)\s+your\s+([A-Za-z0-9][A-Za-z0-9 &'()\/.-]{0,80}?)\s+account/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    const accountName = match?.[1]?.replace(/\s+/g, ' ').trim();
+    if (accountName) return accountName;
+  }
+
+  return undefined;
 }
