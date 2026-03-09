@@ -12,6 +12,7 @@ export interface Portfolio {
   id: string;
   userId: string;
   name: string;
+  parentPortfolioId?: string | null;
   currency: string;
   isDefault: boolean;
   createdAt: string;
@@ -34,6 +35,7 @@ export type TransactionSource = 'manual' | 'csv' | 'email';
 export interface Transaction {
   id: string;
   portfolioId: string;
+  portfolioName: string;
   assetId: string;
   type: TransactionType;
   quantity: number;

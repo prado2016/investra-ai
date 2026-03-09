@@ -1,4 +1,4 @@
-import { and, eq, ne, notInArray } from 'drizzle-orm';
+import { and, eq, inArray, ne, notInArray } from 'drizzle-orm';
 import { db } from '../client.js';
 import { assets, positions } from '../schema.js';
 
@@ -20,6 +20,26 @@ export const positionQueries = {
       .from(positions)
       .innerJoin(assets, eq(positions.assetId, assets.id))
       .where(and(eq(positions.portfolioId, portfolioId), ne(positions.quantity, 0))),
+
+  listByPortfolioIds: async (portfolioIds: string[]) => {
+    if (portfolioIds.length === 0) return [];
+    return db.select({
+      id: positions.id,
+      portfolioId: positions.portfolioId,
+      assetId: positions.assetId,
+      quantity: positions.quantity,
+      avgCostBasis: positions.avgCostBasis,
+      realizedPl: positions.realizedPl,
+      updatedAt: positions.updatedAt,
+      symbol: assets.symbol,
+      assetName: assets.name,
+      assetType: assets.assetType,
+      currency: assets.currency,
+    })
+      .from(positions)
+      .innerJoin(assets, eq(positions.assetId, assets.id))
+      .where(and(inArray(positions.portfolioId, portfolioIds), ne(positions.quantity, 0)));
+  },
 
   get: (portfolioId: string, assetId: string) =>
     db.select()

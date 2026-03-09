@@ -26,41 +26,49 @@ export function normalizePortfolioKey(name: string): string {
 
 export async function resolvePortfolioIdForAccount(params: {
   userId: string;
-  fallbackPortfolioId: string;
+  importRootPortfolioId: string;
   accountName?: string;
   portfolioIdsByKey: Map<string, string>;
 }): Promise<string> {
-  const { userId, fallbackPortfolioId, accountName, portfolioIdsByKey } = params;
+  const { userId, importRootPortfolioId, accountName, portfolioIdsByKey } = params;
 
-  if (!accountName) return fallbackPortfolioId;
+  if (!accountName) return importRootPortfolioId;
 
   const normalizedAccountName = normalizePortfolioKey(accountName);
   const existingPortfolioId = portfolioIdsByKey.get(normalizedAccountName);
   if (existingPortfolioId) return existingPortfolioId;
 
-  const createdPortfolio = await portfolioQueries.create(userId, { name: accountName.trim() });
+  const createdPortfolio = await portfolioQueries.create(userId, {
+    name: accountName.trim(),
+    parentPortfolioId: importRootPortfolioId,
+  });
   if (!createdPortfolio) {
-    throw new Error(`Failed to create portfolio for account "${accountName}"`);
+    throw new Error(`Failed to create account "${accountName}"`);
   }
 
   portfolioIdsByKey.set(normalizedAccountName, createdPortfolio.id);
   return createdPortfolio.id;
 }
 
-export async function syncEmails(userId: string, fallbackPortfolioId: string, options: SyncOptions = {}): Promise<SyncResult> {
+export async function syncEmails(userId: string, importRootPortfolioId: string, options: SyncOptions = {}): Promise<SyncResult> {
   const config = emailConfigQueries.getByUser(userId);
   if (!config) throw new Error('No email configuration found');
 
   const result: SyncResult = { processed: 0, created: 0, failed: 0, errors: [] };
-  const existingPortfolios = await portfolioQueries.list(userId);
+  const existingPortfolios = await portfolioQueries.listChildren(importRootPortfolioId);
   const portfolioIdsByKey = new Map(
     existingPortfolios.map((portfolio) => [normalizePortfolioKey(portfolio.name), portfolio.id])
   );
-  const hasDefaultPortfolio = existingPortfolios.some((portfolio) => portfolio.isDefault);
+  const importRootPortfolio = portfolioQueries.get(importRootPortfolioId);
+  if (!importRootPortfolio || importRootPortfolio.userId !== userId) {
+    throw new Error('Import root portfolio not found');
+  }
+
+  const allPortfolios = await portfolioQueries.list(userId);
+  const hasDefaultPortfolio = allPortfolios.some((portfolio) => portfolio.isDefault);
   const hasPriorEmailLogs = (await emailConfigQueries.getLogs(userId, 1)).length > 0;
   const includeSeen = options.includeSeen ?? !hasPriorEmailLogs;
   const affectedPortfolioIds = new Set<string>();
-  const createdByPortfolioId = new Map<string, number>();
 
   const client = new ImapFlow({
     host: config.imapHost,
@@ -125,7 +133,7 @@ export async function syncEmails(userId: string, fallbackPortfolioId: string, op
           for (const tx of transactions) {
             const targetPortfolioId = await resolvePortfolioIdForAccount({
               userId,
-              fallbackPortfolioId,
+              importRootPortfolioId,
               accountName: tx.accountName,
               portfolioIdsByKey,
             });
@@ -142,7 +150,6 @@ export async function syncEmails(userId: string, fallbackPortfolioId: string, op
               source: 'email',
             });
             affectedPortfolioIds.add(targetPortfolioId);
-            createdByPortfolioId.set(targetPortfolioId, (createdByPortfolioId.get(targetPortfolioId) ?? 0) + 1);
             created++;
           }
 
@@ -195,11 +202,14 @@ export async function syncEmails(userId: string, fallbackPortfolioId: string, op
 
   // Recalculate positions once after all emails are processed
   if (result.created > 0) {
-    result.primaryImportedPortfolioId = [...createdByPortfolioId.entries()]
-      .sort((a, b) => b[1] - a[1])[0]?.[0];
+    result.primaryImportedPortfolioId = importRootPortfolio.id;
 
-    if (result.primaryImportedPortfolioId && !hasDefaultPortfolio) {
-      await portfolioQueries.setDefault(userId, result.primaryImportedPortfolioId);
+    if (!hasDefaultPortfolio) {
+      await portfolioQueries.setDefault(userId, importRootPortfolio.id);
+    }
+
+    if (affectedPortfolioIds.size === 0) {
+      affectedPortfolioIds.add(importRootPortfolio.id);
     }
 
     for (const portfolioId of affectedPortfolioIds) {

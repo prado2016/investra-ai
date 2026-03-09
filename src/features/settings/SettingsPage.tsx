@@ -19,6 +19,7 @@ const emptyEmailForm = {
 export function SettingsPage() {
   const qc = useQueryClient();
   const { portfolios, setPortfolios } = usePortfolioStore();
+  const masterPortfolios = portfolios.filter((portfolio) => !portfolio.parentPortfolioId);
 
   // Portfolio management
   const [newPortfolioName, setNewPortfolioName] = useState('');
@@ -65,19 +66,53 @@ export function SettingsPage() {
 
       {/* Portfolios */}
       <section className="rounded-xl border border-zinc-200 bg-white p-5">
-        <h2 className="mb-4 text-sm font-semibold text-zinc-900">Portfolios</h2>
+        <h2 className="mb-1 text-sm font-semibold text-zinc-900">Master Portfolios</h2>
+        <p className="mb-4 text-xs text-zinc-500">
+          Create top-level portfolios here. Email sync will add detected broker accounts as child accounts under the selected master portfolio.
+        </p>
         <div className="space-y-2 mb-4">
-          {portfolios.map((p) => (
-            <div key={p.id} className="flex items-center justify-between rounded-lg border border-zinc-100 bg-zinc-50 px-3 py-2">
-              <span className="text-sm text-zinc-900">{p.name}</span>
-              <button
-                onClick={() => { if (confirm(`Delete "${p.name}"?`)) deletePortfolio.mutate(p.id); }}
-                className="text-zinc-400 hover:text-red-600 transition-colors"
-              >
-                <Trash2 size={14} />
-              </button>
-            </div>
-          ))}
+          {masterPortfolios.map((portfolio) => {
+            const childAccounts = portfolios.filter((item) => item.parentPortfolioId === portfolio.id);
+
+            return (
+              <div key={portfolio.id} className="rounded-lg border border-zinc-100 bg-zinc-50">
+                <div className="flex items-center justify-between px-3 py-2">
+                  <div>
+                    <span className="text-sm font-medium text-zinc-900">{portfolio.name}</span>
+                    <p className="text-xs text-zinc-500">
+                      {childAccounts.length === 0 ? 'No child accounts yet' : `${childAccounts.length} child account${childAccounts.length === 1 ? '' : 's'}`}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => { if (confirm(`Delete "${portfolio.name}"?`)) deletePortfolio.mutate(portfolio.id); }}
+                    className="text-zinc-400 hover:text-red-600 transition-colors"
+                    title={childAccounts.length > 0 ? 'Delete child accounts first' : 'Delete portfolio'}
+                    disabled={childAccounts.length > 0 || deletePortfolio.isPending}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+                {childAccounts.length > 0 && (
+                  <div className="border-t border-zinc-100 px-3 py-2">
+                    <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-zinc-400">Accounts</p>
+                    <div className="space-y-1">
+                      {childAccounts.map((account) => (
+                        <div key={account.id} className="flex items-center justify-between rounded-md bg-white px-3 py-2">
+                          <span className="text-sm text-zinc-700">{account.name}</span>
+                          <button
+                            onClick={() => { if (confirm(`Delete account "${account.name}"?`)) deletePortfolio.mutate(account.id); }}
+                            className="text-zinc-400 hover:text-red-600 transition-colors"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
         <form
           onSubmit={(e) => { e.preventDefault(); createPortfolio.mutate(); }}
@@ -86,7 +121,7 @@ export function SettingsPage() {
           <Input
             value={newPortfolioName}
             onChange={(e) => setNewPortfolioName(e.target.value)}
-            placeholder="New portfolio name"
+            placeholder="New master portfolio name"
             className="flex-1"
           />
           <Button type="submit" size="sm" loading={createPortfolio.isPending}>

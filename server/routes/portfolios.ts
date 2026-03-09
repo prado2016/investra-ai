@@ -12,9 +12,26 @@ app.get('/', async (c) => {
 
 app.post('/', async (c) => {
   const user = c.get('user');
-  const { name, currency } = await c.req.json<{ name: string; currency?: string }>();
+  const { name, currency, parentPortfolioId } = await c.req.json<{
+    name: string;
+    currency?: string;
+    parentPortfolioId?: string;
+  }>();
   if (!name?.trim()) return c.json({ error: 'Name is required' }, 400);
-  const portfolio = await portfolioQueries.create(user.id, { name: name.trim(), currency });
+  if (parentPortfolioId) {
+    const parentPortfolio = portfolioQueries.get(parentPortfolioId);
+    if (!parentPortfolio || parentPortfolio.userId !== user.id) {
+      return c.json({ error: 'Parent portfolio not found' }, 404);
+    }
+    if (parentPortfolio.parentPortfolioId) {
+      return c.json({ error: 'Accounts can only be created under a master portfolio' }, 400);
+    }
+  }
+  const portfolio = await portfolioQueries.create(user.id, {
+    name: name.trim(),
+    currency,
+    parentPortfolioId: parentPortfolioId ?? null,
+  });
   return c.json(portfolio, 201);
 });
 
@@ -33,6 +50,9 @@ app.delete('/:id', async (c) => {
   const id = c.req.param('id');
   const existing = portfolioQueries.get(id);
   if (!existing || existing.userId !== user.id) return c.json({ error: 'Not found' }, 404);
+  if (await portfolioQueries.hasChildren(id)) {
+    return c.json({ error: 'Delete child accounts before removing this master portfolio' }, 400);
+  }
   await portfolioQueries.delete(id);
   return c.json({ success: true });
 });

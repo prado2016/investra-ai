@@ -38,6 +38,7 @@ export function TransactionsPage() {
   function openAdd() { setEditing(null); setFormOpen(true); }
   function openEdit(tx: Transaction) { setEditing(tx); setFormOpen(true); }
   function onFormDone() { setFormOpen(false); setEditing(null); }
+  const showAccountColumn = new Set(transactions.map((transaction) => transaction.portfolioId)).size > 1;
 
   if (!activePortfolioId) {
     return <div className="flex h-64 items-center justify-center"><p className="text-zinc-500">No portfolio selected.</p></div>;
@@ -65,6 +66,7 @@ export function TransactionsPage() {
                 <tr className="border-b border-zinc-200 text-xs text-zinc-500">
                   <th className="px-5 py-3 text-left font-medium">Date</th>
                   <th className="px-5 py-3 text-left font-medium">Symbol</th>
+                  {showAccountColumn && <th className="px-5 py-3 text-left font-medium">Account</th>}
                   <th className="px-5 py-3 text-left font-medium">Type</th>
                   <th className="px-5 py-3 text-right font-medium">Qty</th>
                   <th className="px-5 py-3 text-right font-medium">Price</th>
@@ -79,6 +81,7 @@ export function TransactionsPage() {
                   <tr key={tx.id} className="border-b border-zinc-50 last:border-0 hover:bg-zinc-50/50">
                     <td className="px-5 py-3 text-zinc-600">{formatDate(tx.date)}</td>
                     <td className="px-5 py-3 font-medium text-zinc-900">{tx.symbol}</td>
+                    {showAccountColumn && <td className="px-5 py-3 text-zinc-600">{tx.portfolioName}</td>}
                     <td className="px-5 py-3">
                       <Badge variant={typeBadge[tx.type] ?? 'zinc'}>{tx.type}</Badge>
                     </td>

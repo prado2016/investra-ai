@@ -54,11 +54,11 @@ describe('emailProcessor account routing', () => {
 
     const portfolioId = await resolvePortfolioIdForAccount({
       userId: 'user-1',
-      fallbackPortfolioId: 'fallback-portfolio',
+      importRootPortfolioId: 'root-portfolio',
       portfolioIdsByKey,
     });
 
-    expect(portfolioId).toBe('fallback-portfolio');
+    expect(portfolioId).toBe('root-portfolio');
     expect(portfolioQueries.create).not.toHaveBeenCalled();
   });
 
@@ -67,7 +67,7 @@ describe('emailProcessor account routing', () => {
 
     const portfolioId = await resolvePortfolioIdForAccount({
       userId: 'user-1',
-      fallbackPortfolioId: 'fallback-portfolio',
+      importRootPortfolioId: 'root-portfolio',
       accountName: '  TFSA  ',
       portfolioIdsByKey,
     });
@@ -82,6 +82,7 @@ describe('emailProcessor account routing', () => {
       userId: 'user-1',
       name: 'RRSP',
       currency: 'USD',
+      parentPortfolioId: 'root-portfolio',
       isDefault: false,
       createdAt: new Date(),
     });
@@ -90,13 +91,16 @@ describe('emailProcessor account routing', () => {
 
     const portfolioId = await resolvePortfolioIdForAccount({
       userId: 'user-1',
-      fallbackPortfolioId: 'fallback-portfolio',
+      importRootPortfolioId: 'root-portfolio',
       accountName: 'RRSP',
       portfolioIdsByKey,
     });
 
     expect(portfolioId).toBe('portfolio-2');
-    expect(portfolioQueries.create).toHaveBeenCalledWith('user-1', { name: 'RRSP' });
+    expect(portfolioQueries.create).toHaveBeenCalledWith('user-1', {
+      name: 'RRSP',
+      parentPortfolioId: 'root-portfolio',
+    });
     expect(portfolioIdsByKey.get(normalizePortfolioKey('RRSP'))).toBe('portfolio-2');
   });
 });

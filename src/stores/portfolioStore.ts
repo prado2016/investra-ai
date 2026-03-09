@@ -19,7 +19,9 @@ export const usePortfolioStore = create<PortfolioState>()(
         const current = get().activePortfolioId;
         // Auto-select default or first if current is gone
         const stillExists = portfolios.some((p) => p.id === current);
-        const defaultP = portfolios.find((p) => p.isDefault) ?? portfolios[0];
+        const defaultP = portfolios.find((p) => p.isDefault)
+          ?? portfolios.find((p) => !p.parentPortfolioId)
+          ?? portfolios[0];
         set({
           portfolios,
           activePortfolioId: stillExists ? current : (defaultP?.id ?? null),

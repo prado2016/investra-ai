@@ -98,6 +98,7 @@ describe('settings routes', () => {
       id: 'portfolio-2',
       userId: 'another-user',
       name: 'Other',
+      parentPortfolioId: null,
       currency: 'USD',
       isDefault: false,
       createdAt: new Date(),
