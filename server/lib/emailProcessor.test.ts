@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('../db/queries/portfolios.js', () => ({
   portfolioQueries: {
     create: vi.fn(),
+    setDefault: vi.fn(),
   },
 }));
 

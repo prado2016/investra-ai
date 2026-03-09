@@ -6,18 +6,35 @@ import { Alert } from '../../components/Alert.js';
 import { Select } from '../../components/Select.js';
 import { usePortfolioStore } from '../../stores/portfolioStore.js';
 import { api } from '../../lib/apiClient.js';
-import type { SyncTask } from '../../types/index.js';
+import type { Portfolio, SyncTask } from '../../types/index.js';
 
 export function EmailImport() {
-  const { portfolios, activePortfolioId } = usePortfolioStore();
+  const { portfolios, activePortfolioId, setPortfolios, setActivePortfolio } = usePortfolioStore();
   const [portfolioId, setPortfolioId] = useState(activePortfolioId ?? '');
   const [syncTask, setSyncTask] = useState<SyncTask | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
   const qc = useQueryClient();
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const appliedSyncRef = useRef<number | null>(null);
 
   const isActive = syncTask?.status === 'connecting' || syncTask?.status === 'syncing';
+
+  const applyCompletedSync = useCallback(async (task: SyncTask) => {
+    if (task.status !== 'done' || task.created === 0) return;
+    if (appliedSyncRef.current === task.completedAt) return;
+    appliedSyncRef.current = task.completedAt ?? Date.now();
+
+    const updatedPortfolios = await api.get<Portfolio[]>('/portfolios');
+    setPortfolios(updatedPortfolios);
+    if (task.primaryImportedPortfolioId) {
+      setActivePortfolio(task.primaryImportedPortfolioId);
+      setPortfolioId(task.primaryImportedPortfolioId);
+    }
+
+    qc.invalidateQueries({ queryKey: ['transactions'] });
+    qc.invalidateQueries({ queryKey: ['positions'] });
+  }, [qc, setActivePortfolio, setPortfolios]);
 
   // Poll for sync status updates
   const startPolling = useCallback(() => {
@@ -35,11 +52,7 @@ export function EmailImport() {
               clearInterval(pollRef.current);
               pollRef.current = null;
             }
-            // Invalidate queries when sync completes with new data
-            if (task.status === 'done' && task.created > 0) {
-              qc.invalidateQueries({ queryKey: ['transactions'] });
-              qc.invalidateQueries({ queryKey: ['positions'] });
-            }
+            await applyCompletedSync(task);
           }
         }
       } catch {
@@ -50,7 +63,7 @@ export function EmailImport() {
     // Poll immediately, then every 1.5s
     poll();
     pollRef.current = setInterval(poll, 1500);
-  }, [qc]);
+  }, [applyCompletedSync]);
 
   // Check for existing sync status on mount
   useEffect(() => {
@@ -61,6 +74,8 @@ export function EmailImport() {
           // If a sync is already active, start polling for updates
           if (task.status === 'connecting' || task.status === 'syncing') {
             startPolling();
+          } else if (task.status === 'done') {
+            void applyCompletedSync(task);
           }
         }
       })
@@ -72,7 +87,7 @@ export function EmailImport() {
         pollRef.current = null;
       }
     };
-  }, [startPolling]);
+  }, [applyCompletedSync, startPolling]);
 
   const startSync = async () => {
     setError(null);
