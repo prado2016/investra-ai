@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { db } from '../client.js';
 import { portfolios } from '../schema.js';
 
@@ -22,6 +22,10 @@ export const portfolioQueries = {
     // Clear existing default
     await db.update(portfolios).set({ isDefault: false }).where(eq(portfolios.userId, userId));
     // Set new default
-    return db.update(portfolios).set({ isDefault: true }).where(eq(portfolios.id, portfolioId)).returning().get();
+    return db.update(portfolios)
+      .set({ isDefault: true })
+      .where(and(eq(portfolios.id, portfolioId), eq(portfolios.userId, userId)))
+      .returning()
+      .get();
   },
 };

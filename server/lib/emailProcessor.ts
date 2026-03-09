@@ -1,10 +1,10 @@
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
-import type { Readable } from 'stream';
 import { emailConfigQueries } from '../db/queries/emailConfigs.js';
 import { transactionQueries } from '../db/queries/transactions.js';
 import { recalcPositions, ensureAsset } from './positions.js';
 import { parseEmailText } from './emailParser.js';
+import { decryptStoredSecret } from './credentialVault.js';
 import { syncStore } from './syncStore.js';
 
 export interface SyncResult {
@@ -26,7 +26,7 @@ export async function syncEmails(userId: string, portfolioId: string): Promise<S
     secure: true,
     auth: {
       user: config.emailAddress,
-      pass: config.encryptedPassword,
+      pass: decryptStoredSecret(config.encryptedPassword),
     },
     logger: false,
     socketTimeout: 5 * 60_000, // 5 min socket timeout for large mailboxes
@@ -46,27 +46,34 @@ export async function syncEmails(userId: string, portfolioId: string): Promise<S
 
     try {
       const unseen = await client.search({ seen: false });
-      console.log(`[emailSync] Found ${unseen.length} unseen messages`);
-      if (unseen.length === 0) {
+      const unseenSeqNos = Array.isArray(unseen) ? unseen : [];
+      console.log(`[emailSync] Found ${unseenSeqNos.length} unseen messages`);
+      if (unseenSeqNos.length === 0) {
         syncStore.update(userId, { status: 'done', total: 0, completedAt: Date.now() });
         return result;
       }
 
-      syncStore.update(userId, { status: 'syncing', total: unseen.length });
+      syncStore.update(userId, { status: 'syncing', total: unseenSeqNos.length });
 
       // Process one message at a time to avoid Gmail IMAP throttling/stalling
       // Batch fetch with source: true causes Gmail to stall on large requests
-      for (let i = 0; i < unseen.length; i++) {
-        const seqNo = unseen[i];
+      for (let i = 0; i < unseenSeqNos.length; i++) {
+        const seqNo = unseenSeqNos[i];
         if (i % 25 === 0) {
-          console.log(`[emailSync] Processing message ${i + 1} of ${unseen.length}...`);
+          console.log(`[emailSync] Processing message ${i + 1} of ${unseenSeqNos.length}...`);
         }
 
         result.processed++;
         try {
           const msg = await client.fetchOne(seqNo, { source: true, uid: true });
-          const parsed = await simpleParser(msg.source as Readable);
-          const text = parsed.text ?? parsed.html?.replace(/<[^>]+>/g, ' ') ?? '';
+          if (!msg || !msg.source) {
+            throw new Error(`Unable to fetch message ${seqNo}`);
+          }
+
+          const parsed = await simpleParser(msg.source);
+          const text = parsed.text
+            ?? (typeof parsed.html === 'string' ? parsed.html.replace(/<[^>]+>/g, ' ') : '')
+            ?? '';
           const subject = parsed.subject ?? '';
           const from = parsed.from?.text ?? '';
 
@@ -130,8 +137,10 @@ export async function syncEmails(userId: string, portfolioId: string): Promise<S
     console.error('[emailSync] Fatal error:', outerErr instanceof Error ? outerErr.message : outerErr);
     throw outerErr;
   } finally {
-    console.log('[emailSync] Logging out...');
-    await client.logout();
+    if (client.usable) {
+      console.log('[emailSync] Logging out...');
+      await client.logout();
+    }
   }
 
   // Recalculate positions once after all emails are processed

@@ -9,6 +9,13 @@ import { usePortfolioStore } from '../../stores/portfolioStore.js';
 import { api } from '../../lib/apiClient.js';
 import type { EmailConfig, Portfolio } from '../../types/index.js';
 
+const emptyEmailForm = {
+  imapHost: '',
+  imapPort: '993',
+  emailAddress: '',
+  password: '',
+};
+
 export function SettingsPage() {
   const qc = useQueryClient();
   const { portfolios, setPortfolios } = usePortfolioStore();
@@ -37,12 +44,13 @@ export function SettingsPage() {
     queryFn: () => api.get<EmailConfig | null>('/settings/email-config'),
   });
 
-  const [emailForm, setEmailForm] = useState({ imapHost: '', imapPort: '993', emailAddress: '', password: '' });
+  const [emailForm, setEmailForm] = useState(emptyEmailForm);
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const saveEmail = useMutation({
     mutationFn: () => api.put('/settings/email-config', { ...emailForm, imapPort: parseInt(emailForm.imapPort) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['email-config'] });
+      setEmailForm(emptyEmailForm);
       setEmailModalOpen(false);
     },
   });
@@ -94,7 +102,19 @@ export function SettingsPage() {
           <h2 className="text-sm font-semibold text-zinc-900">Email Sync (IMAP)</h2>
           {emailConfig ? (
             <div className="flex gap-2">
-              <Button size="sm" variant="secondary" onClick={() => { setEmailForm({ ...emailForm, imapHost: emailConfig.imapHost, imapPort: String(emailConfig.imapPort), emailAddress: emailConfig.emailAddress }); setEmailModalOpen(true); }}>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => {
+                  setEmailForm({
+                    imapHost: emailConfig.imapHost,
+                    imapPort: String(emailConfig.imapPort),
+                    emailAddress: emailConfig.emailAddress,
+                    password: '',
+                  });
+                  setEmailModalOpen(true);
+                }}
+              >
                 Edit
               </Button>
               <Button size="sm" variant="danger" onClick={() => { if (confirm('Remove email config?')) deleteEmail.mutate(); }}>
@@ -102,7 +122,7 @@ export function SettingsPage() {
               </Button>
             </div>
           ) : (
-            <Button size="sm" onClick={() => setEmailModalOpen(true)}>
+            <Button size="sm" onClick={() => { setEmailForm(emptyEmailForm); setEmailModalOpen(true); }}>
               <Plus size={14} /> Configure
             </Button>
           )}
@@ -118,15 +138,38 @@ export function SettingsPage() {
       </section>
 
       {/* Email config modal */}
-      <Modal open={emailModalOpen} onClose={() => setEmailModalOpen(false)} title="Email Configuration">
+      <Modal
+        open={emailModalOpen}
+        onClose={() => {
+          setEmailForm(emptyEmailForm);
+          setEmailModalOpen(false);
+        }}
+        title="Email Configuration"
+      >
         <form onSubmit={(e) => { e.preventDefault(); saveEmail.mutate(); }} className="space-y-4">
           <Input label="IMAP Host" value={emailForm.imapHost} onChange={(e) => setEmailForm({ ...emailForm, imapHost: e.target.value })} placeholder="imap.gmail.com" required />
           <Input label="IMAP Port" type="number" value={emailForm.imapPort} onChange={(e) => setEmailForm({ ...emailForm, imapPort: e.target.value })} />
           <Input label="Email Address" type="email" value={emailForm.emailAddress} onChange={(e) => setEmailForm({ ...emailForm, emailAddress: e.target.value })} required />
-          <Input label="Password / App Password" type="password" value={emailForm.password} onChange={(e) => setEmailForm({ ...emailForm, password: e.target.value })} placeholder="••••••••" required />
+          <Input
+            label="Password / App Password"
+            type="password"
+            value={emailForm.password}
+            onChange={(e) => setEmailForm({ ...emailForm, password: e.target.value })}
+            placeholder={emailConfig ? 'Leave blank to keep the current password' : '••••••••'}
+            required={!emailConfig}
+          />
           {saveEmail.error && <Alert variant="error">{saveEmail.error.message}</Alert>}
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="secondary" onClick={() => setEmailModalOpen(false)}>Cancel</Button>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                setEmailForm(emptyEmailForm);
+                setEmailModalOpen(false);
+              }}
+            >
+              Cancel
+            </Button>
             <Button type="submit" loading={saveEmail.isPending}>Save</Button>
           </div>
         </form>

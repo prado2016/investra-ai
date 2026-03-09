@@ -12,6 +12,7 @@ dist
 dist-server
 dist-ssr
 build
+*.tsbuildinfo
 *.local
 ._*
 
