@@ -1,6 +1,10 @@
-import { and, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq } from 'drizzle-orm';
 import { db } from '../client.js';
 import { assets, transactions } from '../schema.js';
+
+type TransactionUpdate = Partial<Pick<typeof transactions.$inferInsert,
+  'type' | 'quantity' | 'price' | 'fees' | 'date' | 'notes' | 'strikePrice' | 'expirationDate' | 'optionType'
+>>;
 
 export const transactionQueries = {
   list: (portfolioId: string) =>
@@ -26,7 +30,7 @@ export const transactionQueries = {
       .from(transactions)
       .innerJoin(assets, eq(transactions.assetId, assets.id))
       .where(eq(transactions.portfolioId, portfolioId))
-      .orderBy(desc(transactions.date)),
+      .orderBy(desc(transactions.date), desc(transactions.createdAt)),
 
   get: (id: string) =>
     db.select().from(transactions).where(eq(transactions.id, id)).get(),
@@ -49,26 +53,30 @@ export const transactionQueries = {
 
   update: (
     id: string,
-    data: Partial<{
-      type: string;
-      quantity: number;
-      price: number;
-      fees: number;
-      date: string;
-      notes: string;
-      strikePrice: number;
-      expirationDate: string;
-      optionType: string;
-    }>
+    data: TransactionUpdate
   ) =>
     db.update(transactions).set(data).where(eq(transactions.id, id)).returning().get(),
 
   delete: (id: string) =>
     db.delete(transactions).where(eq(transactions.id, id)),
 
+  listForRecalc: (portfolioId: string) =>
+    db.select({
+      assetId: transactions.assetId,
+      type: transactions.type,
+      quantity: transactions.quantity,
+      price: transactions.price,
+      fees: transactions.fees,
+      date: transactions.date,
+      createdAt: transactions.createdAt,
+    })
+      .from(transactions)
+      .where(eq(transactions.portfolioId, portfolioId))
+      .orderBy(asc(transactions.date), asc(transactions.createdAt)),
+
   listByPortfolioAndAsset: (portfolioId: string, assetId: string) =>
     db.select()
       .from(transactions)
       .where(and(eq(transactions.portfolioId, portfolioId), eq(transactions.assetId, assetId)))
-      .orderBy(transactions.date),
+      .orderBy(asc(transactions.date), asc(transactions.createdAt)),
 };

@@ -1,8 +1,39 @@
 import { Hono } from 'hono';
-import yahooFinance from 'yahoo-finance2';
+import YahooFinance from 'yahoo-finance2';
 import type { AuthUser } from '../middleware/requireAuth.js';
 
 const app = new Hono<{ Variables: { user: AuthUser } }>();
+const yahooFinance = new YahooFinance();
+
+interface YahooSearchQuote {
+  symbol?: string;
+  shortname?: string;
+  longname?: string;
+  exchDisp?: string;
+  exchange?: string;
+  quoteType?: string;
+  typeDisp?: string;
+}
+
+async function searchYahooSymbols(query: string): Promise<YahooSearchQuote[]> {
+  const url = new URL('https://query1.finance.yahoo.com/v1/finance/search');
+  url.searchParams.set('q', query);
+  url.searchParams.set('quotesCount', '8');
+  url.searchParams.set('newsCount', '0');
+
+  const response = await fetch(url, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Yahoo search failed with status ${response.status}`);
+  }
+
+  const data = await response.json() as { quotes?: YahooSearchQuote[] };
+  return data.quotes ?? [];
+}
 
 // Simple in-memory cache: symbol → { price, change, changePercent, updatedAt }
 const cache = new Map<string, { price: number; change: number; changePercent: number; updatedAt: number }>();
@@ -53,13 +84,15 @@ app.get('/search', async (c) => {
   const query = c.req.query('q');
   if (!query) return c.json({ error: 'q is required' }, 400);
   try {
-    const results = await yahooFinance.search(query, { newsCount: 0 });
-    const quotes = (results.quotes ?? []).slice(0, 8).map((q) => ({
-      symbol: q.symbol,
-      name: 'shortname' in q ? q.shortname : q.symbol,
-      exchange: 'exchange' in q ? q.exchange : '',
-      type: q.quoteType?.toLowerCase() ?? 'stock',
-    }));
+    const quotes = (await searchYahooSymbols(query))
+      .map((q) => ({
+        symbol: q.symbol ?? '',
+        name: q.shortname ?? q.longname ?? q.symbol ?? '',
+        exchange: q.exchDisp ?? q.exchange ?? '',
+        type: (q.quoteType ?? q.typeDisp ?? 'stock').toLowerCase(),
+      }))
+      .filter((q) => q.symbol);
+
     return c.json(quotes);
   } catch {
     return c.json([]);

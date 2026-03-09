@@ -5,6 +5,8 @@ import { recalcPositions, ensureAsset } from '../lib/positions.js';
 import type { AuthUser } from '../middleware/requireAuth.js';
 
 const app = new Hono<{ Variables: { user: AuthUser } }>();
+type AssetType = 'stock' | 'etf' | 'option' | 'crypto' | 'reit' | 'forex' | 'other';
+type TransactionType = 'buy' | 'sell' | 'dividend' | 'split' | 'transfer_in' | 'transfer_out';
 
 // Verify portfolio belongs to user
 async function ownedPortfolio(userId: string, portfolioId: string) {
@@ -27,8 +29,8 @@ app.post('/', async (c) => {
     portfolioId: string;
     symbol: string;
     assetName?: string;
-    assetType?: string;
-    type: 'buy' | 'sell' | 'dividend' | 'split' | 'transfer_in' | 'transfer_out';
+    assetType?: AssetType;
+    type: TransactionType;
     quantity: number;
     price: number;
     fees?: number;
@@ -74,7 +76,7 @@ app.patch('/:id', async (c) => {
   if (!await ownedPortfolio(user.id, existing.portfolioId)) return c.json({ error: 'Forbidden' }, 403);
 
   const data = await c.req.json<{
-    type?: string; quantity?: number; price?: number; fees?: number;
+    type?: TransactionType; quantity?: number; price?: number; fees?: number;
     date?: string; notes?: string;
   }>();
 

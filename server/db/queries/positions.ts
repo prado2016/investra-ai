@@ -1,4 +1,4 @@
-import { and, eq, gt, notInArray } from 'drizzle-orm';
+import { and, eq, ne, notInArray } from 'drizzle-orm';
 import { db } from '../client.js';
 import { assets, positions } from '../schema.js';
 
@@ -19,7 +19,7 @@ export const positionQueries = {
     })
       .from(positions)
       .innerJoin(assets, eq(positions.assetId, assets.id))
-      .where(and(eq(positions.portfolioId, portfolioId), gt(positions.quantity, 0))),
+      .where(and(eq(positions.portfolioId, portfolioId), ne(positions.quantity, 0))),
 
   get: (portfolioId: string, assetId: string) =>
     db.select()

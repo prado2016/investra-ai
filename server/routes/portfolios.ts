@@ -40,6 +40,8 @@ app.delete('/:id', async (c) => {
 app.post('/:id/set-default', async (c) => {
   const user = c.get('user');
   const id = c.req.param('id');
+  const existing = portfolioQueries.get(id);
+  if (!existing || existing.userId !== user.id) return c.json({ error: 'Not found' }, 404);
   const updated = await portfolioQueries.setDefault(user.id, id);
   return c.json(updated);
 });

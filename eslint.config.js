@@ -14,6 +14,7 @@ export default [
   {
     ignores: [
       'dist/',
+      'dist-server/',
       'node_modules/',
       'build/',
       'coverage/',
@@ -26,6 +27,7 @@ export default [
       'tests/debug/', // Skip debug test scripts
       'tests/', // Skip tests directory (e2e tests)
       'server/dist/', // Explicitly ignore server's dist
+      '**/dist-server/**',
       'server/ecosystem.config.js', // Ignore old PM2 config file
       'ecosystem.config.cjs',       // Ignore root PM2 config file
       '**/*.d.ts', // Ignore all declaration files

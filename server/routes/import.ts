@@ -8,6 +8,8 @@ import { syncStore, syncEmitter } from '../lib/syncStore.js';
 import type { AuthUser } from '../middleware/requireAuth.js';
 
 const app = new Hono<{ Variables: { user: AuthUser } }>();
+type AssetType = 'stock' | 'etf' | 'option' | 'crypto' | 'reit' | 'forex' | 'other';
+type TransactionType = 'buy' | 'sell' | 'dividend' | 'split' | 'transfer_in' | 'transfer_out';
 
 // POST /api/import/csv
 // Body: { portfolioId, rows: Array<{ symbol, type, quantity, price, fees, date, notes? }> }
@@ -18,8 +20,8 @@ app.post('/csv', async (c) => {
     rows: Array<{
       symbol: string;
       assetName?: string;
-      assetType?: string;
-      type: 'buy' | 'sell' | 'dividend' | 'split' | 'transfer_in' | 'transfer_out';
+      assetType?: AssetType;
+      type: TransactionType;
       quantity: number;
       price: number;
       fees?: number;

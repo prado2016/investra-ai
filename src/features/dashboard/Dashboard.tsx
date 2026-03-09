@@ -63,7 +63,7 @@ export function Dashboard() {
   const summary = calcPortfolioSummary(enriched);
 
   const topPositions = [...enriched]
-    .sort((a, b) => (b.marketValue ?? 0) - (a.marketValue ?? 0))
+    .sort((a, b) => Math.abs(b.marketValue ?? 0) - Math.abs(a.marketValue ?? 0))
     .slice(0, 5);
 
   return (
@@ -120,7 +120,7 @@ export function Dashboard() {
                 <tr key={p.assetId} className="border-b border-zinc-50 last:border-0 hover:bg-zinc-50/50">
                   <td className="px-5 py-3">
                     <p className="font-medium text-zinc-900">{p.symbol}</p>
-                    <p className="text-xs text-zinc-500">{p.quantity} shares</p>
+                    <p className="text-xs text-zinc-500">{p.quantity} units</p>
                   </td>
                   <td className="px-5 py-3 text-right text-zinc-700">
                     {p.currentPrice ? formatCurrency(p.currentPrice) : '—'}

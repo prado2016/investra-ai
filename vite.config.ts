@@ -32,5 +32,7 @@ export default defineConfig({
   },
   test: {
     environment: 'happy-dom',
+    include: ['server/**/*.test.ts'],
+    exclude: ['node_modules/**', 'dist/**', 'dist-server/**', '**/._*'],
   },
 });
