@@ -333,7 +333,7 @@ export default [
 
   // Declaration files (d.ts)
   {
-    files: ['**/*.d.ts', 'imapflow.d.ts', '@types/**/*.d.ts'],
+    files: ['**/*.d.ts', 'imapflow.d.ts'],
     languageOptions: {
       // No parser needed for declaration files, as they are not compiled directly
       // The default parser (espree) will be used.
