@@ -148,6 +148,7 @@ export interface SyncResult {
   created: number;
   failed: number;
   errors: string[];
+  primaryImportedPortfolioId?: string;
 }
 
 export interface SyncTask {
@@ -159,6 +160,7 @@ export interface SyncTask {
   created: number;
   failed: number;
   errors: string[];
+  primaryImportedPortfolioId?: string;
   startedAt: number;
   completedAt?: number;
 }

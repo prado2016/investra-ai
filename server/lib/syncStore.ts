@@ -9,6 +9,7 @@ export interface SyncTask {
   created: number;
   failed: number;
   errors: string[];
+  primaryImportedPortfolioId?: string;
   startedAt: number;
   completedAt?: number;
 }

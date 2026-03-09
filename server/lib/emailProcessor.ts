@@ -13,6 +13,7 @@ export interface SyncResult {
   created: number;
   failed: number;
   errors: string[];
+  primaryImportedPortfolioId?: string;
 }
 
 interface SyncOptions {
@@ -55,9 +56,11 @@ export async function syncEmails(userId: string, fallbackPortfolioId: string, op
   const portfolioIdsByKey = new Map(
     existingPortfolios.map((portfolio) => [normalizePortfolioKey(portfolio.name), portfolio.id])
   );
+  const hasDefaultPortfolio = existingPortfolios.some((portfolio) => portfolio.isDefault);
   const hasPriorEmailLogs = (await emailConfigQueries.getLogs(userId, 1)).length > 0;
   const includeSeen = options.includeSeen ?? !hasPriorEmailLogs;
   const affectedPortfolioIds = new Set<string>();
+  const createdByPortfolioId = new Map<string, number>();
 
   const client = new ImapFlow({
     host: config.imapHost,
@@ -139,6 +142,7 @@ export async function syncEmails(userId: string, fallbackPortfolioId: string, op
               source: 'email',
             });
             affectedPortfolioIds.add(targetPortfolioId);
+            createdByPortfolioId.set(targetPortfolioId, (createdByPortfolioId.get(targetPortfolioId) ?? 0) + 1);
             created++;
           }
 
@@ -191,6 +195,13 @@ export async function syncEmails(userId: string, fallbackPortfolioId: string, op
 
   // Recalculate positions once after all emails are processed
   if (result.created > 0) {
+    result.primaryImportedPortfolioId = [...createdByPortfolioId.entries()]
+      .sort((a, b) => b[1] - a[1])[0]?.[0];
+
+    if (result.primaryImportedPortfolioId && !hasDefaultPortfolio) {
+      await portfolioQueries.setDefault(userId, result.primaryImportedPortfolioId);
+    }
+
     for (const portfolioId of affectedPortfolioIds) {
       console.log(`[emailSync] Recalculating positions for portfolio ${portfolioId}...`);
       await recalcPositions(portfolioId);
@@ -198,7 +209,11 @@ export async function syncEmails(userId: string, fallbackPortfolioId: string, op
   }
 
   console.log(`[emailSync] Done: processed=${result.processed} created=${result.created} failed=${result.failed}`);
-  syncStore.update(userId, { status: 'done', completedAt: Date.now() });
+  syncStore.update(userId, {
+    status: 'done',
+    completedAt: Date.now(),
+    primaryImportedPortfolioId: result.primaryImportedPortfolioId,
+  });
 
   return result;
 }
