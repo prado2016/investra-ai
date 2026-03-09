@@ -4,8 +4,8 @@ import type { User } from '../types/index.js';
 interface AuthState {
   user: User | null;
   loading: boolean;
-  setUser: (user: User | null) => void;
-  setLoading: (loading: boolean) => void;
+  setUser: (_user: User | null) => void;
+  setLoading: (_loading: boolean) => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({

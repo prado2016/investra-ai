@@ -11,7 +11,7 @@ on:
 
 env:
   NODE_VERSION: '22'
-  APP_DIR: '/opt/investra/app'
+  APP_DIR: '/opt/investra'
   DATA_DIR: '/opt/investra/data'
   LOGS_DIR: '/opt/investra/logs'
 

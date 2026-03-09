@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, type ChangeEvent } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Upload } from 'lucide-react';
 import { Button } from '../../components/Button.js';
@@ -24,7 +24,7 @@ export function CsvImport() {
     },
   });
 
-  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleFile(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     setFileName(file.name);

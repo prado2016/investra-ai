@@ -9,7 +9,8 @@ app.get('/email-config', async (c) => {
   const config = emailConfigQueries.getByUser(user.id);
   if (!config) return c.json(null);
   // Never return the password
-  const { encryptedPassword: _pwd, ...safe } = config;
+  const safe = { ...config };
+  delete safe.encryptedPassword;
   return c.json(safe);
 });
 
@@ -37,7 +38,8 @@ app.put('/email-config', async (c) => {
     defaultPortfolioId: body.defaultPortfolioId,
   });
 
-  const { encryptedPassword: _, ...safe } = config!;
+  const safe = { ...config! };
+  delete safe.encryptedPassword;
   return c.json(safe);
 });
 

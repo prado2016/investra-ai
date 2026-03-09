@@ -17,6 +17,7 @@ export default [
       'node_modules/',
       'build/',
       'coverage/',
+      '**/._*',
       '*.config.js',
       '*.config.ts',
       '.github/',
@@ -24,9 +25,7 @@ export default [
       'public/', // Skip public directory (browser scripts)
       'tests/debug/', // Skip debug test scripts
       'tests/', // Skip tests directory (e2e tests)
-      'email-puller/dist/', // Explicitly ignore email-puller's dist
       'server/dist/', // Explicitly ignore server's dist
-      'email-collector/dist/', // Explicitly ignore email-collector's dist
       'server/ecosystem.config.js', // Ignore old PM2 config file
       'ecosystem.config.cjs',       // Ignore root PM2 config file
       '**/*.d.ts', // Ignore all declaration files
@@ -94,8 +93,8 @@ export default [
       },
     },
     rules: {
-      'no-unused-vars': 'warn',
-      'no-undef': 'warn',
+      'no-unused-vars': 'off',
+      'no-undef': 'off',
       'no-console': 'off',
       'no-debugger': 'warn',
       '@typescript-eslint/no-explicit-any': 'warn',
@@ -132,46 +131,8 @@ export default [
       },
     },
     rules: {
-      'no-unused-vars': 'warn',
-      'no-undef': 'warn',
-      'no-console': 'off',
-      'no-debugger': 'warn',
-      '@typescript-eslint/no-explicit-any': 'warn',
-      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_', }],
-      'no-prototype-builtins': 'off',
-      '@typescript-eslint/no-require-imports': 'off',
-      'no-useless-escape': 'off', // Disable for now
-    },
-  },
-
-  // TypeScript files in email-puller/
-  {
-    files: ['email-puller/src/**/*.ts'],
-    languageOptions: {
-      parser: typescriptEslint.parser,
-      parserOptions: {
-        project: './email-puller/tsconfig.json',
-        tsconfigRootDir: __dirname,
-      },
-      globals: {
-        ...globals.node,
-        __dirname: 'readonly',
-        __filename: 'readonly',
-        process: 'readonly',
-        Buffer: 'readonly',
-        setTimeout: 'readonly',
-        setInterval: 'readonly',
-        clearTimeout: 'readonly',
-        clearInterval: 'readonly',
-        console: 'readonly',
-        module: 'readonly',
-        exports: 'readonly',
-        require: 'readonly',
-      },
-    },
-    rules: {
-      'no-unused-vars': 'warn',
-      'no-undef': 'warn',
+      'no-unused-vars': 'off',
+      'no-undef': 'off',
       'no-console': 'off',
       'no-debugger': 'warn',
       '@typescript-eslint/no-explicit-any': 'warn',
@@ -208,8 +169,8 @@ export default [
       },
     },
     rules: {
-      'no-unused-vars': 'warn',
-      'no-undef': 'warn',
+      'no-unused-vars': 'off',
+      'no-undef': 'off',
       'no-console': 'off',
       'no-debugger': 'warn',
       '@typescript-eslint/no-explicit-any': 'warn',
@@ -255,7 +216,7 @@ export default [
 
   // JavaScript files in dist directories (compiled output)
   {
-    files: ['email-puller/dist/**/*.js', 'server/dist/**/*.js'],
+    files: ['server/dist/**/*.js'],
     languageOptions: {
       // No parser needed, use default espree
       globals: {

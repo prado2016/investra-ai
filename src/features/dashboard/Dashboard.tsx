@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { TrendingUp, TrendingDown, DollarSign, BarChart2 } from 'lucide-react';
 import { usePortfolioStore } from '../../stores/portfolioStore.js';
@@ -12,7 +13,7 @@ interface MetricCardProps {
   value: string;
   sub?: string;
   positive?: boolean | null;
-  icon: React.ReactNode;
+  icon: ReactNode;
 }
 
 function MetricCard({ label, value, sub, positive, icon }: MetricCardProps) {

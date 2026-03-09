@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Modal } from '../../components/Modal.js';
 import { Input } from '../../components/Input.js';
@@ -79,7 +79,7 @@ export function TransactionForm({ open, onClose, editing, portfolioId }: Props) 
   const isPending = createMutation.isPending || updateMutation.isPending;
   const error = createMutation.error?.message ?? updateMutation.error?.message;
 
-  function submit(e: React.FormEvent) {
+  function submit(e: FormEvent) {
     e.preventDefault();
     const payload: NewTransactionPayload = {
       portfolioId,
