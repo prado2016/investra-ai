@@ -13,6 +13,7 @@ import marketRouter from './routes/market.js';
 import importRouter from './routes/import.js';
 import assetsRouter from './routes/assets.js';
 import settingsRouter from './routes/settings.js';
+import decisionsRouter from './routes/decisions.js';
 
 const app = new Hono();
 
@@ -38,6 +39,7 @@ api.route('/market', marketRouter);
 api.route('/import', importRouter);
 api.route('/assets', assetsRouter);
 api.route('/settings', settingsRouter);
+api.route('/decisions', decisionsRouter);
 
 app.route('/api', api);
 

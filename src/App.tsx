@@ -8,6 +8,7 @@ import { TransactionsPage } from './features/transactions/TransactionsPage.js';
 import { PositionsPage } from './features/positions/PositionsPage.js';
 import { ImportPage } from './features/import/ImportPage.js';
 import { SettingsPage } from './features/settings/SettingsPage.js';
+import { DecisionsPage } from './features/decisions/DecisionsPage.js';
 import { useAuthStore } from './stores/authStore.js';
 import { usePortfolioStore } from './stores/portfolioStore.js';
 import { api } from './lib/apiClient.js';
@@ -50,6 +51,7 @@ export default function App() {
               <Route index element={<Dashboard />} />
               <Route path="transactions" element={<TransactionsPage />} />
               <Route path="positions" element={<PositionsPage />} />
+              <Route path="decisions" element={<DecisionsPage />} />
               <Route path="import" element={<ImportPage />} />
               <Route path="settings" element={<SettingsPage />} />
             </Route>

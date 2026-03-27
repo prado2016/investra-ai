@@ -15,6 +15,13 @@
       "when": 1773080767934,
       "tag": "0001_broken_blazing_skull",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1774624936756,
+      "tag": "0002_flimsy_tiger_shark",
+      "breakpoints": true
     }
   ]
 }

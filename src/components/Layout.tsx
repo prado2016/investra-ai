@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom';
-import { LayoutDashboard, ArrowLeftRight, TrendingUp, Upload, Settings, LogOut, ChevronDown } from 'lucide-react';
+import { LayoutDashboard, ArrowLeftRight, TrendingUp, Upload, Settings, LogOut, ChevronDown, BrainCircuit } from 'lucide-react';
 import { usePortfolioStore } from '../stores/portfolioStore.js';
 import { useAuthStore } from '../stores/authStore.js';
 import { api } from '../lib/apiClient.js';
@@ -8,6 +8,7 @@ const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/transactions', label: 'Transactions', icon: ArrowLeftRight },
   { to: '/positions', label: 'Positions', icon: TrendingUp },
+  { to: '/decisions', label: 'Decisions', icon: BrainCircuit },
   { to: '/import', label: 'Import', icon: Upload },
   { to: '/settings', label: 'Settings', icon: Settings },
 ];
