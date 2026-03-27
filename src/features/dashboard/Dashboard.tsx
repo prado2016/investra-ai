@@ -62,9 +62,8 @@ export function Dashboard() {
   const enriched = enrichPositions(positions, quotes);
   const summary = calcPortfolioSummary(enriched);
 
-  const topPositions = [...enriched]
-    .sort((a, b) => Math.abs(b.marketValue ?? 0) - Math.abs(a.marketValue ?? 0))
-    .slice(0, 5);
+  const sortedPositions = [...enriched]
+    .sort((a, b) => Math.abs(b.marketValue ?? 0) - Math.abs(a.marketValue ?? 0));
 
   return (
     <div className="p-6">
@@ -99,11 +98,12 @@ export function Dashboard() {
         />
       </div>
 
-      {/* Top positions */}
-      {topPositions.length > 0 && (
+      {/* Holdings */}
+      {sortedPositions.length > 0 && (
         <div className="rounded-xl border border-zinc-200 bg-white">
-          <div className="border-b border-zinc-200 px-5 py-4">
-            <h2 className="text-sm font-semibold text-zinc-900">Top Holdings</h2>
+          <div className="flex items-center justify-between border-b border-zinc-200 px-5 py-4">
+            <h2 className="text-sm font-semibold text-zinc-900">Holdings</h2>
+            <p className="text-xs text-zinc-500">{sortedPositions.length} total</p>
           </div>
           <table className="w-full text-sm">
             <thead>
@@ -116,7 +116,7 @@ export function Dashboard() {
               </tr>
             </thead>
             <tbody>
-              {topPositions.map((p) => (
+              {sortedPositions.map((p) => (
                 <tr key={p.assetId} className="border-b border-zinc-50 last:border-0 hover:bg-zinc-50/50">
                   <td className="px-5 py-3">
                     <p className="font-medium text-zinc-900">{p.symbol}</p>
@@ -141,7 +141,7 @@ export function Dashboard() {
         </div>
       )}
 
-      {topPositions.length === 0 && (
+      {sortedPositions.length === 0 && (
         <div className="rounded-xl border border-zinc-200 bg-white p-10 text-center">
           <p className="text-zinc-500">No positions yet. Add transactions to get started.</p>
         </div>
