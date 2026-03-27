@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import {
   foreignKey,
+  index,
   integer,
   real,
   sqliteTable,
@@ -158,4 +159,81 @@ export const emailLogs = sqliteTable('email_logs', {
   transactionsCreated: integer('transactions_created').notNull().default(0),
   errorMessage: text('error_message'),
   processedAt: integer('processed_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+});
+
+// ---------------------------------------------------------------------------
+// Decision Desk Integration
+// ---------------------------------------------------------------------------
+export const decisionRuns = sqliteTable('decision_runs', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  portfolioId: text('portfolio_id').notNull().references(() => portfolios.id, { onDelete: 'cascade' }),
+  externalSessionId: text('external_session_id'),
+  requestIdempotencyKey: text('request_idempotency_key').notNull(),
+  snapshotJson: text('snapshot_json').notNull(),
+  snapshotHash: text('snapshot_hash').notNull(),
+  schemaVersion: text('schema_version').notNull().default('1.0'),
+  status: text('status', {
+    enum: ['pending_submission', 'accepted', 'syncing', 'complete', 'partial_error', 'failed'],
+  }).notNull().default('pending_submission'),
+  requestedAt: integer('requested_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+  acceptedAt: integer('accepted_at', { mode: 'timestamp' }),
+  lastSyncedAt: integer('last_synced_at', { mode: 'timestamp' }),
+  syncCursorEventId: text('sync_cursor_event_id'),
+  syncCursorCreatedAt: text('sync_cursor_created_at'),
+  completedAt: integer('completed_at', { mode: 'timestamp' }),
+  errorMessage: text('error_message'),
+}, (t) => [
+  uniqueIndex('decision_runs_user_idempotency_idx').on(t.userId, t.requestIdempotencyKey),
+  index('decision_runs_snapshot_hash_idx').on(t.userId, t.portfolioId, t.snapshotHash),
+]);
+
+export const decisionEvents = sqliteTable('decision_events', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  decisionRunId: text('decision_run_id').notNull().references(() => decisionRuns.id, { onDelete: 'cascade' }),
+  eventId: text('event_id').notNull(),
+  schemaVersion: text('schema_version').notNull(),
+  source: text('source', { enum: ['runtime', 'academy', 'manual_test'] }).notNull().default('runtime'),
+  reviewSessionId: text('review_session_id').notNull(),
+  portfolioId: text('portfolio_id').notNull().references(() => portfolios.id, { onDelete: 'cascade' }),
+  eventType: text('event_type').notNull(),
+  createdAt: text('created_at').notNull(),
+  sessionId: text('session_id'),
+  cycleId: text('cycle_id'),
+  proposalId: text('proposal_id'),
+  decisionId: text('decision_id'),
+  executionOrderId: text('execution_order_id'),
+  positionId: text('position_id'),
+  jobId: text('job_id'),
+  instrument: text('instrument'),
+  side: text('side'),
+  action: text('action'),
+  provider: text('provider'),
+  model: text('model'),
+  requestedByUserId: text('requested_by_user_id'),
+  payloadJson: text('payload_json').notNull(),
+  ingestedAt: integer('ingested_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+}, (t) => [
+  uniqueIndex('decision_events_event_id_idx').on(t.eventId),
+  index('decision_events_run_created_idx').on(t.decisionRunId, t.createdAt),
+  index('decision_events_review_created_idx').on(t.reviewSessionId, t.createdAt, t.eventId),
+]);
+
+export const decisionInsights = sqliteTable('decision_insights', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  decisionRunId: text('decision_run_id').notNull().references(() => decisionRuns.id, { onDelete: 'cascade' }),
+  portfolioId: text('portfolio_id').notNull().references(() => portfolios.id, { onDelete: 'cascade' }),
+  accountId: text('account_id').references(() => portfolios.id, { onDelete: 'set null' }),
+  assetId: text('asset_id').references(() => assets.id, { onDelete: 'set null' }),
+  symbol: text('symbol'),
+  insightType: text('insight_type', {
+    enum: ['portfolio_warning', 'position_suggestion', 'portfolio_recommendation'],
+  }).notNull(),
+  headline: text('headline').notNull(),
+  summary: text('summary').notNull(),
+  confidence: real('confidence'),
+  recommendedAction: text('recommended_action'),
+  status: text('status', { enum: ['active', 'dismissed'] }).notNull().default('active'),
+  sourceEventId: text('source_event_id').references(() => decisionEvents.eventId, { onDelete: 'set null' }),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
 });

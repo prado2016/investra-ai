@@ -113,6 +113,125 @@ export interface SymbolSearchResult {
   type: string;
 }
 
+export type DecisionSource = 'runtime' | 'academy' | 'manual_test';
+export type DecisionRunStatus =
+  | 'pending_submission'
+  | 'accepted'
+  | 'syncing'
+  | 'complete'
+  | 'partial_error'
+  | 'failed';
+
+export interface PortfolioReviewRequest {
+  schema_version: string;
+  portfolio_id: string;
+  portfolio_name: string;
+  as_of: string;
+  base_currency: string;
+  requested_by_user_id: string;
+  requested_by_user_email: string;
+  accounts: Array<{
+    account_id: string;
+    account_name: string;
+    account_type: 'master' | 'child';
+    parent_account_id: string | null;
+    currency: string;
+  }>;
+  positions: Array<{
+    portfolio_id: string;
+    account_id: string;
+    asset_id: string;
+    symbol: string;
+    asset_type: string;
+    quantity: number;
+    avg_cost_basis: number;
+    market_value: number | null;
+    unrealized_pl: number | null;
+    strike_price: number | null;
+    expiration_date: string | null;
+    option_type: 'call' | 'put' | null;
+  }>;
+  recent_transactions: Array<{
+    id: string;
+    account_id: string;
+    symbol: string;
+    type: string;
+    quantity: number;
+    price: number;
+    fees: number;
+    trade_date: string;
+    source: string;
+  }>;
+  constraints: {
+    mode: 'read_only';
+    allow_trade_execution: false;
+  };
+}
+
+export interface DecisionRun {
+  id: string;
+  userId: string;
+  portfolioId: string;
+  externalSessionId?: string | null;
+  requestIdempotencyKey: string;
+  snapshotJson: string;
+  snapshotHash: string;
+  schemaVersion: string;
+  status: DecisionRunStatus;
+  requestedAt: string;
+  acceptedAt?: string | null;
+  lastSyncedAt?: string | null;
+  syncCursorEventId?: string | null;
+  syncCursorCreatedAt?: string | null;
+  completedAt?: string | null;
+  errorMessage?: string | null;
+  snapshot?: PortfolioReviewRequest;
+}
+
+export interface DecisionEvent {
+  id: string;
+  decisionRunId: string;
+  eventId: string;
+  schemaVersion: string;
+  source: DecisionSource;
+  reviewSessionId: string;
+  portfolioId: string;
+  eventType: string;
+  createdAt: string;
+  sessionId?: string | null;
+  cycleId?: string | null;
+  proposalId?: string | null;
+  decisionId?: string | null;
+  executionOrderId?: string | null;
+  positionId?: string | null;
+  jobId?: string | null;
+  instrument?: string | null;
+  side?: string | null;
+  action?: string | null;
+  provider?: string | null;
+  model?: string | null;
+  requestedByUserId?: string | null;
+  payload: Record<string, unknown>;
+  ingestedAt: string;
+}
+
+export interface DecisionInsight {
+  id: string;
+  decisionRunId: string;
+  portfolioId: string;
+  accountId?: string | null;
+  assetId?: string | null;
+  symbol?: string | null;
+  insightType: 'portfolio_warning' | 'position_suggestion' | 'portfolio_recommendation';
+  headline: string;
+  summary: string;
+  confidence?: number | null;
+  recommendedAction?: string | null;
+  status: 'active' | 'dismissed';
+  sourceEventId?: string | null;
+  createdAt: string;
+}
+
 // ---------------------------------------------------------------------------
 // API request/response shapes
 // ---------------------------------------------------------------------------
@@ -165,6 +284,16 @@ export interface SyncTask {
   primaryImportedPortfolioId?: string;
   startedAt: number;
   completedAt?: number;
+}
+
+export interface DecisionSyncResult {
+  run: DecisionRun;
+  result?: {
+    fetched: number;
+    matched: number;
+    inserted: number;
+  };
+  error?: string;
 }
 
 // ---------------------------------------------------------------------------

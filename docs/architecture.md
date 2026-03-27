@@ -33,6 +33,10 @@ There is no supported Supabase or standalone Express runtime in this repository 
 - CSV import parses in the browser and posts normalized rows to `/api/import/csv`.
 - Email import connects to IMAP, parses broker emails, writes transactions, and recalculates positions.
 
+## Planned Integrations
+
+- Autonomous desk integration is specified in [docs/decision-desk-integration.md](/Volumes/T7/projects/investra/docs/decision-desk-integration.md).
+
 ## Market Data
 
 - Quotes come from Yahoo Finance through `/api/market/quotes`.
